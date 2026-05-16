@@ -281,16 +281,20 @@ def _merge(segs: list[dict]) -> list[dict]:
 # ── Post-process: split seasonal collects from litany ─────────────────────────
 
 _AFTER_SILENCE     = re.compile(r'After a period of silence', re.IGNORECASE)
+_EITHER_COLLECT    = re.compile(r'Either the Collect of the Day', re.IGNORECASE)
 _LP_CONTINUES      = re.compile(r'(?:Morning|Evening) Prayer continues with the Lord', re.IGNORECASE)
 _CONTINUES_RUBRIC  = re.compile(r'(?:Morning|Evening) Prayer continues', re.IGNORECASE)
 
 def _split_litany_collects(segs: list[dict]) -> tuple[list[dict], list[dict]]:
     """
     Split the litany section into (litany_segs, seasonal_collect_segs).
-    The split point is the rubric 'After a period of silence…'.
+    Seasonal forms use 'After a period of silence…'; ordinary-time forms use
+    'Either the Collect of the Day…'.
     """
     for i, seg in enumerate(segs):
-        if seg["type"] == "rubric" and _AFTER_SILENCE.search(seg["text"]):
+        if seg["type"] == "rubric" and (
+            _AFTER_SILENCE.search(seg["text"]) or _EITHER_COLLECT.search(seg["text"])
+        ):
             # Drop 'Morning Prayer continues…' rubric at end of collects.
             collect_segs = [
                 s for s in segs[i:]
