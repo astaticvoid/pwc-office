@@ -108,6 +108,13 @@ func Render(day *lectionary.Day, officeType string, ps *lectionary.Psalter, bibl
 		writeSegmentContent(&b, form.Dismissal)
 	}
 
+	// ── Scripture attribution (TOS requirement) ────────────────────────────
+	if bible != nil {
+		w("")
+		w("---")
+		writeAttribution(&b, bible)
+	}
+
 	return b.String()
 }
 
@@ -244,6 +251,17 @@ func psalmDisplay(o lectionary.Office) string {
 		}
 	}
 	return strings.Join(parts, ", ")
+}
+
+// writeAttribution appends the scripture copyright footer required by the
+// API.Bible TOS (Starter plan: visible citation + link to api.bible).
+func writeAttribution(b *strings.Builder, bible *lectionary.Bible) {
+	if copyright := bible.Copyright(); copyright != "" {
+		fmt.Fprintf(b, "*%s*\n\n", copyright)
+	} else {
+		fmt.Fprintf(b, "*Scripture: %s*\n\n", bible.Translation())
+	}
+	fmt.Fprintf(b, "*[api.bible](https://api.bible)*\n")
 }
 
 func officeName(officeType string) string {

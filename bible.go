@@ -1,165 +1,293 @@
 package lectionary
 
 import (
-	"embed"
 	"encoding/json"
 	"fmt"
-	"strconv"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 	"unicode"
 )
 
-//go:embed data/bible
-var bibleFS embed.FS
+const (
+	bibleBaseURL = "https://rest.api.bible/v1"
+	cacheMaxAge  = 30 * 24 * time.Hour
+)
 
-// Bible provides passage lookup from the embedded NRSVUE text.
-// Books are loaded on first access and cached.
+// kjvBibleID is the API.Bible ID for the King James (Authorised) Version with
+// Apocrypha (-01), which covers the full Anglican Daily Office lectionary
+// including deuterocanonical readings.
+const kjvBibleID = "de4e12af7f28f599-01"
+
+// Bible provides passage lookup via the API.Bible REST API with disk caching.
+// A nil *Bible is valid: Lookup returns "" and the renderer skips scripture text.
 type Bible struct {
-	mu    sync.Mutex
-	cache map[string]bibleBook // keyed by canonical book name
+	apiKey    string
+	bibleID   string
+	cacheDir  string
+	copyright string
+	client    *http.Client
+	mu        sync.Mutex
 }
 
-// bibleBook maps chapter (1-based int) → verse (1-based int) → text.
-type bibleBook map[int]map[int]string
+// LoadBible returns a Bible client ready for KJV passage lookups.
+// Returns nil without error when apiKey is empty — the renderer skips scripture text.
+func LoadBible(apiKey string) (*Bible, error) {
+	if apiKey == "" {
+		return nil, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("bible: home dir: %w", err)
+	}
+	cacheDir := filepath.Join(home, ".cache", "pwc_office", "bible", kjvBibleID)
+	if err := os.MkdirAll(cacheDir, 0700); err != nil {
+		return nil, fmt.Errorf("bible: creating cache dir: %w", err)
+	}
+	return &Bible{
+		apiKey:   apiKey,
+		bibleID:  kjvBibleID,
+		cacheDir: cacheDir,
+		client:   &http.Client{Timeout: 30 * time.Second},
+	}, nil
+}
 
-// LoadBible returns a Bible ready for citation lookups.
-func LoadBible() (*Bible, error) {
-	return &Bible{cache: make(map[string]bibleBook)}, nil
+// Translation returns "KJV".
+func (b *Bible) Translation() string {
+	if b == nil {
+		return ""
+	}
+	return "KJV"
+}
+
+// Copyright returns the copyright string for the current translation.
+// Empty until the first successful passage fetch.
+func (b *Bible) Copyright() string {
+	if b == nil {
+		return ""
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.copyright
 }
 
 // Lookup returns the formatted text for a scripture citation.
 // Returns empty string when the citation cannot be resolved.
-// Supported forms (all as they appear in the BAS/PWC lectionary):
+// Supported forms match the BAS/PWC lectionary:
 //
 //	"Dan 7:9-14"
 //	"Dt 9:23—10:5"          (em-dash cross-chapter range)
-//	"Ezek 1:1-14, 24-28b"   (comma-separated ranges, letter suffixes)
-//	"Am 1:1-5, 13—2:8"      (mixed within- and cross-chapter)
-//	"1 Sam 12:1-6, 16-25"   (numbered book)
-//	"Lk 15:1-2, 11-32"
+//	"Ezek 1:1-14, 24-28b"  (comma-separated ranges)
+//	"Jude 1-16"             (single-chapter book)
 //
 // For "A or B" alternatives the first option is used.
-// Parenthetical verse segments such as (29) are included.
 func (b *Bible) Lookup(citation string) string {
+	if b == nil {
+		return ""
+	}
 	// "A or B" → use first.
 	if idx := strings.Index(citation, " or "); idx >= 0 {
 		citation = citation[:idx]
 	}
 	citation = strings.TrimSpace(citation)
+	if citation == "" {
+		return ""
+	}
 
-	// Parse book name and remainder.
-	bookName, rest, ok := parseBookName(citation)
+	abbrev, rest, ok := parseAbbrev(citation)
+	if !ok {
+		return ""
+	}
+	osisBook, ok := abbrevToOSIS[abbrev]
 	if !ok {
 		return ""
 	}
 
-	book, err := b.loadBook(bookName)
-	if err != nil {
-		return ""
-	}
-
 	// Single-chapter books omit the chapter number (e.g. "Jude 1-16").
-	// Prepend "1:" so the range parser has a chapter reference.
 	if !strings.Contains(rest, ":") && rest != "" {
 		rest = "1:" + rest
 	}
 
-	segments := parseRanges(rest)
-	if len(segments) == 0 {
+	ranges := parseRanges(rest)
+	if len(ranges) == 0 {
 		return ""
 	}
 
-	var lines []string
-	for _, seg := range segments {
-		for ch := seg.startCh; ch <= seg.endCh; ch++ {
-			chData, ok := book[ch]
-			if !ok {
-				continue
-			}
-			startV, endV := 1, maxVerseInChapter(chData)
-			if ch == seg.startCh {
-				startV = seg.startV
-			}
-			if ch == seg.endCh {
-				endV = seg.endV
-			}
-			for v := startV; v <= endV; v++ {
-				if text, ok := chData[v]; ok {
-					lines = append(lines, fmt.Sprintf("%d %s", v, text))
-				}
-			}
+	var parts []string
+	for _, r := range ranges {
+		passageID := rangeToOSIS(osisBook, r)
+		if text := b.lookupPassage(passageID); text != "" {
+			parts = append(parts, text)
 		}
 	}
-	return strings.Join(lines, "\n")
+	return strings.Join(parts, "\n")
 }
 
-// ── Internal types ─────────────────────────────────────────────────────────────
+// ── Internal ───────────────────────────────────────────────────────────────────
 
-type verseRange struct {
-	startCh, endCh int
-	startV, endV   int
+type cachedEntry struct {
+	Text      string    `json:"text"`
+	Copyright string    `json:"copyright"`
+	FetchedAt time.Time `json:"fetched_at"`
 }
 
-// ── Book loading ───────────────────────────────────────────────────────────────
-
-func (b *Bible) loadBook(name string) (bibleBook, error) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	if bk, ok := b.cache[name]; ok {
-		return bk, nil
+func (b *Bible) lookupPassage(passageID string) string {
+	if cached := b.readCache(passageID); cached != "" {
+		return cached
 	}
-	data, err := bibleFS.ReadFile("data/bible/" + name + ".json")
+	text, copyright, err := b.fetchFromAPI(passageID)
 	if err != nil {
-		return nil, err
+		return ""
 	}
-	// JSON has string keys; unmarshal to map[string]map[string]string then convert.
-	var raw map[string]map[string]string
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, err
+	b.mu.Lock()
+	if copyright != "" && b.copyright == "" {
+		b.copyright = copyright
 	}
-	bk := make(bibleBook, len(raw))
-	for chStr, verses := range raw {
-		ch, err := strconv.Atoi(chStr)
-		if err != nil {
+	b.mu.Unlock()
+	b.writeCache(passageID, text)
+	return text
+}
+
+func (b *Bible) cacheFile(passageID string) string {
+	safe := strings.NewReplacer(".", "_", "/", "_").Replace(passageID)
+	return filepath.Join(b.cacheDir, safe+".json")
+}
+
+func (b *Bible) readCache(passageID string) string {
+	data, err := os.ReadFile(b.cacheFile(passageID))
+	if err != nil {
+		return ""
+	}
+	var entry cachedEntry
+	if err := json.Unmarshal(data, &entry); err != nil {
+		return ""
+	}
+	if time.Since(entry.FetchedAt) > cacheMaxAge {
+		return ""
+	}
+	b.mu.Lock()
+	if entry.Copyright != "" && b.copyright == "" {
+		b.copyright = entry.Copyright
+	}
+	b.mu.Unlock()
+	return entry.Text
+}
+
+func (b *Bible) writeCache(passageID, text string) {
+	b.mu.Lock()
+	copyright := b.copyright
+	b.mu.Unlock()
+	entry := cachedEntry{
+		Text:      text,
+		Copyright: copyright,
+		FetchedAt: time.Now().UTC(),
+	}
+	data, err := json.Marshal(entry)
+	if err != nil {
+		return
+	}
+	_ = os.WriteFile(b.cacheFile(passageID), data, 0600)
+}
+
+func (b *Bible) fetchFromAPI(passageID string) (text, copyright string, err error) {
+	url := fmt.Sprintf(
+		"%s/bibles/%s/passages/%s?content-type=text&include-verse-numbers=true&include-titles=false&include-chapter-numbers=false",
+		bibleBaseURL, b.bibleID, passageID,
+	)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", "", err
+	}
+	req.Header.Set("api-key", b.apiKey)
+
+	resp, err := b.client.Do(req)
+	if err != nil {
+		return "", "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return "", "", fmt.Errorf("bible API %s: status %d", passageID, resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", "", err
+	}
+
+	var result struct {
+		Data struct {
+			Content   string `json:"content"`
+			Copyright string `json:"copyright"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", "", err
+	}
+
+	return normalizePassageText(result.Data.Content), result.Data.Copyright, nil
+}
+
+// normalizePassageText converts API text to our output format.
+// Lines starting with "[N]" are rewritten to "N text" to match test expectations.
+// Leading/trailing whitespace is stripped; blank lines are removed.
+func normalizePassageText(s string) string {
+	lines := strings.Split(strings.TrimSpace(s), "\n")
+	var out []string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
 			continue
 		}
-		bk[ch] = make(map[int]string, len(verses))
-		for vStr, text := range verses {
-			v, err := strconv.Atoi(vStr)
-			if err != nil {
-				continue
+		// Convert leading "[N]" to "N ".
+		if strings.HasPrefix(line, "[") {
+			if end := strings.Index(line, "]"); end > 0 {
+				num := line[1:end]
+				rest := strings.TrimSpace(line[end+1:])
+				line = num + " " + rest
 			}
-			bk[ch][v] = text
 		}
+		line = stripSuperscripts(line)
+		out = append(out, line)
 	}
-	b.cache[name] = bk
-	return bk, nil
+	return strings.Join(out, "\n")
 }
 
-func maxVerseInChapter(ch map[int]string) int {
-	max := 0
-	for v := range ch {
-		if v > max {
-			max = v
+func stripSuperscripts(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if r >= '⁰' && r <= '⁹' {
+			continue
 		}
+		b.WriteRune(r)
 	}
-	return max
+	return b.String()
 }
 
-// ── Citation parser ────────────────────────────────────────────────────────────
+// rangeToOSIS converts a verseRange to an API.Bible passage ID string.
+func rangeToOSIS(osisBook string, r verseRange) string {
+	start := fmt.Sprintf("%s.%d.%d", osisBook, r.startCh, r.startV)
+	end := fmt.Sprintf("%s.%d.%d", osisBook, r.endCh, r.endV)
+	if start == end {
+		return start
+	}
+	return start + "-" + end
+}
 
-// parseBookName splits "Dan 7:9-14" into ("Daniel", "7:9-14", true).
-// Handles numbered books ("1 Sam", "2 Chr") and plain names ("Jn", "Acts").
-func parseBookName(citation string) (canonical, rest string, ok bool) {
-	// Strip a leading optional block: "(2 Kgs 1:1), Mt 1:1" → keep "Mt 1:1".
+// parseAbbrev splits "Dan 7:9-14" into ("Dan", "7:9-14", true).
+// The returned abbreviation is the raw BAS/PWC abbreviation (e.g. "Dan", "1 Sam").
+func parseAbbrev(citation string) (abbrev, rest string, ok bool) {
+	// Strip a leading optional block: "(2 Kgs 1:1), Mt 1:1" → "Mt 1:1".
 	if strings.HasPrefix(citation, "(") {
 		if end := strings.Index(citation, "), "); end >= 0 {
 			citation = strings.TrimSpace(citation[end+2:])
 		}
 	}
 
-	// A book may start with a digit and space: "1 Sam", "2 Chr".
 	s := citation
 	prefix := ""
 	if len(s) > 0 && s[0] >= '1' && s[0] <= '4' && len(s) > 1 && s[1] == ' ' {
@@ -167,47 +295,119 @@ func parseBookName(citation string) (canonical, rest string, ok bool) {
 		s = s[2:]
 	}
 
-	// Collect alphabetic book-name characters (may include spaces for multi-word names).
-	// Stop at the chapter number.
-	abbrev := ""
+	nameStr := ""
 	for i, r := range s {
 		if unicode.IsDigit(r) || r == ':' {
 			rest = strings.TrimSpace(s[i:])
 			break
 		}
-		abbrev += string(r)
+		nameStr += string(r)
 	}
-	if abbrev == "" {
+	if nameStr == "" {
 		return "", "", false
 	}
-	abbrev = strings.TrimSpace(prefix + strings.TrimSpace(abbrev))
-
-	canonical, ok = abbrevToBook[abbrev]
-	return canonical, rest, ok
+	abbrev = strings.TrimSpace(prefix + strings.TrimSpace(nameStr))
+	_, ok = abbrevToOSIS[abbrev]
+	return abbrev, rest, ok
 }
 
-// parseRanges converts the chapter:verse portion of a citation into a slice
-// of verseRange structs. Handles:
-//   - "7:9-14"           single range
-//   - "1:1-14, 24-28"    two ranges same chapter
-//   - "9:23—10:5"        cross-chapter em-dash
-//   - "1:1-5, 13—2:8"    mixed within- and cross-chapter
-//   - "16:18-20, 17:14"  ranges in different chapters
+// ── Abbreviation → OSIS book code ─────────────────────────────────────────────
+
+var abbrevToOSIS = map[string]string{
+	// Old Testament
+	"Gen":    "GEN",
+	"Ex":     "EXO",
+	"Lev":    "LEV",
+	"Num":    "NUM",
+	"Dt":     "DEU",
+	"Jos":    "JOS",
+	"Jg":     "JDG",
+	"Ruth":   "RUT",
+	"1 Sam":  "1SA",
+	"2 Sam":  "2SA",
+	"1 Kgs":  "1KI",
+	"2 Kgs":  "2KI",
+	"1 Chr":  "1CH",
+	"2 Chr":  "2CH",
+	"Ezra":   "EZR",
+	"Neh":    "NEH",
+	"Est":    "EST",
+	"Job":    "JOB",
+	"Ps":     "PSA",
+	"Pr":     "PRO",
+	"Ec":     "ECC",
+	"Song":   "SNG",
+	"Is":     "ISA",
+	"Jer":    "JER",
+	"Lam":    "LAM",
+	"Ezek":   "EZK",
+	"Dan":    "DAN",
+	"Hos":    "HOS",
+	"Jl":     "JOL",
+	"Am":     "AMO",
+	"Ob":     "OBA",
+	"Jon":    "JON",
+	"Mic":    "MIC",
+	"Nah":    "NAH",
+	"Hab":    "HAB",
+	"Zeph":   "ZEP",
+	"Hag":    "HAG",
+	"Zech":   "ZEC",
+	"Mal":    "MAL",
+	// New Testament
+	"Mt":     "MAT",
+	"Mk":     "MRK",
+	"Lk":     "LUK",
+	"Jn":     "JHN",
+	"Acts":   "ACT",
+	"Rom":    "ROM",
+	"1 Cor":  "1CO",
+	"2 Cor":  "2CO",
+	"Gal":    "GAL",
+	"Eph":    "EPH",
+	"Phil":   "PHP",
+	"Col":    "COL",
+	"1 Th":   "1TH",
+	"2 Th":   "2TH",
+	"1 Tim":  "1TI",
+	"2 Tim":  "2TI",
+	"Tit":    "TIT",
+	"Philem": "PHM",
+	"Heb":    "HEB",
+	"Jas":    "JAS",
+	"1 Pet":  "1PE",
+	"2 Pet":  "2PE",
+	"1 Jn":   "1JO",
+	"2 Jn":   "2JO",
+	"3 Jn":   "3JO",
+	"Jude":   "JUD",
+	"Rev":    "REV",
+	// Apocrypha / Deuterocanon (NIV does not include these; GNT and KJV may)
+	"Tob":    "TOB",
+	"Jdt":    "JDT",
+	"Wis":    "WIS",
+	"Sir":    "SIR",
+	"Bar":    "BAR",
+	"1 Macc": "1MA",
+	"2 Macc": "2MA",
+	"2 Esd":  "2ES",
+}
+
+// ── Citation parser (retained from embedded implementation) ────────────────────
+
+type verseRange struct {
+	startCh, endCh int
+	startV, endV   int
+}
+
 func parseRanges(s string) []verseRange {
-	// Normalise: em-dash → §, so we can split on it unambiguously.
 	s = strings.ReplaceAll(s, "—", "§")
-
-	// Split on § to identify cross-chapter boundaries.
-	// Each segment is either "ch:v-v, v-v" or "ch:v".
 	parts := strings.Split(s, "§")
-
 	var result []verseRange
-	currentCh := 0 // chapter context carried across commas
+	currentCh := 0
 
 	for pi, part := range parts {
 		part = strings.TrimSpace(part)
-
-		// Each part may contain comma-separated sub-ranges.
 		subParts := strings.Split(part, ",")
 
 		for si, sub := range subParts {
@@ -215,46 +415,33 @@ func parseRanges(s string) []verseRange {
 			if sub == "" {
 				continue
 			}
-			// Strip parentheses — treat optional verses as included.
 			sub = strings.Trim(sub, "()")
 
-			// Does this sub-part contain a chapter reference (":")?
 			if idx := strings.Index(sub, ":"); idx >= 0 {
-				chStr := sub[:idx]
-				ch, err := strconv.Atoi(chStr)
+				ch, err := parseInt(sub[:idx])
 				if err != nil {
 					continue
 				}
 				currentCh = ch
 				sub = sub[idx+1:]
 			}
-
 			if currentCh == 0 {
 				continue
 			}
 
-			// Last sub-part of a non-final § segment may have a cross-chapter
-			// em-dash continuation in the next § segment.
 			isCrossChapterStart := pi < len(parts)-1 && si == len(subParts)-1
-
 			startV, endV := parseVerseRange(sub)
 			if startV == 0 {
 				continue
 			}
 
 			if isCrossChapterStart {
-				// This verse is the start of a cross-chapter range.
-				// The end is parsed from the next § segment.
 				nextPart := strings.TrimSpace(parts[pi+1])
-				// nextPart may be "10:5" or just "5".
 				endCh, endVerse := parseChapterVerse(nextPart, currentCh)
 				result = append(result, verseRange{
 					startCh: currentCh, startV: startV,
 					endCh: endCh, endV: endVerse,
 				})
-				// Skip the next § part's leading reference since we consumed it.
-				// Remaining sub-parts of the next part (after comma) still apply.
-				// We handle this by marking the next § segment's first sub-part consumed.
 				parts[pi+1] = consumeLeadingRef(parts[pi+1])
 				currentCh = endCh
 			} else {
@@ -268,8 +455,6 @@ func parseRanges(s string) []verseRange {
 	return result
 }
 
-// parseVerseRange parses "9-14", "28b", "9" into (start, end).
-// Letter suffixes (a, b, c) are stripped. Returns (0,0) on error.
 func parseVerseRange(s string) (start, end int) {
 	s = strings.TrimSpace(s)
 	if idx := strings.Index(s, "-"); idx >= 0 {
@@ -283,30 +468,26 @@ func parseVerseRange(s string) (start, end int) {
 
 func parseVerseNum(s string) int {
 	s = strings.TrimSpace(s)
-	// Strip trailing letter suffix.
 	for len(s) > 0 && (s[len(s)-1] == 'a' || s[len(s)-1] == 'b' || s[len(s)-1] == 'c') {
 		s = s[:len(s)-1]
 	}
-	n, _ := strconv.Atoi(s)
+	n, _ := parseInt(s)
 	return n
 }
 
-// parseChapterVerse parses "10:5" → (10, 5) or "5" → (defaultCh, 5).
 func parseChapterVerse(s string, defaultCh int) (ch, v int) {
 	s = strings.TrimSpace(s)
-	// Take only the first comma-separated segment.
 	if idx := strings.Index(s, ","); idx >= 0 {
 		s = strings.TrimSpace(s[:idx])
 	}
 	if idx := strings.Index(s, ":"); idx >= 0 {
-		ch, _ = strconv.Atoi(s[:idx])
+		ch, _ = parseInt(s[:idx])
 		v = parseVerseNum(s[idx+1:])
 		return ch, v
 	}
 	return defaultCh, parseVerseNum(s)
 }
 
-// consumeLeadingRef removes the first "ch:v" or "v" token from s (up to comma or end).
 func consumeLeadingRef(s string) string {
 	s = strings.TrimSpace(s)
 	if idx := strings.Index(s, ","); idx >= 0 {
@@ -315,86 +496,17 @@ func consumeLeadingRef(s string) string {
 	return ""
 }
 
-// ── Abbreviation map ───────────────────────────────────────────────────────────
-
-// abbrevToBook maps BAS/PWC lectionary abbreviations to the canonical book
-// names used as filenames in data/bible/.
-var abbrevToBook = map[string]string{
-	// Old Testament
-	"Gen":    "Genesis",
-	"Ex":     "Exodus",
-	"Lev":    "Leviticus",
-	"Num":    "Numbers",
-	"Dt":     "Deuteronomy",
-	"Jos":    "Joshua",
-	"Jg":     "Judges",
-	"Ruth":   "Ruth",
-	"1 Sam":  "1 Samuel",
-	"2 Sam":  "2 Samuel",
-	"1 Kgs":  "1 Kings",
-	"2 Kgs":  "2 Kings",
-	"1 Chr":  "1 Chronicles",
-	"2 Chr":  "2 Chronicles",
-	"Ezra":   "Ezra",
-	"Neh":    "Nehemiah",
-	"Est":    "Esther",
-	"Job":    "Job",
-	"Ps":     "Psalm",
-	"Pr":     "Proverbs",
-	"Ec":     "Ecclesiastes",
-	"Song":   "Song Of Songs",
-	"Is":     "Isaiah",
-	"Jer":    "Jeremiah",
-	"Lam":    "Lamentations",
-	"Ezek":   "Ezekiel",
-	"Dan":    "Daniel",
-	"Hos":    "Hosea",
-	"Jl":     "Joel",
-	"Am":     "Amos",
-	"Ob":     "Obadiah",
-	"Jon":    "Jonah",
-	"Mic":    "Micah",
-	"Nah":    "Nahum",
-	"Hab":    "Habakkuk",
-	"Zeph":   "Zephaniah",
-	"Hag":    "Haggai",
-	"Zech":   "Zechariah",
-	"Mal":    "Malachi",
-	// New Testament
-	"Mt":     "Matthew",
-	"Mk":     "Mark",
-	"Lk":     "Luke",
-	"Jn":     "John",
-	"Acts":   "Acts",
-	"Rom":    "Romans",
-	"1 Cor":  "1 Corinthians",
-	"2 Cor":  "2 Corinthians",
-	"Gal":    "Galatians",
-	"Eph":    "Ephesians",
-	"Phil":   "Philippians",
-	"Col":    "Colossians",
-	"1 Th":   "1 Thessalonians",
-	"2 Th":   "2 Thessalonians",
-	"1 Tim":  "1 Timothy",
-	"2 Tim":  "2 Timothy",
-	"Tit":    "Titus",
-	"Philem": "Philemon",
-	"Heb":    "Hebrews",
-	"Jas":    "James",
-	"1 Pet":  "1 Peter",
-	"2 Pet":  "2 Peter",
-	"1 Jn":   "1 John",
-	"2 Jn":   "2 John",
-	"3 Jn":   "3 John",
-	"Jude":   "Jude",
-	"Rev":    "Revelation",
-	// Apocrypha / Deuterocanon
-	"Tob":    "Tobit",
-	"Jdt":    "Judith",
-	"Wis":    "Wisdom Of Solomon",
-	"Sir":    "Sirach",
-	"Bar":    "Baruch",
-	"1 Macc": "1 Maccabees",
-	"2 Macc": "2 Maccabees",
-	"2 Esd":  "2 Esdras",
+func parseInt(s string) (int, error) {
+	s = strings.TrimSpace(s)
+	n := 0
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return 0, fmt.Errorf("not a number: %q", s)
+		}
+		n = n*10 + int(c-'0')
+	}
+	if s == "" {
+		return 0, fmt.Errorf("empty")
+	}
+	return n, nil
 }

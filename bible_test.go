@@ -1,13 +1,18 @@
 package lectionary
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
 
 func mustLoadBible(t *testing.T) *Bible {
 	t.Helper()
-	b, err := LoadBible()
+	apiKey := os.Getenv("BIBLE_API_KEY")
+	if apiKey == "" {
+		t.Skip("BIBLE_API_KEY not set — skipping API integration test")
+	}
+	b, err := LoadBible(apiKey)
 	if err != nil {
 		t.Fatalf("LoadBible: %v", err)
 	}
@@ -27,10 +32,10 @@ func TestBibleSimpleRange(t *testing.T) {
 	if text == "" {
 		t.Fatal("Lookup(Dan 7:9-14): got empty string")
 	}
-	if !strings.Contains(text, "Ancient One") {
+	if !strings.Contains(text, "Ancient of days") {
 		t.Errorf("Dan 7:9-14 missing expected text, got: %q", text[:min(80, len(text))])
 	}
-	// Verse 9 should be present, verse 15 should not.
+	// Verse 9 should be the first line; verse 15 should not appear.
 	if !strings.HasPrefix(text, "9 ") {
 		t.Errorf("expected result to start with verse 9, got: %q", text[:min(40, len(text))])
 	}
@@ -54,14 +59,11 @@ func TestBibleNumberedBook(t *testing.T) {
 
 func TestBibleNumberedBookPrefix(t *testing.T) {
 	b := mustLoadBible(t)
-	// Exercises the "1 " / "2 " prefix path in parseBookName.
-	// A prior bug applied the prefix twice ("1 1 Cor"), causing all numbered
-	// books to return empty.
 	cases := []struct {
-		citation string
-		wantVerse string
+		citation  string
+		wantStart string
 	}{
-		{"1 Cor 13:1-13", "1 "},  // love chapter
+		{"1 Cor 13:1-13", "1 "},
 		{"2 Kgs 2:1-15", "1 "},
 		{"1 Sam 3:1-21", "1 "},
 	}
@@ -71,36 +73,30 @@ func TestBibleNumberedBookPrefix(t *testing.T) {
 			t.Errorf("Lookup(%q): got empty string", tc.citation)
 			continue
 		}
-		if !strings.HasPrefix(text, tc.wantVerse) {
-			t.Errorf("Lookup(%q): expected start %q, got: %q", tc.citation, tc.wantVerse, text[:min(40, len(text))])
+		if !strings.HasPrefix(text, tc.wantStart) {
+			t.Errorf("Lookup(%q): expected start %q, got: %q", tc.citation, tc.wantStart, text[:min(40, len(text))])
 		}
 	}
 }
 
 func TestBibleSingleChapterBook(t *testing.T) {
 	b := mustLoadBible(t)
-	// Single-chapter books omit the chapter number in lectionary citations.
-	// The parser should default to chapter 1.
-	cases := []struct {
-		citation string
-		contains string
-	}{
-		{"Jude 1-16", ""},   // just check non-empty
-		{"2 Jn 1-13", ""},
-		{"3 Jn 1-15", ""},
-		{"Ob 15-21", ""},
+	cases := []string{
+		"Jude 1-16",
+		"2 Jn 1-13",
+		"3 Jn 1-15",
+		"Ob 15-21",
 	}
-	for _, tc := range cases {
-		text := b.Lookup(tc.citation)
+	for _, citation := range cases {
+		text := b.Lookup(citation)
 		if text == "" {
-			t.Errorf("Lookup(%q): got empty string (single-chapter book should default to chapter 1)", tc.citation)
+			t.Errorf("Lookup(%q): got empty string (single-chapter book should default to chapter 1)", citation)
 		}
 	}
 }
 
 func TestBibleCrossChapterEmDash(t *testing.T) {
 	b := mustLoadBible(t)
-	// Dt 9:23—10:5: should include verses from both chapters.
 	text := b.Lookup("Dt 9:23—10:5")
 	if text == "" {
 		t.Fatal("Lookup(Dt 9:23—10:5): got empty string")
@@ -122,7 +118,6 @@ func TestBibleCrossChapterEmDash(t *testing.T) {
 
 func TestBibleCommaRangesSameChapter(t *testing.T) {
 	b := mustLoadBible(t)
-	// Ezek 1:1-14, 24-28b — two ranges within chapter 1.
 	text := b.Lookup("Ezek 1:1-14, 24-28b")
 	if text == "" {
 		t.Fatal("Lookup(Ezek 1:1-14, 24-28b): got empty string")
@@ -148,7 +143,6 @@ func TestBibleCommaRangesSameChapter(t *testing.T) {
 
 func TestBibleCommaRangesDifferentChapters(t *testing.T) {
 	b := mustLoadBible(t)
-	// Dt 16:18-20, 17:14-20
 	text := b.Lookup("Dt 16:18-20, 17:14-20")
 	if text == "" {
 		t.Fatal("Lookup(Dt 16:18-20, 17:14-20): got empty string")
@@ -163,7 +157,6 @@ func TestBibleCommaRangesDifferentChapters(t *testing.T) {
 
 func TestBibleMixedCrossChapter(t *testing.T) {
 	b := mustLoadBible(t)
-	// Am 1:1-5, 13—2:8
 	text := b.Lookup("Am 1:1-5, 13—2:8")
 	if text == "" {
 		t.Fatal("Lookup(Am 1:1-5, 13—2:8): got empty string")
@@ -175,13 +168,12 @@ func TestBibleMixedCrossChapter(t *testing.T) {
 
 func TestBibleAlternativePicksFirst(t *testing.T) {
 	b := mustLoadBible(t)
-	// "A or B" — should use A.
 	text := b.Lookup("Jn 1:1-14 or Gen 1:1-5")
 	if text == "" {
 		t.Fatal("Lookup(A or B): got empty")
 	}
 	// Should be John, not Genesis.
-	if strings.Contains(text, "God began to create") {
+	if strings.Contains(text, "God created") {
 		t.Error("should use first alternative (John), not Genesis")
 	}
 }
@@ -204,5 +196,15 @@ func TestBibleNoSuperscripts(t *testing.T) {
 		if strings.ContainsRune(text, c) {
 			t.Errorf("verse text contains superscript character U+%04X", c)
 		}
+	}
+}
+
+func TestBibleNilSafe(t *testing.T) {
+	var b *Bible
+	if got := b.Lookup("Jn 1:1"); got != "" {
+		t.Error("nil Bible.Lookup should return empty string")
+	}
+	if got := b.Copyright(); got != "" {
+		t.Error("nil Bible.Copyright should return empty string")
 	}
 }

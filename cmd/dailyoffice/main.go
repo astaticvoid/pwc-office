@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	lectionary "github.com/astaticvoid/pwc-office"
@@ -15,6 +16,8 @@ func main() {
 		fmt.Fprintln(os.Stderr, "usage: dailyoffice [mp|ep] [YYYY-MM-DD]")
 	}
 	flag.Parse()
+
+	loadDotEnv()
 
 	officeType := "mp"
 	dateStr := ""
@@ -65,7 +68,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	bible, err := lectionary.LoadBible()
+	bible, err := lectionary.LoadBible(os.Getenv("BIBLE_API_KEY"))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "loading bible: %v\n", err)
 		os.Exit(1)
@@ -84,4 +87,28 @@ func main() {
 	}
 
 	fmt.Print(office.Render(day, officeType, ps, bible, collects, forms))
+}
+
+// loadDotEnv reads key=value pairs from .env in the current directory.
+// Only sets variables that are not already set in the environment.
+func loadDotEnv() {
+	data, err := os.ReadFile(".env")
+	if err != nil {
+		return
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		idx := strings.Index(line, "=")
+		if idx <= 0 {
+			continue
+		}
+		key := strings.TrimSpace(line[:idx])
+		val := strings.TrimSpace(line[idx+1:])
+		if os.Getenv(key) == "" {
+			os.Setenv(key, val)
+		}
+	}
 }
