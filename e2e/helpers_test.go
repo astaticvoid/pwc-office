@@ -3,6 +3,7 @@
 package e2e_test
 
 import (
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -29,7 +30,7 @@ func renderOffice(t *testing.T, dateStr, officeType string) (string, *lectionary
 	if err != nil {
 		t.Fatalf("LoadPsalter: %v", err)
 	}
-	bible, err := lectionary.LoadBible()
+	bible, err := lectionary.LoadBible(os.Getenv("BIBLE_API_KEY"))
 	if err != nil {
 		t.Fatalf("LoadBible: %v", err)
 	}
