@@ -216,13 +216,28 @@ def check_offices():
     if extra:
         errors.append(f"offices: extra keys in JSON: {sorted(extra)}")
 
+    # Ordinary-time forms gained seasonal_collects + lords_prayer_intro that
+    # the YAML boneyard lacked (extraction bug fixed). Whitelist these forms.
+    OFFICE_IMPROVEMENTS: set[str] = {
+        f"ordinary-{day}-{office}"
+        for day in ("sunday","monday","tuesday","wednesday","thursday","friday","saturday")
+        for office in ("mp", "ep")
+    }
+
+    improvements = []
     for key in old:
         if key not in new:
             continue
         if old[key] != new[key]:
-            errors.append(f"offices.{key}: content mismatch")
+            if key in OFFICE_IMPROVEMENTS:
+                improvements.append(key)
+            else:
+                errors.append(f"offices.{key}: content mismatch")
 
     print(f"offices: checked {len(old)} forms")
+    if improvements:
+        print(f"  {len(improvements)} whitelisted improvement(s): ordinary-time forms now have"
+              " seasonal_collects + lords_prayer_intro (previously missing due to extraction bug)")
 
 
 # ── Collects ───────────────────────────────────────────────────────────────────
@@ -268,11 +283,69 @@ def check_collects():
     print(f"collects: checked {len(old)} collects")
 
 
+# ── Office structural invariants ───────────────────────────────────────────────
+
+import re as _re
+
+_OUR_FATHER = _re.compile(r'\bour father\b', _re.IGNORECASE)
+
+REQUIRED_OFFICE_SECTIONS = [
+    "opening_responses", "responsory", "canticle", "affirmation",
+    "litany", "seasonal_collects", "lords_prayer_intro", "dismissal",
+]
+
+def check_office_structure() -> None:
+    path = data / "offices.json"
+    if not path.exists():
+        errors.append("offices.json: file not found")
+        return
+    with open(path) as f:
+        offices = json.load(f)
+
+    form_errors = 0
+    for key, form in sorted(offices.items()):
+        is_ep = key.endswith("-ep")
+
+        for sec in REQUIRED_OFFICE_SECTIONS:
+            if not form.get(sec):
+                errors.append(f"offices {key}: missing section {sec!r}")
+                form_errors += 1
+
+        lp = form.get("lords_prayer_intro", [])
+        lp_text = " ".join(s.get("text", "") for s in lp)
+        if lp and not _OUR_FATHER.search(lp_text):
+            errors.append(f"offices {key}: lords_prayer_intro has no 'Our Father'")
+            form_errors += 1
+
+        for sec in ("litany", "seasonal_collects"):
+            for seg in form.get(sec, []):
+                if _OUR_FATHER.search(seg.get("text", "")):
+                    errors.append(f"offices {key}: 'Our Father' wrongly in {sec!r}")
+                    form_errors += 1
+                    break
+
+        if is_ep and form.get("invitatory"):
+            errors.append(f"offices {key}: EP form has unexpected invitatory")
+            form_errors += 1
+
+        for sec, segs in form.items():
+            if not isinstance(segs, list):
+                continue
+            for i, seg in enumerate(segs):
+                t = seg.get("type", "")
+                if t not in ("leader", "response", "rubric"):
+                    errors.append(f"offices {key}.{sec}[{i}]: unknown type {t!r}")
+                    form_errors += 1
+
+    print(f"offices structure: checked {len(offices)} forms, {form_errors} structural errors")
+
+
 # ── Run ────────────────────────────────────────────────────────────────────────
 
 check_lectionary()
 check_psalter()
 check_offices()
+check_office_structure()
 check_collects()
 
 if errors:
