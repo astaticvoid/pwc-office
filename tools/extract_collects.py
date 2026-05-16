@@ -17,10 +17,37 @@ Usage: python3 tools/extract_collects.py
 """
 
 import re
+import subprocess
 import sys
 from pathlib import Path
 
 import pdfplumber
+
+
+def _ensure_txt(pdf_path: Path, txt_path: Path) -> None:
+    """Generate txt_path from pdf_path if it doesn't already exist.
+
+    Tries pdftotext (poppler) first for best encoding fidelity; falls back to
+    pdfplumber. Note: pdfplumber may garble some pages due to font encoding —
+    pdftotext is strongly preferred for this source document.
+    """
+    if txt_path.exists():
+        return
+    print(f"Generating {txt_path.name} from {pdf_path.name}...", file=sys.stderr)
+    try:
+        subprocess.run(
+            ["pdftotext", "-layout", str(pdf_path), str(txt_path)],
+            check=True, capture_output=True,
+        )
+        return
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        print("WARNING: pdftotext not found — falling back to pdfplumber "
+              "(some collect pages may have garbled text)", file=sys.stderr)
+    pages = []
+    with pdfplumber.open(pdf_path) as pdf:
+        for page in pdf.pages:
+            pages.append(page.extract_text(layout=True) or "")
+    txt_path.write_text("\n\f\n".join(pages), encoding="utf-8")
 
 ROOT = Path(__file__).parent.parent
 
@@ -368,6 +395,7 @@ def run():
         print(f"ERROR: {pdf_path} not found", file=sys.stderr)
         sys.exit(1)
 
+    _ensure_txt(pdf_path, ROOT / "sources" / "BAS.txt")
     out_path = ROOT / "data" / "collects.yaml"
     bas_txt = _load_bas_txt()
     if not bas_txt:

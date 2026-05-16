@@ -18,7 +18,7 @@ Markdown:
 - Feast day and alternate readings where applicable
 
 ```
-$ dailyoffice mp 2026-04-05
+$ dailyoffice --translation kjv mp 2026-04-05
 # Morning Prayer — Easter Day
 Sunday, 5 April 2026
 Season: Easter | Rank: PF | Colour: White or Gold
@@ -36,11 +36,14 @@ go build ./cmd/dailyoffice
 ## Running
 
 ```sh
-# Today's Morning Prayer
-./dailyoffice mp
+# Today's Morning Prayer (KJV, embedded — no setup required)
+./dailyoffice --translation kjv mp
 
 # A specific date, Evening Prayer
-./dailyoffice ep 2026-12-25
+./dailyoffice --translation kjv ep 2026-12-25
+
+# API.Bible (requires BIBLE_API_KEY in environment or .env)
+./dailyoffice --translation api mp
 ```
 
 ## Testing
@@ -66,14 +69,24 @@ against liturgical criteria and cross-check readings against
 
 ## Data files
 
-The liturgical text (psalter, office forms, collects) is extracted from
-*Pray Without Ceasing* and the Book of Alternative Services, both copyright
-the Anglican Church of Canada. The scripture text is from a copyrighted
-translation. These files are **not included** in the repository and must be
-obtained separately.
+### Liturgical text
 
-The extraction tools in `tools/` can regenerate `data/` from the source PDFs
-once you have them.
+The psalter, office forms, and collects are extracted from *Pray Without
+Ceasing* and the Book of Alternative Services, both copyright the Anglican
+Church of Canada. These files are **not included** in the repository and must
+be obtained separately. The extraction tools in `tools/` can regenerate
+`data/` from the source PDFs. They require `pdfplumber`
+(`pip install pdfplumber`) and, for best results, `pdftotext` from
+[poppler](https://poppler.freedesktop.org/) (`brew install poppler` on macOS).
+Plain-text versions of the PDFs are generated automatically on first run.
+
+### Scripture
+
+**KJV** (King James Version 1769, with Apocrypha) is embedded in the binary
+and requires no setup. Use `--translation kjv`.
+
+**API.Bible** is also supported. Set `BIBLE_API_KEY` in the environment or a
+`.env` file and use `--translation api`.
 
 ## Status
 
@@ -83,7 +96,7 @@ are reproduced word-for-word from the BAS and PWC — no liturgical content was
 generated or altered by AI. Developed with Claude Code (Anthropic).
 
 Open-sourcing is pending a licence discussion with the Anglican Church of
-Canada and migration to a Bible API (replacing the embedded scripture text).
+Canada.
 
 ## Licence
 

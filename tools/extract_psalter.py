@@ -20,6 +20,7 @@ Run from repo root:
 """
 
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -28,6 +29,36 @@ try:
 except ImportError:
     print("pip install pyyaml", file=sys.stderr)
     sys.exit(1)
+
+
+def _ensure_txt(pdf_path: Path, txt_path: Path) -> None:
+    """Generate txt_path from pdf_path if it doesn't already exist.
+
+    Tries pdftotext (poppler) first for best encoding fidelity; falls back to
+    pdfplumber if pdftotext is not installed.
+    """
+    if txt_path.exists():
+        return
+    print(f"Generating {txt_path.name} from {pdf_path.name}...", file=sys.stderr)
+    try:
+        subprocess.run(
+            ["pdftotext", "-layout", str(pdf_path), str(txt_path)],
+            check=True, capture_output=True,
+        )
+        return
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        pass
+    try:
+        import pdfplumber
+    except ImportError:
+        print("ERROR: pdftotext not found and pdfplumber not installed — cannot generate txt",
+              file=sys.stderr)
+        sys.exit(1)
+    pages = []
+    with pdfplumber.open(pdf_path) as pdf:
+        for page in pdf.pages:
+            pages.append(page.extract_text(layout=True) or "")
+    txt_path.write_text("\n\f\n".join(pages), encoding="utf-8")
 
 # ── Patterns ───────────────────────────────────────────────────────────────────
 
@@ -197,6 +228,7 @@ def main():
     src = root / "sources" / "pray-without-ceasing.txt"
     dst = root / "data" / "psalter.yaml"
 
+    _ensure_txt(root / "sources" / "pray-without-ceasing.pdf", src)
     psalms = extract_psalms(src)
 
     # Verify count
