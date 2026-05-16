@@ -1,0 +1,32 @@
+# OS
+.DS_Store
+
+# Go build output
+/dailyoffice
+cmd/dailyoffice/dailyoffice
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Source documents — copyrighted, obtain separately
+sources/
+
+# Derived data extracted from copyrighted sources — not for distribution
+data/psalter.yaml
+data/offices.yaml
+data/collects.yaml
+data/lectionary_2026.yaml
+
+# Local secrets — never commit
+.env
+
+# Claude Code local settings
+.claude/
+
+# Local planning doc
+PLAN.md
+
+# Obsolete tools kept for local reference
+boneyard/
