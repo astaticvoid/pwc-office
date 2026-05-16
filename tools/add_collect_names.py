@@ -1,25 +1,21 @@
 """
-add_collect_names.py — enrich data/collects.yaml with feast names from BAS PDF.
+add_collect_names.py — enrich data/collects.json with feast names from BAS PDF.
 
 Reads sources/BAS.pdf to extract the liturgical name (feast/Sunday heading) for
-each collect page, then rewrites data/collects.yaml in the structured format:
-
-  "268":
-    name: First Sunday of Advent
-    text: |-
-      Almighty God, ...
+each collect page, then rewrites data/collects.json with a name field added to
+each entry.
 
 The existing text values are preserved exactly — only the name field is added.
 
 Usage: python3 tools/add_collect_names.py
 """
 
+import json
 import re
 import sys
 from pathlib import Path
 
 import pdfplumber
-import yaml
 
 ROOT = Path(__file__).parent.parent
 
@@ -153,57 +149,34 @@ def run():
         print(f"ERROR: {pdf_path} not found", file=sys.stderr)
         sys.exit(1)
 
-    yaml_path = ROOT / "data" / "collects.yaml"
-    if not yaml_path.exists():
-        print(f"ERROR: {yaml_path} not found — run extract_collects.py first",
+    json_path = ROOT / "data" / "collects.json"
+    if not json_path.exists():
+        print(f"ERROR: {json_path} not found — run extract_collects.py first",
               file=sys.stderr)
         sys.exit(1)
 
-    # Load existing collects. The file may be plain (str values) or already
-    # enriched ({name, text} dict values) from a previous run.
-    raw = yaml.safe_load(yaml_path.read_text())
-    existing: dict[str, str] = {}
-    for k, v in raw.items():
-        if isinstance(v, dict):
-            existing[k] = v.get("text", "")
-        else:
-            existing[k] = v or ""
+    with open(json_path, encoding="utf-8") as f:
+        raw = json.load(f)
 
     print("Building feast-name map from BAS PDF…")
     with pdfplumber.open(pdf_path) as pdf:
         name_map = build_name_map(pdf)
 
-    # Merge: for each existing collect, look up its name.
+    # Merge: update name from BAS PDF scan, preserve all other fields.
     enriched: dict[str, dict] = {}
-    for key in sorted(existing, key=lambda k: int(k)):
+    for key in sorted(raw, key=lambda k: int(k)):
+        entry = dict(raw[key])
         page = int(key)
         name = name_map.get(page, "")
-        enriched[key] = {"name": name, "text": existing[key]}
+        if name:
+            entry["name"] = name
+        enriched[key] = entry
         print(f"  p.{key:>3}  {name!r}")
 
-    # Write YAML with literal block scalars for text fields.
-    # PyYAML doesn't natively support per-key styles, so we render manually.
-    # Name values that contain YAML-special characters (: # [ ] { } , & * ?)
-    # must be quoted.
-    _NEEDS_QUOTE = re.compile(r'[:#\[\]{},&*?|<>=!%@`]')
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(enriched, f, ensure_ascii=False, indent=2)
 
-    def yaml_name(s: str) -> str:
-        if not s or _NEEDS_QUOTE.search(s):
-            return '"' + s.replace('"', '\\"') + '"'
-        return s
-
-    lines: list[str] = []
-    for key, entry in enriched.items():
-        name_val = entry["name"]
-        text_val = entry["text"]
-        lines.append(f'"{key}":')
-        lines.append(f'  name: {yaml_name(name_val)}')
-        lines.append(f'  text: |-')
-        for tline in text_val.splitlines():
-            lines.append(f'    {tline}')
-    yaml_path.write_text("\n".join(lines) + "\n")
-
-    print(f"\nWrote {len(enriched)} enriched collects → {yaml_path}")
+    print(f"\nWrote {len(enriched)} enriched collects → {json_path}")
 
     # Spot-check a few names.
     checks = [

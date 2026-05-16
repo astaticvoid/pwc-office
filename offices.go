@@ -2,13 +2,12 @@ package lectionary
 
 import (
 	_ "embed"
+	"encoding/json"
 	"strings"
 	"time"
-
-	"gopkg.in/yaml.v3"
 )
 
-//go:embed data/offices.yaml
+//go:embed data/offices.json
 var officesData []byte
 
 // Segment is one typed run of liturgical text within a Form section.
@@ -18,8 +17,8 @@ var officesData []byte
 //	"response" — bold text spoken by the congregation
 //	"rubric"   — red italic instructional text (directions, alternative markers, titles)
 type Segment struct {
-	Type string `yaml:"type"`
-	Text string `yaml:"text"`
+	Type string `json:"type"`
+	Text string `json:"text"`
 }
 
 // Form holds the liturgical text for one Daily Office (one season + MP or EP).
@@ -27,25 +26,25 @@ type Segment struct {
 // structure of the source PDF (leader, response, rubric).
 // A nil slice means that section is absent for this office.
 type Form struct {
-	Title    string `yaml:"title"`
-	Subtitle string `yaml:"subtitle"`
+	Title    string `json:"title"`
+	Subtitle string `json:"subtitle"`
 
 	// Gathering
-	OpeningResponses []Segment `yaml:"opening_responses"`
-	Invitatory       []Segment `yaml:"invitatory"` // MP in ordinary time only
+	OpeningResponses []Segment `json:"opening_responses"`
+	Invitatory       []Segment `json:"invitatory"` // MP in ordinary time only
 
 	// Proclamation
-	Responsory  []Segment `yaml:"responsory"`
-	Canticle    []Segment `yaml:"canticle"`
-	Affirmation []Segment `yaml:"affirmation"`
+	Responsory  []Segment `json:"responsory"`
+	Canticle    []Segment `json:"canticle"`
+	Affirmation []Segment `json:"affirmation"`
 
 	// Prayers
-	Litany           []Segment `yaml:"litany"`
-	SeasonalCollects []Segment `yaml:"seasonal_collects"`
-	LordsPrayerIntro []Segment `yaml:"lords_prayer_intro"`
+	Litany           []Segment `json:"litany"`
+	SeasonalCollects []Segment `json:"seasonal_collects"`
+	LordsPrayerIntro []Segment `json:"lords_prayer_intro"`
 
 	// Sending
-	Dismissal []Segment `yaml:"dismissal"`
+	Dismissal []Segment `json:"dismissal"`
 }
 
 // Forms is the loaded collection of all office forms.
@@ -56,7 +55,7 @@ type Forms struct {
 // LoadForms returns all extracted office forms ready for use.
 func LoadForms() (*Forms, error) {
 	var raw map[string]*Form
-	if err := yaml.Unmarshal(officesData, &raw); err != nil {
+	if err := json.Unmarshal(officesData, &raw); err != nil {
 		return nil, err
 	}
 	return &Forms{data: raw}, nil

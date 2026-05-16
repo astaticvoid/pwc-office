@@ -14,6 +14,13 @@ __pycache__/
 sources/
 
 # Derived data extracted from copyrighted sources — not for distribution
+data/psalms/
+data/offices.json
+data/collects.json
+data/lectionary/
+data/season_bounds.json
+boneyard/data/
+# Legacy YAML originals (superseded by JSON; kept locally as reference)
 data/psalter.yaml
 data/offices.yaml
 data/collects.yaml

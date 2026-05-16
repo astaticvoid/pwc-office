@@ -19,16 +19,11 @@ Run from repo root:
     python3 tools/extract_psalter.py
 """
 
+import json
 import re
 import subprocess
 import sys
 from pathlib import Path
-
-try:
-    import yaml
-except ImportError:
-    print("pip install pyyaml", file=sys.stderr)
-    sys.exit(1)
 
 
 def _ensure_txt(pdf_path: Path, txt_path: Path) -> None:
@@ -100,9 +95,11 @@ _QUOTE_MAP = str.maketrans({
 
 def normalise_quotes(s: str) -> str:
     s = s.translate(_QUOTE_MAP)
-    # Fix PDF indentation artifact: opening quote followed by a space before text
-    # e.g. '" The mercy' → '"The mercy' (verse continuation lines indented in source)
-    s = re.sub(r'"( +)(?=\S)', '"', s)
+    # Fix PDF indentation artifact: a line that starts with an opening quote
+    # followed by spaces before the text, e.g. '"  The mercy' → '"The mercy'.
+    # Only match at line-start (^) so we don't strip the space after closing
+    # quotes mid-line, e.g. 'yoke," they say' must stay intact.
+    s = re.sub(r'^"( +)(?=\S)', '"', s, flags=re.MULTILINE)
     return s
 
 
@@ -226,23 +223,23 @@ def extract_psalms(path: Path) -> list[dict]:
 def main():
     root = Path(__file__).parent.parent
     src = root / "sources" / "pray-without-ceasing.txt"
-    dst = root / "data" / "psalter.yaml"
+    psalms_dir = root / "data" / "psalms"
 
     _ensure_txt(root / "sources" / "pray-without-ceasing.pdf", src)
     psalms = extract_psalms(src)
 
-    # Verify count
     found = {p["number"] for p in psalms}
     missing = [n for n in range(1, 151) if n not in found]
     if missing:
         print(f"WARNING: missing psalms: {missing}", file=sys.stderr)
 
-    doc = {"psalms": psalms}
-    with open(dst, "w", encoding="utf-8") as f:
-        yaml.dump(doc, f, allow_unicode=True, default_flow_style=False,
-                  sort_keys=False, width=100)
+    psalms_dir.mkdir(parents=True, exist_ok=True)
+    for psalm in psalms:
+        path = psalms_dir / f"{psalm['number']}.json"
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(psalm, f, ensure_ascii=False, indent=2)
 
-    print(f"Wrote {len(psalms)} psalms to {dst}")
+    print(f"Wrote {len(psalms)} psalms to {psalms_dir}/")
     if missing:
         print(f"  Missing: {missing}")
 

@@ -16,19 +16,31 @@ Run from the repo root:
 
 import csv
 import html
+import json
 import re
 import sys
 from pathlib import Path
 
-try:
-    import yaml
-except ImportError:
-    print("pip install pyyaml", file=sys.stderr)
-    sys.exit(1)
-
 
 # ── Manual corrections ─────────────────────────────────────────────────────────
 # Entries where parse_name_meta produces the wrong name or rank.
+
+# Manual corrections for lesson citations where the CSV source has errors:
+# missing semicolon separators, typos, contextual continuations, etc.
+# Key: (date, office) — "morning" or "evening".
+# Value: the corrected lessons list (same format as parse_office_column output).
+LESSON_FIXES: dict[tuple[str, str], list] = {
+    # CSV has "Zeph 3:14-20 Tit 1:1-16" — missing semicolon separator
+    ("2025-12-19", "morning"): ["Zeph 3:14-20", "Tit 1:1-16"],
+    # CSV has "Jer 24:-10" — typo, missing "1-"
+    ("2026-03-23", "evening"): [{"citation": "Jer 24:1-10", "optional": True}, "Mk 9:30-41"],
+    # CSV has "Mt (1:1-17), 3:1-6" — optional prefix merged into citation
+    ("2026-04-20", "evening"): [{"citation": "Dan 4:19-27", "optional": True}, "Mt 1:1-17, 3:1-6"],
+    # CSV has "32-35" without book/chapter prefix — continuation of Job 9
+    ("2026-08-28", "morning"): ["Job 9:1-15", "Job 9:32-35", "Acts 10:34-48"],
+    # CSV has "108:1-6, (7-13)" without "Ps" prefix
+    ("2026-11-21", "morning"): ["Ps 108:1-6, (7-13)", "Mal 3:13—4:6", "Jas 5:13-20"],
+}
 
 NAME_FIXES = {
     # parse_name_meta strips the trailing "- Com" as a rank marker, losing the
@@ -393,6 +405,8 @@ def detect_bounds(rows) -> dict:
                 bounds["advent_ii"] = date_str
         elif "christmas" not in bounds and "birth of the lord" in desc:
             bounds["christmas"] = date_str
+        elif "christmas_ii" not in bounds and "birth of the lord" in desc and "christmas" in bounds:
+            bounds["christmas_ii"] = date_str
         elif "epiphany" not in bounds and "baptism of the lord" in desc:
             bounds["epiphany"] = date_str
         elif "ash_wednesday" not in bounds and "ash wednesday" in desc:
@@ -456,13 +470,26 @@ def parse_psalm_field(raw: str) -> dict:
 
 # ── Lesson parsing ─────────────────────────────────────────────────────────────
 
+_RE_BOOK_COLON = re.compile(r'^([A-Z][a-z]*):\s*(?=\d)')
+_RE_CHAPTER_DOT = re.compile(r'^([A-Z][a-z]* \d+)\.(\d+)')
+
+
+def _clean_citation(s: str) -> str:
+    """Fix CSV source errors in a citation string."""
+    # "Mt: 22:23-33" or "Ezek:7:10-15" → "Mt 22:23-33" / "Ezek 7:10-15"
+    s = _RE_BOOK_COLON.sub(r'\1 ', s)
+    # "Gal 4.21-31" → "Gal 4:21-31" (period used as chapter separator)
+    s = _RE_CHAPTER_DOT.sub(r'\1:\2', s)
+    return s
+
+
 def parse_lesson(raw: str):
     r = raw.strip()
     if not r:
         return None
     if r.startswith("(") and r.endswith(")"):
-        return {"citation": r[1:-1].strip(), "optional": True}
-    return r
+        return {"citation": _clean_citation(r[1:-1].strip()), "optional": True}
+    return _clean_citation(r)
 
 
 # ── Collect parsing ────────────────────────────────────────────────────────────
@@ -583,7 +610,8 @@ def parse_extra(raw: str, date_str: str) -> list[dict] | None:
 def main():
     root = Path(__file__).parent.parent
     csv_path = root / "sources" / "bas_short_2026.csv"
-    yaml_path = root / "data" / "lectionary_2026.yaml"
+    lect_dir = root / "data" / "lectionary"
+    bounds_path = root / "data" / "season_bounds.json"
 
     with open(csv_path, newline="", encoding="utf-8") as f:
         reader = csv.reader(f, quoting=csv.QUOTE_MINIMAL)
@@ -628,6 +656,13 @@ def main():
 
         mp = parse_office_column(row[3])
         ep = parse_office_column(row[4])
+
+        # Apply manual lesson corrections for known CSV errors.
+        for office_key, office_data in (("morning", mp), ("evening", ep)):
+            fix = LESSON_FIXES.get((date_str, office_key))
+            if fix is not None:
+                office_data["lessons"] = fix
+
         if mp:
             entry["morning"] = mp
         if ep:
@@ -641,22 +676,16 @@ def main():
 
         entries.append(entry)
 
-    doc = {
-        "meta": bounds,
-        "entries": entries,
-    }
+    lect_dir.mkdir(parents=True, exist_ok=True)
+    with open(bounds_path, "w", encoding="utf-8") as f:
+        json.dump(bounds, f, ensure_ascii=False, indent=2)
+    for entry in entries:
+        path = lect_dir / f"{entry['date']}.json"
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(entry, f, ensure_ascii=False, indent=2)
 
-    with open(yaml_path, "w", encoding="utf-8") as f:
-        yaml.dump(
-            doc,
-            f,
-            allow_unicode=True,
-            default_flow_style=False,
-            sort_keys=False,
-            width=120,
-        )
-
-    print(f"Wrote {len(entries)} entries to {yaml_path}")
+    print(f"Wrote {len(entries)} entries to {lect_dir}/")
+    print(f"Wrote season bounds to {bounds_path}")
     print(f"Skipped {skipped} non-date rows")
     print(f"Season bounds: {bounds}")
 

@@ -9,7 +9,7 @@ to preserve semantic style information. Each text run is classified as:
   heading  — bold heading text (section boundaries, consumed during processing)
   footer   — small italic running headers/footers (stripped)
 
-Writes data/offices.yaml with each section as a list of typed segments.
+Writes data/offices.json with each section as a list of typed segments.
 
 Usage: python3 tools/extract_offices.py
 """
@@ -19,7 +19,7 @@ import sys
 import collections
 from pathlib import Path
 
-import yaml
+import json
 import pdfplumber
 
 ROOT = Path(__file__).parent.parent
@@ -414,7 +414,7 @@ def run():
         print(f"ERROR: {pdf_path} not found", file=sys.stderr)
         sys.exit(1)
 
-    out_path = ROOT / "data" / "offices.yaml"
+    out_path = ROOT / "data" / "offices.json"
 
     offices: dict[str, dict] = {}
     with pdfplumber.open(pdf_path) as pdf:
@@ -423,9 +423,8 @@ def run():
             sections = [k for k in offices[key] if k not in ("title", "subtitle")]
             print(f"  {key}: {sections}")
 
-    out_path.write_text(
-        yaml.dump(offices, allow_unicode=True, default_flow_style=False, sort_keys=False)
-    )
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(offices, f, ensure_ascii=False, indent=2)
     print(f"\nWrote {len(offices)} offices → {out_path}")
 
     # Spot checks.

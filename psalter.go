@@ -1,17 +1,16 @@
 package lectionary
 
 import (
-	_ "embed"
+	"embed"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
-//go:embed data/psalter.yaml
-var psalterData []byte
+//go:embed data/psalms
+var psalmsFS embed.FS
 
 // Psalter holds all 150 psalm texts indexed by psalm number.
 type Psalter struct {
@@ -19,26 +18,29 @@ type Psalter struct {
 }
 
 type psalterEntry struct {
-	Number int    `yaml:"number"`
-	Book   int    `yaml:"book"`
-	Title  string `yaml:"title"`
-	Text   string `yaml:"text"`
+	Number int    `json:"number"`
+	Book   int    `json:"book"`
+	Title  string `json:"title"`
+	Text   string `json:"text"`
 }
 
-type psalterDoc struct {
-	Psalms []psalterEntry `yaml:"psalms"`
-}
-
-// LoadPsalter parses the embedded Liturgical Psalter YAML.
+// LoadPsalter parses the embedded Liturgical Psalter JSON files.
 func LoadPsalter() (*Psalter, error) {
-	var doc psalterDoc
-	if err := yaml.Unmarshal(psalterData, &doc); err != nil {
-		return nil, fmt.Errorf("psalter: parsing YAML: %w", err)
+	entries, err := psalmsFS.ReadDir("data/psalms")
+	if err != nil {
+		return nil, fmt.Errorf("psalter: reading embedded dir: %w", err)
 	}
-	p := &Psalter{psalms: make(map[int]*psalterEntry, len(doc.Psalms))}
-	for i := range doc.Psalms {
-		ps := &doc.Psalms[i]
-		p.psalms[ps.Number] = ps
+	p := &Psalter{psalms: make(map[int]*psalterEntry, len(entries))}
+	for _, entry := range entries {
+		data, err := psalmsFS.ReadFile("data/psalms/" + entry.Name())
+		if err != nil {
+			return nil, fmt.Errorf("psalter: reading %s: %w", entry.Name(), err)
+		}
+		var ps psalterEntry
+		if err := json.Unmarshal(data, &ps); err != nil {
+			return nil, fmt.Errorf("psalter: parsing %s: %w", entry.Name(), err)
+		}
+		p.psalms[ps.Number] = &ps
 	}
 	return p, nil
 }

@@ -2,23 +2,22 @@ package lectionary
 
 import (
 	_ "embed"
+	"encoding/json"
 	"regexp"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
-//go:embed data/collects.yaml
+//go:embed data/collects.json
 var collectsData []byte
 
 // Collect holds a single BAS collect with its liturgical metadata and prayer text.
 type Collect struct {
-	Name    string `yaml:"name"`
-	Section string `yaml:"section"`
-	Season  string `yaml:"season"`
-	Proper  int    `yaml:"proper"`
-	Date    string `yaml:"date"`
-	Text    string `yaml:"text"`
+	Name    string `json:"name"`
+	Section string `json:"section"`
+	Season  string `json:"season"`
+	Proper  int    `json:"proper"`
+	Date    string `json:"date"`
+	Text    string `json:"text"`
 }
 
 // Collects provides collect lookup by BAS page number.
@@ -29,7 +28,7 @@ type Collects struct {
 // LoadCollects returns a Collects ready for use.
 func LoadCollects() (*Collects, error) {
 	var raw map[string]*Collect
-	if err := yaml.Unmarshal(collectsData, &raw); err != nil {
+	if err := json.Unmarshal(collectsData, &raw); err != nil {
 		return nil, err
 	}
 	return &Collects{data: raw}, nil

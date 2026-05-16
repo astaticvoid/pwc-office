@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Apply verified corrections to data/psalter.yaml.
+Apply verified corrections to data/psalms/*.json.
 
 Sections:
   A — Missing verse text (12 fixes)
@@ -11,20 +11,22 @@ Run from repo root:
   python3 tools/fix_psalter.py
 """
 
+import json
 import sys
 from pathlib import Path
 
-try:
-    import yaml
-except ImportError:
-    print("pip install pyyaml", file=sys.stderr)
+root = Path(__file__).parent.parent
+psalms_dir = root / "data" / "psalms"
+
+if not psalms_dir.exists():
+    print(f"ERROR: {psalms_dir} not found — run extract_psalter.py first", file=sys.stderr)
     sys.exit(1)
 
-root = Path(__file__).parent.parent
-yaml_path = root / "data" / "psalter.yaml"
-
-doc = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
-psalms = {p["number"]: p for p in doc["psalms"]}
+psalms: dict[int, dict] = {}
+for path in psalms_dir.glob("*.json"):
+    with open(path, encoding="utf-8") as f:
+        p = json.load(f)
+    psalms[p["number"]] = p
 
 warnings = []
 
@@ -38,30 +40,40 @@ def set_text(num: int, text: str) -> None:
     psalms[num]["text"] = text
 
 def insert_before(num: int, marker: str, new_line: str) -> None:
-    """Insert new_line immediately before the first line containing marker."""
+    """Insert new_line immediately before the first line containing marker.
+    Idempotent: no-op if new_line is already the line immediately before marker."""
     text = get_text(num)
     lines = text.split("\n")
     for i, line in enumerate(lines):
         if marker in line:
+            if i > 0 and lines[i - 1] == new_line:
+                return  # already present
             lines.insert(i, new_line)
             set_text(num, "\n".join(lines))
             return
     warnings.append(f"Psalm {num}: insert_before marker not found: {marker!r}")
 
 def insert_after(num: int, marker: str, new_line: str) -> None:
-    """Insert new_line immediately after the first line containing marker."""
+    """Insert new_line immediately after the first line containing marker.
+    Idempotent: no-op if new_line is already the line immediately after marker."""
     text = get_text(num)
     lines = text.split("\n")
     for i, line in enumerate(lines):
         if marker in line:
+            if i + 1 < len(lines) and lines[i + 1] == new_line:
+                return  # already present
             lines.insert(i + 1, new_line)
             set_text(num, "\n".join(lines))
             return
     warnings.append(f"Psalm {num}: insert_after marker not found: {marker!r}")
 
 def append_lines(num: int, new_lines: list[str]) -> None:
-    """Append lines to end of psalm text."""
+    """Append lines to end of psalm text.
+    Idempotent: no-op if the lines are already at the end of the text."""
     text = get_text(num)
+    existing = text.split("\n")
+    if len(existing) >= len(new_lines) and existing[-len(new_lines):] == new_lines:
+        return  # already present
     set_text(num, text + "\n" + "\n".join(new_lines))
 
 def strip_suffix(num: int, suffix: str) -> None:
@@ -98,15 +110,24 @@ def add_source_corrections(num: int, corrections: list[dict]) -> None:
 
 # ── Section A — Missing verse text ─────────────────────────────────────────────
 
-# Psalm 2 v12 — entire verse missing (page break dropped it); append after v11
-# The extractor captured "12  lest..." (double-space) as a tail of v11; remove it first.
-replace_text(2, "\n12  lest God be angry and you perish; *", "")
-append_lines(2, [
-    "12 lest God be angry and you perish; *",
-    " for the divine wrath is quickly kindled.",
-    " Happy are they all *",
-    " who take refuge in God!",
-])
+# Psalm 2 v12 — page-break artefact: continuation lines are displaced to after
+# v11's last line in the PDF layout, appearing again correctly after "12 lest...".
+# Idempotent: normalise everything from v11's final line to end of psalm.
+# Handles both pdfplumber (displaced+duplicate) and pdftotext (incomplete v12) forms.
+_PS2_V11_TAIL = " and bow with trembling before the presence of the Lord;"
+_PS2_V12_BLOCK = (
+    "12 lest God be angry and you perish; *\n"
+    " for the divine wrath is quickly kindled.\n"
+    " Happy are they all *\n"
+    " who take refuge in God!"
+)
+if _PS2_V11_TAIL + "\n" + _PS2_V12_BLOCK not in get_text(2):
+    text = get_text(2)
+    cut = text.rfind(_PS2_V11_TAIL)
+    if cut < 0:
+        warnings.append("Psalm 2: v11 tail not found")
+    else:
+        set_text(2, text[:cut + len(_PS2_V11_TAIL)] + "\n" + _PS2_V12_BLOCK)
 
 # Psalm 27 v6 — dropped line before "an oblation"
 insert_before(27,
@@ -228,11 +249,10 @@ add_source_corrections(78, [{
 
 # ── Write ──────────────────────────────────────────────────────────────────────
 
-doc["psalms"] = [psalms[n] for n in sorted(psalms.keys())]
-
-with open(yaml_path, "w", encoding="utf-8") as f:
-    yaml.dump(doc, f, allow_unicode=True, default_flow_style=False,
-              sort_keys=False, width=100)
+for num, psalm in psalms.items():
+    path = psalms_dir / f"{num}.json"
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(psalm, f, ensure_ascii=False, indent=2)
 
 # ── Report ─────────────────────────────────────────────────────────────────────
 

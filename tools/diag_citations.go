@@ -6,69 +6,30 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"strings"
 
 	lectionary "github.com/astaticvoid/pwc-office"
-	"gopkg.in/yaml.v3"
 )
 
-type lectItem struct {
-	Citation string
-	Optional bool
-}
-
-func (item *lectItem) UnmarshalYAML(value *yaml.Node) error {
-	switch value.Kind {
-	case yaml.ScalarNode:
-		s := value.Value
-		if strings.HasPrefix(s, "(") && strings.HasSuffix(s, ")") {
-			item.Citation = s[1 : len(s)-1]
-			item.Optional = true
-		} else {
-			item.Citation = s
-		}
-	case yaml.MappingNode:
-		var m struct {
-			Citation string `yaml:"citation"`
-			Optional bool   `yaml:"optional"`
-		}
-		value.Decode(&m)
-		item.Citation = m.Citation
-		item.Optional = m.Optional
-	}
-	return nil
-}
-
-type diagOffice struct {
-	Lessons   []lectItem  `yaml:"lessons"`
-	Alternate *diagOffice `yaml:"alternate"`
-}
-
-type diagEntry struct {
-	Date    string     `yaml:"date"`
-	Morning diagOffice `yaml:"morning"`
-	Evening diagOffice `yaml:"evening"`
-}
-
-type diagDoc struct {
-	Entries []diagEntry `yaml:"entries"`
-}
-
 func main() {
-	data, _ := os.ReadFile("data/lectionary_2026.yaml")
-	var d diagDoc
-	yaml.Unmarshal(data, &d)
-
-	bible, _ := lectionary.LoadBible()
+	l, err := lectionary.Load()
+	if err != nil {
+		fmt.Println("load:", err)
+		return
+	}
+	bible, err := lectionary.LoadBible(os.Getenv("BIBLE_API_KEY"))
+	if err != nil {
+		fmt.Println("bible:", err)
+		return
+	}
 
 	type result struct{ date, off, citation string }
 	var failures []result
 	total := 0
 
-	var check func(date, off string, o diagOffice)
-	check = func(date, off string, o diagOffice) {
-		for _, l := range o.Lessons {
-			c := l.Citation
+	var checkOffice func(date, off string, o lectionary.Office)
+	checkOffice = func(date, off string, o lectionary.Office) {
+		for _, lesson := range o.Lessons {
+			c := lesson.Citation
 			if c == "" {
 				continue
 			}
@@ -78,13 +39,14 @@ func main() {
 			}
 		}
 		if o.Alternate != nil {
-			check(date, off+"-alt", *o.Alternate)
+			checkOffice(date, off+"-alt", *o.Alternate)
 		}
 	}
 
-	for _, e := range d.Entries {
-		check(e.Date, "mp", e.Morning)
-		check(e.Date, "ep", e.Evening)
+	for _, day := range l.AllDays() {
+		date := day.Date.Format("2006-01-02")
+		checkOffice(date, "mp", day.Morning)
+		checkOffice(date, "ep", day.Evening)
 	}
 
 	sort.Slice(failures, func(i, j int) bool { return failures[i].citation < failures[j].citation })

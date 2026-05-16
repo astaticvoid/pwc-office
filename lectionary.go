@@ -8,16 +8,18 @@
 package lectionary
 
 import (
-	_ "embed"
+	"embed"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
-
-	"gopkg.in/yaml.v3"
 )
 
-//go:embed data/lectionary_2026.yaml
-var lectData []byte
+//go:embed data/season_bounds.json
+var seasonBoundsData []byte
+
+//go:embed data/lectionary
+var lectionaryFS embed.FS
 
 // Day is a fully resolved liturgical day from the BAS lectionary.
 type Day struct {
@@ -153,26 +155,38 @@ type Lectionary struct {
 	days map[string]*Day
 }
 
-// Load parses the embedded 2026 BAS lectionary YAML and returns a Lectionary
+// Load parses the embedded 2026 BAS lectionary JSON and returns a Lectionary
 // ready for date lookups.
 func Load() (*Lectionary, error) {
-	var doc lectDoc
-	if err := yaml.Unmarshal(lectData, &doc); err != nil {
-		return nil, fmt.Errorf("lectionary: parsing YAML: %w", err)
+	var meta lectMeta
+	if err := json.Unmarshal(seasonBoundsData, &meta); err != nil {
+		return nil, fmt.Errorf("lectionary: parsing season bounds: %w", err)
 	}
 
-	bounds, err := boundsFromMeta(doc.Meta)
+	bounds, err := boundsFromMeta(meta)
 	if err != nil {
 		return nil, fmt.Errorf("lectionary: season bounds: %w", err)
 	}
 
-	l := &Lectionary{
-		Bounds: bounds,
-		days:   make(map[string]*Day, len(doc.Entries)),
+	entries, err := lectionaryFS.ReadDir("data/lectionary")
+	if err != nil {
+		return nil, fmt.Errorf("lectionary: reading embedded dir: %w", err)
 	}
 
-	for i := range doc.Entries {
-		e := &doc.Entries[i]
+	l := &Lectionary{
+		Bounds: bounds,
+		days:   make(map[string]*Day, len(entries)),
+	}
+
+	for _, entry := range entries {
+		data, err := lectionaryFS.ReadFile("data/lectionary/" + entry.Name())
+		if err != nil {
+			return nil, fmt.Errorf("lectionary: reading %s: %w", entry.Name(), err)
+		}
+		var e lectEntry
+		if err := json.Unmarshal(data, &e); err != nil {
+			return nil, fmt.Errorf("lectionary: parsing %s: %w", entry.Name(), err)
+		}
 		d, err := time.Parse("2006-01-02", e.Date)
 		if err != nil {
 			continue
@@ -211,53 +225,57 @@ func (l *Lectionary) Lookup(d time.Time) (*Day, error) {
 	return day, nil
 }
 
-// ── Internal YAML types ────────────────────────────────────────────────────────
-
-type lectDoc struct {
-	Meta    lectMeta    `yaml:"meta"`
-	Entries []lectEntry `yaml:"entries"`
+// AllDays returns every loaded Day in unspecified order.
+func (l *Lectionary) AllDays() []*Day {
+	out := make([]*Day, 0, len(l.days))
+	for _, d := range l.days {
+		out = append(out, d)
+	}
+	return out
 }
 
+// ── Internal JSON types ────────────────────────────────────────────────────────
+
 type lectMeta struct {
-	AdventI      string `yaml:"advent_i"`
-	Christmas    string `yaml:"christmas"`
-	Epiphany     string `yaml:"epiphany"`
-	AshWednesday string `yaml:"ash_wednesday"`
-	PalmSunday   string `yaml:"palm_sunday"`
-	Easter       string `yaml:"easter"`
-	Pentecost    string `yaml:"pentecost"`
-	AllSaints    string `yaml:"all_saints"`
-	AdventII     string `yaml:"advent_ii"`
-	ChristmasII  string `yaml:"christmas_ii"` // optional; Christmas of year N+1
+	AdventI      string `json:"advent_i"`
+	Christmas    string `json:"christmas"`
+	Epiphany     string `json:"epiphany"`
+	AshWednesday string `json:"ash_wednesday"`
+	PalmSunday   string `json:"palm_sunday"`
+	Easter       string `json:"easter"`
+	Pentecost    string `json:"pentecost"`
+	AllSaints    string `json:"all_saints"`
+	AdventII     string `json:"advent_ii"`
+	ChristmasII  string `json:"christmas_ii"` // optional; Christmas of year N+1
 }
 
 type lectEntry struct {
-	Date        string      `yaml:"date"`
-	Name        string      `yaml:"name"`
-	Rank        string      `yaml:"rank"`
-	Colour      string      `yaml:"colour"`
-	Observances []string    `yaml:"observances"`
-	Eucharist   string      `yaml:"eucharist"`
-	Morning     lectOffice  `yaml:"morning"`
-	Evening     lectOffice  `yaml:"evening"`
-	Notes       []lectNote  `yaml:"notes"`
+	Date        string      `json:"date"`
+	Name        string      `json:"name"`
+	Rank        string      `json:"rank"`
+	Colour      string      `json:"colour"`
+	Observances []string    `json:"observances"`
+	Eucharist   string      `json:"eucharist"`
+	Morning     lectOffice  `json:"morning"`
+	Evening     lectOffice  `json:"evening"`
+	Notes       []lectNote  `json:"notes"`
 }
 
 type lectNote struct {
-	Type string `yaml:"type"`
-	Text string `yaml:"text"`
+	Type string `json:"type"`
+	Text string `json:"text"`
 }
 
 type lectOffice struct {
-	Label       string       `yaml:"label"`
-	Psalms      []lectItem   `yaml:"psalms"`
-	PsalmSets   [][]lectItem `yaml:"psalm_sets"`
-	YearNote    string       `yaml:"year_note"`
-	Lessons     []lectItem   `yaml:"lessons"`
-	LessonsPick int          `yaml:"lessons_pick"`
-	Collect     string       `yaml:"collect"`
-	Note        string       `yaml:"note"`
-	Alternate   *lectOffice  `yaml:"alternate"`
+	Label       string       `json:"label"`
+	Psalms      []lectItem   `json:"psalms"`
+	PsalmSets   [][]lectItem `json:"psalm_sets"`
+	YearNote    string       `json:"year_note"`
+	Lessons     []lectItem   `json:"lessons"`
+	LessonsPick int          `json:"lessons_pick"`
+	Collect     string       `json:"collect"`
+	Note        string       `json:"note"`
+	Alternate   *lectOffice  `json:"alternate"`
 }
 
 // lectItem unmarshals a YAML value that is either a plain string or a
@@ -268,31 +286,29 @@ type lectItem struct {
 	Optional bool
 }
 
-func (item *lectItem) UnmarshalYAML(value *yaml.Node) error {
-	switch value.Kind {
-	case yaml.ScalarNode:
-		s := value.Value
-		if strings.HasPrefix(s, "(") && strings.HasSuffix(s, ")") {
-			item.Citation = s[1 : len(s)-1]
-			item.Optional = true
-		} else {
-			item.Citation = s
-		}
-		return nil
-	case yaml.MappingNode:
-		var m struct {
-			Citation string `yaml:"citation"`
-			Optional bool   `yaml:"optional"`
-		}
-		if err := value.Decode(&m); err != nil {
-			return err
-		}
+func (item *lectItem) UnmarshalJSON(data []byte) error {
+	// Struct form: {"citation": "...", "optional": true}
+	var m struct {
+		Citation string `json:"citation"`
+		Optional bool   `json:"optional"`
+	}
+	if err := json.Unmarshal(data, &m); err == nil && m.Citation != "" {
 		item.Citation = m.Citation
 		item.Optional = m.Optional
 		return nil
-	default:
-		return fmt.Errorf("lectionary: unexpected YAML node kind %v for item", value.Kind)
 	}
+	// Plain string form: "Gen 1:1" or "(Gen 1:1)" for optional
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return fmt.Errorf("lectionary: cannot unmarshal item: %w", err)
+	}
+	if strings.HasPrefix(s, "(") && strings.HasSuffix(s, ")") {
+		item.Citation = s[1 : len(s)-1]
+		item.Optional = true
+	} else {
+		item.Citation = s
+	}
+	return nil
 }
 
 // ── Conversion helpers ─────────────────────────────────────────────────────────

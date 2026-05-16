@@ -3,7 +3,7 @@ extract_collects.py — extract BAS collects by book page number.
 
 Reads sources/BAS.pdf (for page structure and headings) and sources/BAS.txt
 (for clean text on pages that pdfplumber garbles due to font encoding issues).
-Writes data/collects.yaml.
+Writes data/collects.json.
 
 Each collect entry includes:
   name    — liturgical name extracted from BAS heading
@@ -16,6 +16,7 @@ Each collect entry includes:
 Usage: python3 tools/extract_collects.py
 """
 
+import json
 import re
 import subprocess
 import sys
@@ -356,37 +357,6 @@ def date_from_name(name: str) -> str:
     return m.group(1) if m else ""
 
 
-# ── YAML writer ───────────────────────────────────────────────────────────────
-
-_NEEDS_QUOTE = re.compile(r'[:#\[\]{},&*?|<>=!%@`]')
-
-
-def _yaml_scalar(s: str) -> str:
-    """Return a quoted YAML scalar when the value contains special characters."""
-    if not s or _NEEDS_QUOTE.search(s):
-        return '"' + s.replace('\\', '\\\\').replace('"', '\\"') + '"'
-    return s
-
-
-def _write_yaml(entries: dict[str, dict], path: Path) -> None:
-    lines: list[str] = []
-    for key in sorted(entries, key=lambda k: int(k)):
-        e = entries[key]
-        lines.append(f'"{key}":')
-        lines.append(f'  name: {_yaml_scalar(e["name"])}')
-        lines.append(f'  section: {_yaml_scalar(e["section"])}')
-        if e.get("season"):
-            lines.append(f'  season: {_yaml_scalar(e["season"])}')
-        if e.get("proper") is not None:
-            lines.append(f'  proper: {e["proper"]}')
-        if e.get("date"):
-            lines.append(f'  date: {_yaml_scalar(e["date"])}')
-        lines.append(f'  text: |-')
-        for tline in e["text"].splitlines():
-            lines.append(f'    {tline}')
-    path.write_text("\n".join(lines) + "\n")
-
-
 # ── Main extraction loop ──────────────────────────────────────────────────────
 
 def run():
@@ -396,7 +366,7 @@ def run():
         sys.exit(1)
 
     _ensure_txt(pdf_path, ROOT / "sources" / "BAS.txt")
-    out_path = ROOT / "data" / "collects.yaml"
+    out_path = ROOT / "data" / "collects.json"
     bas_txt = _load_bas_txt()
     if not bas_txt:
         print("WARNING: sources/BAS.txt not found — garbled pages will not have fallback text",
@@ -455,7 +425,8 @@ def run():
             elif re.search(r'\bCollect\b', text):
                 failures.append(book_page)
 
-    _write_yaml(collects, out_path)
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(collects, f, ensure_ascii=False, indent=2)
     print(f"\nWrote {len(collects)} collects → {out_path}")
     if txt_fallbacks:
         print(f"BAS.txt fallback used for: {txt_fallbacks}")
