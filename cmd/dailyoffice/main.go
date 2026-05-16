@@ -78,7 +78,7 @@ func main() {
 		dir := filepath.Join(xdgDataDir(), "pwc_office", "translations", "nrsvue")
 		lb, err := lectionary.LoadLocalBible("nrsvue", dir)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "loading nrsvue: %v\n(copy boneyard/bible/*.json to %s)\n", err, dir)
+			fmt.Fprintf(os.Stderr, "loading nrsvue: %v\n(copy data/translations/nrsvue/*.json to %s)\n", err, dir)
 			os.Exit(1)
 		}
 		bible = lb

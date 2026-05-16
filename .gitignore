@@ -19,6 +19,9 @@ data/offices.yaml
 data/collects.yaml
 data/lectionary_2026.yaml
 
+# NRSVUE bible data — copyrighted, not for distribution; copy from here to XDG install path
+data/translations/nrsvue/
+
 # Local secrets — never commit
 .env
 
@@ -28,5 +31,5 @@ data/lectionary_2026.yaml
 # Local planning doc
 PLAN.md
 
-# Obsolete tools kept for local reference
+# Dead code kept for local reference
 boneyard/
