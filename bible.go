@@ -13,6 +13,18 @@ import (
 	"unicode"
 )
 
+// BibleSource is the interface satisfied by both the API.Bible client (*Bible)
+// and the local JSON reader (*LocalBible). A nil BibleSource is valid: the
+// office renderer skips scripture text when none is provided.
+type BibleSource interface {
+	Lookup(citation string) string
+	Translation() string
+	Copyright() string
+	// AttributionURL returns a URL to display alongside the copyright notice,
+	// or "" if no external attribution link is required.
+	AttributionURL() string
+}
+
 const (
 	bibleBaseURL = "https://rest.api.bible/v1"
 	cacheMaxAge  = 30 * 24 * time.Hour
@@ -62,6 +74,14 @@ func (b *Bible) Translation() string {
 		return ""
 	}
 	return "KJV"
+}
+
+// AttributionURL returns the API.Bible homepage URL for TOS attribution.
+func (b *Bible) AttributionURL() string {
+	if b == nil {
+		return ""
+	}
+	return "https://api.bible"
 }
 
 // Copyright returns the copyright string for the current translation.

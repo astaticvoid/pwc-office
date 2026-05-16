@@ -196,6 +196,68 @@ func TestRenderPsalmSets(t *testing.T) {
 	}
 }
 
+// ── Scripture integration (uses embedded KJV) ─────────────────────────────────
+
+// TestRenderWithKJV verifies that actual scripture text appears in the rendered
+// office when the embedded KJV bible is provided.
+func TestRenderWithKJV(t *testing.T) {
+	l, ps := mustLoad(t)
+	collects, err := lectionary.LoadCollects()
+	if err != nil {
+		t.Fatalf("LoadCollects: %v", err)
+	}
+	// 2026-05-16: Num 11:16-17,24-29 and Eph 2:11-22 are appointed.
+	day := mustLookup(t, l, 2026, 5, 16)
+	out := office.Render(day, "mp", ps, lectionary.KJV(), collects, nil)
+
+	checks := []struct {
+		label string
+		want  string
+	}{
+		{"KJV Numbers text", "Gather unto me seventy men"},
+		{"KJV Ephesians text", "far off"},
+		{"attribution", "Scripture: KJV"},
+	}
+	for _, c := range checks {
+		if !strings.Contains(out, c.want) {
+			t.Errorf("%s: output missing %q", c.label, c.want)
+		}
+	}
+	// Local bible must NOT produce an api.bible link.
+	if strings.Contains(out, "api.bible") {
+		t.Error("local KJV should not produce an api.bible attribution link")
+	}
+}
+
+// TestRenderKJVApocrypha verifies that deuterocanonical lessons render
+// with actual text when the embedded KJV is provided.
+func TestRenderKJVApocrypha(t *testing.T) {
+	l, ps := mustLoad(t)
+	// 2026-11-01 (All Saints): morning lesson is 2 Esd 2:42-47.
+	day := mustLookup(t, l, 2026, 11, 1)
+	out := office.Render(day, "mp", ps, lectionary.KJV(), nil, nil)
+
+	if !strings.Contains(out, "2 Esd 2:42-47") {
+		t.Error("missing 2 Esdras citation")
+	}
+	if !strings.Contains(out, "I Esdras saw") {
+		t.Error("missing 2 Esdras text — apocryphal lesson not rendered")
+	}
+}
+
+// TestRenderKJVNoCitationOnlyFallback verifies that when KJV has no data for a
+// citation (empty string from Lookup) the renderer still shows the citation heading.
+func TestRenderKJVCitationHeadingAlwaysShown(t *testing.T) {
+	l, ps := mustLoad(t)
+	day := mustLookup(t, l, 2026, 5, 16)
+	// Render without any bible — citation headings must still appear.
+	out := office.Render(day, "mp", ps, nil, nil, nil)
+
+	if !strings.Contains(out, "### The Reading: Num 11:16-17, 24-29") {
+		t.Error("lesson citation heading missing when no bible provided")
+	}
+}
+
 // TestRenderYearNote checks that the Year annotation appears next to the psalm heading.
 func TestRenderYearNote(t *testing.T) {
 	l, ps := mustLoad(t)

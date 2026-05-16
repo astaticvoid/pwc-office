@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -12,8 +13,9 @@ import (
 )
 
 func main() {
+	translation := flag.String("translation", "nrsvue", "scripture translation: nrsvue, kjv, api")
 	flag.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: dailyoffice [mp|ep] [YYYY-MM-DD]")
+		fmt.Fprintln(os.Stderr, "usage: dailyoffice [--translation nrsvue|kjv|api] [mp|ep] [YYYY-MM-DD]")
 	}
 	flag.Parse()
 
@@ -68,9 +70,31 @@ func main() {
 		os.Exit(1)
 	}
 
-	bible, err := lectionary.LoadBible(os.Getenv("BIBLE_API_KEY"))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "loading bible: %v\n", err)
+	var bible lectionary.BibleSource
+	switch *translation {
+	case "kjv":
+		bible = lectionary.KJV()
+	case "nrsvue":
+		dir := filepath.Join(xdgDataDir(), "pwc_office", "translations", "nrsvue")
+		lb, err := lectionary.LoadLocalBible("nrsvue", dir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "loading nrsvue: %v\n(copy boneyard/bible/*.json to %s)\n", err, dir)
+			os.Exit(1)
+		}
+		bible = lb
+	case "api":
+		ab, err := lectionary.LoadBible(os.Getenv("BIBLE_API_KEY"))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "loading bible API: %v\n", err)
+			os.Exit(1)
+		}
+		if ab == nil {
+			fmt.Fprintln(os.Stderr, "--translation api requires BIBLE_API_KEY to be set")
+			os.Exit(1)
+		}
+		bible = ab
+	default:
+		fmt.Fprintf(os.Stderr, "unknown translation %q: choose nrsvue, kjv, or api\n", *translation)
 		os.Exit(1)
 	}
 
@@ -87,6 +111,18 @@ func main() {
 	}
 
 	fmt.Print(office.Render(day, officeType, ps, bible, collects, forms))
+}
+
+// xdgDataDir returns $XDG_DATA_HOME or ~/.local/share.
+func xdgDataDir() string {
+	if d := os.Getenv("XDG_DATA_HOME"); d != "" {
+		return d
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(".", ".local", "share")
+	}
+	return filepath.Join(home, ".local", "share")
 }
 
 // loadDotEnv reads key=value pairs from .env in the current directory.

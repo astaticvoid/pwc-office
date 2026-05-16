@@ -13,7 +13,7 @@ import (
 // Render produces Markdown for the Daily Office on the given day.
 // officeType is "mp" (Morning Prayer) or "ep" (Evening Prayer).
 // Any of ps, bible, collects, forms may be nil; text is embedded only when available.
-func Render(day *lectionary.Day, officeType string, ps *lectionary.Psalter, bible *lectionary.Bible, collects *lectionary.Collects, forms *lectionary.Forms) string {
+func Render(day *lectionary.Day, officeType string, ps *lectionary.Psalter, bible lectionary.BibleSource, collects *lectionary.Collects, forms *lectionary.Forms) string {
 	o := selectOffice(day, officeType)
 
 	var form *lectionary.Form
@@ -149,7 +149,7 @@ func writeSegmentContent(b *strings.Builder, segs []lectionary.Segment) {
 }
 
 // writeReadings appends psalms, lessons, and collect for one Office to b.
-func writeReadings(b *strings.Builder, o lectionary.Office, ps *lectionary.Psalter, bible *lectionary.Bible, collects *lectionary.Collects) {
+func writeReadings(b *strings.Builder, o lectionary.Office, ps *lectionary.Psalter, bible lectionary.BibleSource, collects *lectionary.Collects) {
 	w := func(format string, args ...any) {
 		fmt.Fprintf(b, format+"\n", args...)
 	}
@@ -255,13 +255,15 @@ func psalmDisplay(o lectionary.Office) string {
 
 // writeAttribution appends the scripture copyright footer required by the
 // API.Bible TOS (Starter plan: visible citation + link to api.bible).
-func writeAttribution(b *strings.Builder, bible *lectionary.Bible) {
+func writeAttribution(b *strings.Builder, bible lectionary.BibleSource) {
 	if copyright := bible.Copyright(); copyright != "" {
 		fmt.Fprintf(b, "*%s*\n\n", copyright)
 	} else {
 		fmt.Fprintf(b, "*Scripture: %s*\n\n", bible.Translation())
 	}
-	fmt.Fprintf(b, "*[api.bible](https://api.bible)*\n")
+	if url := bible.AttributionURL(); url != "" {
+		fmt.Fprintf(b, "*[api.bible](%s)*\n", url)
+	}
 }
 
 func officeName(officeType string) string {
