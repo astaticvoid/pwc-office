@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en" data-season="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Daily Office</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="office.css">
+</head>
+<body>
+  <nav id="nav">
+    <div class="nav-row nav-top">
+      <a id="nav-prev" class="nav-arrow" aria-label="Previous day">&#8592;</a>
+      <span id="nav-date-wrapper">
+        <span id="nav-date">—</span>
+        <input type="date" id="nav-date-picker" aria-label="Go to date">
+      </span>
+      <a id="nav-next" class="nav-arrow" aria-label="Next day">&#8594;</a>
+    </div>
+    <div class="nav-row nav-bottom">
+      <a id="nav-today">Today</a>
+      <div id="nav-office">
+        <a id="nav-mp">Morning</a>
+        <a id="nav-ep">Evening</a>
+      </div>
+      <div id="nav-observance"></div>
+      <select id="nav-translation" aria-label="Bible translation">
+        <option value="nrsvue">NRSVUE</option>
+        <option value="kjv">KJV</option>
+      </select>
+      <button id="theme-toggle" aria-label="Toggle theme">Dark</button>
+    </div>
+  </nav>
+
+  <main id="main">
+    <header id="day-header">
+      <div id="day-office-name"></div>
+      <h1 id="day-title"></h1>
+      <div id="day-subtitle"></div>
+      <div id="day-meta"></div>
+    </header>
+    <div id="office-content">
+      <p class="loading">Loading…</p>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
