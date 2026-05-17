@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: test test-smoke test-seasonal test-full build check-dist
+.PHONY: test test-smoke test-seasonal test-full build check-dist serve serve-dist
 
 # Unit tests — no API key needed, always fast.
 test:
@@ -29,3 +29,11 @@ build:
 # Verify dist/ has everything the app needs before deploying.
 check-dist: build
 	@python3 tools/check_dist.py
+
+# Serve the source tree for local development (http://localhost:8080/web/).
+serve:
+	python3 -m http.server 8080
+
+# Build and serve dist/ exactly as it will appear when deployed (http://localhost:8081/).
+serve-dist: check-dist
+	python3 -m http.server 8081 --directory dist

@@ -38,7 +38,9 @@ function toggleTheme() {
 function updateThemeButton() {
   const btn = document.getElementById('theme-toggle');
   if (!btn) return;
-  btn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? 'Light' : 'Dark';
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  btn.textContent = isDark ? '☽' : '☀';
+  btn.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
 }
 
 // ── In-memory fetch cache ─────────────────────────────────────────────────────
@@ -173,7 +175,10 @@ const COLOUR_HEX = {
 
 // ── Routing ───────────────────────────────────────────────────────────────────
 
-function todayStr() { return new Date().toISOString().slice(0, 10); }
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
 
 function parseHash(hash) {
   const m = /^#\/(\d{4}-\d{2}-\d{2})\/(mp|ep)$/.exec(hash);
@@ -484,7 +489,9 @@ async function render(dateStr, officeType, translation) {
   document.getElementById('nav-date').textContent = fmtNavDate(dateStr);
   document.getElementById('nav-prev').href  = hashFor(offsetDate(dateStr, -1), officeType);
   document.getElementById('nav-next').href  = hashFor(offsetDate(dateStr, +1), officeType);
-  document.getElementById('nav-today').href = hashFor(todayStr(), officeType);
+  const todayEl = document.getElementById('nav-today');
+  todayEl.href = hashFor(todayStr(), officeType);
+  todayEl.style.visibility = dateStr === todayStr() ? 'hidden' : 'visible';
   document.getElementById('nav-mp').href    = hashFor(dateStr, 'mp');
   document.getElementById('nav-ep').href    = hashFor(dateStr, 'ep');
   document.getElementById('nav-mp').classList.toggle('nav-active', officeType === 'mp');
@@ -497,15 +504,18 @@ async function render(dateStr, officeType, translation) {
   document.getElementById('day-office-name').textContent = officeName;
   document.getElementById('day-title').textContent = day.name;
   document.getElementById('day-subtitle').textContent = fmtFullDate(dateStr);
-  // Observance toggle in nav (only when alternate readings exist)
-  const obsEl = document.getElementById('nav-observance');
+  // Observance toggle — own nav row so it doesn't shift nav-bottom layout
+  const obsRow = document.getElementById('nav-observance-row');
+  const obsEl  = document.getElementById('nav-observance');
   if (officeData.alternate) {
     const priLabel = officeData.label || 'Primary';
     const altLabel = officeData.alternate.label || 'Alternate';
     obsEl.innerHTML = `<a class="obs-nav-btn nav-active" data-obs="primary">${esc(priLabel)}</a>`
       + `<a class="obs-nav-btn" data-obs="alternate">${esc(altLabel)}</a>`;
+    obsRow.classList.remove('nav-row-hidden');
   } else {
     obsEl.innerHTML = '';
+    obsRow.classList.add('nav-row-hidden');
   }
 
   const hexColour = COLOUR_HEX[day.colour] || '#aaa';
@@ -673,20 +683,18 @@ function handleHashChange() {
 
 function initScrollBehaviour() {
   const nav = document.getElementById('nav');
-  let lastY = 0, triggerY = 0, compact = false;
+  let lastY = 0, compact = false, upTravel = 0;
   window.addEventListener('scroll', () => {
     const y = window.scrollY;
-    if (!compact && y > lastY && y > 80) {
-      compact = true; triggerY = y;
-      nav.classList.add('nav-compact');
-    } else if (compact && y < triggerY - 40) {
-      compact = false;
-      nav.classList.remove('nav-compact');
+    const delta = y - lastY;
+    if (delta > 0) {
+      upTravel = 0;
+      if (!compact && y > 80) { compact = true; nav.classList.add('nav-compact'); }
+    } else if (delta < 0) {
+      upTravel += -delta;
+      if (compact && upTravel > 15) { compact = false; upTravel = 0; nav.classList.remove('nav-compact'); }
     }
     lastY = y;
-  }, { passive: true });
-  document.addEventListener('touchstart', () => {
-    compact = false; nav.classList.remove('nav-compact');
   }, { passive: true });
 }
 

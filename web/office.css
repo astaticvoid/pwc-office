@@ -159,6 +159,7 @@ body {
 }
 
 #nav-translation { appearance: none; }
+#theme-toggle { min-width: 2rem; text-align: center; }
 #theme-toggle:hover { background: rgba(255,255,255,0.14); }
 
 
@@ -371,7 +372,9 @@ body {
 
 /* ── Observance readings toggle ────────────────────────────────────────────── */
 
-#nav-observance { display: flex; gap: 0.3rem; }
+.nav-observance-row { justify-content: center; flex-wrap: wrap; }
+.nav-row-hidden { display: none; }
+#nav-observance { display: flex; gap: 0.3rem; flex-wrap: wrap; justify-content: center; }
 
 .obs-readings.obs-hidden { display: none; }
 
