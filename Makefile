@@ -39,5 +39,13 @@ serve-dist: check-dist
 	python3 -m http.server 8081 --directory dist
 
 # Build and deploy dist/ to Netlify.
+# Icon: place sources/pwc-cover.png (gitignored) before deploying.
 deploy: check-dist
+	@if [ -f sources/pwc-cover.png ]; then \
+	  cp sources/pwc-cover.png dist/apple-touch-icon.png; \
+	  cp sources/pwc-cover.png dist/icon.png; \
+	  echo "icon: sources/pwc-cover.png injected"; \
+	else \
+	  echo "⚠ icon: sources/pwc-cover.png not found — deploying without icon"; \
+	fi
 	netlify deploy --dir=dist --prod

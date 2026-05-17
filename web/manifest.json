@@ -1,0 +1,12 @@
+{
+  "name": "Daily Office",
+  "short_name": "Daily Office",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#faf9f7",
+  "theme_color": "#2c3e50",
+  "icons": [
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon.png",             "sizes": "512x512",  "type": "image/png" }
+  ]
+}
