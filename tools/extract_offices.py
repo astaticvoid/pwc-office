@@ -266,13 +266,36 @@ def _fix_casing(seg: dict) -> dict:
 
 
 def _merge(segs: list[dict]) -> list[dict]:
-    """Merge consecutive segments of the same type into one, fixing casing."""
+    """Merge consecutive segments of the same type into one, fixing casing.
+
+    Structural rubrics must not be merged in ways that destroy their semantics:
+    - Bare 'Or' / 'or' absorb the immediately following name-line rubric to form
+      'Or\\nName' — this is intentional and required for _OR_NAMED detection.
+    - All other structural rubrics (already-complete Or\\nName, block seps, canticle
+      intros, continues) do not merge with anything.
+    """
     if not segs:
         return []
     merged = [dict(segs[0])]
     for seg in segs[1:]:
-        if seg["type"] == merged[-1]["type"]:
-            merged[-1]["text"] += "\n" + seg["text"]
+        prev = merged[-1]
+        prev_is_bare_or = (
+            prev["type"] == "rubric"
+            and (_OR_UPPER.match(prev["text"]) or _OR_LOWER.match(prev["text"]))
+        )
+        can_merge = (
+            seg["type"] == prev["type"]
+            and not (
+                seg["type"] == "rubric" and (
+                    # Incoming structural rubric always starts a new segment.
+                    _is_structural_rubric(seg["text"])
+                    # Structural prev merges only when it's a bare Or/or (needs its name).
+                    or (_is_structural_rubric(prev["text"]) and not prev_is_bare_or)
+                )
+            )
+        )
+        if can_merge:
+            prev["text"] += "\n" + seg["text"]
         else:
             merged.append(dict(seg))
     return [_fix_casing(s) for s in merged if s["text"].strip()]
@@ -304,6 +327,144 @@ def _split_litany_collects(segs: list[dict]) -> tuple[list[dict], list[dict]]:
     return segs, []
 
 
+# ── Post-process: group alternatives (Or / or rubrics) ───────────────────────
+
+_OR_NAMED       = re.compile(r'^Or\n(.+)', re.DOTALL)
+_OR_UPPER       = re.compile(r'^Or$')
+_OR_LOWER       = re.compile(r'^or$')
+# Canticle intro: starts with curly/straight open-quote, contains “said or sung.”, newline, then first option label.
+# Handles all line-break variants (“may be\nsaid”, “may\nbe said”, “may be said”).
+_CANTICLE_INTRO = re.compile(r'^[“”].+?said or sung\.\n(.+)', re.DOTALL)
+_GENERAL_INTRO  = re.compile(r'one of the following .+ may be said or sung\.\n(.+)', re.IGNORECASE | re.DOTALL)
+_BLOCK_SEP_ONLY = re.compile(r'of the following may be said or sung\.?\s*$', re.IGNORECASE)
+_CONTINUES_ALT  = re.compile(r'(?:Morning|Evening) Prayer continues', re.IGNORECASE)
+
+def _is_structural_rubric(text: str) -> bool:
+    """True for rubrics with structural meaning that must not be merged with neighbours."""
+    return bool(
+        _OR_NAMED.match(text) or _OR_UPPER.match(text) or _OR_LOWER.match(text)
+        or _CANTICLE_INTRO.match(text) or _BLOCK_SEP_ONLY.search(text)
+        or _CONTINUES_ALT.search(text)
+    )
+
+_ROMAN = ['I', 'II', 'III', 'IV', 'V']
+
+
+def _alt_label(text: str) -> str:
+    """Extract short display label from 'Name (citation)' or 'Name' string."""
+    name = re.sub(r'\s*\([^)]*\)\s*$', '', text).strip()
+    name = re.sub(r'^(?:The |A |An )', '', name).strip()
+    return name or text.strip()
+
+
+def _group_alternatives(segs: list[dict]) -> list[dict]:
+    """
+    Replace Or/or separator rubrics with {type: "alternatives", groups: [...]} nodes.
+    Two kinds of alternatives block:
+      - Named: canticle intro rubric → Or\\nName rubrics → named groups
+      - Unnamed: block-sep rubric or bare or/Or rubrics → Roman-numeral groups
+    """
+    result: list[dict] = []
+    pending: list[dict] = []   # flat segments not yet committed to result
+    groups: list | None = None # None = flat mode; list = inside alternatives block
+    unnamed_n = [0]            # mutable counter for Roman numerals
+
+    def _flush_groups():
+        nonlocal groups
+        if groups:
+            result.append({'type': 'alternatives', 'groups': groups})
+        groups = None
+        unnamed_n[0] = 0
+
+    def _flush_pending():
+        result.extend(pending)
+        pending.clear()
+
+    def _new_group(label: str | None = None):
+        if label is None:
+            label = _ROMAN[unnamed_n[0]]
+            unnamed_n[0] += 1
+        groups.append({'label': label, 'segments': []})
+
+    def _push(seg: dict):
+        if groups is not None:
+            if not groups:          # pure block-sep started, no group yet
+                _new_group()
+            groups[-1]['segments'].append(seg)
+        else:
+            pending.append(seg)
+
+    for seg in segs:
+        text = seg.get('text', '')
+        typ  = seg.get('type', '')
+
+        # Discard terminal rubrics ("Morning/Evening Prayer continues…")
+        if typ == 'rubric' and _CONTINUES_ALT.search(text):
+            continue
+
+        # Canticle intro: '"Name A," "Name B," … may be said or sung.\nName A (citation)'
+        if typ == 'rubric' and _CANTICLE_INTRO.match(text):
+            _flush_groups()
+            _flush_pending()
+            groups = []
+            unnamed_n[0] = 0
+            last_line = text.strip().split('\n')[-1]
+            _new_group(_alt_label(last_line))
+            continue
+
+        # General intro with embedded first label:
+        # 'One of the following Affirmations … may be said or sung.\nLabel'
+        if typ == 'rubric' and _GENERAL_INTRO.search(text) and not _BLOCK_SEP_ONLY.search(text):
+            _flush_groups()
+            _flush_pending()
+            groups = []
+            unnamed_n[0] = 0
+            last_line = text.strip().split('\n')[-1]
+            _new_group(_alt_label(last_line))
+            continue
+
+        # Pure block separator (no embedded label):
+        # 'At the end of the Canticle one of the following may be said or sung.'
+        # 'One of the following may be said or sung.'
+        if typ == 'rubric' and _BLOCK_SEP_ONLY.search(text):
+            _flush_groups()
+            _flush_pending()
+            groups = []
+            unnamed_n[0] = 0
+            continue
+
+        # Or\nName (citation) — named alternative
+        if typ == 'rubric' and _OR_NAMED.match(text):
+            m = _OR_NAMED.match(text)
+            label = _alt_label(m.group(1).strip().split('\n')[0])
+            if groups is None:
+                _flush_pending()
+                groups = []
+                unnamed_n[0] = 0
+            _new_group(label)
+            continue
+
+        # Or (uppercase, unnamed) or or (lowercase, unnamed)
+        if typ == 'rubric' and (_OR_UPPER.match(text) or _OR_LOWER.match(text)):
+            if groups is None:
+                # Convert accumulated pending segs to group I
+                _flush_groups()
+                groups = []
+                unnamed_n[0] = 0
+                if pending:
+                    groups.append({'label': _ROMAN[0], 'segments': list(pending)})
+                    pending.clear()
+                    unnamed_n[0] = 1
+            _new_group()
+            continue
+
+        _push(seg)
+
+    _flush_groups()
+    _flush_pending()
+    return result
+
+
 # ── Lords-prayer intro extraction ─────────────────────────────────────────────
 
 _OUR_FATHER = re.compile(r'^our father\b', re.IGNORECASE)
@@ -317,6 +478,87 @@ def _split_lords_prayer(segs: list[dict]) -> tuple[list[dict], list[dict]]:
         if _OUR_FATHER.match(seg["text"].strip()):
             return segs[:i], segs[i:]
     return [], segs
+
+
+# ── Shared-block deduplication ───────────────────────────────────────────────
+
+# Canonical doxology ordering (Source → Trinity → Father). All offices normalize to this.
+_DOXOLOGY_CANONICAL_ORDER = [
+    'Glory to God, Source of all being, eternal Word, and Holy Spirit:',
+    'Glory to the holy and undivided Trinity, one God:',
+    'Glory to the Father, and to the Son, and to the Holy Spirit:',
+]
+
+def _is_doxology(alt_block: dict) -> bool:
+    groups = alt_block.get('groups', [])
+    return (
+        len(groups) == 3
+        and all(
+            g.get('segments') and g['segments'][0]['text'].startswith('Glory')
+            for g in groups
+        )
+    )
+
+def _is_affirmation(alt_block: dict) -> bool:
+    groups = alt_block.get('groups', [])
+    return (
+        len(groups) == 2
+        and groups[0].get('label', '').startswith("Apostles")
+    )
+
+def _canonical_doxology(alt_block: dict) -> dict:
+    """Reorder a 3-group doxology to the canonical Source→Trinity→Father sequence."""
+    groups = alt_block['groups']
+    by_first_line = {g['segments'][0]['text']: g for g in groups if g.get('segments')}
+    ordered = []
+    for leader_text in _DOXOLOGY_CANONICAL_ORDER:
+        grp = by_first_line.get(leader_text)
+        if grp:
+            ordered.append({**grp, 'label': _ROMAN[len(ordered)]})
+    if len(ordered) == 3:
+        return {'type': 'alternatives', 'groups': ordered}
+    return alt_block  # fallback: leave as-is if we can't normalise
+
+
+def _dedup_shared(offices: dict) -> dict:
+    """
+    Scan every alternatives block across all offices.
+    Doxologies and affirmations are identical across offices; extract each to
+    _shared and replace inline occurrences with {type: "shared", key: "..."}.
+    """
+    shared: dict = {}
+
+    def _walk(segs: list) -> list:
+        out = []
+        for seg in segs:
+            if seg.get('type') != 'alternatives':
+                out.append(seg)
+                continue
+            if _is_doxology(seg):
+                if 'doxology' not in shared:
+                    shared['doxology'] = _canonical_doxology(seg)
+                out.append({'type': 'shared', 'key': 'doxology'})
+            elif _is_affirmation(seg):
+                if 'affirmation' not in shared:
+                    shared['affirmation'] = seg
+                out.append({'type': 'shared', 'key': 'affirmation'})
+            else:
+                out.append(seg)
+        return out
+
+    result = {}
+    for office_key, office in offices.items():
+        new_office = {}
+        for section_key, segs in office.items():
+            if isinstance(segs, list):
+                new_office[section_key] = _walk(segs)
+            else:
+                new_office[section_key] = segs
+        result[office_key] = new_office
+
+    if shared:
+        return {'_shared': shared, **result}
+    return result
 
 
 # ── Main extraction ───────────────────────────────────────────────────────────
@@ -395,6 +637,12 @@ def extract_office(pdf, start: int, end: int) -> dict:
             else:
                 sections["seasonal_collects"] = sc
 
+    # Apply alternatives grouping to all sections.
+    _NO_ALT_SECTIONS = {"litany", "lords_prayer_intro"}
+    for key in list(sections.keys()):
+        if key not in _NO_ALT_SECTIONS:
+            sections[key] = _group_alternatives(sections[key])
+
     # Build result.
     result: dict = {"title": title}
     if subtitle:
@@ -427,32 +675,74 @@ def run():
             sections = [k for k in offices[key] if k not in ("title", "subtitle")]
             print(f"  {key}: {sections}")
 
+    offices = _dedup_shared(offices)
+    n_shared = len(offices.get('_shared', {}))
+    print(f"\nShared blocks extracted: {list(offices.get('_shared', {}).keys())}")
+
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(offices, f, ensure_ascii=False, indent=2)
-    print(f"\nWrote {len(offices)} offices → {out_path}")
+    print(f"Wrote {len(offices) - (1 if '_shared' in offices else 0)} offices + {n_shared} shared → {out_path}")
 
     # Spot checks.
-    checks = [
-        ("easter-mp",   "opening_responses", "rubric",   "Or"),
+    shared_blocks = offices.get('_shared', {})
+
+    def _resolve(seg):
+        """Expand {type: shared} sentinels for search purposes."""
+        if seg.get('type') == 'shared':
+            return shared_blocks.get(seg['key'], seg)
+        return seg
+
+    def _find(segs, seg_type, fragment):
+        for s in segs:
+            s = _resolve(s)
+            if s.get("type") == seg_type and fragment in s.get("text", ""):
+                return True
+            for g in s.get("groups", []):
+                if _find(g.get("segments", []), seg_type, fragment):
+                    return True
+        return False
+
+    def _has_alt_group(segs, label_fragment):
+        for s in segs:
+            s = _resolve(s)
+            if s.get("type") == "alternatives":
+                for g in s.get("groups", []):
+                    if label_fragment in g.get("label", ""):
+                        return True
+        return False
+
+    content_checks = [
         ("easter-mp",   "opening_responses", "leader",   "Alleluia! Christ is risen."),
         ("easter-mp",   "opening_responses", "response", "The Lord is risen indeed"),
         ("easter-mp",   "responsory",        "rubric",   "The Responsory is said or sung"),
-        ("easter-mp",   "canticle",          "rubric",   "Song of Zechariah"),
         ("easter-mp",   "seasonal_collects", "leader",   "Living God"),
         ("advent-mp",   "opening_responses", "leader",   "Creator of the stars"),
-        ("lent-mp",     "canticle",          "rubric",   "A Song of"),
         ("ordinary-sunday-mp", "opening_responses", "leader", "proclaim your praise"),
+    ]
+    alt_checks = [
+        ("easter-mp",   "canticle",          "Song of Moses"),
+        ("easter-ep",   "canticle",          "Song of Mary"),
+        ("advent-mp",   "canticle",          "Song of Zechariah"),
+        ("advent-ep",   "canticle",          "Song of Mary"),
+        ("lent-mp",     "canticle",          "Song of Manasseh"),
+        ("advent-mp",   "affirmation",       "Apostles"),
+        ("advent-mp",   "affirmation",       "Hear, O Israel"),
     ]
     print("\nSpot checks:")
     ok = True
-    for key, section, seg_type, fragment in checks:
+    for key, section, seg_type, fragment in content_checks:
         segs = offices.get(key, {}).get(section, [])
-        found = any(
-            s.get("type") == seg_type and fragment in s.get("text", "")
-            for s in segs
-        )
+        found = _find(segs, seg_type, fragment)
         mark = "✓" if found else "✗"
-        print(f"  {key}.{section}[type={seg_type!r}] contains {fragment!r}: {mark}")
+        short = repr(fragment[:30])
+        print(f"  {key}.{section} contains {short}: {mark}")
+        if not found:
+            ok = False
+    for key, section, label_frag in alt_checks:
+        segs = offices.get(key, {}).get(section, [])
+        found = _has_alt_group(segs, label_frag)
+        mark = "✓" if found else "✗"
+        print(f"  {key}.{section} alternatives group {label_frag!r}: {mark}")
         if not found:
             ok = False
     if not ok:

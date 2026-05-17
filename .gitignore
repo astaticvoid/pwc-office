@@ -13,21 +13,14 @@ __pycache__/
 # Source documents — copyrighted, obtain separately
 sources/
 
-# Derived data extracted from copyrighted sources — not for distribution
-data/psalms/
-data/offices.json
-data/collects.json
-data/lectionary/
-data/season_bounds.json
-boneyard/data/
-# Legacy YAML originals (superseded by JSON; kept locally as reference)
-data/psalter.yaml
-data/offices.yaml
-data/collects.yaml
-data/lectionary_2026.yaml
+# All data/ content is copyrighted or derived from copyrighted sources — not for distribution.
+# Exception: KJV translation is public domain and committed.
+data/*
+!data/translations/
+data/translations/*
+!data/translations/kjv/
 
-# NRSVUE bible data — copyrighted, not for distribution; copy from here to XDG install path
-data/translations/nrsvue/
+boneyard/data/
 
 # Local secrets — never commit
 .env
@@ -43,3 +36,6 @@ boneyard/
 
 # Local Netlify folder
 .netlify
+
+# Generated build output — produced by `make build`, never committed
+dist/

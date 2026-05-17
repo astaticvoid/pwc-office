@@ -52,8 +52,8 @@ func Render(day *lectionary.Day, officeType string, ps *lectionary.Psalter, bibl
 	if form != nil && (len(form.OpeningResponses) > 0 || len(form.Invitatory) > 0) {
 		w("")
 		w("## The Gathering of the Community")
-		writeSegments(&b, "Introductory Responses", form.OpeningResponses)
-		writeSegments(&b, "Invitatory Psalm", form.Invitatory)
+		writeSegments(&b, "Introductory Responses", form.OpeningResponses, forms)
+		writeSegments(&b, "Invitatory Psalm", form.Invitatory, forms)
 	}
 
 	// ── The Proclamation of the Word ───────────────────────────────────────
@@ -79,8 +79,8 @@ func Render(day *lectionary.Day, officeType string, ps *lectionary.Psalter, bibl
 	}
 
 	if form != nil {
-		writeSegments(&b, "The Responsory", form.Responsory)
-		writeSegments(&b, "The Canticle", form.Canticle)
+		writeSegments(&b, "The Responsory", form.Responsory, forms)
+		writeSegments(&b, "The Canticle", form.Canticle, forms)
 	}
 
 	// ── The Prayers of the Community ───────────────────────────────────────
@@ -89,13 +89,13 @@ func Render(day *lectionary.Day, officeType string, ps *lectionary.Psalter, bibl
 		w("---")
 		w("")
 		w("## The Prayers of the Community")
-		writeSegments(&b, "Affirmation of Faith", form.Affirmation)
-		writeSegments(&b, "The Litany", form.Litany)
-		writeSegments(&b, "Seasonal Collects", form.SeasonalCollects)
+		writeSegments(&b, "Affirmation of Faith", form.Affirmation, forms)
+		writeSegments(&b, "The Litany", form.Litany, forms)
+		writeSegments(&b, "Seasonal Collects", form.SeasonalCollects, forms)
 		if len(form.LordsPrayerIntro) > 0 {
 			w("")
 			w("### The Lord's Prayer")
-			writeSegmentContent(&b, form.LordsPrayerIntro)
+			writeSegmentContent(&b, form.LordsPrayerIntro, forms)
 		}
 	}
 
@@ -105,7 +105,7 @@ func Render(day *lectionary.Day, officeType string, ps *lectionary.Psalter, bibl
 		w("---")
 		w("")
 		w("## The Sending Forth of the Community")
-		writeSegmentContent(&b, form.Dismissal)
+		writeSegmentContent(&b, form.Dismissal, forms)
 	}
 
 	// ── Scripture attribution (TOS requirement) ────────────────────────────
@@ -119,20 +119,23 @@ func Render(day *lectionary.Day, officeType string, ps *lectionary.Psalter, bibl
 }
 
 // writeSegments appends a sub-section heading and its typed segments.
-func writeSegments(b *strings.Builder, title string, segs []lectionary.Segment) {
+func writeSegments(b *strings.Builder, title string, segs []lectionary.Segment, forms *lectionary.Forms) {
 	if len(segs) == 0 {
 		return
 	}
 	fmt.Fprintf(b, "\n### %s\n\n", title)
-	writeSegmentContent(b, segs)
+	writeSegmentContent(b, segs, forms)
 }
 
 // writeSegmentContent renders segment content without a heading.
-func writeSegmentContent(b *strings.Builder, segs []lectionary.Segment) {
+func writeSegmentContent(b *strings.Builder, segs []lectionary.Segment, forms *lectionary.Forms) {
 	w := func(format string, args ...any) {
 		fmt.Fprintf(b, format+"\n", args...)
 	}
 	for _, seg := range segs {
+		if seg.Type == "shared" && forms != nil {
+			seg = forms.Resolve(seg)
+		}
 		switch seg.Type {
 		case "rubric":
 			for _, line := range strings.Split(seg.Text, "\n") {
@@ -142,6 +145,11 @@ func writeSegmentContent(b *strings.Builder, segs []lectionary.Segment) {
 			}
 		case "response":
 			w("**%s**", seg.Text)
+		case "alternatives":
+			// Render first group (default choice) for CLI output.
+			if len(seg.Groups) > 0 {
+				writeSegmentContent(b, seg.Groups[0].Segments, forms)
+			}
 		default: // leader
 			w("%s", seg.Text)
 		}

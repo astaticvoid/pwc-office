@@ -204,19 +204,35 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function renderSegments(segs) {
+function renderAlternatives(seg, shared) {
+  if (!seg.groups || !seg.groups.length) return '';
+  const stateKey = 'pwc-alt-' + seg.groups.map(g => g.label).join('\x1f');
+  const savedIdx = parseInt(localStorage.getItem(stateKey) || '0');
+  const activeIdx = Math.min(Math.max(0, savedIdx), seg.groups.length - 1);
+  const tabsHtml = seg.groups.map((g, i) =>
+    `<button class="alt-tab${i === activeIdx ? ' alt-tab-active' : ''}" data-idx="${i}" data-key="${esc(stateKey)}">${esc(g.label)}</button>`
+  ).join('');
+  const panelsHtml = seg.groups.map((g, i) =>
+    `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" data-idx="${i}">${renderSegments(g.segments, shared)}</div>`
+  ).join('');
+  return `<div class="alt-block"><div class="alt-tabs">${tabsHtml}</div>${panelsHtml}</div>`;
+}
+
+function renderSegments(segs, shared) {
   if (!segs || !segs.length) return '';
   return segs.map(seg => {
-    const t = esc(seg.text);
+    if (seg.type === 'shared' && shared) seg = shared[seg.key] || seg;
+    if (seg.type === 'alternatives') return renderAlternatives(seg, shared);
+    const t = esc(seg.text || '');
     if (seg.type === 'rubric')   return `<p class="seg-rubric">${t}</p>`;
     if (seg.type === 'response') return `<p class="seg-response">${t}</p>`;
     return `<p class="seg-leader">${t}</p>`;
   }).join('');
 }
 
-function renderSubsection(label, segs) {
+function renderSubsection(label, segs, shared) {
   if (!segs || !segs.length) return '';
-  return `<h3 class="office-subsection-title">${esc(label)}</h3><div class="liturgy">${renderSegments(segs)}</div>`;
+  return `<h3 class="office-subsection-title">${esc(label)}</h3><div class="liturgy">${renderSegments(segs, shared)}</div>`;
 }
 
 // ── Psalm parsing and rendering ───────────────────────────────────────────────
@@ -482,6 +498,7 @@ async function render(dateStr, officeType, translation) {
     return;
   }
   const [offices, collects, day] = result;
+  const shared = offices._shared || {};
 
   // Sync date picker.
   const picker = document.getElementById('nav-date-picker');
@@ -570,9 +587,9 @@ async function render(dateStr, officeType, translation) {
   // ── Gathering ──────────────────────────────────────────────────────────────
   if (form && form.opening_responses && form.opening_responses.length) {
     html += `<h2 class="office-section-title">The Gathering of the Community</h2>`;
-    html += renderSubsection('Introductory Responses', form.opening_responses);
+    html += renderSubsection('Introductory Responses', form.opening_responses, shared);
     if (form.invitatory && form.invitatory.length)
-      html += renderSubsection('Invitatory Psalm', form.invitatory);
+      html += renderSubsection('Invitatory Psalm', form.invitatory, shared);
   }
 
   // ── Proclamation ───────────────────────────────────────────────────────────
@@ -596,26 +613,26 @@ async function render(dateStr, officeType, translation) {
   }
 
   if (form) {
-    html += renderSubsection('The Responsory', form.responsory);
-    html += renderSubsection('The Canticle', form.canticle);
+    html += renderSubsection('The Responsory', form.responsory, shared);
+    html += renderSubsection('The Canticle', form.canticle, shared);
   }
 
   // ── Prayers ────────────────────────────────────────────────────────────────
   if (form && (form.affirmation || form.litany || form.lords_prayer_intro)) {
     html += `<h2 class="office-section-title">The Prayers of the Community</h2>`;
-    html += renderSubsection('Affirmation of Faith', form.affirmation);
-    html += renderSubsection('The Litany', form.litany);
-    html += renderSubsection('Seasonal Collect', filterSeasonalCollects(form.seasonal_collects || [], weekIdx));
+    html += renderSubsection('Affirmation of Faith', form.affirmation, shared);
+    html += renderSubsection('The Litany', form.litany, shared);
+    html += renderSubsection('Seasonal Collect', filterSeasonalCollects(form.seasonal_collects || [], weekIdx), shared);
     if (form.lords_prayer_intro && form.lords_prayer_intro.length) {
       html += `<h3 class="office-subsection-title">The Lord's Prayer</h3>`;
-      html += `<div class="liturgy">${renderSegments(form.lords_prayer_intro)}</div>`;
+      html += `<div class="liturgy">${renderSegments(form.lords_prayer_intro, shared)}</div>`;
     }
   }
 
   // ── Sending ────────────────────────────────────────────────────────────────
   if (form && form.dismissal && form.dismissal.length) {
     html += `<h2 class="office-section-title">The Sending Forth of the Community</h2>`;
-    html += `<div class="liturgy">${renderSegments(form.dismissal)}</div>`;
+    html += `<div class="liturgy">${renderSegments(form.dismissal, shared)}</div>`;
   }
 
   html += `<p class="scripture-attr" id="scripture-attr">Scripture: ${esc(translation.toUpperCase())}</p>`;
@@ -707,6 +724,22 @@ function switchTranslation(newTranslation) {
   fillScripture(root, newTranslation);
 }
 
+// ── Evaluation banner ─────────────────────────────────────────────────────────
+
+function initEvalBanner() {
+  if (sessionStorage.getItem('pwc-banner-dismissed')) return;
+  const banner = document.createElement('div');
+  banner.id = 'eval-banner';
+  banner.className = 'eval-banner';
+  banner.innerHTML = `<span>Private synod evaluation — please do not share or distribute.</span>`
+    + `<button class="eval-banner-dismiss" aria-label="Dismiss">&#215;</button>`;
+  document.getElementById('main').insertAdjacentElement('afterbegin', banner);
+  banner.querySelector('.eval-banner-dismiss').addEventListener('click', () => {
+    sessionStorage.setItem('pwc-banner-dismissed', '1');
+    banner.remove();
+  });
+}
+
 // ── Navigation ────────────────────────────────────────────────────────────────
 
 function handleHashChange() {
@@ -751,8 +784,20 @@ document.addEventListener('DOMContentLoaded', () => {
   sel.addEventListener('change', () => { switchTranslation(sel.value); });
 
   const picker = document.getElementById('nav-date-picker');
+  picker.addEventListener('click', () => { try { picker.showPicker(); } catch (_) {} });
   picker.addEventListener('change', e => {
     if (e.target.value) location.hash = hashFor(e.target.value, state.office);
+  });
+
+  document.getElementById('office-content').addEventListener('click', e => {
+    const tab = e.target.closest('.alt-tab');
+    if (!tab) return;
+    const block = tab.closest('.alt-block');
+    if (!block) return;
+    const idx = parseInt(tab.dataset.idx);
+    block.querySelectorAll('.alt-tab').forEach((t, i) => t.classList.toggle('alt-tab-active', i === idx));
+    block.querySelectorAll('.alt-panel').forEach((p, i) => p.classList.toggle('alt-panel-hidden', i !== idx));
+    localStorage.setItem(tab.dataset.key, String(idx));
   });
 
   document.addEventListener('keydown', e => {
@@ -765,6 +810,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   window.addEventListener('hashchange', handleHashChange);
+
+  initEvalBanner();
 
   // Warm up static fetches.
   fetchOnce('offices',  `${DATA}/offices.json`);
