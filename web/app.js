@@ -276,7 +276,7 @@ async function renderPsalm(citStr) {
   const data = await fetchPsalm(ref.num);
   const verses = parsePsalmText(data.text);
   const filtered = ref.start !== null ? verses.filter(v => v.num >= ref.start && v.num <= ref.end) : verses;
-  const titleHtml = data.title ? `<p class="psalm-title">${esc(data.title)}</p>` : '';
+  const titleHtml = `<p class="psalm-title">Psalm ${data.number}${data.title ? ` — ${data.title}` : ''}</p>`;
   const versesHtml = filtered.map(v => {
     const txt = esc(v.text).replace(/\*/g, '<span class="midpoint">*</span>');
     return `<div class="verse"><span class="verse-num">${v.num}</span><span class="verse-text">${txt}</span></div>`;
@@ -405,12 +405,10 @@ function extractVerses(book, range) {
 
 // ── Office HTML building ──────────────────────────────────────────────────────
 
-function readingsHtml(officeData) {
+function psalmHtml(officeData) {
   const psalms = officeData.psalms || [];
   const psalmSets = officeData.psalm_sets;
-  const lessons = officeData.lessons || [];
   let html = '';
-
   if (psalmSets && psalmSets.length) {
     const label = psalmSets.map(set =>
       set.map(p => { const c = typeof p === 'object' ? p.citation : p; return (typeof p === 'object' && p.optional) ? `[${c}]` : c; }).join(', ')
@@ -425,16 +423,28 @@ function readingsHtml(officeData) {
     html += `<h3 class="psalm-heading">Psalm${psalms.length > 1 ? 's' : ''}: ${esc(label)}</h3>`;
     psalms.forEach(p => { html += psalmPlaceholder(p); });
   }
+  return html;
+}
 
-  lessons.forEach(lesson => {
-    const rawCitation = typeof lesson === 'object' ? lesson.citation : lesson;
-    const optional = typeof lesson === 'object' && lesson.optional;
-    const display = optional ? `(${rawCitation})` : rawCitation;
-    html += `<h3 class="reading-heading">Reading: ${esc(display)}</h3>`;
-    html += `<div class="scripture-placeholder" data-citation="${esc(rawCitation)}"><p class="loading">Loading…</p></div>`;
-    html += `<p class="word-of-lord">The word of the Lord.<br><span class="response">Thanks be to God.</span></p>`;
-  });
+function lessonHtml(lesson) {
+  const rawCitation = typeof lesson === 'object' ? lesson.citation : lesson;
+  const optional = typeof lesson === 'object' && lesson.optional;
+  const display = optional ? `(${rawCitation})` : rawCitation;
+  return `<h3 class="reading-heading">Reading: ${esc(display)}</h3>`
+    + `<div class="scripture-placeholder" data-citation="${esc(rawCitation)}"><p class="loading">Loading…</p></div>`
+    + `<p class="word-of-lord">The word of the Lord.<br><span class="response">Thanks be to God.</span></p>`;
+}
 
+// Renders psalms + lessons with responsory/canticle interleaved between lesson 1 and 2.
+function proclamationHtml(officeData, form, shared) {
+  const lessons = (officeData.lessons || []);
+  let html = psalmHtml(officeData);
+  if (lessons.length > 0) html += lessonHtml(lessons[0]);
+  if (form) {
+    html += renderSubsection('The Responsory', form.responsory, shared);
+    html += renderSubsection('The Canticle', form.canticle, shared);
+  }
+  for (const lesson of lessons.slice(1)) html += lessonHtml(lesson);
   return html;
 }
 
@@ -567,11 +577,11 @@ async function render(dateStr, officeType, translation) {
     day.notes.forEach(n => {
       const text = typeof n === 'object' ? n.text : n;
       if (text.length > 200) {
-        const cut = text.lastIndexOf(' ', 160);
-        const preview = text.slice(0, cut > 60 ? cut : 160);
+        const splitAt = text.lastIndexOf(' ', 160);
+        const cut = splitAt > 60 ? splitAt : 160;
         const el = document.createElement('details');
         el.className = 'day-note-details';
-        el.innerHTML = `<summary class="day-note">${esc(preview)}…</summary><p class="day-note">${esc(text)}</p>`;
+        el.innerHTML = `<summary class="day-note">${esc(text.slice(0, cut))}…</summary><p class="day-note">${esc(text.slice(cut).trimStart())}</p>`;
         headerEl.appendChild(el);
       } else {
         const p = document.createElement('p');
@@ -595,33 +605,27 @@ async function render(dateStr, officeType, translation) {
   // ── Proclamation ───────────────────────────────────────────────────────────
   html += `<h2 class="office-section-title">The Proclamation of the Word</h2>`;
 
-  // Primary readings (always visible by default)
+  // Primary readings — psalms, lesson 1, responsory, canticle, lesson 2+ (if any).
   html += `<div class="obs-readings" data-obs="primary">`;
   if (officeData.label) html += `<h3 class="office-subsection-title">${esc(officeData.label)}</h3>`;
-  html += readingsHtml(officeData);
-  html += collectHtml(collects, officeData.collect, 'Collect of the Day');
+  html += proclamationHtml(officeData, form, shared);
   html += `</div>`;
 
-  // Alternate readings (hidden; toggled by observance buttons in header)
+  // Alternate readings (hidden; toggled by observance buttons in header).
   if (officeData.alternate) {
     const alt = officeData.alternate;
     html += `<div class="obs-readings obs-hidden" data-obs="alternate">`;
     if (alt.label) html += `<h3 class="office-subsection-title">${esc(alt.label)}</h3>`;
-    html += readingsHtml(alt);
-    html += collectHtml(collects, alt.collect, 'Collect of the Day');
+    html += proclamationHtml(alt, form, shared);
     html += `</div>`;
   }
 
-  if (form) {
-    html += renderSubsection('The Responsory', form.responsory, shared);
-    html += renderSubsection('The Canticle', form.canticle, shared);
-  }
-
   // ── Prayers ────────────────────────────────────────────────────────────────
-  if (form && (form.affirmation || form.litany || form.lords_prayer_intro)) {
+  if (form && (form.affirmation || form.litany || form.lords_prayer_intro || (form.seasonal_collects && form.seasonal_collects.length) || officeData.collect)) {
     html += `<h2 class="office-section-title">The Prayers of the Community</h2>`;
     html += renderSubsection('Affirmation of Faith', form.affirmation, shared);
     html += renderSubsection('The Litany', form.litany, shared);
+    html += collectHtml(collects, officeData.collect, 'Collect of the Day');
     html += renderSubsection('Seasonal Collect', filterSeasonalCollects(form.seasonal_collects || [], weekIdx), shared);
     if (form.lords_prayer_intro && form.lords_prayer_intro.length) {
       html += `<h3 class="office-subsection-title">The Lord's Prayer</h3>`;

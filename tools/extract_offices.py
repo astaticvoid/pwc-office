@@ -332,6 +332,7 @@ def _split_litany_collects(segs: list[dict]) -> tuple[list[dict], list[dict]]:
 _OR_NAMED       = re.compile(r'^Or\n(.+)', re.DOTALL)
 _OR_UPPER       = re.compile(r'^Or$')
 _OR_LOWER       = re.compile(r'^or$')
+_BLESSED_BE     = re.compile(r'^Blessed be (?:God|the holy)\b', re.IGNORECASE)
 # Canticle intro: starts with curly/straight open-quote, contains “said or sung.”, newline, then first option label.
 # Handles all line-break variants (“may be\nsaid”, “may\nbe said”, “may be said”).
 _CANTICLE_INTRO = re.compile(r'^[“”].+?said or sung\.\n(.+)', re.DOTALL)
@@ -465,6 +466,79 @@ def _group_alternatives(segs: list[dict]) -> list[dict]:
     return result
 
 
+# ── Post-process: fold Berakah blessing conclusions into nested alternatives ───
+
+def _fold_berakah_blessings(segs: list[dict]) -> list[dict]:
+    """
+    Seasonal opening_responses have an alternatives block where the last N groups
+    are short "Blessed be…" doxological conclusions that belong NESTED inside
+    the preceding Berakah prayer group, not as separate top-level alternatives.
+
+    Before: alternatives {I: Form A, II: Berakah…"Blessed be God, F,S,HS.", III: "Blessed be God: Source…", IV: "Blessed be the holy Trinity…"}
+    After:  alternatives {I: Form A, II: Berakah body + nested {I,II,III: three blessing conclusions}}
+    """
+    result: list[dict] = []
+    for seg in segs:
+        if seg.get('type') != 'alternatives':
+            result.append(seg)
+            continue
+        groups = seg['groups']
+        if len(groups) < 3:
+            result.append(seg)
+            continue
+
+        # Check whether groups[2:] are all short "Blessed be…" leader+response pairs.
+        tail = groups[2:]
+        if not all(
+            len(g['segments']) == 2
+            and g['segments'][0]['type'] == 'leader'
+            and _BLESSED_BE.match(g['segments'][0]['text'])
+            and g['segments'][1]['type'] == 'response'
+            for g in tail
+        ):
+            result.append(seg)
+            continue
+
+        # Confirm group[1] ends with a response (the "Blessed be God for ever." close).
+        g1_segs = list(groups[1]['segments'])
+        if not g1_segs or g1_segs[-1]['type'] != 'response':
+            result.append(seg)
+            continue
+
+        # Find the last leader in group[1]; its final line should be the first blessing option.
+        leaders = [(i, s) for i, s in enumerate(g1_segs) if s['type'] == 'leader']
+        if not leaders:
+            result.append(seg)
+            continue
+        last_i, last_leader = leaders[-1]
+        lines = last_leader['text'].rsplit('\n', 1)
+        if len(lines) < 2 or not _BLESSED_BE.match(lines[1].strip()):
+            result.append(seg)
+            continue
+
+        berakah_body   = lines[0]
+        blessing_one   = lines[1].strip()
+        blessing_resp  = g1_segs[-1]['text']   # "Blessed be God for ever."
+
+        # Build trimmed group[1] segments: Berakah body only (no trailing blessing line/response).
+        trimmed = list(g1_segs[:-1])           # drop final response
+        trimmed[last_i] = {**last_leader, 'text': berakah_body}
+
+        # Build the nested 3-way alternatives for the blessing conclusion.
+        nested_groups = [{'label': _ROMAN[0], 'segments': [
+            {'type': 'leader',   'text': blessing_one},
+            {'type': 'response', 'text': blessing_resp},
+        ]}]
+        for j, tg in enumerate(tail, 1):
+            nested_groups.append({'label': _ROMAN[j], 'segments': list(tg['segments'])})
+
+        new_g1 = {'label': groups[1]['label'],
+                  'segments': trimmed + [{'type': 'alternatives', 'groups': nested_groups}]}
+        result.append({'type': 'alternatives', 'groups': [groups[0], new_g1]})
+
+    return result
+
+
 # ── Lords-prayer intro extraction ─────────────────────────────────────────────
 
 _OUR_FATHER = re.compile(r'^our father\b', re.IGNORECASE)
@@ -488,6 +562,19 @@ _DOXOLOGY_CANONICAL_ORDER = [
     'Glory to the holy and undivided Trinity, one God:',
     'Glory to the Father, and to the Son, and to the Holy Spirit:',
 ]
+
+def _is_berakah_blessings(alt_block: dict) -> bool:
+    """Three-option block of short 'Blessed be…' doxological conclusions."""
+    groups = alt_block.get('groups', [])
+    return (
+        len(groups) == 3
+        and all(
+            len(g.get('segments', [])) == 2
+            and g['segments'][0]['type'] == 'leader'
+            and g['segments'][0]['text'].startswith('Blessed be')
+            for g in groups
+        )
+    )
 
 def _is_doxology(alt_block: dict) -> bool:
     groups = alt_block.get('groups', [])
@@ -534,6 +621,15 @@ def _dedup_shared(offices: dict) -> dict:
             if seg.get('type') != 'alternatives':
                 out.append(seg)
                 continue
+            # Recursively walk into each group's segments first so nested
+            # alternatives (e.g. berakah_blessings inside opening_responses group II)
+            # are deduped before we inspect the parent block.
+            new_groups = [
+                {**g, 'segments': _walk(g.get('segments', []))}
+                for g in seg.get('groups', [])
+            ]
+            seg = {**seg, 'groups': new_groups}
+
             if _is_doxology(seg):
                 if 'doxology' not in shared:
                     shared['doxology'] = _canonical_doxology(seg)
@@ -542,6 +638,10 @@ def _dedup_shared(offices: dict) -> dict:
                 if 'affirmation' not in shared:
                     shared['affirmation'] = seg
                 out.append({'type': 'shared', 'key': 'affirmation'})
+            elif _is_berakah_blessings(seg):
+                if 'berakah_blessings' not in shared:
+                    shared['berakah_blessings'] = seg
+                out.append({'type': 'shared', 'key': 'berakah_blessings'})
             else:
                 out.append(seg)
         return out
@@ -642,6 +742,13 @@ def extract_office(pdf, start: int, end: int) -> dict:
     for key in list(sections.keys()):
         if key not in _NO_ALT_SECTIONS:
             sections[key] = _group_alternatives(sections[key])
+
+    # Fold Berakah prayer blessing conclusions into nested alternatives inside
+    # group II of seasonal opening_responses (not applicable to ordinary-time).
+    if "opening_responses" in sections:
+        sections["opening_responses"] = _fold_berakah_blessings(
+            sections["opening_responses"]
+        )
 
     # Build result.
     result: dict = {"title": title}

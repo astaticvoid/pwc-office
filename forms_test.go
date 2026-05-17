@@ -204,14 +204,15 @@ func TestFormsSegmentTypes(t *testing.T) {
 	}
 
 	// Every top-level segment must have a known type; leaf segments must have non-empty text.
-	valid := map[string]bool{"leader": true, "response": true, "rubric": true, "alternatives": true}
+	valid := map[string]bool{"leader": true, "response": true, "rubric": true, "alternatives": true, "shared": true}
 	var checkSegs func(segs []lectionary.Segment)
 	checkSegs = func(segs []lectionary.Segment) {
 		for _, seg := range segs {
 			if !valid[seg.Type] {
 				t.Errorf("unknown segment type %q", seg.Type)
 			}
-			if seg.Type != "alternatives" && seg.Text == "" {
+			noText := seg.Type == "alternatives" || seg.Type == "shared"
+			if !noText && seg.Text == "" {
 				t.Errorf("empty text in segment type=%q", seg.Type)
 			}
 			for _, g := range seg.Groups {
