@@ -40,3 +40,6 @@ PLAN.md
 
 # Dead code kept for local reference
 boneyard/
+
+# Local Netlify folder
+.netlify

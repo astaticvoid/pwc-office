@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: test test-smoke test-seasonal test-full build check-dist serve serve-dist
+.PHONY: test test-smoke test-seasonal test-full build check-dist serve serve-dist deploy
 
 # Unit tests — no API key needed, always fast.
 test:
@@ -37,3 +37,7 @@ serve:
 # Build and serve dist/ exactly as it will appear when deployed (http://localhost:8081/).
 serve-dist: check-dist
 	python3 -m http.server 8081 --directory dist
+
+# Build and deploy dist/ to Netlify.
+deploy: check-dist
+	netlify deploy --dir=dist --prod
