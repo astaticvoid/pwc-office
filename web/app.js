@@ -204,10 +204,21 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function renderAlternatives(seg, shared) {
+function renderAlternatives(seg, shared, contextKey) {
   if (!seg.groups || !seg.groups.length) return '';
-  const stateKey = 'pwc-alt-' + seg.groups.map(g => g.label).join('\x1f');
-  const savedIdx = parseInt(localStorage.getItem(stateKey) || '0');
+  // Use the shared block's semantic name when available; otherwise fingerprint
+  // with each group's label + first word of first segment so that two different
+  // alternatives blocks that happen to share the same Roman-numeral labels
+  // (e.g. doxology vs berakah_blessings vs seasonal opening_responses)
+  // each get their own localStorage slot.
+  const stateKey = contextKey
+    ? 'pwc-alt-' + contextKey
+    : 'pwc-alt-' + seg.groups.map(g => {
+        const first = g.segments && g.segments[0];
+        const word  = first ? first.text.trim().split(/\s+/)[0] : '';
+        return g.label + (word ? ':' + word : '');
+      }).join('\x1f');
+  const savedIdx  = parseInt(localStorage.getItem(stateKey) || '0');
   const activeIdx = Math.min(Math.max(0, savedIdx), seg.groups.length - 1);
   const tabsHtml = seg.groups.map((g, i) =>
     `<button class="alt-tab${i === activeIdx ? ' alt-tab-active' : ''}" data-idx="${i}" data-key="${esc(stateKey)}">${esc(g.label)}</button>`
@@ -221,8 +232,9 @@ function renderAlternatives(seg, shared) {
 function renderSegments(segs, shared) {
   if (!segs || !segs.length) return '';
   return segs.map(seg => {
-    if (seg.type === 'shared' && shared) seg = shared[seg.key] || seg;
-    if (seg.type === 'alternatives') return renderAlternatives(seg, shared);
+    let contextKey;
+    if (seg.type === 'shared' && shared) { contextKey = seg.key; seg = shared[seg.key] || seg; }
+    if (seg.type === 'alternatives') return renderAlternatives(seg, shared, contextKey);
     const t = esc(seg.text || '');
     if (seg.type === 'rubric')   return `<p class="seg-rubric">${t}</p>`;
     if (seg.type === 'response') return `<p class="seg-response">${t}</p>`;
