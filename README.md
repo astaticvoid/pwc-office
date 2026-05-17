@@ -88,12 +88,35 @@ and requires no setup. Use `--translation kjv`.
 **API.Bible** is also supported. Set `BIBLE_API_KEY` in the environment or a
 `.env` file and use `--translation api`.
 
+## Web interface
+
+A pure client-side SPA is included in `web/`. It reads the same `data/` files
+as the CLI and requires no build step or server.
+
+```sh
+# Serve source tree for local development (http://localhost:8080/web/)
+make serve
+
+# Build deployable snapshot in dist/
+make build
+
+# Verify dist/ completeness before deploying
+make check-dist
+
+# Build and serve dist/ exactly as deployed (http://localhost:8081/)
+make serve-dist
+```
+
+The web app includes: liturgical forms, psalm and scripture text, observance
+toggle for days with alternate readings, seasonal colour theming, translation
+switch (NRSVUE / KJV), and dark mode.
+
 ## Status
 
-Working prototype. All 730 day/office combinations in the 2026 liturgical year
-render correctly and pass structural validation. Prayers, psalms, and readings
-are reproduced word-for-word from the BAS and PWC — no liturgical content was
-generated or altered by AI. Developed with Claude Code (Anthropic).
+All 730 day/office combinations in the 2026 liturgical year render correctly
+and pass structural validation (`make test-full`). Prayers, psalms, and
+readings are reproduced word-for-word from the BAS and PWC — no liturgical
+content was generated or altered by AI. Developed with Claude Code (Anthropic).
 
 Open-sourcing is pending a licence discussion with the Anglican Church of
 Canada.

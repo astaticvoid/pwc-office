@@ -19,6 +19,8 @@
 
   /* Liturgical accent — overridden per season on <html> */
   --color-accent: #4b7188;
+  /* Day colour — overridden per day by JS */
+  --color-day: #4b7188;
 
   --content-max: 42rem;
 }
@@ -30,7 +32,7 @@
 [data-season="Lent"]        { --color-accent: #4a2577; }
 [data-season="Passiontide"] { --color-accent: #62081f; }
 [data-season="Easter"]      { --color-accent: #b8860b; }
-[data-season="Pentecost"]   { --color-accent: #cc2200; }
+[data-season="Pentecost"]   { --color-accent: #8c2525; }
 [data-season="AllSaints"]   { --color-accent: #00402f; }
 
 /* ── Dark mode — manual toggle only; default is always light ───────────────── */
@@ -67,6 +69,7 @@ body {
   flex-direction: column;
   gap: 0.35rem;
   transition: padding 0.2s ease;
+  border-bottom: 4px solid var(--color-accent);
 }
 
 /* Compact state: hide bottom row when scrolling down */
@@ -90,14 +93,15 @@ body {
 }
 
 .nav-bottom {
-  justify-content: space-between;
-  flex-wrap: wrap;
   gap: 0.4rem;
   max-height: 4rem;
   overflow: hidden;
   opacity: 1;
   transition: max-height 0.2s ease, opacity 0.15s ease;
 }
+
+#nav-today { flex: 1; }
+.nav-controls { flex: 1; display: flex; gap: 0.3rem; justify-content: flex-end; align-items: center; }
 
 #nav a {
   color: var(--color-nav-text);
@@ -126,15 +130,16 @@ body {
   text-underline-offset: 3px;
 }
 
-/* Zero-size invisible input anchored in the wrapper; showPicker() targets it */
+/* Transparent overlay covering the date wrapper — tap/click opens native picker on all platforms */
 #nav-date-picker {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 1px;
-  height: 1px;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   opacity: 0;
-  pointer-events: none;
+  cursor: pointer;
+  border: none;
+  padding: 0;
   color-scheme: dark;
 }
 
@@ -144,7 +149,9 @@ body {
   flex-shrink: 0;
 }
 
-#nav-office { display: flex; gap: 0.3rem; }
+.nav-disabled { opacity: 0.2 !important; pointer-events: none; cursor: default; }
+
+#nav-office { display: flex; gap: 0.3rem; justify-content: center; }
 
 #nav-translation,
 #theme-toggle {
@@ -169,7 +176,6 @@ body {
   max-width: var(--content-max);
   margin: 0 auto;
   padding: 1.5rem 1.25rem 4rem;
-  border-top: 3px solid var(--color-accent);
 }
 
 /* ── Day header ────────────────────────────────────────────────────────────── */
@@ -177,7 +183,6 @@ body {
 #day-header {
   margin-bottom: 1.75rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid var(--color-border);
 }
 
 #day-office-name {
@@ -226,6 +231,7 @@ body {
 }
 
 .meta-item { display: flex; align-items: center; gap: 0.35rem; }
+.meta-sep  { color: var(--color-border); }
 
 /* ── Office section headings ───────────────────────────────────────────────── */
 
@@ -239,7 +245,7 @@ body {
   text-align: center;
   margin: 2rem 0 1.25rem;
   padding-top: 1.5rem;
-  border-top: 2px solid var(--color-accent);
+  border-top: 2px solid var(--color-day);
 }
 
 .office-subsection-title {
@@ -420,6 +426,12 @@ body {
   color: var(--color-muted);
   margin: 0.4rem 0;
 }
+
+.day-note-details { margin: 0.4rem 0; }
+.day-note-details summary { cursor: pointer; list-style: none; }
+.day-note-details summary::-webkit-details-marker { display: none; }
+.day-note-details summary::after { content: ' ▸'; font-size: 0.75em; opacity: 0.5; font-style: normal; }
+.day-note-details[open] summary::after { content: ' ▴'; }
 
 /* ── Print ─────────────────────────────────────────────────────────────────── */
 

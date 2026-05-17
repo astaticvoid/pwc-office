@@ -39,7 +39,7 @@ function updateThemeButton() {
   const btn = document.getElementById('theme-toggle');
   if (!btn) return;
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  btn.textContent = isDark ? '☽' : '☀';
+  btn.textContent = isDark ? '🌙' : '☀';
   btn.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
 }
 
@@ -169,8 +169,8 @@ function formKey(season, officeType, weekday, rank) {
 // ── Liturgical colour → CSS hex ───────────────────────────────────────────────
 
 const COLOUR_HEX = {
-  'White':  '#f0ede4', 'Red':    '#cc2200', 'Green':  '#00402f',
-  'Purple': '#5c3a8a', 'Rose':   '#c06090', 'Black':  '#1a1a18', 'Gold': '#b8860b',
+  'White':  '#c8b87a', 'Red':    '#8c2525', 'Green':  '#2d5a35',
+  'Purple': '#5c3a8a', 'Rose':   '#b07a8a', 'Black':  '#2c2820', 'Gold': '#b8860b',
 };
 
 // ── Routing ───────────────────────────────────────────────────────────────────
@@ -194,6 +194,11 @@ function offsetDate(dateStr, days) {
 }
 
 // ── HTML helpers ──────────────────────────────────────────────────────────────
+
+function formatRank(rank) {
+  if (!rank) return '';
+  return rank.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
 
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -449,26 +454,34 @@ async function render(dateStr, officeType, translation) {
   const contentEl = document.getElementById('office-content');
   contentEl.innerHTML = '<p class="loading">Loading…</p>';
 
+  // Fetch bounds first so we can gate the day fetch.
+  let bounds;
+  try {
+    bounds = await fetchOnce('bounds', `${DATA}/season_bounds.json`);
+  } catch (err) {
+    contentEl.innerHTML = `<p class="error-msg">Failed to load: ${esc(String(err))}</p>`;
+    return;
+  }
+
+  // Bounds enforcement before attempting to fetch the day file.
+  const boundsMax = offsetDate(bounds.christmas_ii, 6);
+  if (dateStr < bounds.advent_i || dateStr > boundsMax) {
+    location.hash = hashFor(todayStr(), defaultOffice());
+    return;
+  }
+
   let result;
   try {
     result = await Promise.all([
       fetchOnce('offices',  `${DATA}/offices.json`),
       fetchOnce('collects', `${DATA}/collects.json`),
-      fetchOnce('bounds',   `${DATA}/season_bounds.json`),
       fetchDay(dateStr),
     ]);
   } catch (err) {
     contentEl.innerHTML = `<p class="error-msg">Failed to load: ${esc(String(err))}</p>`;
     return;
   }
-  const [offices, collects, bounds, day] = result;
-
-  // Bounds enforcement: redirect if date is outside the lectionary range.
-  const boundsMax = offsetDate(bounds.christmas_ii, 6);
-  if (dateStr < bounds.advent_i || dateStr > boundsMax) {
-    location.hash = hashFor(todayStr(), defaultOffice());
-    return;
-  }
+  const [offices, collects, day] = result;
 
   // Sync date picker.
   const picker = document.getElementById('nav-date-picker');
@@ -487,8 +500,14 @@ async function render(dateStr, officeType, translation) {
 
   // Nav
   document.getElementById('nav-date').textContent = fmtNavDate(dateStr);
-  document.getElementById('nav-prev').href  = hashFor(offsetDate(dateStr, -1), officeType);
-  document.getElementById('nav-next').href  = hashFor(offsetDate(dateStr, +1), officeType);
+  const prevEl = document.getElementById('nav-prev');
+  const nextEl = document.getElementById('nav-next');
+  const prevDate = offsetDate(dateStr, -1);
+  const nextDate = offsetDate(dateStr, +1);
+  if (prevDate < bounds.advent_i) { prevEl.removeAttribute('href'); prevEl.classList.add('nav-disabled'); }
+  else { prevEl.href = hashFor(prevDate, officeType); prevEl.classList.remove('nav-disabled'); }
+  if (nextDate > boundsMax) { nextEl.removeAttribute('href'); nextEl.classList.add('nav-disabled'); }
+  else { nextEl.href = hashFor(nextDate, officeType); nextEl.classList.remove('nav-disabled'); }
   const todayEl = document.getElementById('nav-today');
   todayEl.href = hashFor(todayStr(), officeType);
   todayEl.style.visibility = dateStr === todayStr() ? 'hidden' : 'visible';
@@ -518,20 +537,31 @@ async function render(dateStr, officeType, translation) {
     obsRow.classList.add('nav-row-hidden');
   }
 
-  const hexColour = COLOUR_HEX[day.colour] || '#aaa';
+  const hexColour = COLOUR_HEX[day.colour] || '#b5a882';
+  document.documentElement.style.setProperty('--color-day', hexColour);
   document.getElementById('day-meta').innerHTML = `
-    <span class="meta-item"><span class="colour-chip" style="background:${esc(hexColour)}"></span>${esc(day.colour)}</span>
-    <span class="meta-item">Season: ${esc(season)}</span>
-    <span class="meta-item">${esc(day.rank)}</span>`;
+    <span class="meta-item">${esc(season)}</span>
+    <span class="meta-sep">·</span>
+    <span class="meta-item">${esc(formatRank(day.rank))}</span>`;
 
-  document.querySelectorAll('.day-note').forEach(el => el.remove());
+  document.querySelectorAll('.day-note, .day-note-details').forEach(el => el.remove());
   if (day.notes && day.notes.length) {
     const headerEl = document.getElementById('day-header');
     day.notes.forEach(n => {
-      const p = document.createElement('p');
-      p.className = 'day-note';
-      p.textContent = typeof n === 'object' ? n.text : n;
-      headerEl.appendChild(p);
+      const text = typeof n === 'object' ? n.text : n;
+      if (text.length > 200) {
+        const cut = text.lastIndexOf(' ', 160);
+        const preview = text.slice(0, cut > 60 ? cut : 160);
+        const el = document.createElement('details');
+        el.className = 'day-note-details';
+        el.innerHTML = `<summary class="day-note">${esc(preview)}…</summary><p class="day-note">${esc(text)}</p>`;
+        headerEl.appendChild(el);
+      } else {
+        const p = document.createElement('p');
+        p.className = 'day-note';
+        p.textContent = text;
+        headerEl.appendChild(p);
+      }
     });
   }
 
@@ -600,6 +630,18 @@ async function render(dateStr, officeType, translation) {
         b.classList.toggle('nav-active', b.dataset.obs === target));
       contentEl.querySelectorAll('.obs-readings').forEach(r =>
         r.classList.toggle('obs-hidden', r.dataset.obs !== target));
+      // Update heading and browser title to reflect selected observance.
+      const alt = officeData.alternate;
+      const officeName = document.getElementById('day-office-name').textContent;
+      const titleEl = document.getElementById('day-title');
+      if (target === 'alternate' && alt) {
+        const altName = alt.label || alt.name || day.name;
+        titleEl.textContent = altName;
+        document.title = `${officeName} — ${altName}`;
+      } else {
+        titleEl.textContent = day.name;
+        document.title = `${officeName} — ${day.name}`;
+      }
     });
   });
 
@@ -711,9 +753,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const picker = document.getElementById('nav-date-picker');
   picker.addEventListener('change', e => {
     if (e.target.value) location.hash = hashFor(e.target.value, state.office);
-  });
-  document.getElementById('nav-date-wrapper').addEventListener('click', () => {
-    try { picker.showPicker(); } catch (_) {}
   });
 
   document.addEventListener('keydown', e => {
