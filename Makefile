@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: test test-smoke test-seasonal test-full
+.PHONY: test test-smoke test-seasonal test-full build check-dist
 
 # Unit tests — no API key needed, always fast.
 test:
@@ -18,3 +18,14 @@ test-seasonal:
 # Full — structural check of every day in the lectionary year. No API key needed.
 test-full:
 	go test -tags e2e_full -timeout 5m ./e2e/...
+
+# Assemble dist/ for static deployment (Netlify, S3, etc.).
+# Copies web/ source + dereferences the data/ symlink into one deployable folder.
+build:
+	rm -rf dist
+	cp -rL web/. dist/
+	@echo "dist/ ready ($$(find dist -type f | wc -l | tr -d ' ') files)"
+
+# Verify dist/ has everything the app needs before deploying.
+check-dist: build
+	@python3 tools/check_dist.py
