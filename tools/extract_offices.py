@@ -199,6 +199,13 @@ _SUB_HDR_MAP: list[tuple[re.Pattern, str | None]] = [
     (re.compile(r'^the Psalm$',                         re.IGNORECASE), None),
 ]
 
+# Heading lines that are actually repeated congregational refrains (antiphon pattern).
+# Some PDF occurrences are rendered at heading font size/weight; reclassify as response.
+_RESPONSE_HDRS: list[re.Pattern] = [
+    re.compile(r'^Let heaven and earth shout their praise', re.IGNORECASE),
+    re.compile(r'^God of all the faithful, we thank you',  re.IGNORECASE),
+]
+
 def _heading_to_key(text: str) -> str | None | bool:
     """
     Return the YAML key for a heading line, None if discarded, or False if
@@ -768,10 +775,15 @@ def extract_office(pdf, start: int, end: int, office_key: str = "") -> dict:
             key = _heading_to_key(text)
             raw_disp = repr(text[:60])
             if key is False:
-                # Unknown heading — treat as content in current section.
-                _dbg(f"  UNKNOWN-HDR → content in {current_key!r}: {raw_disp}", office=office_key)
+                # Check if this is a known antiphon refrain rendered in heading style.
+                content_type = "rubric"
+                for pat in _RESPONSE_HDRS:
+                    if pat.match(text):
+                        content_type = "response"
+                        break
+                _dbg(f"  UNKNOWN-HDR → content in {current_key!r} as {content_type}: {raw_disp}", office=office_key)
                 if current_key is not None:
-                    current_segs.append({"type": "rubric", "text": text})
+                    current_segs.append({"type": content_type, "text": text})
                 continue
             _dbg(f"  HEADING {raw_disp} → section {key!r}", office=office_key)
             _flush()
