@@ -21,10 +21,18 @@ test-full:
 
 # Assemble dist/ for static deployment (Netlify, S3, etc.).
 # Copies web/ source + dereferences the data/ symlink into one deployable folder.
+# Stamps dist/sw.js with a content hash of the precached shell files so the
+# service worker cache is automatically invalidated on every deploy.
 build:
 	rm -rf dist
 	cp -rL web/. dist/
-	@echo "dist/ ready ($$(find dist -type f | wc -l | tr -d ' ') files)"
+	@HASH=$$(python3 -c "import hashlib,sys; h=hashlib.sha256(); \
+	  [h.update(open(f,'rb').read()) for f in sys.argv[1:]]; \
+	  print(h.hexdigest()[:8])" \
+	  dist/index.html dist/app.js dist/office.css dist/manifest.json \
+	  dist/data/offices.json dist/data/collects.json dist/data/season_bounds.json); \
+	sed -i '' "s/pwc-v1/pwc-$$HASH/" dist/sw.js; \
+	echo "dist/ ready (cache: pwc-$$HASH, $$(find dist -type f | wc -l | tr -d ' ') files)"
 
 # Verify dist/ has everything the app needs before deploying.
 check-dist: build

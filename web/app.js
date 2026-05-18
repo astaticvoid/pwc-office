@@ -49,7 +49,8 @@ const _cache = {
   offices:  null, // Promise<object>
   collects: null, // Promise<object>
   bounds:   null, // Promise<object>
-  psalms:   {},   // num(str) → Promise<object>
+  psalter:  null, // Promise<object>  — full psalter keyed by psalm number string
+  months:   {},   // 'YYYY-MM' → Promise<object>  — monthly lectionary dicts
   books:    {},   // 'kjv/Numbers' → Promise<object>
 };
 
@@ -59,9 +60,12 @@ async function fetchOnce(key, url) {
 }
 
 function fetchPsalm(num) {
-  const k = String(num);
-  if (!_cache.psalms[k]) _cache.psalms[k] = fetch(`${DATA}/psalms/${k}.json`).then(r => r.json());
-  return _cache.psalms[k];
+  return fetchOnce('psalter', `${DATA}/psalter.json`)
+    .then(psalter => {
+      const ps = psalter[String(num)];
+      if (!ps) throw new Error(`Psalm ${num} not found`);
+      return ps;
+    });
 }
 
 function fetchBook(translation, filename) {
@@ -72,9 +76,14 @@ function fetchBook(translation, filename) {
 }
 
 function fetchDay(dateStr) {
-  return fetch(`${DATA}/lectionary/${dateStr}.json`).then(r => {
-    if (!r.ok) throw new Error(`${dateStr}: ${r.status}`);
-    return r.json();
+  const monthKey = dateStr.slice(0, 7); // 'YYYY-MM'
+  if (!_cache.months[monthKey])
+    _cache.months[monthKey] = fetch(`${DATA}/lectionary/${monthKey}.json`)
+      .then(r => { if (!r.ok) throw new Error(`${monthKey}: ${r.status}`); return r.json(); });
+  return _cache.months[monthKey].then(month => {
+    const day = month[dateStr];
+    if (!day) throw new Error(`${dateStr}: not found in ${monthKey}.json`);
+    return day;
   });
 }
 
@@ -898,6 +907,31 @@ async function render(dateStr, officeType, translation) {
 
   fillPsalms(contentEl);
   fillScripture(contentEl, translation);
+  prefetchBackground(dateStr);
+}
+
+// ── Background prefetch ───────────────────────────────────────────────────────
+// Psalter is pre-cached at SW install. Here we warm the next 3 monthly
+// lectionary files so a month of navigation works offline without any prior visits.
+// Scripture books cache lazily on first read — no proactive Bible download.
+
+let _prefetchDone = false;
+
+function prefetchBackground(dateStr) {
+  if (_prefetchDone) return;
+  _prefetchDone = true;
+
+  const months = new Set();
+  for (let i = 1; i <= 90; i++) {
+    months.add(offsetDate(dateStr, i).slice(0, 7));
+  }
+  const queue = [...months].slice(0, 3).map(m => `${DATA}/lectionary/${m}.json`);
+
+  const schedule = window.requestIdleCallback
+    ? cb => requestIdleCallback(cb, { timeout: 2000 })
+    : cb => setTimeout(cb, 200);
+
+  schedule(() => queue.forEach(url => fetch(url).catch(() => {})));
 }
 
 // ── Async fillers ─────────────────────────────────────────────────────────────
@@ -1083,6 +1117,7 @@ document.addEventListener('DOMContentLoaded', () => {
   fetchOnce('offices',  `${DATA}/offices.json`);
   fetchOnce('collects', `${DATA}/collects.json`);
   fetchOnce('bounds',   `${DATA}/season_bounds.json`);
+  fetchOnce('psalter',  `${DATA}/psalter.json`);
 
   handleHashChange();
 

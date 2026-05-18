@@ -676,15 +676,21 @@ def main():
 
         entries.append(entry)
 
+    # Group entries by YYYY-MM and write one file per month.
+    months: dict[str, dict] = {}
+    for entry in entries:
+        month_key = entry["date"][:7]  # "YYYY-MM"
+        months.setdefault(month_key, {})[entry["date"]] = entry
+
     lect_dir.mkdir(parents=True, exist_ok=True)
     with open(bounds_path, "w", encoding="utf-8") as f:
         json.dump(bounds, f, ensure_ascii=False, indent=2)
-    for entry in entries:
-        path = lect_dir / f"{entry['date']}.json"
+    for month_key, month_entries in sorted(months.items()):
+        path = lect_dir / f"{month_key}.json"
         with open(path, "w", encoding="utf-8") as f:
-            json.dump(entry, f, ensure_ascii=False, indent=2)
+            json.dump(month_entries, f, ensure_ascii=False, indent=2)
 
-    print(f"Wrote {len(entries)} entries to {lect_dir}/")
+    print(f"Wrote {len(entries)} entries across {len(months)} monthly files to {lect_dir}/")
     print(f"Wrote season bounds to {bounds_path}")
     print(f"Skipped {skipped} non-date rows")
     print(f"Season bounds: {bounds}")

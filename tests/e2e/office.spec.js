@@ -327,6 +327,33 @@ test.describe('Alternatives', () => {
   });
 });
 
+// ── Service worker / offline ──────────────────────────────────────────────────
+
+test.describe('Service worker', () => {
+  test('app loads offline after initial online visit', async ({ page, context }) => {
+    // First visit online — warms the SW cache (shell + all fetched data).
+    await page.goto(MP);
+    await waitForContentLoaded(page);
+
+    // Wait for SW to take control of the page.
+    await page.waitForFunction(
+      () => navigator.serviceWorker.controller !== null,
+      { timeout: 5000 }
+    );
+
+    // Go offline and reload — everything should come from the SW cache.
+    await context.setOffline(true);
+    try {
+      await page.reload();
+      await expect(page).toHaveTitle(/Morning Prayer/);
+      await expect(page.locator('#day-title')).not.toBeEmpty();
+      await expect(page.locator('.office-section-title').first()).toBeVisible({ timeout: 5000 });
+    } finally {
+      await context.setOffline(false);
+    }
+  });
+});
+
 // ── Date picker ───────────────────────────────────────────────────────────────
 
 test.describe('Date picker', () => {

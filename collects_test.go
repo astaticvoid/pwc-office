@@ -73,9 +73,9 @@ func TestCollectsLookupAshWednesday(t *testing.T) {
 
 func TestCollectsLookupMissing(t *testing.T) {
 	c := mustLoadCollects(t)
-	// FAS reference — not in BAS data.
-	if got := c.Lookup("668"); got != nil {
-		t.Errorf("Lookup(668): expected nil for FAS page, got non-nil")
+	// Truly absent page reference.
+	if got := c.Lookup("999"); got != nil {
+		t.Errorf("Lookup(999): expected nil for absent page, got non-nil")
 	}
 	if got := c.Lookup(""); got != nil {
 		t.Errorf("Lookup empty ref: expected nil")

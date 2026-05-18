@@ -12,6 +12,7 @@ const PRECACHE = [
   '/data/offices.json',
   '/data/collects.json',
   '/data/season_bounds.json',
+  '/data/psalter.json',
 ];
 
 self.addEventListener('install', evt => {

@@ -223,7 +223,6 @@ def extract_psalms(path: Path) -> list[dict]:
 def main():
     root = Path(__file__).parent.parent
     src = root / "sources" / "pray-without-ceasing.txt"
-    psalms_dir = root / "data" / "psalms"
 
     _ensure_txt(root / "sources" / "pray-without-ceasing.pdf", src)
     psalms = extract_psalms(src)
@@ -233,15 +232,16 @@ def main():
     if missing:
         print(f"WARNING: missing psalms: {missing}", file=sys.stderr)
 
-    psalms_dir.mkdir(parents=True, exist_ok=True)
-    for psalm in psalms:
-        path = psalms_dir / f"{psalm['number']}.json"
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(psalm, f, ensure_ascii=False, indent=2)
+    psalter = {str(p["number"]): p for p in psalms}
+    psalter_path = root / "data" / "psalter.json"
+    psalter_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(psalter_path, "w", encoding="utf-8") as f:
+        json.dump(psalter, f, ensure_ascii=False, indent=2)
 
-    print(f"Wrote {len(psalms)} psalms to {psalms_dir}/")
+    print(f"Wrote {len(psalms)} psalms to {psalter_path}")
     if missing:
         print(f"  Missing: {missing}")
+
 
 
 if __name__ == "__main__":

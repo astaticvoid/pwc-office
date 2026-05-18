@@ -32,7 +32,7 @@ def require(path: Path, label: str = "") -> bool:
 
 # ── Web shell ──────────────────────────────────────────────────────────────────
 
-for f in ("index.html", "app.js", "office.css"):
+for f in ("index.html", "app.js", "office.css", "sw.js"):
     require(dist / f)
 
 # Sanity-check that app.js references the data path it expects.
@@ -42,32 +42,47 @@ if app_js.exists():
     if "const DATA = 'data'" not in src:
         errors.append("app.js: DATA path constant missing or changed")
 
+# Verify the build stamped the SW cache version (placeholder must be replaced).
+sw_js = dist / "sw.js"
+if sw_js.exists() and "pwc-v1" in sw_js.read_text():
+    errors.append("sw.js: cache version is still 'pwc-v1' — build stamp was not applied")
+
 # ── Static data files ──────────────────────────────────────────────────────────
 
-for f in ("data/offices.json", "data/collects.json", "data/season_bounds.json"):
+for f in ("data/offices.json", "data/collects.json", "data/season_bounds.json", "data/psalter.json"):
     require(dist / f)
 
-lect_dir   = dist / "data" / "lectionary"
-psalms_dir = dist / "data" / "psalms"
+lect_dir = dist / "data" / "lectionary"
 
 if not lect_dir.is_dir():
     errors.append("missing: data/lectionary/")
-if not psalms_dir.is_dir():
-    errors.append("missing: data/psalms/")
+else:
+    monthly_files = list(lect_dir.glob("????-??.json"))
+    if not monthly_files:
+        errors.append("data/lectionary/: no monthly files (expected YYYY-MM.json)")
 
 # ── Load core data ─────────────────────────────────────────────────────────────
 
 offices_path  = dist / "data" / "offices.json"
 collects_path = dist / "data" / "collects.json"
+psalter_path  = dist / "data" / "psalter.json"
 
 offices  = json.loads(offices_path.read_text())  if offices_path.exists()  else {}
 collects = json.loads(collects_path.read_text()) if collects_path.exists() else {}
+psalter  = json.loads(psalter_path.read_text())  if psalter_path.exists()  else {}
 
 # ── Lectionary cross-references ────────────────────────────────────────────────
 
-lect_files = sorted(lect_dir.glob("*.json")) if lect_dir.is_dir() else []
+# Monthly files only (YYYY-MM.json); individual day files are no longer used.
+lect_month_files = sorted(lect_dir.glob("????-??.json")) if lect_dir.is_dir() else []
 
-if not lect_files:
+# Flatten all day entries for cross-reference checks.
+lect_entries: list[dict] = []
+for mf in lect_month_files:
+    month_data = json.loads(mf.read_text())
+    lect_entries.extend(month_data.values())
+
+if not lect_entries:
     errors.append("data/lectionary/ is empty")
 
 SEASON_ORDER = [
@@ -129,12 +144,10 @@ def psalm_nums_from_citation(cit: str) -> list:
 
 psalm_errors, collect_errors, form_errors = 0, 0, 0
 
-for path in lect_files:
-    entry = json.loads(path.read_text())
-    date  = entry.get("date", path.stem)
-    d     = datetime.date.fromisoformat(date)
-    weekday = d.weekday()  # Mon=0; convert to Sun=0
-    weekday = (weekday + 1) % 7
+for entry in lect_entries:
+    date    = entry.get("date", "")
+    d       = datetime.date.fromisoformat(date)
+    weekday = (d.weekday() + 1) % 7  # Mon=0 → Sun=0
     season  = season_of(date)
     rank    = entry.get("rank", "")
 
@@ -143,13 +156,12 @@ for path in lect_files:
         for obs in [office, office.get("alternate") or {}]:
             if not obs:
                 continue
-            # Psalm files
-            psalms = obs.get("psalms", [])
-            for p in psalms:
+            # Psalm numbers present in psalter.json
+            for p in obs.get("psalms", []):
                 cit = p["citation"] if isinstance(p, dict) else p
                 for num in psalm_nums_from_citation(cit):
-                    if not (psalms_dir / f"{num}.json").exists():
-                        errors.append(f"{date} {office_type}: psalm {num}.json missing (from '{cit}')")
+                    if str(num) not in psalter:
+                        errors.append(f"{date} {office_type}: psalm {num} missing from psalter.json (from '{cit}')")
                         psalm_errors += 1
 
             # Collect IDs — missing collect degrades gracefully (shows page num only)
@@ -166,8 +178,8 @@ for path in lect_files:
             errors.append(f"{date} {office_type}: form key '{key}' not in offices.json")
             form_errors += 1
 
-if lect_files:
-    print(f"lectionary:  {len(lect_files)} entries checked"
+if lect_entries:
+    print(f"lectionary:  {len(lect_entries)} entries checked"
           f" ({psalm_errors} psalm errors, {collect_errors} collect errors, {form_errors} form errors)")
 
 # ── Translations ───────────────────────────────────────────────────────────────

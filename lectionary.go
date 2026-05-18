@@ -168,46 +168,48 @@ func Load() (*Lectionary, error) {
 		return nil, fmt.Errorf("lectionary: season bounds: %w", err)
 	}
 
-	entries, err := lectionaryFS.ReadDir("data/lectionary")
+	monthFiles, err := lectionaryFS.ReadDir("data/lectionary")
 	if err != nil {
 		return nil, fmt.Errorf("lectionary: reading embedded dir: %w", err)
 	}
 
 	l := &Lectionary{
 		Bounds: bounds,
-		days:   make(map[string]*Day, len(entries)),
+		days:   make(map[string]*Day, 400),
 	}
 
-	for _, entry := range entries {
-		data, err := lectionaryFS.ReadFile("data/lectionary/" + entry.Name())
+	for _, mf := range monthFiles {
+		data, err := lectionaryFS.ReadFile("data/lectionary/" + mf.Name())
 		if err != nil {
-			return nil, fmt.Errorf("lectionary: reading %s: %w", entry.Name(), err)
+			return nil, fmt.Errorf("lectionary: reading %s: %w", mf.Name(), err)
 		}
-		var e lectEntry
-		if err := json.Unmarshal(data, &e); err != nil {
-			return nil, fmt.Errorf("lectionary: parsing %s: %w", entry.Name(), err)
+		var month map[string]*lectEntry
+		if err := json.Unmarshal(data, &month); err != nil {
+			return nil, fmt.Errorf("lectionary: parsing %s: %w", mf.Name(), err)
 		}
-		d, err := time.Parse("2006-01-02", e.Date)
-		if err != nil {
-			continue
-		}
-		season, dow := SeasonOf(d, bounds)
-		var notes []Note
-		for _, n := range e.Notes {
-			notes = append(notes, Note{Type: n.Type, Text: n.Text})
-		}
-		l.days[e.Date] = &Day{
-			Date:        d,
-			Season:      season,
-			Weekday:     dow,
-			Name:        e.Name,
-			Rank:        rankFromString(e.Rank),
-			Colour:      e.Colour,
-			Eucharist:   e.Eucharist,
-			Observances: e.Observances,
-			Morning:     officeFromLect(e.Morning),
-			Evening:     officeFromLect(e.Evening),
-			Notes:       notes,
+		for _, e := range month {
+			d, err := time.Parse("2006-01-02", e.Date)
+			if err != nil {
+				continue
+			}
+			season, dow := SeasonOf(d, bounds)
+			var notes []Note
+			for _, n := range e.Notes {
+				notes = append(notes, Note{Type: n.Type, Text: n.Text})
+			}
+			l.days[e.Date] = &Day{
+				Date:        d,
+				Season:      season,
+				Weekday:     dow,
+				Name:        e.Name,
+				Rank:        rankFromString(e.Rank),
+				Colour:      e.Colour,
+				Eucharist:   e.Eucharist,
+				Observances: e.Observances,
+				Morning:     officeFromLect(e.Morning),
+				Evening:     officeFromLect(e.Evening),
+				Notes:       notes,
+			}
 		}
 	}
 
