@@ -52,18 +52,13 @@ serve-dist: check-dist
 test-web:
 	npx playwright test
 
-# Run E2E tests against the live Netlify deployment (use sparingly — burns bandwidth).
+# Disabled — hits live Netlify deployment (credits exhausted).
 test-web-netlify:
-	BASE_URL=https://taupe-lokum-ec81da.netlify.app npx playwright test
+	@echo "✗ test-web-netlify is disabled: Netlify credits exhausted. Use 'make test-web' instead."
+	@exit 1
 
-# Build and deploy dist/ to Netlify.
-# Icon: place sources/pwc-cover.png (gitignored) before deploying.
-deploy: check-dist
-	@if [ -f sources/pwc-cover.png ]; then \
-	  cp sources/pwc-cover.png dist/apple-touch-icon.png; \
-	  cp sources/pwc-cover.png dist/icon.png; \
-	  echo "icon: sources/pwc-cover.png injected"; \
-	else \
-	  echo "⚠ icon: sources/pwc-cover.png not found — deploying without icon"; \
-	fi
-	netlify deploy --dir=dist --prod
+# Deploy is disabled — Netlify free-tier credits exhausted.
+# Re-enable when credits reset or hosting is migrated.
+deploy:
+	@echo "✗ deploy is disabled: Netlify credits exhausted. Test locally with 'make serve'."
+	@exit 1
