@@ -14,14 +14,17 @@ Writes data/offices.json with each section as a list of typed segments.
 Usage: python3 tools/extract_offices.py
 """
 
+import argparse
+import json
 import os
 import re
 import sys
 import collections
 from pathlib import Path
 
-import json
 import pdfplumber
+
+from extract_lib import check_manifest
 
 # Set DEBUG=1 to emit a full extraction trace to stderr.
 # Usage: DEBUG=1 python3 tools/extract_offices.py 2> audit.log
@@ -958,6 +961,11 @@ def extract_office(pdf, start: int, end: int, office_key: str = "") -> dict:
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def run():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--accept", action="store_true",
+                    help="Update tools/manifest.json with current output hashes")
+    args = ap.parse_args()
+
     pdf_path = ROOT / "sources" / "pray-without-ceasing.pdf"
     if not pdf_path.exists():
         print(f"ERROR: {pdf_path} not found", file=sys.stderr)
@@ -1054,6 +1062,8 @@ def run():
             ok = False
     if not ok:
         sys.exit(1)
+
+    check_manifest([out_path], ROOT, accept=args.accept)
 
 
 if __name__ == "__main__":

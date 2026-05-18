@@ -2,16 +2,13 @@
 """
 extract_psalter.py — extract the PWC Liturgical Psalter.
 
-Reads sources/pray-without-ceasing.txt (generated from PDF if absent) and
-writes two formats that serve different consumers:
+Reads sources/pray-without-ceasing.pdf and writes:
 
   data/psalter.json         — combined dict {str(num): psalm}, embedded in
-                              the Go CLI binary via go:embed
-  data/psalms/{num}.json    — one file per psalm, fetched on demand by the
-                              web SPA
+                              the Go CLI binary via go:embed and fetched by
+                              the web SPA on first load
 
-Both formats share the same schema:
-  { number: int, book: int, title: str, text: str }
+Schema: { number: int, book: int, title: str, text: str }
   (source-corrected entries also carry source_corrections: [...])
 
 Text format inside each psalm:
@@ -20,15 +17,19 @@ Text format inside each psalm:
   • section headings: "Part I", "Aleph", "Beth", … (multi-part / Ps 119)
 
 Run from repo root:
-  python3 tools/extract_psalter.py
+  python3 tools/extract_psalter.py [--individual] [--accept]
+
+  --individual  Also write data/psalms/{num}.json (one file per psalm).
+  --accept      Update tools/manifest.json with current output hashes.
 """
 
+import argparse
 import json
 import re
 import sys
 from pathlib import Path
 
-from extract_lib import ensure_txt, normalise_quotes, write_json
+from extract_lib import check_manifest, normalise_quotes, pdf_as_txt, write_json
 from psalter_corrections import apply as apply_corrections, spot_checks
 
 
@@ -40,7 +41,7 @@ RE_SECTION    = re.compile(
     r'^(?:Part\s+[IVX]+\b'           # "Part I", "Part II", …
     r'|(?:Aleph|Beth|Gimel|Daleth|He\b|Waw|Zayin|Heth|Teth|Yodh'
     r'|Kaph|Lamedh|Mem|Nun|Samekh|Ayin|Pe|Tsadhe|Qoph|Resh|Sin|Shin|Taw)'
-    r'\s{2})',
+    r'\s+)',
     re.IGNORECASE,
 )
 RE_BOOK = re.compile(r'^BooK\s+[ivxIVX]+', re.IGNORECASE)
@@ -145,11 +146,17 @@ def extract_psalms(path: Path) -> list[dict]:
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    root = Path(__file__).parent.parent
-    src  = root / "sources" / "pray-without-ceasing.txt"
-    ensure_txt(root / "sources" / "pray-without-ceasing.pdf", src)
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--individual", action="store_true",
+                    help="Also write data/psalms/{num}.json (one file per psalm)")
+    ap.add_argument("--accept", action="store_true",
+                    help="Update tools/manifest.json with current output hashes")
+    args = ap.parse_args()
 
-    psalms_list = extract_psalms(src)
+    root = Path(__file__).parent.parent
+
+    with pdf_as_txt(root / "sources" / "pray-without-ceasing.pdf") as src:
+        psalms_list = extract_psalms(src)
 
     found   = {p["number"] for p in psalms_list}
     missing = [n for n in range(1, 151) if n not in found]
@@ -169,13 +176,16 @@ def main():
     combined = {str(n): p for n, p in sorted(psalms_by_num.items())}
     write_json(combined, psalter_path)
 
-    # ── Write: individual files (web SPA) ─────────────────────────────────────
-    psalms_dir = root / "data" / "psalms"
-    psalms_dir.mkdir(parents=True, exist_ok=True)
-    for n, psalm in sorted(psalms_by_num.items()):
-        write_json(psalm, psalms_dir / f"{n}.json")
+    msg = f"Wrote {len(psalms_by_num)} psalms → {psalter_path}"
 
-    print(f"Wrote {len(psalms_by_num)} psalms → {psalter_path} + {psalms_dir}/")
+    if args.individual:
+        psalms_dir = root / "data" / "psalms"
+        psalms_dir.mkdir(parents=True, exist_ok=True)
+        for n, psalm in sorted(psalms_by_num.items()):
+            write_json(psalm, psalms_dir / f"{n}.json")
+        msg += f" + {psalms_dir}/"
+
+    print(msg)
 
     # ── Spot checks ───────────────────────────────────────────────────────────
     checks = spot_checks(psalms_by_num)
@@ -188,6 +198,8 @@ def main():
         print(f"  All {len(checks)} spot checks passed.")
     else:
         sys.exit(1)
+
+    check_manifest([psalter_path], root, accept=args.accept)
 
 
 if __name__ == "__main__":

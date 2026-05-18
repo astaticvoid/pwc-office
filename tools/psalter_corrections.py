@@ -110,7 +110,7 @@ def apply(psalms: dict[int, dict]) -> list[str]:
                    " The Lord lifts up those who are bowed down")
 
     # Psalm 119 — source uses non-standard "Sadhe" for the 18th section
-    _replace(psalms, w, 119, "Sadhe  ", "Tsadhe  ")
+    _replace(psalms, w, 119, "Sadhe ", "Tsadhe ")
 
     # ── Section B — Source errors with source_corrections metadata ────────────
 
@@ -199,7 +199,7 @@ def spot_checks(psalms: dict[int, dict]) -> list[tuple[str, bool]]:
         ("Ps 61 v8 fulfil",          "fulfil" in text(61) and "fulfill" not in text(61)),
         ("Ps 64 v9 recognise",       "recognise" in text(64) and "recognize" not in text(64)),
         ("Ps 78 v72 single period",  "God's hands.." not in text(78)),
-        ("Ps 119 Tsadhe header",     "Tsadhe  " in text(119) and "Sadhe  " not in text(119)),
+        ("Ps 119 Tsadhe header",     "Tsadhe " in text(119) and "Sadhe " not in text(119)),
         ("source_corrections × 5",  all("source_corrections" in psalms[n] for n in [35, 51, 61, 64, 78])),
         ("book field on all 150",    all("book" in psalms[n] for n in psalms)),
         ("no curly quotes",          not any(c in text(n) for n in psalms for c in "“”‘’")),

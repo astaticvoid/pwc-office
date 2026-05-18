@@ -1,8 +1,8 @@
 """
 extract_collects.py — extract BAS collects by book page number.
 
-Reads sources/BAS.pdf (for page structure and headings) and sources/BAS.txt
-(for clean text on pages that pdfplumber garbles due to font encoding issues).
+Reads sources/BAS.pdf directly and uses a transient pdftotext extraction
+for pages that pdfplumber garbles due to font encoding issues.
 Writes data/collects.json.
 
 Each collect entry includes:
@@ -13,16 +13,19 @@ Each collect entry includes:
   date    — fixed calendar date ("14 May") for feasts on fixed dates, or absent
   text    — literal-block collect prayer text
 
-Usage: python3 tools/extract_collects.py
+Usage: python3 tools/extract_collects.py [--accept]
+
+  --accept  Update tools/manifest.json with current output hashes.
 """
 
+import argparse
 import re
 import sys
 from pathlib import Path
 
 import pdfplumber
 
-from extract_lib import ensure_txt, write_json
+from extract_lib import check_manifest, pdf_as_txt, write_json
 
 ROOT = Path(__file__).parent.parent
 
@@ -123,9 +126,10 @@ def is_garbled(text: str) -> bool:
 
 # ── BAS.txt fallback ──────────────────────────────────────────────────────────
 
-def _load_bas_txt() -> str:
-    p = ROOT / "sources" / "BAS.txt"
-    return p.read_text(encoding="utf-8", errors="replace") if p.exists() else ""
+def _load_bas_txt(path: Path) -> str:
+    # pdftotext uses \x0c as page separators; normalise to \n so collect
+    # patterns like r'(?:^|\n)(Collect)\n' match across page breaks.
+    return path.read_text(encoding="utf-8", errors="replace").replace("\x0c", "\n")
 
 
 def _find_first_collect_body(text: str) -> str:
@@ -334,17 +338,20 @@ def date_from_name(name: str) -> str:
 # ── Main extraction loop ──────────────────────────────────────────────────────
 
 def run():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--accept", action="store_true",
+                    help="Update tools/manifest.json with current output hashes")
+    args = ap.parse_args()
+
     pdf_path = ROOT / "sources" / "BAS.pdf"
     if not pdf_path.exists():
         print(f"ERROR: {pdf_path} not found", file=sys.stderr)
         sys.exit(1)
 
-    ensure_txt(pdf_path, ROOT / "sources" / "BAS.txt")
     out_path = ROOT / "data" / "collects.json"
-    bas_txt = _load_bas_txt()
-    if not bas_txt:
-        print("WARNING: sources/BAS.txt not found — garbled pages will not have fallback text",
-              file=sys.stderr)
+
+    with pdf_as_txt(pdf_path) as bas_txt_path:
+        bas_txt = _load_bas_txt(bas_txt_path)
 
     collects: dict[str, dict] = {}
     failures: list[int] = []
@@ -427,7 +434,7 @@ def run():
     write_json(collects, out_path)
     print(f"\nWrote {len(collects)} collects → {out_path}")
     if txt_fallbacks:
-        print(f"BAS.txt fallback used for: {txt_fallbacks}")
+        print(f"txt fallback used for: {txt_fallbacks}")
     if failures:
         print(f"WARNING: pages mentioning Collect but not extracted: {failures}")
 
@@ -462,6 +469,8 @@ def run():
             ok = False
     if not ok:
         sys.exit(1)
+
+    check_manifest([out_path], ROOT, accept=args.accept)
 
 
 if __name__ == "__main__":

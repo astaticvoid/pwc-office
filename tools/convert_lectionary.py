@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Convert sources/bas_short_2026.csv → data/lectionary_2026.yaml
+Convert sources/bas_short_2026.csv → data/lectionary/YYYY-MM.json
 
 CSV columns (0-indexed):
   0: date (YYYY-MM-DD)
@@ -11,15 +11,20 @@ CSV columns (0-indexed):
   5: extra (supplementary notes; 72 entries)
 
 Run from the repo root:
-  python3 tools/convert_lectionary.py
+  python3 tools/convert_lectionary.py [--accept]
+
+  --accept  Update tools/manifest.json with current output hashes.
 """
 
+import argparse
 import csv
 import html
 import json
 import re
 import sys
 from pathlib import Path
+
+from extract_lib import check_manifest
 
 
 # ── Manual corrections ─────────────────────────────────────────────────────────
@@ -629,6 +634,11 @@ def parse_extra(raw: str, date_str: str) -> list[dict] | None:
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--accept", action="store_true",
+                    help="Update tools/manifest.json with current output hashes")
+    args = ap.parse_args()
+
     root = Path(__file__).parent.parent
     csv_path = root / "sources" / "bas_short_2026.csv"
     lect_dir = root / "data" / "lectionary"
@@ -707,11 +717,13 @@ def main():
     lect_dir.mkdir(parents=True, exist_ok=True)
     with open(bounds_path, "w", encoding="utf-8") as f:
         json.dump(bounds, f, ensure_ascii=False, indent=2)
+    output_paths = [bounds_path]
     for month_key, month_entries in sorted(months.items()):
         path = lect_dir / f"{month_key}.json"
         with open(path, "w", encoding="utf-8") as f:
             json.dump(month_entries, f, ensure_ascii=False, indent=2)
             f.write('\n')
+        output_paths.append(path)
 
     print(f"Wrote {len(entries)} entries across {len(months)} monthly files to {lect_dir}/")
     print(f"Wrote season bounds to {bounds_path}")
@@ -729,6 +741,8 @@ def main():
     print(f"  notes:               {with_notes} entries (expected 71)")
     print(f"  rank fixes applied:  {rank_fixed}/5")
     print(f"  name fixes applied:  {name_fixed}/1")
+
+    check_manifest(output_paths, root, accept=args.accept)
 
 
 if __name__ == "__main__":

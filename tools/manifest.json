@@ -1,0 +1,20 @@
+{
+  "data/collects.json": "a5be7edab2f4d18917c6269a04d3055d7a3abadc19ade8597262601b7e20a187",
+  "data/lectionary/2025-11.json": "d3a4ddffd0fe3f0da42808551f457590f0adea29eaa2e8a9361f40afb63af929",
+  "data/lectionary/2025-12.json": "8ceda027469c2abfd82361b79a52f98604ec3acd1b75b2f552c7fd92f883c800",
+  "data/lectionary/2026-01.json": "f83f743a2776b583aae338d22b1bfba55047c2637a9f8b7da7ed6b4c8fd1fe73",
+  "data/lectionary/2026-02.json": "3ae8a596ab6b95e5239a2e598883954ecad727815b1071e027afa97cda209ea2",
+  "data/lectionary/2026-03.json": "8c60672775412f4a006408763bf8a6e25a2acdc6b8b89fec107ca7f907477419",
+  "data/lectionary/2026-04.json": "90b96061b098daeeb258bca4a418680683d85018d4e7b5d2117b7ce01b636456",
+  "data/lectionary/2026-05.json": "a720f2d0194bcd5fbffde8d8b3116be67b42b6811aaac34d77b2f71e904e188d",
+  "data/lectionary/2026-06.json": "d4724f4bc19aee25de4c98c22f11f52fbfa9f4a16fa1c24db5d9ea2521c9175b",
+  "data/lectionary/2026-07.json": "9fb1d7add22bdca707f3efe729fd8d79993829aadb983b1e48507cee90bf3708",
+  "data/lectionary/2026-08.json": "e668a434c650fdbc6c8791d4951a9b96585a3dc08f2e41faa59c18e8e290f6d7",
+  "data/lectionary/2026-09.json": "e3cfb67f2bbf04514d260299f32ad952a6ac15d06870955f5593e3e5991c6174",
+  "data/lectionary/2026-10.json": "11d62a8e6bf99404efbf744e8cf79f119bd75b0b5a483ceae4cb0a667e06eec7",
+  "data/lectionary/2026-11.json": "0550c3df5694669f29697d36d22ee322af1db759c325391a7760bac7028ad803",
+  "data/lectionary/2026-12.json": "1ee423a4aec5f28ffff1b74c881e3eaa6097b0e361970a3719b92d81c830fb89",
+  "data/offices.json": "9209c5e4f9c88038d74200afa15f8385094d2d4fc528610a88be82ecb595443a",
+  "data/psalter.json": "fefbb20d10ec049239727bf1e557ded2654088873759bfb42042bd76685e957e",
+  "data/season_bounds.json": "30b80bd729dd4f5d480df0d729f056fd07cffb28f514a2f8090c775a01acbb88"
+}
