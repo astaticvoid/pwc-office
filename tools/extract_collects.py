@@ -425,6 +425,31 @@ def run():
             elif re.search(r'\bCollect\b', text):
                 failures.append(book_page)
 
+    # ── Supplemental collects outside the main extraction range ──────────────
+    # These are from Occasional Services / other BAS sections not covered by
+    # the page scan above. Add manually after verifying against the PDF.
+    collects["668"] = {
+        "name": "Anniversary of a Parish / Feast of Dedication",
+        "section": "Occasional Services",
+        # BAS pp. 668–669: collect for the Feast of Dedication of a Church.
+        "text": (
+            "Almighty God,\n"
+            "watchful and caring,\n"
+            "our source and our end,\n"
+            "all that we are and all that we have are yours.\n"
+            "Accept us now,\n"
+            "as we give thanks to you for this place\n"
+            "where we have come to praise your name,\n"
+            "to ask your forgiveness,\n"
+            "to know your healing power,\n"
+            "to hear your word,\n"
+            "and to be nourished by the body and blood of your Son.\n"
+            "Be present always to guide and to judge,\n"
+            "to illumine and to bless your people.\n"
+            "This we pray in the name of Jesus Christ our Lord. Amen."
+        ),
+    }
+
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(collects, f, ensure_ascii=False, indent=2)
     print(f"\nWrote {len(collects)} collects → {out_path}")
