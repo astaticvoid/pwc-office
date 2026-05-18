@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: test test-smoke test-seasonal test-full build check-dist serve serve-dist deploy test-web test-web-local
+.PHONY: test test-smoke test-seasonal test-full build check-dist serve serve-dist deploy test-web test-web-netlify
 
 # Unit tests — no API key needed, always fast.
 test:
@@ -40,13 +40,13 @@ serve:
 serve-dist: check-dist
 	python3 -m http.server 8081 --directory dist
 
-# Run E2E tests against the live Netlify deployment.
+# Run E2E tests locally against web/ (default — no bandwidth cost).
 test-web:
 	npx playwright test
 
-# Build dist/ then run E2E tests against a local server.
-test-web-local: check-dist
-	BASE_URL=http://localhost:8081 npx playwright test
+# Run E2E tests against the live Netlify deployment (use sparingly — burns bandwidth).
+test-web-netlify:
+	BASE_URL=https://taupe-lokum-ec81da.netlify.app npx playwright test
 
 # Build and deploy dist/ to Netlify.
 # Icon: place sources/pwc-cover.png (gitignored) before deploying.

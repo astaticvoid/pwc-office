@@ -735,6 +735,8 @@ async function render(dateStr, officeType, translation) {
     });
   }
 
+  const seasonalSegs = form ? filterSeasonalCollects(form.seasonal_collects || [], weekIdx) : [];
+
   let html = '';
 
   // ── Gathering ──────────────────────────────────────────────────────────────
@@ -770,9 +772,8 @@ async function render(dateStr, officeType, translation) {
   if (form && (form.litany || form.lords_prayer_intro || (form.seasonal_collects && form.seasonal_collects.length) || officeData.collect)) {
     html += `<h2 class="office-section-title">The Prayers of the Community</h2>`;
     html += renderSubsection('The Litany', form.litany, shared);
-    const seasonalSegs = filterSeasonalCollects(form.seasonal_collects || [], weekIdx);
     html += `<h3 class="office-subsection-title">The Collect</h3>`;
-    html += collectToggleHtml(collects, officeData.collect, seasonalSegs, shared);
+    html += `<div id="prayers-collect">${collectToggleHtml(collects, officeData.collect, seasonalSegs, shared)}</div>`;
     if (form.lords_prayer_intro && form.lords_prayer_intro.length) {
       html += `<h3 class="office-subsection-title">The Lord's Prayer</h3>`;
       html += `<div class="liturgy">${renderSegments(form.lords_prayer_intro, shared)}</div>`;
@@ -808,6 +809,12 @@ async function render(dateStr, officeType, translation) {
       } else {
         titleEl.textContent = day.name;
         document.title = `${officeName} — ${day.name}`;
+      }
+      // Update collect to match the active observance.
+      const collectEl = document.getElementById('prayers-collect');
+      if (collectEl) {
+        const activeObs = target === 'alternate' && alt ? alt : officeData;
+        collectEl.innerHTML = collectToggleHtml(collects, activeObs.collect, seasonalSegs, shared);
       }
     });
   });

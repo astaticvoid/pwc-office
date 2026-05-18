@@ -83,14 +83,16 @@ test.describe('Office loads', () => {
 
   test('morning prayer: psalm ends with gloria toggle', async ({ page }) => {
     await page.goto(MP);
-    await expect(page.locator('.psalm-gloria').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
-    await expect(page.locator('.psalm-gloria .alt-tab')).toHaveCount(3, { timeout: CONTENT_TIMEOUT });
+    const firstGloria = page.locator('.psalm-gloria').first();
+    await expect(firstGloria).toBeVisible({ timeout: CONTENT_TIMEOUT });
+    // Each psalm gloria has exactly 3 tabs; scope to the first one.
+    await expect(firstGloria.locator('.alt-tab')).toHaveCount(3);
   });
 
   test('morning prayer: reading ends with 3-option thanks-be-to-god', async ({ page }) => {
     await page.goto(MP);
-    // reading_response alt-block has 3 tabs
-    const responseTabs = page.locator('[data-key="pwc-alt-reading_response"]');
+    // Scope to primary readings only — alternate readings also render response tabs.
+    const responseTabs = page.locator('.obs-readings[data-obs="primary"] [data-key="pwc-alt-reading_response"]');
     await expect(responseTabs.first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
     await expect(responseTabs).toHaveCount(6); // 3 tabs × 2 lessons = 6
   });
@@ -176,8 +178,9 @@ test.describe('Notes', () => {
     const note = page.locator('p.day-note-collapsible').first();
     await expect(note).toBeVisible({ timeout: 5000 });
     const text = await note.textContent();
-    // Should end with ellipsis (truncated) and not be the full long text
-    expect(text).toMatch(/…\s*▸\s*$/);
+    // Should end with ellipsis (truncated). The expand arrow is CSS ::after — not in textContent.
+    expect(text).toMatch(/…\s*$/);
+    await expect(note).not.toHaveClass(/day-note-expanded/);
   });
 
   test('tapping long note expands to full text, tapping again collapses', async ({ page }) => {
@@ -209,8 +212,9 @@ test.describe('Alternatives', () => {
     // The first alt-block in the Gathering section should be the opening responses.
     const altBlock = page.locator('.alt-block').first();
     await altBlock.waitFor();
-    await expect(altBlock.locator('.alt-tab')).toHaveCount(2);
-    await expect(altBlock.locator('.alt-tab').nth(0)).toHaveClass(/alt-tab-active/);
+    // Use :scope to avoid counting nested Berakah tabs (which are inside Form II's panel).
+    await expect(altBlock.locator(':scope > .alt-tabs > .alt-tab')).toHaveCount(2);
+    await expect(altBlock.locator(':scope > .alt-tabs > .alt-tab').nth(0)).toHaveClass(/alt-tab-active/);
   });
 
   test('Form II contains nested Berakah blessings toggle', async ({ page }) => {
@@ -340,5 +344,17 @@ test.describe('Observance toggle', () => {
     const newTitle = await page.title();
     expect(newTitle).not.toBe(originalTitle);
     expect(newTitle).toContain('Ascension');
+  });
+
+  test('collect updates to alternate observance collect', async ({ page }) => {
+    await page.goto(MP);
+    // Primary: Seventh Sunday of Easter (collect 344)
+    await expect(page.locator('#prayers-collect')).toContainText('Seventh Sunday of Easter', { timeout: 5000 });
+    // Switch to Ascension (collect 343)
+    await page.locator('.obs-nav-btn[data-obs="alternate"]').click();
+    await expect(page.locator('#prayers-collect')).toContainText('Ascension of the Lord');
+    // Switch back — primary collect restored
+    await page.locator('.obs-nav-btn[data-obs="primary"]').click();
+    await expect(page.locator('#prayers-collect')).toContainText('Seventh Sunday of Easter');
   });
 });

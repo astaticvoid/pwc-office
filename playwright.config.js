@@ -1,7 +1,7 @@
 // @ts-check
 const { defineConfig, devices } = require('@playwright/test');
 
-const BASE_URL = process.env.BASE_URL || 'https://taupe-lokum-ec81da.netlify.app';
+const BASE_URL = process.env.BASE_URL || 'http://localhost:8080';
 const isLocal  = BASE_URL.startsWith('http://localhost');
 
 module.exports = defineConfig({
@@ -20,7 +20,7 @@ module.exports = defineConfig({
   // Run `make build` first if dist/ is stale.
   // Set reuseExistingServer so `make serve-dist` in another terminal also works.
   webServer: isLocal ? {
-    command: 'python3 -m http.server 8081 --directory dist',
+    command: 'python3 -m http.server 8080 --directory web',
     url: BASE_URL,
     reuseExistingServer: true,
     timeout: 10_000,
