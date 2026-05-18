@@ -210,9 +210,24 @@ const COLOUR_HEX = {
   'Black':  '#2c2820', 'Gold':   '#b8860b',
 };
 
+// Standard liturgical colours offered when rubric says "or other appropriate colour"
+const OTHER_APPROPRIATE = ['White', 'Red', 'Green', 'Violet', 'Blue'];
+
 function colourHexes(str) {
   if (!str) return [];
-  return str.split(' or ').map(s => s.trim()).map(s => COLOUR_HEX[s]).filter(Boolean);
+  const hexes = [];
+  for (const part of str.split(' or ').map(s => s.trim())) {
+    if (part === 'other appropriate colour') {
+      for (const c of OTHER_APPROPRIATE) {
+        const h = COLOUR_HEX[c];
+        if (h && !hexes.includes(h)) hexes.push(h);
+      }
+    } else {
+      const h = COLOUR_HEX[part];
+      if (h && !hexes.includes(h)) hexes.push(h);
+    }
+  }
+  return hexes;
 }
 
 // ── Routing ───────────────────────────────────────────────────────────────────
@@ -1135,6 +1150,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const idx = (parseInt(chip.dataset.idx) + 1) % hexes.length;
     chip.dataset.idx = String(idx);
     chip.style.background = hexes[idx];
+    document.documentElement.style.setProperty('--color-day', hexes[idx]);
   });
 
   document.getElementById('office-content').addEventListener('click', e => {
