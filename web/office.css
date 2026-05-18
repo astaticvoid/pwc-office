@@ -279,12 +279,14 @@ body {
 .liturgy { font-family: var(--font-liturgy); }
 
 .seg-leader {
+  font-family: var(--font-liturgy);
   font-size: 1.15rem;
   margin: 0.55em 0;
   white-space: pre-wrap;
 }
 
 .seg-response {
+  font-family: var(--font-liturgy);
   font-size: 1.15rem;
   font-weight: 600;
   margin: 0.55em 0;
