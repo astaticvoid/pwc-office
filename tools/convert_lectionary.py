@@ -61,6 +61,18 @@ RANK_FIXES = {
     "2026-09-19": "commemoration",
 }
 
+# Colour corrections: CSV encodes the day rank in the colour field for this entry.
+COLOUR_FIXES = {
+    "2026-04-28": "White",  # CSV has "Feria" (the rank) instead of the Easter season colour
+}
+
+# Dates whose notes column should be suppressed entirely. The raw CSV text is
+# a parsing artifact (alternate office readings printed inline) that produces
+# a garbled note not renderable by the app.
+CLEAR_NOTES = {
+    "2026-06-03",  # Eve-of-Corpus-Christi alternate readings in note col, not yet parsed
+}
+
 
 # ── Observances ────────────────────────────────────────────────────────────────
 # Secondary liturgical labels not encoded in the primary name/rank fields.
@@ -598,10 +610,19 @@ def parse_extra(raw: str, date_str: str) -> list[dict] | None:
     Each day has at most one note. Type is looked up from NOTE_TYPES;
     text is the HTML-cleaned content of the column.
     """
+    if date_str in CLEAR_NOTES:
+        return None
     text = clean_inline(raw)
     if not text:
         return None
     note_type = NOTE_TYPES.get(date_str, "pastoral")
+    # Some Advent Ember Days that coincide with O Antiphon days have the Ember Day
+    # cross-reference appended to the antiphon text in the CSV. Strip the suffix —
+    # it is redundant since the day name already says "Advent Ember Day".
+    if note_type == "o_antiphon":
+        text = re.sub(r'\s*Ember Day:.*', '', text, flags=re.DOTALL).strip()
+        if not text:
+            return None
     return [{"type": note_type, "text": text}]
 
 
@@ -635,6 +656,7 @@ def main():
         # Apply manual corrections.
         name = NAME_FIXES.get(date_str, name)
         rank = RANK_FIXES.get(date_str, rank)
+        colour = COLOUR_FIXES.get(date_str, colour)
 
         # Field order: date, name, rank, colour, observances, eucharist,
         #              morning, evening, notes.
@@ -689,6 +711,7 @@ def main():
         path = lect_dir / f"{month_key}.json"
         with open(path, "w", encoding="utf-8") as f:
             json.dump(month_entries, f, ensure_ascii=False, indent=2)
+            f.write('\n')
 
     print(f"Wrote {len(entries)} entries across {len(months)} monthly files to {lect_dir}/")
     print(f"Wrote season bounds to {bounds_path}")
@@ -703,7 +726,7 @@ def main():
     name_fixed = sum(1 for e in entries if e["date"] in NAME_FIXES)
     print(f"  eucharist populated: {with_eucharist}/397")
     print(f"  observances:         {with_obs} entries (expected 175)")
-    print(f"  notes:               {with_notes} entries (expected 72)")
+    print(f"  notes:               {with_notes} entries (expected 71)")
     print(f"  rank fixes applied:  {rank_fixed}/5")
     print(f"  name fixes applied:  {name_fixed}/1")
 
