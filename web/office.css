@@ -3,10 +3,7 @@
 :root {
   --font-liturgy: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
   --font-ui: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
-  --size-base: 1.125rem;
   --line-height: 1.65;
-
-  /* Font size scale — overridden by data-font-size attribute */
 
   /* ACC palette */
   --color-bg:       #faf9f7;
@@ -27,9 +24,9 @@
   --content-max: 42rem;
 }
 
-[data-font-size="small"]  { --size-base: 0.95rem;  --line-height: 1.6; }
-[data-font-size="medium"] { --size-base: 1.125rem; --line-height: 1.65; }
-[data-font-size="large"]  { --size-base: 1.3rem;   --line-height: 1.7; }
+/* Font size — scale html so all rem values change uniformly */
+[data-font-size="medium"] { font-size: 100%;   --line-height: 1.65; }
+[data-font-size="large"]  { font-size: 112.5%; --line-height: 1.7; }
 
 /* Seasonal accent colours */
 [data-season="Advent"]      { --color-accent: #5c3a8a; }
@@ -55,7 +52,7 @@
 
 body {
   font-family: var(--font-ui);
-  font-size: var(--size-base);
+  font-size: 1.125rem;
   line-height: var(--line-height);
   background: var(--color-bg);
   color: var(--color-text);
@@ -117,6 +114,32 @@ body {
   justify-content: space-between;
 }
 
+#nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.nav-logo { flex-shrink: 0; opacity: 0.9; }
+
+.nav-brand-name {
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav-date-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
 .nav-bottom {
   gap: 0.4rem;
   max-height: 4rem;
@@ -125,7 +148,7 @@ body {
   transition: max-height 0.2s ease, opacity 0.15s ease;
 }
 
-#nav-today { flex: 1; }
+#nav-office { flex: 1; }
 .nav-controls { flex: 1; display: flex; gap: 0.3rem; justify-content: flex-end; align-items: center; }
 
 #nav a {
@@ -198,16 +221,21 @@ body {
 
 /* ── Main content ──────────────────────────────────────────────────────────── */
 
+#nav-spacer {
+  display: block;
+  /* height set by JS to match the fixed nav */
+}
+
 #main {
   max-width: var(--content-max);
   margin: 0 auto;
-  /* padding-top set dynamically by JS to match nav height */
   padding: 1.5rem 1.25rem 4rem;
 }
 
 /* ── Day header ────────────────────────────────────────────────────────────── */
 
 #day-header {
+  padding-top: 0.75rem;
   margin-bottom: 0.75rem;
   padding-bottom: 0.5rem;
 }
@@ -255,7 +283,14 @@ body {
   border: 1px solid rgba(0,0,0,0.18);
   flex-shrink: 0;
   vertical-align: middle;
+  padding: 0;
 }
+
+.colour-chip-toggle {
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.colour-chip-toggle:hover { transform: scale(1.25); }
 
 .colour-name {
   font-size: 0.78rem;
@@ -411,9 +446,8 @@ body {
 
 /* ── Observance readings toggle ────────────────────────────────────────────── */
 
-.nav-observance-row { justify-content: center; flex-wrap: wrap; }
 .nav-row-hidden { display: none; }
-#nav-observance { display: flex; gap: 0.3rem; flex-wrap: wrap; justify-content: center; }
+#nav-observance { display: flex; gap: 0.3rem; }
 
 .obs-readings.obs-hidden { display: none; }
 
@@ -592,12 +626,6 @@ body {
     margin: 0 !important;
     gap: 0.5rem;
   }
-
-  /* Today anchor — natural width, pushes rest right */
-  #nav-today { flex: none; margin-right: auto; padding-left: 0; }
-
-  /* Observance row wraps to its own line below the main row */
-  .nav-observance-row { flex-basis: 100%; border-top: 1px solid rgba(255,255,255,0.06); }
 
   /* Don't hide bottom row on scroll-compact (meaningless on desktop) */
   #nav.nav-compact .nav-bottom {

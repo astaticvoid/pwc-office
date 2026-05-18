@@ -3,6 +3,9 @@ export
 
 .PHONY: test test-smoke test-seasonal test-full build check-dist serve serve-dist deploy test-web test-web-netlify
 
+PORT      ?= 8080
+PORT_DIST ?= 8081
+
 # Unit tests — no API key needed, always fast.
 test:
 	go test ./...
@@ -38,15 +41,19 @@ build:
 check-dist: build
 	@python3 tools/check_dist.py
 
-# Serve web/ directly for local development (http://localhost:8080/).
+# Serve web/ directly for local development (http://localhost:$(PORT)/).
 # No build step — web/data symlink is followed live.
+# Override port: make serve PORT=9000
 serve:
-	python3 -m http.server 8080 --directory web
+	-lsof -ti:$(PORT) | xargs kill -9 2>/dev/null; true
+	python3 -m http.server $(PORT) --directory web
 
-# Build and serve dist/ as it will appear when deployed (http://localhost:8081/).
+# Build and serve dist/ as it will appear when deployed (http://localhost:$(PORT_DIST)/).
 # Required for E2E tests and pre-deploy checks.
+# Override port: make serve-dist PORT_DIST=9001
 serve-dist: check-dist
-	python3 -m http.server 8081 --directory dist
+	-lsof -ti:$(PORT_DIST) | xargs kill -9 2>/dev/null; true
+	python3 -m http.server $(PORT_DIST) --directory dist
 
 # Run E2E tests locally against web/ (default — no bandwidth cost).
 test-web:

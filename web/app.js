@@ -45,11 +45,12 @@ function updateThemeButton() {
 
 // ── Font size ─────────────────────────────────────────────────────────────────
 
-const FONT_SIZES = ['small', 'medium', 'large'];
-const FONT_LABELS = { small: 'A⁻', medium: 'A', large: 'A⁺' };
+const FONT_SIZES = ['medium', 'large'];
+const FONT_LABELS = { medium: 'A', large: 'A⁺' };
 
 function initFontSize() {
-  const stored = localStorage.getItem('pwc-font-size') || 'medium';
+  const raw = localStorage.getItem('pwc-font-size') || 'medium';
+  const stored = raw === 'small' ? 'medium' : raw;
   document.documentElement.setAttribute('data-font-size', stored);
   updateFontSizeButton(stored);
 }
@@ -205,8 +206,14 @@ function formKey(season, officeType, weekday, rank) {
 
 const COLOUR_HEX = {
   'White':  '#f0ece2', 'Red':    '#8c2525', 'Green':  '#2d5a35',
-  'Purple': '#5c3a8a', 'Rose':   '#b07a8a', 'Black':  '#2c2820', 'Gold': '#b8860b',
+  'Violet': '#5c3a8a', 'Blue':   '#2c5f8a', 'Rose':   '#b07a8a',
+  'Black':  '#2c2820', 'Gold':   '#b8860b',
 };
+
+function colourHexes(str) {
+  if (!str) return [];
+  return str.split(' or ').map(s => s.trim()).map(s => COLOUR_HEX[s]).filter(Boolean);
+}
 
 // ── Routing ───────────────────────────────────────────────────────────────────
 
@@ -603,7 +610,7 @@ function psalmHtml(officeData, shared) {
   return html;
 }
 
-function lessonHtml(lesson, shared) {
+function lessonHtml(lesson, shared, form) {
   const rawCitation = typeof lesson === 'object' ? lesson.citation : lesson;
   const optional = typeof lesson === 'object' && lesson.optional;
   const displayCitation = expandCitationForDisplay(rawCitation);
@@ -611,7 +618,8 @@ function lessonHtml(lesson, shared) {
   const preambleRubric = `<p class="seg-rubric">A Reading from the appointed lectionary is read.</p>`;
   const endRubric = `<p class="seg-rubric">Here ends the Reading.</p>`;
   const reflectionRubric = `<p class="seg-rubric">After a period of silent reflection one of the following is said.</p>`;
-  const responseHtml = `<div class="liturgy">${renderAlternatives(READING_RESPONSE, shared, 'reading_response')}</div>`;
+  const readingResponse = (form && form.reading_response) || READING_RESPONSE;
+  const responseHtml = `<div class="liturgy">${renderAlternatives(readingResponse, shared, 'reading_response')}</div>`;
   return `<h3 class="reading-heading">The Reading: ${esc(display)}</h3>`
     + preambleRubric
     + `<div class="scripture-placeholder" data-citation="${esc(rawCitation)}"><p class="loading">Loading…</p></div>`
@@ -624,11 +632,11 @@ function lessonHtml(lesson, shared) {
 function proclamationHtml(officeData, form, shared) {
   const lessons = (officeData.lessons || []);
   let html = psalmHtml(officeData, shared);
-  if (lessons.length > 0) html += lessonHtml(lessons[0], shared);
+  if (lessons.length > 0) html += lessonHtml(lessons[0], shared, form);
   if (form) html += renderSubsection('The Responsory', form.responsory, shared);
-  if (lessons.length > 1) html += lessonHtml(lessons[1], shared);
+  if (lessons.length > 1) html += lessonHtml(lessons[1], shared, form);
   if (form) html += renderSubsection('The Canticle', form.canticle, shared);
-  for (const lesson of lessons.slice(2)) html += lessonHtml(lesson, shared);
+  for (const lesson of lessons.slice(2)) html += lessonHtml(lesson, shared, form);
   return html;
 }
 
@@ -757,9 +765,6 @@ async function render(dateStr, officeType, translation) {
   else { prevEl.href = hashFor(prevDate, officeType); prevEl.classList.remove('nav-disabled'); }
   if (nextDate > boundsMax) { nextEl.removeAttribute('href'); nextEl.classList.add('nav-disabled'); }
   else { nextEl.href = hashFor(nextDate, officeType); nextEl.classList.remove('nav-disabled'); }
-  const todayEl = document.getElementById('nav-today');
-  todayEl.href = hashFor(todayStr(), officeType);
-  todayEl.style.visibility = dateStr === todayStr() ? 'hidden' : 'visible';
   document.getElementById('nav-mp').href    = hashFor(dateStr, 'mp');
   document.getElementById('nav-ep').href    = hashFor(dateStr, 'ep');
   document.getElementById('nav-mp').classList.toggle('nav-active', officeType === 'mp');
@@ -773,25 +778,25 @@ async function render(dateStr, officeType, translation) {
   document.getElementById('day-title').textContent = day.name;
   document.getElementById('day-subtitle').textContent = fmtFullDate(dateStr);
   // Observance toggle — own nav row so it doesn't shift nav-bottom layout
-  const obsRow = document.getElementById('nav-observance-row');
-  const obsEl  = document.getElementById('nav-observance');
+  const obsEl = document.getElementById('nav-observance');
   if (officeData.alternate) {
     const priLabel = officeData.label || 'Primary';
     const altLabel = officeData.alternate.label || 'Alternate';
     obsEl.innerHTML = `<a class="obs-nav-btn nav-active" data-obs="primary">${esc(priLabel)}</a>`
       + `<a class="obs-nav-btn" data-obs="alternate">${esc(altLabel)}</a>`;
-    obsRow.classList.remove('nav-row-hidden');
   } else {
     obsEl.innerHTML = '';
-    obsRow.classList.add('nav-row-hidden');
   }
 
-  const hexColour = COLOUR_HEX[day.colour] || '#b5a882';
-  document.documentElement.style.setProperty('--color-day', hexColour);
-  const colourChip = day.colour
+  const hexes = colourHexes(day.colour);
+  const firstHex = hexes[0] || '#b5a882';
+  document.documentElement.style.setProperty('--color-day', firstHex);
+  const colourChip = hexes.length > 0
     ? `<span class="meta-sep">·</span>`
       + `<span class="meta-item">`
-      + `<span class="colour-chip" style="background:${hexColour}" title="${esc(day.colour)}"></span>`
+      + (hexes.length > 1
+          ? `<button class="colour-chip colour-chip-toggle" style="background:${firstHex}" data-hexes='${JSON.stringify(hexes)}' data-idx="0" title="Tap to cycle colour options" aria-label="${esc(day.colour)}"></button>`
+          : `<span class="colour-chip" style="background:${firstHex}"></span>`)
       + `<span class="colour-name">${esc(day.colour)}</span>`
       + `</span>`
     : '';
@@ -802,9 +807,11 @@ async function render(dateStr, officeType, translation) {
     + colourChip;
 
   document.querySelectorAll('.day-note, .day-note-details').forEach(el => el.remove());
+  const SUPPRESS_NOTE_TYPES = new Set(['ember_crossref', 'rogation_crossref', 'precedence_rule']);
   if (day.notes && day.notes.length) {
     const headerEl = document.getElementById('day-header');
     day.notes.forEach(n => {
+      if (typeof n === 'object' && SUPPRESS_NOTE_TYPES.has(n.type)) return;
       const text = typeof n === 'object' ? n.text : n;
       const p = document.createElement('p');
       p.className = 'day-note';
@@ -1059,15 +1066,15 @@ function handleHashChange() {
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 function initScrollBehaviour() {
-  const nav = document.getElementById('nav');
-  const main = document.getElementById('main');
+  const nav    = document.getElementById('nav');
+  const spacer = document.getElementById('nav-spacer');
   let lastY = 0, compact = false, downTravel = 0, upTravel = 0;
 
   function syncNavPad() {
-    main.style.paddingTop = (nav.offsetHeight + 20) + 'px';
+    spacer.style.height = nav.offsetHeight + 'px';
   }
-  // Sync on load and whenever the nav resizes (compact toggle, observance row).
   syncNavPad();
+  window.addEventListener('load', syncNavPad);
   new ResizeObserver(syncNavPad).observe(nav);
 
   window.addEventListener('scroll', () => {
@@ -1103,6 +1110,11 @@ document.addEventListener('DOMContentLoaded', () => {
   initFontSize();
   initScrollBehaviour();
 
+  document.getElementById('nav-brand').addEventListener('click', e => {
+    e.preventDefault();
+    location.hash = hashFor(todayStr(), state.office);
+  });
+
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
   document.getElementById('font-size-toggle').addEventListener('click', cycleFontSize);
 
@@ -1114,6 +1126,15 @@ document.addEventListener('DOMContentLoaded', () => {
   picker.addEventListener('click', () => { try { picker.showPicker(); } catch (_) {} });
   picker.addEventListener('change', e => {
     if (e.target.value) location.hash = hashFor(e.target.value, state.office);
+  });
+
+  document.getElementById('day-meta').addEventListener('click', e => {
+    const chip = e.target.closest('.colour-chip-toggle');
+    if (!chip) return;
+    const hexes = JSON.parse(chip.dataset.hexes);
+    const idx = (parseInt(chip.dataset.idx) + 1) % hexes.length;
+    chip.dataset.idx = String(idx);
+    chip.style.background = hexes[idx];
   });
 
   document.getElementById('office-content').addEventListener('click', e => {
@@ -1157,7 +1178,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   handleHashChange();
 
-  if ('serviceWorker' in navigator) {
+  if ('serviceWorker' in navigator && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
     navigator.serviceWorker.register('/sw.js');
   }
 });

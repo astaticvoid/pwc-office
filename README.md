@@ -94,7 +94,7 @@ A pure client-side SPA is included in `web/`. It reads the same `data/` files
 as the CLI and requires no build step or server.
 
 ```sh
-# Serve source tree for local development (http://localhost:8080/web/)
+# Serve source tree for local development (http://localhost:8080/)
 make serve
 
 # Build deployable snapshot in dist/
@@ -107,9 +107,11 @@ make check-dist
 make serve-dist
 ```
 
-The web app includes: liturgical forms, psalm and scripture text, observance
-toggle for days with alternate readings, seasonal colour theming, translation
-switch (NRSVUE / KJV), and dark mode.
+The web app includes: full liturgical forms (opening responses, invitatory, responsory,
+canticle, affirmation, litany, collects, Lord's Prayer, dismissal), psalm and scripture
+text with reading responses, observance toggle for days with alternate readings, seasonal
+colour theming, translation switch (NRSVUE / KJV), dark mode, font-size toggle, PWA
+offline support (service worker), and a desktop layout.
 
 ## Status
 

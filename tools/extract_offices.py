@@ -380,7 +380,16 @@ _BLESSED_BE     = re.compile(r'^Blessed be (?:God|the holy)\b', re.IGNORECASE)
 # Handles all line-break variants (“may be\nsaid”, “may\nbe said”, “may be said”).
 _CANTICLE_INTRO = re.compile(r'^[“”].+?said or sung\.\n(.+)', re.DOTALL)
 _GENERAL_INTRO  = re.compile(r'one of the following .+ may be said or sung\.\n(.+)', re.IGNORECASE | re.DOTALL)
+# KNOWN SIDE-EFFECT: "At the end of the Canticle one of the following may be said or sung."
+# and "After the Canticle one of the following may be said or sung." both end with this pattern
+# and are silently consumed as block separators. The doxology following them is still captured
+# (deduped to _shared.doxology), but the intro rubric is lost. A post-extraction script adds
+# these rubrics back into each canticle section in offices.json. Re-running the extractor
+# requires re-running that fixup. Fix: exclude "At the end of" / "After the Canticle" from
+# this pattern if you want the rubric captured natively.
 _BLOCK_SEP_ONLY = re.compile(r'of the following may be said or sung\.?\s*$', re.IGNORECASE)
+# "Morning/Evening Prayer continues with…" rubrics are intentionally discarded: they are
+# print-navigation cues that are redundant with the app's section headings.
 _CONTINUES_ALT  = re.compile(r'(?:Morning|Evening) Prayer continues', re.IGNORECASE)
 
 def _is_structural_rubric(text: str) -> bool:
