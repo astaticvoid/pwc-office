@@ -153,24 +153,6 @@ test.describe('Navigation', () => {
     await expect(page).toHaveTitle(/Evening Prayer/);
   });
 
-  test('keyboard right/left arrow navigates', async ({ page }) => {
-    await page.goto(MP);
-    await page.locator('#day-title').waitFor();
-    await page.keyboard.press('ArrowRight');
-    await expect(page).toHaveURL(/2026-05-18\/mp/);
-    await page.keyboard.press('ArrowLeft');
-    await expect(page).toHaveURL(/2026-05-17\/mp/);
-  });
-
-  test('keyboard m/e switches office', async ({ page }) => {
-    await page.goto(MP);
-    await page.locator('#day-title').waitFor();
-    await page.keyboard.press('e');
-    await expect(page).toHaveURL(/ep$/);
-    await page.keyboard.press('m');
-    await expect(page).toHaveURL(/mp$/);
-  });
-
   test('today button navigates to today', async ({ page }) => {
     // Start on a different date
     await page.goto(PREV);
@@ -180,6 +162,30 @@ test.describe('Navigation', () => {
     const pad = n => String(n).padStart(2, '0');
     const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
     await expect(page).toHaveURL(new RegExp(todayStr));
+  });
+});
+
+// ── Keyboard navigation (desktop only) ───────────────────────────────────────
+
+test.describe('Keyboard navigation', () => {
+  test('keyboard right/left arrow navigates', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name === 'mobile', 'Keyboard shortcuts are desktop-only');
+    await page.goto(MP);
+    await expect(page.locator('#day-title')).not.toBeEmpty({ timeout: CONTENT_TIMEOUT });
+    await page.keyboard.press('ArrowRight');
+    await expect(page).toHaveURL(/2026-05-18\/mp/);
+    await page.keyboard.press('ArrowLeft');
+    await expect(page).toHaveURL(/2026-05-17\/mp/);
+  });
+
+  test('keyboard m/e switches office', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name === 'mobile', 'Keyboard shortcuts are desktop-only');
+    await page.goto(MP);
+    await expect(page.locator('#day-title')).not.toBeEmpty({ timeout: CONTENT_TIMEOUT });
+    await page.keyboard.press('e');
+    await expect(page).toHaveURL(/ep$/);
+    await page.keyboard.press('m');
+    await expect(page).toHaveURL(/mp$/);
   });
 });
 

@@ -178,7 +178,7 @@ function formKey(season, officeType, weekday, rank) {
 // ── Liturgical colour → CSS hex ───────────────────────────────────────────────
 
 const COLOUR_HEX = {
-  'White':  '#c8b87a', 'Red':    '#8c2525', 'Green':  '#2d5a35',
+  'White':  '#f0ece2', 'Red':    '#8c2525', 'Green':  '#2d5a35',
   'Purple': '#5c3a8a', 'Rose':   '#b07a8a', 'Black':  '#2c2820', 'Gold': '#b8860b',
 };
 
@@ -762,10 +762,18 @@ async function render(dateStr, officeType, translation) {
 
   const hexColour = COLOUR_HEX[day.colour] || '#b5a882';
   document.documentElement.style.setProperty('--color-day', hexColour);
+  const colourChip = day.colour
+    ? `<span class="meta-sep">·</span>`
+      + `<span class="meta-item">`
+      + `<span class="colour-chip" style="background:${hexColour}" title="${esc(day.colour)}"></span>`
+      + `<span class="colour-name">${esc(day.colour)}</span>`
+      + `</span>`
+    : '';
   document.getElementById('day-meta').innerHTML = `
     <span class="meta-item">${esc(season)}</span>
     <span class="meta-sep">·</span>
-    <span class="meta-item">${esc(formatRank(day.rank))}</span>`;
+    <span class="meta-item">${esc(formatRank(day.rank))}</span>`
+    + colourChip;
 
   document.querySelectorAll('.day-note, .day-note-details').forEach(el => el.remove());
   if (day.notes && day.notes.length) {
@@ -1030,7 +1038,7 @@ function initScrollBehaviour() {
   let lastY = 0, compact = false, downTravel = 0, upTravel = 0;
 
   function syncNavPad() {
-    main.style.paddingTop = nav.offsetHeight + 'px';
+    main.style.paddingTop = (nav.offsetHeight + 20) + 'px';
   }
   // Sync on load and whenever the nav resizes (compact toggle, observance row).
   syncNavPad();
