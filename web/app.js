@@ -1085,4 +1085,8 @@ document.addEventListener('DOMContentLoaded', () => {
   fetchOnce('bounds',   `${DATA}/season_bounds.json`);
 
   handleHashChange();
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+  }
 });
