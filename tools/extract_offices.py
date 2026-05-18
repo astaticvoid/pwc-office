@@ -718,6 +718,44 @@ def _canonical_doxology(alt_block: dict) -> dict:
     return alt_block  # fallback: leave as-is if we can't normalise
 
 
+def _add_reading_responses(offices: dict) -> dict:
+    """
+    Add reading_response to each office. The three alternatives are the same
+    across all offices except the third option, whose leader text differs:
+      - seasonal offices:  "Holy Word, Holy Wisdom."
+      - ordinary offices:  "Holy wisdom, holy word."
+    This is not captured by PDF extraction — it comes from PWC rubrics.
+    """
+    def _make(third_leader: str) -> dict:
+        return {
+            "type": "alternatives",
+            "groups": [
+                {"label": "I", "segments": [
+                    {"type": "leader",   "text": "The word of the Lord."},
+                    {"type": "response", "text": "Thanks be to God."},
+                ]},
+                {"label": "II", "segments": [
+                    {"type": "leader",   "text": "Hear what the Spirit is saying to the Church."},
+                    {"type": "response", "text": "Thanks be to God."},
+                ]},
+                {"label": "III", "segments": [
+                    {"type": "leader",   "text": third_leader},
+                    {"type": "response", "text": "Thanks be to God."},
+                ]},
+            ],
+        }
+
+    result = {}
+    for office_key, office in offices.items():
+        if office_key.startswith('_'):
+            result[office_key] = office
+            continue
+        third = ("Holy wisdom, holy word." if office_key.startswith('ordinary-')
+                 else "Holy Word, Holy Wisdom.")
+        result[office_key] = {**office, 'reading_response': _make(third)}
+    return result
+
+
 def _dedup_shared(offices: dict) -> dict:
     """
     Scan every alternatives block across all offices.
@@ -726,7 +764,7 @@ def _dedup_shared(offices: dict) -> dict:
     """
     shared: dict = {}
 
-    def _walk(segs: list) -> list:
+    def _walk(segs: list, office_key: str = "", section_key: str = "") -> list:
         out = []
         for seg in segs:
             if seg.get('type') != 'alternatives':
@@ -736,7 +774,7 @@ def _dedup_shared(offices: dict) -> dict:
             # alternatives (e.g. berakah_blessings inside opening_responses group II)
             # are deduped before we inspect the parent block.
             new_groups = [
-                {**g, 'segments': _walk(g.get('segments', []))}
+                {**g, 'segments': _walk(g.get('segments', []), office_key, section_key)}
                 for g in seg.get('groups', [])
             ]
             seg = {**seg, 'groups': new_groups}
@@ -744,6 +782,17 @@ def _dedup_shared(offices: dict) -> dict:
             if _is_doxology(seg):
                 if 'doxology' not in shared:
                     shared['doxology'] = _canonical_doxology(seg)
+                # The canticle doxology intro rubric is swallowed by _BLOCK_SEP_ONLY
+                # during extraction. Re-insert it here at dedup time, but only in
+                # the canticle section — the doxology also appears in opening_responses
+                # where no intro rubric is needed.
+                if section_key == 'canticle':
+                    rubric_text = (
+                        "After the Canticle one of the following may be said or sung."
+                        if office_key.startswith('ordinary-')
+                        else "At the end of the Canticle one of the following may be said or sung."
+                    )
+                    out.append({'type': 'rubric', 'text': rubric_text})
                 out.append({'type': 'shared', 'key': 'doxology'})
             elif _is_affirmation(seg):
                 if 'affirmation' not in shared:
@@ -762,7 +811,7 @@ def _dedup_shared(offices: dict) -> dict:
         new_office = {}
         for section_key, segs in office.items():
             if isinstance(segs, list):
-                new_office[section_key] = _walk(segs)
+                new_office[section_key] = _walk(segs, office_key, section_key)
             else:
                 new_office[section_key] = segs
         result[office_key] = new_office
@@ -933,6 +982,7 @@ def run():
                         _dbg(f"  RESULT {sk}: alternatives {glabels}", office=key)
 
     offices = _dedup_shared(offices)
+    offices = _add_reading_responses(offices)
     n_shared = len(offices.get('_shared', {}))
     print(f"\nShared blocks extracted: {list(offices.get('_shared', {}).keys())}")
 
