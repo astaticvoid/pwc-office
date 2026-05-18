@@ -373,13 +373,12 @@ body {
   line-height: var(--line-height);
 }
 
-.word-of-lord {
-  margin-top: 0.75rem;
-  font-family: var(--font-liturgy);
-  font-size: 1.1rem;
+.psalm-gloria {
+  margin-top: 0.5rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid rgba(0,0,0,0.1);
 }
-
-.word-of-lord .response { font-weight: 600; }
+[data-theme="dark"] .psalm-gloria { border-top-color: rgba(255,255,255,0.1); }
 
 /* ── Collect ───────────────────────────────────────────────────────────────── */
 
@@ -440,14 +439,22 @@ body {
   color: var(--color-muted);
   margin: 0.4rem 0;
 }
+.day-note-collapsible { cursor: pointer; }
+.day-note-collapsible::after { content: ' ▸'; font-size: 0.75em; font-style: normal; opacity: 0.5; }
+.day-note-collapsible.day-note-expanded::after { content: ' ▴'; }
 
-.day-note-details { margin: 0.4rem 0; }
-.day-note-details summary { cursor: pointer; list-style: none; }
-.day-note-details summary::-webkit-details-marker { display: none; }
-.day-note-details summary::after { content: ' ▸'; font-size: 0.75em; opacity: 0.5; font-style: normal; }
-.day-note-details[open] summary::after { content: ' ▴'; }
 
 /* ── Alternatives toggle ───────────────────────────────────────────────────── */
+
+.alt-source {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  margin: 0 0 0.4rem;
+}
 
 .alt-block { margin: 0.75rem 0; }
 

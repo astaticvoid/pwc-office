@@ -1,0 +1,344 @@
+// @ts-check
+const { test, expect } = require('@playwright/test');
+
+// Use a fixed known-good date rather than today so tests don't break
+// on days with unusual structure (e.g. no alternate, no optional lesson).
+// 2026-05-17 (Seventh Sunday of Easter) has:
+//   - MP + EP
+//   - Two alternate observances (Easter VII + Ascension)
+//   - Two lessons per office
+//   - Long pastoral note (tests note expand/collapse)
+const DATE  = '2026-05-17';
+const MP    = `/#/${DATE}/mp`;
+const EP    = `/#/${DATE}/ep`;
+const PREV  = `/#/2026-05-16/mp`;
+
+// How long to wait for async content (psalms, scripture fetches).
+const CONTENT_TIMEOUT = 20_000;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+async function waitForContentLoaded(page) {
+  // All .psalm-loading and .scripture-placeholder divs must have resolved.
+  await expect(page.locator('.psalm-loading p.loading')).toHaveCount(0, { timeout: CONTENT_TIMEOUT });
+  await expect(page.locator('.scripture-placeholder p.loading')).toHaveCount(0, { timeout: CONTENT_TIMEOUT });
+}
+
+// ── Office loads ──────────────────────────────────────────────────────────────
+
+test.describe('Office loads', () => {
+  test('morning prayer: page title and header', async ({ page }) => {
+    await page.goto(MP);
+    await expect(page).toHaveTitle(/Morning Prayer/);
+    await expect(page.locator('#day-title')).toContainText('Easter');
+    await expect(page.locator('#day-subtitle')).toContainText('2026');
+    await expect(page.locator('#day-office-name')).toHaveText('Morning Prayer');
+  });
+
+  test('morning prayer: psalms render with number and verses', async ({ page }) => {
+    await page.goto(MP);
+    await expect(page.locator('.psalm-title').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
+    // Psalm title should include "Psalm N"
+    await expect(page.locator('.psalm-title').first()).toContainText('Psalm');
+    // At least one verse should be rendered
+    await expect(page.locator('.verse').first()).toBeVisible();
+  });
+
+  test('morning prayer: no loading spinners remain', async ({ page }) => {
+    await page.goto(MP);
+    await waitForContentLoaded(page);
+    // Nothing should still be loading
+    await expect(page.locator('p.loading')).toHaveCount(0);
+  });
+
+  test('morning prayer: scripture fills in without errors', async ({ page }) => {
+    await page.goto(MP);
+    await expect(page.locator('.scripture-verse').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
+    await expect(page.locator('.error-msg')).toHaveCount(0);
+  });
+
+  test('morning prayer: all major sections present', async ({ page }) => {
+    await page.goto(MP);
+    const sections = page.locator('.office-section-title');
+    // Gathering, Proclamation, Prayers, Sending
+    await expect(sections).toHaveCount(4);
+  });
+
+  test('morning prayer: collect appears in Prayers section', async ({ page }) => {
+    await page.goto(MP);
+    await expect(page.locator('.office-section-title', { hasText: 'Prayers' })).toBeVisible();
+    await expect(page.locator('.office-subsection-title', { hasText: 'Collect' }).first())
+      .toBeVisible({ timeout: 5000 });
+  });
+
+  test('morning prayer: reading headings use full book names', async ({ page }) => {
+    await page.goto(MP);
+    // Reading headings should say e.g. "Numbers" not "Num", "Ephesians" not "Eph"
+    const headings = page.locator('.reading-heading');
+    await expect(headings.first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
+    const text = await headings.first().textContent();
+    // Should not contain bare two/three-letter abbreviations like "Num" or "Eph"
+    expect(text).not.toMatch(/Reading:\s+[A-Z][a-z]{0,2}\s+\d/);
+  });
+
+  test('morning prayer: psalm ends with gloria toggle', async ({ page }) => {
+    await page.goto(MP);
+    await expect(page.locator('.psalm-gloria').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
+    await expect(page.locator('.psalm-gloria .alt-tab')).toHaveCount(3, { timeout: CONTENT_TIMEOUT });
+  });
+
+  test('morning prayer: reading ends with 3-option thanks-be-to-god', async ({ page }) => {
+    await page.goto(MP);
+    // reading_response alt-block has 3 tabs
+    const responseTabs = page.locator('[data-key="pwc-alt-reading_response"]');
+    await expect(responseTabs.first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
+    await expect(responseTabs).toHaveCount(6); // 3 tabs × 2 lessons = 6
+  });
+
+  test('morning prayer: affirmation is in Proclamation, not Prayers', async ({ page }) => {
+    await page.goto(MP);
+    const affirmation = page.locator('.office-subsection-title', { hasText: 'Affirmation' });
+    await expect(affirmation).toBeVisible({ timeout: 5000 });
+    // Affirmation title must appear BEFORE the Prayers section title
+    const proclamation = page.locator('.office-section-title', { hasText: 'Proclamation' });
+    const prayers      = page.locator('.office-section-title', { hasText: 'Prayers' });
+    const affirmBB = await affirmation.boundingBox();
+    const prayersBB = await prayers.boundingBox();
+    expect(affirmBB.y).toBeLessThan(prayersBB.y);
+  });
+
+  test('evening prayer loads', async ({ page }) => {
+    await page.goto(EP);
+    await expect(page).toHaveTitle(/Evening Prayer/);
+    await expect(page.locator('.verse').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
+    await expect(page.locator('.error-msg')).toHaveCount(0);
+  });
+});
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+
+test.describe('Navigation', () => {
+  test('prev arrow goes to previous day', async ({ page }) => {
+    await page.goto(MP);
+    await page.locator('#nav-prev').click();
+    await expect(page).toHaveURL(/2026-05-16\/mp/);
+    await expect(page.locator('#day-title')).not.toBeEmpty();
+  });
+
+  test('next arrow goes to next day', async ({ page }) => {
+    await page.goto(MP);
+    await page.locator('#nav-next').click();
+    await expect(page).toHaveURL(/2026-05-18\/mp/);
+  });
+
+  test('MP/EP toggle switches office', async ({ page }) => {
+    await page.goto(MP);
+    await page.locator('#nav-ep').click();
+    await expect(page).toHaveURL(/2026-05-17\/ep/);
+    await expect(page).toHaveTitle(/Evening Prayer/);
+  });
+
+  test('keyboard right/left arrow navigates', async ({ page }) => {
+    await page.goto(MP);
+    await page.locator('#day-title').waitFor();
+    await page.keyboard.press('ArrowRight');
+    await expect(page).toHaveURL(/2026-05-18\/mp/);
+    await page.keyboard.press('ArrowLeft');
+    await expect(page).toHaveURL(/2026-05-17\/mp/);
+  });
+
+  test('keyboard m/e switches office', async ({ page }) => {
+    await page.goto(MP);
+    await page.locator('#day-title').waitFor();
+    await page.keyboard.press('e');
+    await expect(page).toHaveURL(/ep$/);
+    await page.keyboard.press('m');
+    await expect(page).toHaveURL(/mp$/);
+  });
+
+  test('today button navigates to today', async ({ page }) => {
+    // Start on a different date
+    await page.goto(PREV);
+    await page.locator('#nav-today').click();
+    // Should land on today's date
+    const today = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+    await expect(page).toHaveURL(new RegExp(todayStr));
+  });
+});
+
+// ── Notes ─────────────────────────────────────────────────────────────────────
+
+test.describe('Notes', () => {
+  test('long note is truncated by default', async ({ page }) => {
+    await page.goto(MP);
+    const note = page.locator('p.day-note-collapsible').first();
+    await expect(note).toBeVisible({ timeout: 5000 });
+    const text = await note.textContent();
+    // Should end with ellipsis (truncated) and not be the full long text
+    expect(text).toMatch(/…\s*▸\s*$/);
+  });
+
+  test('tapping long note expands to full text, tapping again collapses', async ({ page }) => {
+    await page.goto(MP);
+    const note = page.locator('p.day-note-collapsible').first();
+    await expect(note).toBeVisible({ timeout: 5000 });
+    const shortText = await note.textContent();
+
+    // Expand
+    await note.click();
+    await expect(note).toHaveClass(/day-note-expanded/);
+    const fullText = await note.textContent();
+    expect((fullText || '').length).toBeGreaterThan((shortText || '').length);
+    expect(fullText).not.toMatch(/…/);
+
+    // Collapse again
+    await note.click();
+    await expect(note).not.toHaveClass(/day-note-expanded/);
+    const collapsedText = await note.textContent();
+    expect(collapsedText).toMatch(/…/);
+  });
+});
+
+// ── Alternatives toggles ──────────────────────────────────────────────────────
+
+test.describe('Alternatives', () => {
+  test('opening responses has 2 tabs (Form I and II)', async ({ page }) => {
+    await page.goto(MP);
+    // The first alt-block in the Gathering section should be the opening responses.
+    const altBlock = page.locator('.alt-block').first();
+    await altBlock.waitFor();
+    await expect(altBlock.locator('.alt-tab')).toHaveCount(2);
+    await expect(altBlock.locator('.alt-tab').nth(0)).toHaveClass(/alt-tab-active/);
+  });
+
+  test('Form II contains nested Berakah blessings toggle', async ({ page }) => {
+    await page.goto(MP);
+    const outer = page.locator('.alt-block').first();
+    await outer.waitFor();
+
+    // Click Form II
+    await outer.locator('.alt-tab').nth(1).click();
+    await expect(outer.locator('.alt-tab').nth(1)).toHaveClass(/alt-tab-active/);
+
+    // There should now be a nested alt-block (the Berakah blessings) visible
+    const panel = outer.locator('.alt-panel').nth(1);
+    const nested = panel.locator('.alt-block');
+    await expect(nested).toBeVisible();
+    await expect(nested.locator('.alt-tab')).toHaveCount(3);
+    // Blessing I should be selected by default
+    await expect(nested.locator('.alt-tab').nth(0)).toHaveClass(/alt-tab-active/);
+  });
+
+  test('clicking tab shows correct panel, hides others', async ({ page }) => {
+    await page.goto(MP);
+    const altBlock = page.locator('.alt-block').first();
+    await altBlock.waitFor();
+
+    // Tab II
+    await altBlock.locator('.alt-tab').nth(1).click();
+    await expect(altBlock.locator('.alt-panel').nth(0)).toHaveClass(/alt-panel-hidden/);
+    await expect(altBlock.locator('.alt-panel').nth(1)).not.toHaveClass(/alt-panel-hidden/);
+
+    // Back to tab I
+    await altBlock.locator('.alt-tab').nth(0).click();
+    await expect(altBlock.locator('.alt-panel').nth(0)).not.toHaveClass(/alt-panel-hidden/);
+    await expect(altBlock.locator('.alt-panel').nth(1)).toHaveClass(/alt-panel-hidden/);
+  });
+
+  test('tab selection persists across office switch', async ({ page }) => {
+    await page.goto(MP);
+    const altBlock = page.locator('.alt-block').first();
+    await altBlock.waitFor();
+
+    // Select tab II
+    await altBlock.locator('.alt-tab').nth(1).click();
+
+    // Switch to EP and back to MP
+    await page.locator('#nav-ep').click();
+    await page.locator('#nav-mp').click();
+
+    const altBlockAfter = page.locator('.alt-block').first();
+    await altBlockAfter.waitFor();
+    await expect(altBlockAfter.locator('.alt-tab').nth(1)).toHaveClass(/alt-tab-active/);
+  });
+
+  test('nested Berakah blessings survive round-trip tab switch (II → I → II)', async ({ page }) => {
+    await page.goto(MP);
+    const outer = page.locator('.alt-block').first();
+    await outer.waitFor();
+
+    // Switch to Form II to reveal the nested Berakah blessings block.
+    await outer.locator('.alt-tab').nth(1).click();
+    const panel2 = outer.locator('.alt-panel').nth(1);
+    const berakah = panel2.locator('.alt-block');
+    await expect(berakah).toBeVisible();
+
+    // Note which blessing is active.
+    const activeTabBefore = berakah.locator('.alt-tab-active');
+    const labelBefore = await activeTabBefore.textContent();
+
+    // Switch to Form I and back to Form II.
+    await outer.locator('.alt-tab').nth(0).click();
+    await outer.locator('.alt-tab').nth(1).click();
+
+    // Berakah block must still be visible and have the same active tab.
+    await expect(berakah).toBeVisible();
+    await expect(berakah.locator('.alt-tab-active')).toHaveText(String(labelBefore));
+    // Exactly one panel must be visible inside the Berakah block.
+    await expect(berakah.locator('.alt-panel:not(.alt-panel-hidden)')).toHaveCount(1);
+  });
+
+  test('doxology and Berakah blessings use independent localStorage keys', async ({ page }) => {
+    await page.goto(MP);
+    const altBlocks = page.locator('.alt-block');
+    await altBlocks.first().waitFor();
+
+    // Open Form II to expose the Berakah blessings nested block
+    await altBlocks.first().locator('.alt-tab').nth(1).click();
+    const berakahBlock = altBlocks.first().locator('.alt-panel').nth(1).locator('.alt-block');
+    // Select Berakah blessing III
+    await berakahBlock.locator('.alt-tab').nth(2).click();
+
+    // Find the doxology block (after the canticle section, 3 tabs starting with Roman numerals)
+    // It should be independent — tab I still active
+    const doxologyBlock = page.locator('.alt-block').filter({
+      has: page.locator('.alt-tab', { hasText: 'I' }),
+    }).last();
+    await expect(doxologyBlock.locator('.alt-tab').nth(0)).toHaveClass(/alt-tab-active/);
+  });
+});
+
+// ── Observance toggle ─────────────────────────────────────────────────────────
+
+test.describe('Observance toggle', () => {
+  // 2026-05-17 has Easter VII (primary) and Ascension (alternate)
+  test('observance row is visible', async ({ page }) => {
+    await page.goto(MP);
+    await expect(page.locator('#nav-observance-row')).not.toHaveClass(/nav-row-hidden/);
+    await expect(page.locator('.obs-nav-btn')).toHaveCount(2);
+  });
+
+  test('primary readings visible by default, alternate hidden', async ({ page }) => {
+    await page.goto(MP);
+    await expect(page.locator('.obs-readings[data-obs="primary"]')).not.toHaveClass(/obs-hidden/);
+    await expect(page.locator('.obs-readings[data-obs="alternate"]')).toHaveClass(/obs-hidden/);
+  });
+
+  test('clicking alternate observance swaps visible readings', async ({ page }) => {
+    await page.goto(MP);
+    await page.locator('.obs-nav-btn[data-obs="alternate"]').click();
+    await expect(page.locator('.obs-readings[data-obs="primary"]')).toHaveClass(/obs-hidden/);
+    await expect(page.locator('.obs-readings[data-obs="alternate"]')).not.toHaveClass(/obs-hidden/);
+  });
+
+  test('title updates to reflect alternate observance', async ({ page }) => {
+    await page.goto(MP);
+    const originalTitle = await page.title();
+    await page.locator('.obs-nav-btn[data-obs="alternate"]').click();
+    const newTitle = await page.title();
+    expect(newTitle).not.toBe(originalTitle);
+    expect(newTitle).toContain('Ascension');
+  });
+});

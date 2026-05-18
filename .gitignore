@@ -39,3 +39,8 @@ boneyard/
 
 # Generated build output — produced by `make build`, never committed
 dist/
+
+# Node / Playwright
+node_modules/
+playwright-report/
+test-results/

@@ -204,6 +204,58 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// Roman numerals and "Form X" labels don't need a repeated source heading inside the panel.
+const SHORT_LABEL_RE = /^(?:Form\s+)?(?:I{1,3}|IV|V|VI{0,3}|IX|X)$/i;
+
+// Biblical citations for canticles, shown below the canticle name in the panel.
+const CANTICLE_SOURCE = {
+  'Bless the Lord':                 'Daniel 3:57–88',
+  'Great and Wonderful':            'Revelation 15:3–4',
+  'Prayer of Habakkuk':             'Habakkuk 3:2–4, 13a, 15–19',
+  'Song of Baruch':                 'Baruch 4:36–5:9',
+  'Song of Christ the Servant':     'Isaiah 42:1–3, 6–7',
+  'Song of Christ\'s Appearing':    '1 Timothy 3:16',
+  'Song of Christ\'s Glory':        'Philippians 2:6–11',
+  'Song of David':                  '1 Chronicles 29:10–13',
+  'Song of Deliverance':            'Isaiah 12:1–6',
+  'Song of Ezekiel':                'Ezekiel 36:24–28',
+  'Song of Faith':                  '1 Timothy 3:16',
+  'Song of God\'s Assembled':       'Isaiah 60:1–3, 11a, 14c, 18–19',
+  'Song of God\'s Children':        'Romans 8:15–21, 28, 31b–32, 34–35, 37–39',
+  'Song of God\'s Chosen One':      'Isaiah 42:1–4, 6–7',
+  'Song of God\'s Grace':           'Ephesians 1:3–10',
+  'Song of God\'s Love':            '1 John 4:7–8, 11–12, 16',
+  'Song of Hannah':                 '1 Samuel 2:1–8',
+  'Song of Humility':               'Philippians 2:6–11',
+  'Song of Jerusalem Our Mother':   'Galatians 4:26; Revelation 21:3–5a',
+  'Song of Jonah':                  'Jonah 2:2–9',
+  'Song of Judith':                 'Judith 16:1–3, 11–15',
+  'Song of Manasseh':               'Prayer of Manasseh',
+  'Song of Mary':                   'Luke 1:46–55',
+  'Song of Moses and Miriam':       'Exodus 15:1–11, 20–21',
+  'Song of Peace':                  'Isaiah 26:1–4, 7–9, 12',
+  'Song of Pilgrimage':             'Sirach 36:1–5, 10–11',
+  'Song of Praise':                 'Daniel 3:52–57',
+  'Song of Redemption':             'Colossians 1:13–20',
+  'Song of Repentance':             'Prayer of Manasseh 1–2, 4, 6–7, 11–15',
+  'Song of Tobit':                  'Tobit 13:1–4, 7–8',
+  'Song of Wisdom':                 'Wisdom 10:15–19, 20b–21',
+  'Song of Zechariah':              'Luke 1:68–79',
+  'Song of the Blessed':            'Matthew 5:3–10',
+  'Song of the Bride':              'Revelation 19:1–2, 5, 7, 9a',
+  'Song of the Covenant':           'Jeremiah 31:10–14',
+  'Song of the Heavenly City':      'Revelation 21:22–22:5',
+  'Song of the Holy City':          'Revelation 21:2–4, 22–27',
+  'Song of the Justified':          'Romans 8:29–32, 34–35, 37–39',
+  'Song of the Lamb':               'Revelation 5:9–10, 13',
+  'Song of the Lord\'s Anointed':   'Isaiah 11:1–2, 4a, 5–7',
+  'Song of the New Creation':       'Isaiah 43:15–21',
+  'Song of the New Jerusalem':      'Revelation 21:1–5',
+  'Song of the Spirit':             'Revelation 22:12–17',
+  'Song of the Wilderness':         'Isaiah 35:1–7, 10',
+  'Song of the Word of the Lord':   'Isaiah 55:6–11',
+};
+
 function renderAlternatives(seg, shared, contextKey) {
   if (!seg.groups || !seg.groups.length) return '';
   // Use the shared block's semantic name when available; otherwise fingerprint
@@ -223,11 +275,20 @@ function renderAlternatives(seg, shared, contextKey) {
   const tabsHtml = seg.groups.map((g, i) =>
     `<button class="alt-tab${i === activeIdx ? ' alt-tab-active' : ''}" data-idx="${i}" data-key="${esc(stateKey)}">${esc(g.label)}</button>`
   ).join('');
-  const panelsHtml = seg.groups.map((g, i) =>
-    `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" data-idx="${i}">${renderSegments(g.segments, shared)}</div>`
-  ).join('');
+  const panelsHtml = seg.groups.map((g, i) => {
+    let sourceHtml = '';
+    if (!SHORT_LABEL_RE.test(g.label.trim())) {
+      const citation = CANTICLE_SOURCE[g.label];
+      sourceHtml = `<p class="alt-source">${esc(g.label)}${citation ? ` — ${esc(citation)}` : ''}</p>`;
+    }
+    return `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" data-idx="${i}">${sourceHtml}${renderSegments(g.segments, shared)}</div>`;
+  }).join('');
   return `<div class="alt-block"><div class="alt-tabs">${tabsHtml}</div>${panelsHtml}</div>`;
 }
+
+// Rubrics that are section-navigation cues in the printed book but are rendered
+// as explicit headings/sections in the app — skip to avoid duplication.
+const SKIP_RUBRICS = /^(Affirmation of Faith|[Tt]he Lord'?s Prayer)\.?\s*$/i;
 
 function renderSegments(segs, shared) {
   if (!segs || !segs.length) return '';
@@ -235,6 +296,7 @@ function renderSegments(segs, shared) {
     let contextKey;
     if (seg.type === 'shared' && shared) { contextKey = seg.key; seg = shared[seg.key] || seg; }
     if (seg.type === 'alternatives') return renderAlternatives(seg, shared, contextKey);
+    if (seg.type === 'rubric' && SKIP_RUBRICS.test(seg.text || '')) return '';
     const t = esc(seg.text || '');
     if (seg.type === 'rubric')   return `<p class="seg-rubric">${t}</p>`;
     if (seg.type === 'response') return `<p class="seg-response">${t}</p>`;
@@ -417,7 +479,33 @@ function extractVerses(book, range) {
 
 // ── Office HTML building ──────────────────────────────────────────────────────
 
-function psalmHtml(officeData) {
+const READING_RESPONSE = {
+  type: 'alternatives',
+  groups: [
+    { label: 'I',   segments: [{ type: 'leader',   text: 'The word of the Lord.' },
+                                { type: 'response', text: 'Thanks be to God.' }] },
+    { label: 'II',  segments: [{ type: 'leader',   text: 'Hear what the Spirit is saying to the Church.' },
+                                { type: 'response', text: 'Thanks be to God.' }] },
+    { label: 'III', segments: [{ type: 'leader',   text: 'Holy Word, Holy Wisdom.' },
+                                { type: 'response', text: 'Thanks be to God.' }] },
+  ],
+};
+
+function expandCitationForDisplay(rawCitation) {
+  return rawCitation.split(' or ').map(part => {
+    const p = parseCitation(part.trim());
+    return p ? `${p.file}${p.rest ? ' ' + p.rest : ''}` : part.trim();
+  }).join(' or ');
+}
+
+function psalmWithGloria(citation, shared) {
+  const gloria = shared && shared.doxology
+    ? `<div class="psalm-gloria">${renderAlternatives(shared.doxology, shared, 'doxology')}</div>`
+    : '';
+  return psalmPlaceholder(citation) + gloria;
+}
+
+function psalmHtml(officeData, shared) {
   const psalms = officeData.psalms || [];
   const psalmSets = officeData.psalm_sets;
   let html = '';
@@ -428,46 +516,86 @@ function psalmHtml(officeData) {
     html += `<h3 class="psalm-heading">Psalm${psalmSets.flat().length > 1 ? 's' : ''}: ${esc(label)}</h3>`;
     psalmSets.forEach((set, si) => {
       if (si > 0) html += `<p class="psalm-set-divider">— or —</p>`;
-      set.forEach(p => { html += psalmPlaceholder(p); });
+      set.forEach(p => { html += psalmWithGloria(p, shared); });
     });
   } else if (psalms.length) {
     const label = psalms.map(p => typeof p === 'object' ? p.citation : p).join(', ');
     html += `<h3 class="psalm-heading">Psalm${psalms.length > 1 ? 's' : ''}: ${esc(label)}</h3>`;
-    psalms.forEach(p => { html += psalmPlaceholder(p); });
+    psalms.forEach(p => { html += psalmWithGloria(p, shared); });
   }
   return html;
 }
 
-function lessonHtml(lesson) {
+function lessonHtml(lesson, shared) {
   const rawCitation = typeof lesson === 'object' ? lesson.citation : lesson;
   const optional = typeof lesson === 'object' && lesson.optional;
-  const display = optional ? `(${rawCitation})` : rawCitation;
+  const displayCitation = expandCitationForDisplay(rawCitation);
+  const display = optional ? `(${displayCitation})` : displayCitation;
+  const preambleRubric = `<p class="seg-rubric">A Reading from the Daily Office Lectionary, the Weekday Eucharistic Lectionary, or the Revised Common Lectionary Daily Readings is read.</p>`;
+  const reflectionRubric = `<p class="seg-rubric">After a period of silent reflection one of the following is said.</p>`;
+  const responseHtml = `<div class="liturgy">${renderAlternatives(READING_RESPONSE, shared, 'reading_response')}</div>`;
   return `<h3 class="reading-heading">Reading: ${esc(display)}</h3>`
+    + preambleRubric
     + `<div class="scripture-placeholder" data-citation="${esc(rawCitation)}"><p class="loading">Loading…</p></div>`
-    + `<p class="word-of-lord">The word of the Lord.<br><span class="response">Thanks be to God.</span></p>`;
+    + reflectionRubric
+    + responseHtml;
 }
 
-// Renders psalms + lessons with responsory/canticle interleaved between lesson 1 and 2.
+// Psalms → lesson 1 → responsory → lesson 2 → canticle (PWC ordering).
 function proclamationHtml(officeData, form, shared) {
   const lessons = (officeData.lessons || []);
-  let html = psalmHtml(officeData);
-  if (lessons.length > 0) html += lessonHtml(lessons[0]);
-  if (form) {
-    html += renderSubsection('The Responsory', form.responsory, shared);
-    html += renderSubsection('The Canticle', form.canticle, shared);
-  }
-  for (const lesson of lessons.slice(1)) html += lessonHtml(lesson);
+  let html = psalmHtml(officeData, shared);
+  if (lessons.length > 0) html += lessonHtml(lessons[0], shared);
+  if (form) html += renderSubsection('The Responsory', form.responsory, shared);
+  if (lessons.length > 1) html += lessonHtml(lessons[1], shared);
+  if (form) html += renderSubsection('The Canticle', form.canticle, shared);
+  for (const lesson of lessons.slice(2)) html += lessonHtml(lesson, shared);
   return html;
 }
 
-function collectHtml(collects, ref, label) {
+function collectHtml(collects, ref) {
   if (!ref) return '';
   const col = lookupCollect(collects, ref);
-  const heading = col && col.name
-    ? `${label}: ${col.name} (p. ${esc(collectPageNum(ref))})`
-    : `${label} (p. ${esc(collectPageNum(ref) || ref)})`;
-  return `<h3 class="office-subsection-title">${esc(heading)}</h3>`
+  const name = col && col.name ? col.name : `p. ${collectPageNum(ref) || ref}`;
+  return `<p class="alt-source">${esc(name)}</p>`
        + (col ? `<p class="collect-text">${esc(col.text)}</p>` : '');
+}
+
+// Renders the collect section as a toggle between the daily collect and
+// the seasonal alternatives, as the rubric directs: "either…or".
+function collectToggleHtml(collects, collectRef, seasonalSegs, shared) {
+  // Separate general instruction rubrics (shown above the toggle) from collect content.
+  let splitAt = 0;
+  while (splitAt < seasonalSegs.length && seasonalSegs[splitAt].type === 'rubric'
+         && !WEEK_RUBRIC.test(seasonalSegs[splitAt].text)) splitAt++;
+  const generalRubrics = seasonalSegs.slice(0, splitAt);
+  const seasonalContent = seasonalSegs.slice(splitAt);
+
+  const hasDaily    = !!collectRef;
+  const hasSeasonal = seasonalContent.some(s => s.type !== 'rubric');
+
+  let html = '';
+  if (generalRubrics.length) html += `<div class="liturgy">${renderSegments(generalRubrics, shared)}</div>`;
+
+  if (!hasDaily && !hasSeasonal) return html;
+
+  if (hasDaily && hasSeasonal) {
+    const stateKey = 'pwc-alt-collect';
+    const activeIdx = parseInt(localStorage.getItem(stateKey) || '0') === 1 ? 1 : 0;
+    const tab = (label, i) =>
+      `<button class="alt-tab${i === activeIdx ? ' alt-tab-active' : ''}" data-idx="${i}" data-key="${esc(stateKey)}">${esc(label)}</button>`;
+    const panel = (content, i) =>
+      `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" data-idx="${i}">${content}</div>`;
+    html += `<div class="alt-block"><div class="alt-tabs">${tab('Collect of the Day', 0)}${tab('Seasonal Collect', 1)}</div>`
+          + panel(collectHtml(collects, collectRef), 0)
+          + panel(`<div class="liturgy">${renderSegments(seasonalContent, shared)}</div>`, 1)
+          + `</div>`;
+  } else if (hasDaily) {
+    html += `<h3 class="office-subsection-title">Collect of the Day</h3>${collectHtml(collects, collectRef)}`;
+  } else {
+    html += `<h3 class="office-subsection-title">Seasonal Collect</h3><div class="liturgy">${renderSegments(seasonalContent, shared)}</div>`;
+  }
+  return html;
 }
 
 // ── Date formatting ───────────────────────────────────────────────────────────
@@ -588,19 +716,22 @@ async function render(dateStr, officeType, translation) {
     const headerEl = document.getElementById('day-header');
     day.notes.forEach(n => {
       const text = typeof n === 'object' ? n.text : n;
+      const p = document.createElement('p');
+      p.className = 'day-note';
       if (text.length > 200) {
-        const splitAt = text.lastIndexOf(' ', 160);
-        const cut = splitAt > 60 ? splitAt : 160;
-        const el = document.createElement('details');
-        el.className = 'day-note-details';
-        el.innerHTML = `<summary class="day-note">${esc(text.slice(0, cut))}…</summary><p class="day-note">${esc(text.slice(cut).trimStart())}</p>`;
-        headerEl.appendChild(el);
+        const cut = text.lastIndexOf(' ', 160) || 160;
+        const short = text.slice(0, cut) + '…';
+        p.textContent = short;
+        p.classList.add('day-note-collapsible');
+        p.addEventListener('click', () => {
+          const collapsed = p.textContent !== text;
+          p.textContent = collapsed ? text : short;
+          p.classList.toggle('day-note-expanded', collapsed);
+        });
       } else {
-        const p = document.createElement('p');
-        p.className = 'day-note';
         p.textContent = text;
-        headerEl.appendChild(p);
       }
+      headerEl.appendChild(p);
     });
   }
 
@@ -632,13 +763,16 @@ async function render(dateStr, officeType, translation) {
     html += `</div>`;
   }
 
+  // Affirmation of Faith closes the Proclamation section (not Prayers).
+  if (form) html += renderSubsection('Affirmation of Faith', form.affirmation, shared);
+
   // ── Prayers ────────────────────────────────────────────────────────────────
-  if (form && (form.affirmation || form.litany || form.lords_prayer_intro || (form.seasonal_collects && form.seasonal_collects.length) || officeData.collect)) {
+  if (form && (form.litany || form.lords_prayer_intro || (form.seasonal_collects && form.seasonal_collects.length) || officeData.collect)) {
     html += `<h2 class="office-section-title">The Prayers of the Community</h2>`;
-    html += renderSubsection('Affirmation of Faith', form.affirmation, shared);
     html += renderSubsection('The Litany', form.litany, shared);
-    html += collectHtml(collects, officeData.collect, 'Collect of the Day');
-    html += renderSubsection('Seasonal Collect', filterSeasonalCollects(form.seasonal_collects || [], weekIdx), shared);
+    const seasonalSegs = filterSeasonalCollects(form.seasonal_collects || [], weekIdx);
+    html += `<h3 class="office-subsection-title">The Collect</h3>`;
+    html += collectToggleHtml(collects, officeData.collect, seasonalSegs, shared);
     if (form.lords_prayer_intro && form.lords_prayer_intro.length) {
       html += `<h3 class="office-subsection-title">The Lord's Prayer</h3>`;
       html += `<div class="liturgy">${renderSegments(form.lords_prayer_intro, shared)}</div>`;
@@ -774,19 +908,36 @@ function handleHashChange() {
 
 function initScrollBehaviour() {
   const nav = document.getElementById('nav');
-  let lastY = 0, compact = false, upTravel = 0;
+  let lastY = 0, compact = false, downTravel = 0, upTravel = 0;
+
   window.addEventListener('scroll', () => {
     const y = window.scrollY;
     const delta = y - lastY;
     if (delta > 0) {
+      // Scrolling down — accumulate downward travel; reset upward counter.
       upTravel = 0;
-      if (!compact && y > 80) { compact = true; nav.classList.add('nav-compact'); }
+      downTravel += delta;
+      if (!compact && y > 80 && downTravel > 40) {
+        compact = true; downTravel = 0; nav.classList.add('nav-compact');
+      }
     } else if (delta < 0) {
+      // Scrolling up — accumulate upward travel; reset downward counter.
+      downTravel = 0;
       upTravel += -delta;
-      if (compact && upTravel > 15) { compact = false; upTravel = 0; nav.classList.remove('nav-compact'); }
+      if (compact && upTravel > 30) {
+        compact = false; upTravel = 0; nav.classList.remove('nav-compact');
+      }
     }
     lastY = y;
   }, { passive: true });
+
+  nav.addEventListener('click', e => {
+    if (!compact) return;
+    const interactive = e.target.closest('button, a, select, input, label');
+    if (interactive) return;
+    compact = false; upTravel = 0; downTravel = 0;
+    nav.classList.remove('nav-compact');
+  });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -808,12 +959,21 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('office-content').addEventListener('click', e => {
     const tab = e.target.closest('.alt-tab');
     if (!tab) return;
-    const block = tab.closest('.alt-block');
-    if (!block) return;
     const idx = parseInt(tab.dataset.idx);
-    block.querySelectorAll('.alt-tab').forEach((t, i) => t.classList.toggle('alt-tab-active', i === idx));
-    block.querySelectorAll('.alt-panel').forEach((p, i) => p.classList.toggle('alt-panel-hidden', i !== idx));
-    localStorage.setItem(tab.dataset.key, String(idx));
+    const stateKey = tab.dataset.key;
+    localStorage.setItem(stateKey, String(idx));
+    // Update every alt-block sharing this key so linked blocks (e.g. doxology
+    // after each psalm) stay in sync.
+    const seen = new Set();
+    document.querySelectorAll(`#office-content .alt-tab[data-key="${CSS.escape(stateKey)}"]`).forEach(t => {
+      const b = t.closest('.alt-block');
+      if (!b) return;
+      t.classList.toggle('alt-tab-active', parseInt(t.dataset.idx) === idx);
+      if (!seen.has(b)) {
+        seen.add(b);
+        b.querySelectorAll(':scope > .alt-panel').forEach((p, i) => p.classList.toggle('alt-panel-hidden', i !== idx));
+      }
+    });
   });
 
   document.addEventListener('keydown', e => {

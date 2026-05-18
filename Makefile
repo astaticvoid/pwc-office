@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: test test-smoke test-seasonal test-full build check-dist serve serve-dist deploy
+.PHONY: test test-smoke test-seasonal test-full build check-dist serve serve-dist deploy test-web test-web-local
 
 # Unit tests — no API key needed, always fast.
 test:
@@ -30,13 +30,23 @@ build:
 check-dist: build
 	@python3 tools/check_dist.py
 
-# Serve the source tree for local development (http://localhost:8080/web/).
+# Serve web/ directly for local development (http://localhost:8080/).
+# No build step — web/data symlink is followed live.
 serve:
-	python3 -m http.server 8080
+	python3 -m http.server 8080 --directory web
 
-# Build and serve dist/ exactly as it will appear when deployed (http://localhost:8081/).
+# Build and serve dist/ as it will appear when deployed (http://localhost:8081/).
+# Required for E2E tests and pre-deploy checks.
 serve-dist: check-dist
 	python3 -m http.server 8081 --directory dist
+
+# Run E2E tests against the live Netlify deployment.
+test-web:
+	npx playwright test
+
+# Build dist/ then run E2E tests against a local server.
+test-web-local: check-dist
+	BASE_URL=http://localhost:8081 npx playwright test
 
 # Build and deploy dist/ to Netlify.
 # Icon: place sources/pwc-cover.png (gitignored) before deploying.
