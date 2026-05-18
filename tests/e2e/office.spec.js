@@ -327,6 +327,47 @@ test.describe('Alternatives', () => {
   });
 });
 
+// ── Date picker ───────────────────────────────────────────────────────────────
+
+test.describe('Date picker', () => {
+  test('changing date navigates to that day', async ({ page }) => {
+    await page.goto(MP);
+    await page.locator('#day-title').waitFor();
+    await page.locator('#nav-date-picker').fill('2026-05-18');
+    await page.locator('#nav-date-picker').dispatchEvent('change');
+    await expect(page).toHaveURL(/2026-05-18\/mp/);
+    await expect(page.locator('#day-title')).not.toBeEmpty();
+  });
+});
+
+// ── Translation switch ────────────────────────────────────────────────────────
+
+test.describe('Translation switch', () => {
+  test('switching to KJV re-renders scripture', async ({ page }) => {
+    await page.goto(MP);
+    await expect(page.locator('.scripture-verse').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
+    const before = await page.locator('.scripture-verse').first().textContent();
+
+    await page.locator('#nav-translation').selectOption('kjv');
+    // Wait for loading state to clear
+    await expect(page.locator('.scripture-placeholder p.loading')).toHaveCount(0, { timeout: CONTENT_TIMEOUT });
+    const after = await page.locator('.scripture-verse').first().textContent();
+    // KJV and NRSVUE differ in wording
+    expect(after).not.toBe(before);
+  });
+
+  test('translation preference persists across navigation', async ({ page }) => {
+    await page.goto(MP);
+    await expect(page.locator('.scripture-verse').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
+    await page.locator('#nav-translation').selectOption('kjv');
+
+    await page.locator('#nav-next').click();
+    await expect(page.locator('.scripture-verse').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
+    await expect(page.locator('#nav-translation')).toHaveValue('kjv');
+    await expect(page.locator('#scripture-attr')).toContainText('KJV');
+  });
+});
+
 // ── Observance toggle ─────────────────────────────────────────────────────────
 
 test.describe('Observance toggle', () => {
