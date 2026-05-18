@@ -6,6 +6,8 @@
   --size-base: 1.125rem;
   --line-height: 1.65;
 
+  /* Font size scale — overridden by data-font-size attribute */
+
   /* ACC palette */
   --color-bg:       #faf9f7;
   --color-text:     #1a1a18;
@@ -24,6 +26,10 @@
 
   --content-max: 42rem;
 }
+
+[data-font-size="small"]  { --size-base: 0.95rem;  --line-height: 1.6; }
+[data-font-size="medium"] { --size-base: 1.125rem; --line-height: 1.65; }
+[data-font-size="large"]  { --size-base: 1.3rem;   --line-height: 1.7; }
 
 /* Seasonal accent colours */
 [data-season="Advent"]      { --color-accent: #5c3a8a; }
@@ -54,6 +60,9 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   -webkit-font-smoothing: antialiased;
+  /* Prevent double-tap zoom on interactive elements (roman numerals, tabs, etc.)
+     while keeping pinch-to-zoom available for accessibility. */
+  touch-action: manipulation;
 }
 
 /* ── Navigation ────────────────────────────────────────────────────────────── */
@@ -170,7 +179,8 @@ body {
 #nav-office { display: flex; gap: 0.3rem; justify-content: center; }
 
 #nav-translation,
-#theme-toggle {
+#theme-toggle,
+#font-size-toggle {
   background: rgba(255,255,255,0.08);
   border: 1px solid rgba(255,255,255,0.2);
   color: var(--color-nav-text);
@@ -182,8 +192,8 @@ body {
 }
 
 #nav-translation { appearance: none; }
-#theme-toggle { min-width: 2rem; text-align: center; }
-#theme-toggle:hover { background: rgba(255,255,255,0.14); }
+#theme-toggle, #font-size-toggle { min-width: 2rem; text-align: center; }
+#theme-toggle:hover, #font-size-toggle:hover { background: rgba(255,255,255,0.14); }
 
 
 /* ── Main content ──────────────────────────────────────────────────────────── */

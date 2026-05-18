@@ -43,6 +43,32 @@ function updateThemeButton() {
   btn.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
 }
 
+// ── Font size ─────────────────────────────────────────────────────────────────
+
+const FONT_SIZES = ['small', 'medium', 'large'];
+const FONT_LABELS = { small: 'A⁻', medium: 'A', large: 'A⁺' };
+
+function initFontSize() {
+  const stored = localStorage.getItem('pwc-font-size') || 'medium';
+  document.documentElement.setAttribute('data-font-size', stored);
+  updateFontSizeButton(stored);
+}
+
+function cycleFontSize() {
+  const current = document.documentElement.getAttribute('data-font-size') || 'medium';
+  const next = FONT_SIZES[(FONT_SIZES.indexOf(current) + 1) % FONT_SIZES.length];
+  document.documentElement.setAttribute('data-font-size', next);
+  localStorage.setItem('pwc-font-size', next);
+  updateFontSizeButton(next);
+}
+
+function updateFontSizeButton(size) {
+  const btn = document.getElementById('font-size-toggle');
+  if (!btn) return;
+  btn.textContent = FONT_LABELS[size] || 'A';
+  btn.setAttribute('aria-label', `Text size: ${size}. Click to cycle.`);
+}
+
 // ── In-memory fetch cache ─────────────────────────────────────────────────────
 
 const _cache = {
@@ -1074,9 +1100,11 @@ function initScrollBehaviour() {
 
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
+  initFontSize();
   initScrollBehaviour();
 
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+  document.getElementById('font-size-toggle').addEventListener('click', cycleFontSize);
 
   const sel = document.getElementById('nav-translation');
   sel.value = state.translation;
