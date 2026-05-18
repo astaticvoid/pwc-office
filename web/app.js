@@ -1040,7 +1040,7 @@ function initEvalBanner() {
   const banner = document.createElement('div');
   banner.id = 'eval-banner';
   banner.className = 'eval-banner';
-  banner.innerHTML = `<span>Private synod evaluation — please do not share or distribute.</span>`
+  banner.innerHTML = `<span>Private evaluation — please do not share or distribute.</span>`
     + `<button class="eval-banner-dismiss" aria-label="Dismiss">&#215;</button>`;
   document.getElementById('main').insertAdjacentElement('afterbegin', banner);
   banner.querySelector('.eval-banner-dismiss').addEventListener('click', () => {
