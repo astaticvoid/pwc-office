@@ -290,6 +290,25 @@ function renderAlternatives(seg, shared, contextKey) {
 // as explicit headings/sections in the app — skip to avoid duplication.
 const SKIP_RUBRICS = /^(Affirmation of Faith|[Tt]he Lord'?s Prayer)\.?\s*$/i;
 
+function formatLiturgicalText(text) {
+  // For multi-sentence response text (creeds, LP, etc.), insert a visual paragraph
+  // break wherever a sentence ends (. ; ? !) and the next line starts with a capital.
+  const lines = text.split('\n');
+  if (lines.length < 3) return esc(text);
+  let html = '';
+  for (let i = 0; i < lines.length; i++) {
+    if (i > 0) {
+      const prevLine = lines[i - 1].trim();
+      const curLine  = lines[i].trim();
+      const sentenceEnd = /[.;?!]$/.test(prevLine);
+      const capitalStart = /^[A-Z]/.test(curLine);
+      html += (sentenceEnd && capitalStart) ? '<br><br>' : '<br>';
+    }
+    html += esc(lines[i]);
+  }
+  return html;
+}
+
 function renderSegments(segs, shared) {
   if (!segs || !segs.length) return '';
   return segs.map(seg => {
@@ -297,10 +316,10 @@ function renderSegments(segs, shared) {
     if (seg.type === 'shared' && shared) { contextKey = seg.key; seg = shared[seg.key] || seg; }
     if (seg.type === 'alternatives') return renderAlternatives(seg, shared, contextKey);
     if (seg.type === 'rubric' && SKIP_RUBRICS.test(seg.text || '')) return '';
-    const t = esc(seg.text || '');
-    if (seg.type === 'rubric')   return `<p class="seg-rubric">${t}</p>`;
-    if (seg.type === 'response') return `<p class="seg-response">${t}</p>`;
-    return `<p class="seg-leader">${t}</p>`;
+    const text = seg.text || '';
+    if (seg.type === 'rubric')   return `<p class="seg-rubric">${esc(text)}</p>`;
+    if (seg.type === 'response') return `<p class="seg-response">${formatLiturgicalText(text)}</p>`;
+    return `<p class="seg-leader">${esc(text)}</p>`;
   }).join('');
 }
 
@@ -499,8 +518,9 @@ function expandCitationForDisplay(rawCitation) {
 }
 
 function psalmWithGloria(citation, shared) {
+  const gloriaRubric = `<p class="seg-rubric">At the end of the Psalm one of the following may be said or sung.</p>`;
   const gloria = shared && shared.doxology
-    ? `<div class="psalm-gloria">${renderAlternatives(shared.doxology, shared, 'doxology')}</div>`
+    ? gloriaRubric + `<div class="psalm-gloria">${renderAlternatives(shared.doxology, shared, 'doxology')}</div>`
     : '';
   return psalmPlaceholder(citation) + gloria;
 }
@@ -508,20 +528,42 @@ function psalmWithGloria(citation, shared) {
 function psalmHtml(officeData, shared) {
   const psalms = officeData.psalms || [];
   const psalmSets = officeData.psalm_sets;
+  const officeLabel = officeData.label ? `${esc(officeData.label)} — ` : '';
   let html = '';
   if (psalmSets && psalmSets.length) {
     const label = psalmSets.map(set =>
       set.map(p => { const c = typeof p === 'object' ? p.citation : p; return (typeof p === 'object' && p.optional) ? `[${c}]` : c; }).join(', ')
     ).join(' or ');
-    html += `<h3 class="psalm-heading">Psalm${psalmSets.flat().length > 1 ? 's' : ''}: ${esc(label)}</h3>`;
+    html += `<h3 class="psalm-heading">${officeLabel}Psalm${psalmSets.flat().length > 1 ? 's' : ''}: ${esc(label)}</h3>`;
+    html += `<p class="seg-rubric">A Psalm from the appointed lectionary is said or sung.</p>`;
     psalmSets.forEach((set, si) => {
       if (si > 0) html += `<p class="psalm-set-divider">— or —</p>`;
       set.forEach(p => { html += psalmWithGloria(p, shared); });
     });
   } else if (psalms.length) {
     const label = psalms.map(p => typeof p === 'object' ? p.citation : p).join(', ');
-    html += `<h3 class="psalm-heading">Psalm${psalms.length > 1 ? 's' : ''}: ${esc(label)}</h3>`;
-    psalms.forEach(p => { html += psalmWithGloria(p, shared); });
+    html += `<h3 class="psalm-heading">${officeLabel}Psalm${psalms.length > 1 ? 's' : ''}: ${esc(label)}</h3>`;
+    if (psalms.length === 1) {
+      html += `<p class="seg-rubric">The following Psalm from the appointed lectionary is said or sung.</p>`;
+      html += psalmWithGloria(psalms[0], shared);
+    } else {
+      // Multiple psalms: show as selectable tabs (PWOC directs one psalm per office).
+      const stateKey = 'pwc-psalm-' + psalms.map(p => typeof p === 'object' ? p.citation : p).join('-');
+      const saved = parseInt(localStorage.getItem(stateKey) || '0');
+      const active = Math.min(Math.max(0, saved), psalms.length - 1);
+      const tabsHtml = psalms.map((p, i) => {
+        const c = typeof p === 'object' ? p.citation : p;
+        return `<button class="alt-tab${i === active ? ' alt-tab-active' : ''}" data-idx="${i}" data-key="${esc(stateKey)}">Psalm ${esc(c)}</button>`;
+      }).join('');
+      html += `<p class="seg-rubric">One of the following Psalms from the appointed lectionary is said or sung.</p>`;
+      html += `<div class="alt-block"><div class="alt-tabs">${tabsHtml}</div>`;
+      psalms.forEach((p, i) => {
+        html += `<div class="alt-panel${i !== active ? ' alt-panel-hidden' : ''}" data-idx="${i}">`;
+        html += psalmWithGloria(p, shared);
+        html += `</div>`;
+      });
+      html += `</div>`;
+    }
   }
   return html;
 }
@@ -531,12 +573,14 @@ function lessonHtml(lesson, shared) {
   const optional = typeof lesson === 'object' && lesson.optional;
   const displayCitation = expandCitationForDisplay(rawCitation);
   const display = optional ? `(${displayCitation})` : displayCitation;
-  const preambleRubric = `<p class="seg-rubric">A Reading from the Daily Office Lectionary, the Weekday Eucharistic Lectionary, or the Revised Common Lectionary Daily Readings is read.</p>`;
+  const preambleRubric = `<p class="seg-rubric">A Reading from the appointed lectionary is read.</p>`;
+  const endRubric = `<p class="seg-rubric">Here ends the Reading.</p>`;
   const reflectionRubric = `<p class="seg-rubric">After a period of silent reflection one of the following is said.</p>`;
   const responseHtml = `<div class="liturgy">${renderAlternatives(READING_RESPONSE, shared, 'reading_response')}</div>`;
-  return `<h3 class="reading-heading">Reading: ${esc(display)}</h3>`
+  return `<h3 class="reading-heading">The Reading: ${esc(display)}</h3>`
     + preambleRubric
     + `<div class="scripture-placeholder" data-citation="${esc(rawCitation)}"><p class="loading">Loading…</p></div>`
+    + endRubric
     + reflectionRubric
     + responseHtml;
 }
@@ -586,9 +630,12 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared) {
       `<button class="alt-tab${i === activeIdx ? ' alt-tab-active' : ''}" data-idx="${i}" data-key="${esc(stateKey)}">${esc(label)}</button>`;
     const panel = (content, i) =>
       `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" data-idx="${i}">${content}</div>`;
+    // Strip "Week of Easter X" / "Week N" labels from the panel — those are selection
+    // identifiers, not liturgical text to display.
+    const displaySeasonal = seasonalContent.filter(s => !(s.type === 'rubric' && WEEK_RUBRIC.test(s.text)));
     html += `<div class="alt-block"><div class="alt-tabs">${tab('Collect of the Day', 0)}${tab('Seasonal Collect', 1)}</div>`
           + panel(collectHtml(collects, collectRef), 0)
-          + panel(`<div class="liturgy">${renderSegments(seasonalContent, shared)}</div>`, 1)
+          + panel(`<div class="liturgy">${renderSegments(displaySeasonal, shared)}</div>`, 1)
           + `</div>`;
   } else if (hasDaily) {
     html += `<h3 class="office-subsection-title">Collect of the Day</h3>${collectHtml(collects, collectRef)}`;
@@ -718,18 +765,34 @@ async function render(dateStr, officeType, translation) {
       const text = typeof n === 'object' ? n.text : n;
       const p = document.createElement('p');
       p.className = 'day-note';
+      const renderNoteText = t => {
+        // Convert bare URLs to clickable links.
+        const urlPat = /https?:\/\/[^\s)>]+/g;
+        let last = 0, frag = document.createDocumentFragment();
+        let m;
+        while ((m = urlPat.exec(t)) !== null) {
+          if (m.index > last) frag.appendChild(document.createTextNode(t.slice(last, m.index)));
+          const a = document.createElement('a');
+          a.href = m[0]; a.textContent = m[0]; a.target = '_blank'; a.rel = 'noopener noreferrer';
+          frag.appendChild(a);
+          last = m.index + m[0].length;
+        }
+        if (last < t.length) frag.appendChild(document.createTextNode(t.slice(last)));
+        return frag;
+      };
       if (text.length > 200) {
         const cut = text.lastIndexOf(' ', 160) || 160;
         const short = text.slice(0, cut) + '…';
-        p.textContent = short;
+        p.appendChild(renderNoteText(short));
         p.classList.add('day-note-collapsible');
         p.addEventListener('click', () => {
-          const collapsed = p.textContent !== text;
-          p.textContent = collapsed ? text : short;
-          p.classList.toggle('day-note-expanded', collapsed);
+          const isShort = p.classList.contains('day-note-collapsible') && !p.classList.contains('day-note-expanded');
+          p.innerHTML = '';
+          p.appendChild(renderNoteText(isShort ? text : short));
+          p.classList.toggle('day-note-expanded', isShort);
         });
       } else {
-        p.textContent = text;
+        p.appendChild(renderNoteText(text));
       }
       headerEl.appendChild(p);
     });
@@ -744,11 +807,8 @@ async function render(dateStr, officeType, translation) {
     html += `<h2 class="office-section-title">The Gathering of the Community</h2>`;
     if (form.opening_responses && form.opening_responses.length)
       html += renderSubsection('Introductory Responses', form.opening_responses, shared);
-    // Seasonal EP: Thanksgiving for Light (Service of Light) — optional element.
-    if (form.thanksgiving_for_light && form.thanksgiving_for_light.length) {
-      html += `<p class="seg-rubric">The Service of Light may begin Evening Prayer.</p>`;
+    if (form.thanksgiving_for_light && form.thanksgiving_for_light.length)
       html += renderSubsection('The Thanksgiving for Light', form.thanksgiving_for_light, shared);
-    }
     // Ordinary-time EP: evening hymn reference (Phos Hilaron).
     if (form.phos_hilaron && form.phos_hilaron.length)
       html += `<div class="liturgy">${renderSegments(form.phos_hilaron, shared)}</div>`;
@@ -775,7 +835,11 @@ async function render(dateStr, officeType, translation) {
   }
 
   // Affirmation of Faith closes the Proclamation section (not Prayers).
-  if (form) html += renderSubsection('Affirmation of Faith', form.affirmation, shared);
+  if (form && form.affirmation && form.affirmation.length) {
+    html += `<h3 class="office-subsection-title">Affirmation of Faith</h3>`;
+    html += `<p class="seg-rubric">One of the following Affirmations of Faith may be said or sung.</p>`;
+    html += `<div class="liturgy">${renderSegments(form.affirmation, shared)}</div>`;
+  }
 
   // ── Prayers ────────────────────────────────────────────────────────────────
   if (form && (form.intercessions || form.litany || form.lords_prayer_intro || (form.seasonal_collects && form.seasonal_collects.length) || officeData.collect)) {
@@ -795,6 +859,7 @@ async function render(dateStr, officeType, translation) {
   // ── Sending ────────────────────────────────────────────────────────────────
   if (form && form.dismissal && form.dismissal.length) {
     html += `<h2 class="office-section-title">The Sending Forth of the Community</h2>`;
+    html += `<h3 class="office-subsection-title">The Dismissal</h3>`;
     html += `<div class="liturgy">${renderSegments(form.dismissal, shared)}</div>`;
   }
 
@@ -927,20 +992,26 @@ function handleHashChange() {
 
 function initScrollBehaviour() {
   const nav = document.getElementById('nav');
+  const main = document.getElementById('main');
   let lastY = 0, compact = false, downTravel = 0, upTravel = 0;
+
+  function syncNavPad() {
+    main.style.paddingTop = nav.offsetHeight + 'px';
+  }
+  // Sync on load and whenever the nav resizes (compact toggle, observance row).
+  syncNavPad();
+  new ResizeObserver(syncNavPad).observe(nav);
 
   window.addEventListener('scroll', () => {
     const y = window.scrollY;
     const delta = y - lastY;
     if (delta > 0) {
-      // Scrolling down — accumulate downward travel; reset upward counter.
       upTravel = 0;
       downTravel += delta;
       if (!compact && y > 80 && downTravel > 40) {
         compact = true; downTravel = 0; nav.classList.add('nav-compact');
       }
     } else if (delta < 0) {
-      // Scrolling up — accumulate upward travel; reset downward counter.
       downTravel = 0;
       upTravel += -delta;
       if (compact && upTravel > 30) {

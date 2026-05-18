@@ -61,8 +61,10 @@ body {
 #nav {
   background: var(--color-nav-bg);
   color: var(--color-nav-text);
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 100;
   padding: 0.5rem 1rem;
   display: flex;
@@ -189,14 +191,15 @@ body {
 #main {
   max-width: var(--content-max);
   margin: 0 auto;
+  /* padding-top set dynamically by JS to match nav height */
   padding: 1.5rem 1.25rem 4rem;
 }
 
 /* ── Day header ────────────────────────────────────────────────────────────── */
 
 #day-header {
-  margin-bottom: 1.75rem;
-  padding-bottom: 1rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
 }
 
 #day-office-name {
@@ -251,14 +254,13 @@ body {
 
 .office-section-title {
   font-family: var(--font-ui);
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   font-weight: 500;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--color-muted);
-  text-align: center;
-  margin: 2rem 0 1.25rem;
-  padding-top: 1.5rem;
+  margin: 2rem 0 1rem;
+  padding-top: 1.25rem;
   border-top: 2px solid var(--color-day);
 }
 
@@ -269,7 +271,7 @@ body {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--color-muted);
-  margin: 1.5rem 0 0.75rem;
+  margin: 1.5rem 0 0.5rem;
 }
 
 /* ── Liturgical segments ───────────────────────────────────────────────────── */
@@ -285,7 +287,7 @@ body {
 .seg-response {
   font-size: 1.15rem;
   font-weight: 600;
-  margin: 0.55em 0 0.55em 1.75rem;
+  margin: 0.55em 0;
   white-space: pre-wrap;
 }
 
@@ -439,9 +441,10 @@ body {
   color: var(--color-muted);
   margin: 0.4rem 0;
 }
+.day-note a { color: var(--color-link); text-decoration: underline; font-style: normal; }
 .day-note-collapsible { cursor: pointer; }
-.day-note-collapsible::after { content: ' ▸'; font-size: 0.75em; font-style: normal; opacity: 0.5; }
-.day-note-collapsible.day-note-expanded::after { content: ' ▴'; }
+.day-note-collapsible::after { content: ' \25b8'; font-size: 0.75em; font-style: normal; opacity: 0.5; }
+.day-note-collapsible.day-note-expanded::after { content: ' \25b4'; }
 
 
 /* ── Alternatives toggle ───────────────────────────────────────────────────── */
@@ -540,8 +543,8 @@ body {
 /* ── Print ─────────────────────────────────────────────────────────────────── */
 
 @media print {
-  #nav           { display: none; }
-  #main          { max-width: 100%; padding: 1rem; border-top: none; }
+  #nav           { display: none; position: static; }
+  #main          { max-width: 100%; padding: 1rem; }
   .office-section-title { page-break-before: auto; }
   .seg-rubric    { color: #555; }
 }

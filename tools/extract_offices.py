@@ -178,8 +178,14 @@ _MAJOR_HDRS = re.compile(
     re.IGNORECASE,
 )
 
-# Map heading text → section key. None = structural (heading consumed, no section started).
-_SUB_HDR_MAP: list[tuple[re.Pattern, str | None]] = [
+# Sentinel: heading is structural but the current section stays active (don't flush).
+# Used for the Lord's Prayer heading so the intro + prayer text accumulate into litany
+# and are later split out by _split_lords_prayer.
+_CONTINUE = object()
+
+# Map heading text → section key (str), None (flush section, no new section),
+# _CONTINUE (discard heading, keep current section), or False (unknown, treated as content).
+_SUB_HDR_MAP: list[tuple] = [
     (re.compile(r'introductory Responses',              re.IGNORECASE), "opening_responses"),
     (re.compile(r'invitatory Psalm',                    re.IGNORECASE), "invitatory"),
     # Seasonal EP: Service of Light elements (Gathering section)
@@ -192,8 +198,9 @@ _SUB_HDR_MAP: list[tuple[re.Pattern, str | None]] = [
     # Ordinary-time: free-prayer space + day-specific topic prompts before the Litany
     (re.compile(r'^intercessions and thanksgivings$',   re.IGNORECASE), "intercessions"),
     (re.compile(r'^the Litany$',                        re.IGNORECASE), "litany"),
-    # Curly and straight apostrophe variants; heading is harmless (LP split via text matching)
-    (re.compile(r"the Lord[’']?s Prayer",          re.IGNORECASE), None),
+    # Lord's Prayer: keep litany section active so intro + prayer text flow in and are
+    # later split out by _split_lords_prayer.
+    (re.compile(r"the Lord['']?s Prayer",               re.IGNORECASE), _CONTINUE),
     (re.compile(r'^the dismissal$',                     re.IGNORECASE), "dismissal"),
     (re.compile(r'^the Reading$',                       re.IGNORECASE), None),
     (re.compile(r'^the Psalm$',                         re.IGNORECASE), None),
@@ -284,7 +291,7 @@ def _fix_casing(seg: dict) -> dict:
     text = seg["text"]
 
     # Normalize typographic apostrophes so pattern matching is consistent.
-    text = text.replace('’', "'").replace('‘', "'")
+    text = text.replace(''', "'").replace(''', "'")
 
     first_word = re.split(r'\W', text)[0].lower()
     if first_word not in _CONTINUATION_STARTS:
@@ -785,6 +792,11 @@ def extract_office(pdf, start: int, end: int, office_key: str = "") -> dict:
                 if current_key is not None:
                     current_segs.append({"type": content_type, "text": text})
                 continue
+            if key is _CONTINUE:
+                # Structural heading that keeps the current section active (e.g. Lord's Prayer
+                # heading — the intro + prayer text must flow into litany for post-processing).
+                _dbg(f"  CONTINUE-HDR {raw_disp} (stays in {current_key!r})", office=office_key)
+                continue
             _dbg(f"  HEADING {raw_disp} → section {key!r}", office=office_key)
             _flush()
             current_key = key  # may be None (major section label → ignored)
@@ -826,6 +838,10 @@ def extract_office(pdf, start: int, end: int, office_key: str = "") -> dict:
     if "opening_responses" in sections:
         sections["opening_responses"] = _fold_berakah_blessings(
             sections["opening_responses"], office=office_key
+        )
+    if "thanksgiving_for_light" in sections:
+        sections["thanksgiving_for_light"] = _fold_berakah_blessings(
+            sections["thanksgiving_for_light"], office=office_key
         )
 
     # Build result.
