@@ -808,7 +808,7 @@ async function render(dateStr, officeType, translation) {
     if (form.opening_responses && form.opening_responses.length)
       html += renderSubsection('Introductory Responses', form.opening_responses, shared);
     if (form.thanksgiving_for_light && form.thanksgiving_for_light.length)
-      html += renderSubsection('The Thanksgiving for Light', form.thanksgiving_for_light, shared);
+      html += renderSubsection('Thanksgiving', form.thanksgiving_for_light, shared);
     // Ordinary-time EP: evening hymn reference (Phos Hilaron).
     if (form.phos_hilaron && form.phos_hilaron.length)
       html += `<div class="liturgy">${renderSegments(form.phos_hilaron, shared)}</div>`;

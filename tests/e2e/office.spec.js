@@ -123,9 +123,9 @@ test.describe('Office loads', () => {
     await expect(altBlock.locator(':scope > .alt-tabs > .alt-tab')).toHaveCount(2);
   });
 
-  test('evening prayer: Thanksgiving for Light section present', async ({ page }) => {
+  test('evening prayer: Thanksgiving section present', async ({ page }) => {
     await page.goto(EP);
-    await expect(page.locator('.office-subsection-title', { hasText: 'Thanksgiving for Light' }))
+    await expect(page.locator('.office-subsection-title', { hasText: 'Thanksgiving' }))
       .toBeVisible({ timeout: 5000 });
   });
 });

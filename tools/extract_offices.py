@@ -607,6 +607,40 @@ def _fold_berakah_blessings(segs: list[dict], office="") -> list[dict]:
     return result
 
 
+# ── Thanksgiving exchange/body split ─────────────────────────────────────────
+
+def _split_thanksgiving(segs: list[dict]) -> list[dict]:
+    """
+    After _fold_berakah_blessings the thanksgiving section is:
+      alternatives { I: [exchange-A], II: [exchange-B, Berakah-body, berakah_blessings] }
+
+    The Berakah body and blessing conclusions are common to both exchange forms;
+    only the opening call-and-response differs. Restructure to:
+      [alternatives { I: [exchange-A], II: [exchange-B] },
+       Berakah-body segs...,
+       shared:berakah_blessings]
+    so the common text renders after the exchange toggle regardless of which is chosen.
+    """
+    if len(segs) != 1 or segs[0].get("type") != "alternatives":
+        return segs
+    groups = segs[0].get("groups", [])
+    if len(groups) != 2:
+        return segs
+    g0_segs = groups[0].get("segments", [])  # exchange form I only
+    g1_segs = groups[1].get("segments", [])  # exchange form II + common Berakah
+    n = len(g0_segs)
+    if len(g1_segs) <= n:
+        return segs
+    exchange_alt = {
+        "type": "alternatives",
+        "groups": [
+            {"label": groups[0]["label"], "segments": g0_segs},
+            {"label": groups[1]["label"], "segments": g1_segs[:n]},
+        ],
+    }
+    return [exchange_alt] + g1_segs[n:]
+
+
 # ── Lords-prayer intro extraction ─────────────────────────────────────────────
 
 _OUR_FATHER = re.compile(r'^our father\b', re.IGNORECASE)
@@ -842,6 +876,9 @@ def extract_office(pdf, start: int, end: int, office_key: str = "") -> dict:
     if "thanksgiving_for_light" in sections:
         sections["thanksgiving_for_light"] = _fold_berakah_blessings(
             sections["thanksgiving_for_light"], office=office_key
+        )
+        sections["thanksgiving_for_light"] = _split_thanksgiving(
+            sections["thanksgiving_for_light"]
         )
 
     # Build result.
