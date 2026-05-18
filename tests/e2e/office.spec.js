@@ -115,6 +115,19 @@ test.describe('Office loads', () => {
     await expect(page.locator('.verse').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
     await expect(page.locator('.error-msg')).toHaveCount(0);
   });
+
+  test('evening prayer: introductory responses has 2 tabs (not 5)', async ({ page }) => {
+    await page.goto(EP);
+    const altBlock = page.locator('.alt-block').first();
+    await altBlock.waitFor();
+    await expect(altBlock.locator(':scope > .alt-tabs > .alt-tab')).toHaveCount(2);
+  });
+
+  test('evening prayer: Thanksgiving for Light section present', async ({ page }) => {
+    await page.goto(EP);
+    await expect(page.locator('.office-subsection-title', { hasText: 'Thanksgiving for Light' }))
+      .toBeVisible({ timeout: 5000 });
+  });
 });
 
 // ── Navigation ────────────────────────────────────────────────────────────────

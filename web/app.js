@@ -740,9 +740,18 @@ async function render(dateStr, officeType, translation) {
   let html = '';
 
   // ── Gathering ──────────────────────────────────────────────────────────────
-  if (form && form.opening_responses && form.opening_responses.length) {
+  if (form && (form.opening_responses || form.thanksgiving_for_light || form.phos_hilaron || form.invitatory)) {
     html += `<h2 class="office-section-title">The Gathering of the Community</h2>`;
-    html += renderSubsection('Introductory Responses', form.opening_responses, shared);
+    if (form.opening_responses && form.opening_responses.length)
+      html += renderSubsection('Introductory Responses', form.opening_responses, shared);
+    // Seasonal EP: Thanksgiving for Light (Service of Light) — optional element.
+    if (form.thanksgiving_for_light && form.thanksgiving_for_light.length) {
+      html += `<p class="seg-rubric">The Service of Light may begin Evening Prayer.</p>`;
+      html += renderSubsection('The Thanksgiving for Light', form.thanksgiving_for_light, shared);
+    }
+    // Ordinary-time EP: evening hymn reference (Phos Hilaron).
+    if (form.phos_hilaron && form.phos_hilaron.length)
+      html += `<div class="liturgy">${renderSegments(form.phos_hilaron, shared)}</div>`;
     if (form.invitatory && form.invitatory.length)
       html += renderSubsection('Invitatory Psalm', form.invitatory, shared);
   }
@@ -769,8 +778,11 @@ async function render(dateStr, officeType, translation) {
   if (form) html += renderSubsection('Affirmation of Faith', form.affirmation, shared);
 
   // ── Prayers ────────────────────────────────────────────────────────────────
-  if (form && (form.litany || form.lords_prayer_intro || (form.seasonal_collects && form.seasonal_collects.length) || officeData.collect)) {
+  if (form && (form.intercessions || form.litany || form.lords_prayer_intro || (form.seasonal_collects && form.seasonal_collects.length) || officeData.collect)) {
     html += `<h2 class="office-section-title">The Prayers of the Community</h2>`;
+    // Day-specific intercession prompts guide the free-prayer period before the formal litany.
+    if (form.intercessions && form.intercessions.length)
+      html += renderSubsection('Intercessions and Thanksgivings', form.intercessions, shared);
     html += renderSubsection('The Litany', form.litany, shared);
     html += `<h3 class="office-subsection-title">The Collect</h3>`;
     html += `<div id="prayers-collect">${collectToggleHtml(collects, officeData.collect, seasonalSegs, shared)}</div>`;

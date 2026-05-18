@@ -178,18 +178,25 @@ _MAJOR_HDRS = re.compile(
     re.IGNORECASE,
 )
 
-# Map heading text → YAML key. None = structural (discarded).
+# Map heading text → section key. None = structural (heading consumed, no section started).
 _SUB_HDR_MAP: list[tuple[re.Pattern, str | None]] = [
-    (re.compile(r'introductory Responses', re.IGNORECASE),  "opening_responses"),
-    (re.compile(r'invitatory Psalm',        re.IGNORECASE),  "invitatory"),
-    (re.compile(r'^the Responsory$',        re.IGNORECASE),  "responsory"),
-    (re.compile(r'^the Canticle$',          re.IGNORECASE),  "canticle"),
-    (re.compile(r'Affirmation of faith',    re.IGNORECASE),  "affirmation"),
-    (re.compile(r'^the Litany$',            re.IGNORECASE),  "litany"),
-    (re.compile(r"the Lord'?s Prayer",      re.IGNORECASE),  "lords_prayer"),
-    (re.compile(r'^the dismissal$',         re.IGNORECASE),  "dismissal"),
-    (re.compile(r'^the Reading$',           re.IGNORECASE),  None),
-    (re.compile(r'^the Psalm$',             re.IGNORECASE),  None),
+    (re.compile(r'introductory Responses',              re.IGNORECASE), "opening_responses"),
+    (re.compile(r'invitatory Psalm',                    re.IGNORECASE), "invitatory"),
+    # Seasonal EP: Service of Light elements (Gathering section)
+    (re.compile(r'^thanksgiving$',                      re.IGNORECASE), "thanksgiving_for_light"),
+    # Ordinary-time EP: evening hymn heading carries the hymn title as rubric text
+    (re.compile(r'^the evening hymn\b',                 re.IGNORECASE), "phos_hilaron"),
+    (re.compile(r'^the Responsory$',                    re.IGNORECASE), "responsory"),
+    (re.compile(r'^the Canticle$',                      re.IGNORECASE), "canticle"),
+    (re.compile(r'Affirmation of faith',                re.IGNORECASE), "affirmation"),
+    # Ordinary-time: free-prayer space + day-specific topic prompts before the Litany
+    (re.compile(r'^intercessions and thanksgivings$',   re.IGNORECASE), "intercessions"),
+    (re.compile(r'^the Litany$',                        re.IGNORECASE), "litany"),
+    # Curly and straight apostrophe variants; heading is harmless (LP split via text matching)
+    (re.compile(r"the Lord[’']?s Prayer",          re.IGNORECASE), None),
+    (re.compile(r'^the dismissal$',                     re.IGNORECASE), "dismissal"),
+    (re.compile(r'^the Reading$',                       re.IGNORECASE), None),
+    (re.compile(r'^the Psalm$',                         re.IGNORECASE), None),
 ]
 
 def _heading_to_key(text: str) -> str | None | bool:
@@ -815,8 +822,9 @@ def extract_office(pdf, start: int, end: int, office_key: str = "") -> dict:
         result["subtitle"] = subtitle
 
     # Preserve canonical section order.
-    for key in ("opening_responses", "invitatory", "responsory", "canticle",
-                "affirmation", "litany", "seasonal_collects", "lords_prayer_intro",
+    for key in ("opening_responses", "thanksgiving_for_light", "phos_hilaron",
+                "invitatory", "responsory", "canticle", "affirmation",
+                "intercessions", "litany", "seasonal_collects", "lords_prayer_intro",
                 "dismissal"):
         if key in sections and sections[key]:
             result[key] = sections[key]
