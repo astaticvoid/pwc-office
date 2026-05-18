@@ -14,6 +14,7 @@ Writes data/offices.json with each section as a list of typed segments.
 Usage: python3 tools/extract_offices.py
 """
 
+import os
 import re
 import sys
 import collections
@@ -21,6 +22,21 @@ from pathlib import Path
 
 import json
 import pdfplumber
+
+# Set DEBUG=1 to emit a full extraction trace to stderr.
+# Usage: DEBUG=1 python3 tools/extract_offices.py 2> audit.log
+_DEBUG = os.environ.get("DEBUG", "0") == "1"
+_OFFICE_FILTER = os.environ.get("DEBUG_OFFICE", "")  # e.g. "easter-ep" to trace one office
+
+def _dbg(*parts, office="", section=""):
+    if not _DEBUG:
+        return
+    if _OFFICE_FILTER and office and _OFFICE_FILTER not in office:
+        return
+    prefix = f"[{office}]" if office else ""
+    if section:
+        prefix += f"[{section}]"
+    print(prefix, *parts, file=sys.stderr)
 
 ROOT = Path(__file__).parent.parent
 
@@ -86,7 +102,7 @@ def _char_type(c: dict) -> str:
 
 # ── Line extraction from page.chars ──────────────────────────────────────────
 
-def _page_styled_lines(page) -> list[tuple[str, str]]:
+def _page_styled_lines(page, office="") -> list[tuple[str, str]]:
     """
     Return (type, text) for each line on the page, in reading order.
     Characters are grouped by y-coordinate into lines, then classified
@@ -137,6 +153,12 @@ def _page_styled_lines(page) -> list[tuple[str, str]]:
         type_counts = collections.Counter(_char_type(c) for c in bucket)
         dominant = type_counts.most_common(1)[0][0]
         result.append((dominant, text))
+        # Log minority disagreements so we can audit misclassified lines.
+        if _DEBUG and len(type_counts) > 1:
+            votes = ", ".join(f"{t}×{n}" for t, n in type_counts.most_common())
+            _dbg(f"  RAW [{dominant}] {repr(text[:60])}  (votes: {votes})", office=office)
+        elif _DEBUG:
+            _dbg(f"  RAW [{dominant}] {repr(text[:60])}", office=office)
 
     return result
 
@@ -358,7 +380,7 @@ def _alt_label(text: str) -> str:
     return name or text.strip()
 
 
-def _group_alternatives(segs: list[dict]) -> list[dict]:
+def _group_alternatives(segs: list[dict], office="", section="") -> list[dict]:
     """
     Replace Or/or separator rubrics with {type: "alternatives", groups: [...]} nodes.
     Two kinds of alternatives block:
@@ -395,39 +417,45 @@ def _group_alternatives(segs: list[dict]) -> list[dict]:
         else:
             pending.append(seg)
 
+    _dbg(f"\n  --- _group_alternatives: {office}[{section}] ({len(segs)} segs) ---",
+         office=office, section=section)
+
     for seg in segs:
         text = seg.get('text', '')
         typ  = seg.get('type', '')
+        cur_grp = f"grp[{len(groups)}]" if groups is not None else "pending"
 
         # Discard terminal rubrics ("Morning/Evening Prayer continues…")
         if typ == 'rubric' and _CONTINUES_ALT.search(text):
+            _dbg(f"    DISCARD continues-rubric: {repr(text[:60])}", office=office, section=section)
             continue
 
         # Canticle intro: '"Name A," "Name B," … may be said or sung.\nName A (citation)'
         if typ == 'rubric' and _CANTICLE_INTRO.match(text):
+            last_line = text.strip().split('\n')[-1]
+            _dbg(f"    CANTICLE-INTRO → flush, start named group {repr(_alt_label(last_line))}: {repr(text[:60])}", office=office, section=section)
             _flush_groups()
             _flush_pending()
             groups = []
             unnamed_n[0] = 0
-            last_line = text.strip().split('\n')[-1]
             _new_group(_alt_label(last_line))
             continue
 
         # General intro with embedded first label:
         # 'One of the following Affirmations … may be said or sung.\nLabel'
         if typ == 'rubric' and _GENERAL_INTRO.search(text) and not _BLOCK_SEP_ONLY.search(text):
+            last_line = text.strip().split('\n')[-1]
+            _dbg(f"    GENERAL-INTRO → flush, start named group {repr(_alt_label(last_line))}: {repr(text[:60])}", office=office, section=section)
             _flush_groups()
             _flush_pending()
             groups = []
             unnamed_n[0] = 0
-            last_line = text.strip().split('\n')[-1]
             _new_group(_alt_label(last_line))
             continue
 
         # Pure block separator (no embedded label):
-        # 'At the end of the Canticle one of the following may be said or sung.'
-        # 'One of the following may be said or sung.'
         if typ == 'rubric' and _BLOCK_SEP_ONLY.search(text):
+            _dbg(f"    BLOCK-SEP → flush, start unnamed groups: {repr(text[:60])}", office=office, section=section)
             _flush_groups()
             _flush_pending()
             groups = []
@@ -438,6 +466,7 @@ def _group_alternatives(segs: list[dict]) -> list[dict]:
         if typ == 'rubric' and _OR_NAMED.match(text):
             m = _OR_NAMED.match(text)
             label = _alt_label(m.group(1).strip().split('\n')[0])
+            _dbg(f"    OR-NAMED → new group {repr(label)}: {repr(text[:60])}", office=office, section=section)
             if groups is None:
                 _flush_pending()
                 groups = []
@@ -447,8 +476,9 @@ def _group_alternatives(segs: list[dict]) -> list[dict]:
 
         # Or (uppercase, unnamed) or or (lowercase, unnamed)
         if typ == 'rubric' and (_OR_UPPER.match(text) or _OR_LOWER.match(text)):
+            next_roman = _ROMAN[unnamed_n[0]] if unnamed_n[0] < len(_ROMAN) else f"?{unnamed_n[0]}"
+            _dbg(f"    OR-BARE → new group {next_roman} (groups={'None' if groups is None else len(groups)}): {repr(text[:60])}", office=office, section=section)
             if groups is None:
-                # Convert accumulated pending segs to group I
                 _flush_groups()
                 groups = []
                 unnamed_n[0] = 0
@@ -459,16 +489,18 @@ def _group_alternatives(segs: list[dict]) -> list[dict]:
             _new_group()
             continue
 
+        _dbg(f"    CONTENT [{cur_grp}] {typ} {repr(text[:60])}", office=office, section=section)
         _push(seg)
 
     _flush_groups()
     _flush_pending()
+    _dbg(f"  --- result: {len(result)} top-level segs ---", office=office, section=section)
     return result
 
 
 # ── Post-process: fold Berakah blessing conclusions into nested alternatives ───
 
-def _fold_berakah_blessings(segs: list[dict]) -> list[dict]:
+def _fold_berakah_blessings(segs: list[dict], office="") -> list[dict]:
     """
     Seasonal opening_responses have an alternatives block where the last N groups
     are short "Blessed be…" doxological conclusions that belong NESTED inside
@@ -483,38 +515,53 @@ def _fold_berakah_blessings(segs: list[dict]) -> list[dict]:
             result.append(seg)
             continue
         groups = seg['groups']
+        labels = [g['label'] for g in groups]
+        _dbg(f"  BERAKAH-FOLD? groups={labels}", office=office, section="opening_responses")
         if len(groups) < 3:
+            _dbg(f"    SKIP: fewer than 3 groups", office=office, section="opening_responses")
             result.append(seg)
             continue
 
         # Check whether groups[2:] are all short "Blessed be…" leader+response pairs.
         tail = groups[2:]
-        if not all(
+        tail_ok = all(
             len(g['segments']) == 2
             and g['segments'][0]['type'] == 'leader'
             and _BLESSED_BE.match(g['segments'][0]['text'])
             and g['segments'][1]['type'] == 'response'
             for g in tail
-        ):
+        )
+        if not tail_ok:
+            bad = [g['label'] for g in tail if not (
+                len(g['segments']) == 2
+                and g['segments'][0]['type'] == 'leader'
+                and _BLESSED_BE.match(g['segments'][0]['text'])
+                and g['segments'][1]['type'] == 'response'
+            )]
+            _dbg(f"    SKIP: tail groups not all short 'Blessed be' pairs — failing: {bad}", office=office, section="opening_responses")
             result.append(seg)
             continue
 
         # Confirm group[1] ends with a response (the "Blessed be God for ever." close).
         g1_segs = list(groups[1]['segments'])
         if not g1_segs or g1_segs[-1]['type'] != 'response':
+            _dbg(f"    SKIP: group[1] doesn't end with response", office=office, section="opening_responses")
             result.append(seg)
             continue
 
         # Find the last leader in group[1]; its final line should be the first blessing option.
         leaders = [(i, s) for i, s in enumerate(g1_segs) if s['type'] == 'leader']
         if not leaders:
+            _dbg(f"    SKIP: group[1] has no leader segments", office=office, section="opening_responses")
             result.append(seg)
             continue
         last_i, last_leader = leaders[-1]
         lines = last_leader['text'].rsplit('\n', 1)
         if len(lines) < 2 or not _BLESSED_BE.match(lines[1].strip()):
+            _dbg(f"    SKIP: group[1] last leader doesn't end with 'Blessed be' line: {repr(lines[-1][:60])}", office=office, section="opening_responses")
             result.append(seg)
             continue
+        _dbg(f"    FOLDING: nesting groups {[g['label'] for g in tail]} into group[1]", office=office, section="opening_responses")
 
         berakah_body   = lines[0]
         blessing_one   = lines[1].strip()
@@ -663,13 +710,13 @@ def _dedup_shared(offices: dict) -> dict:
 
 # ── Main extraction ───────────────────────────────────────────────────────────
 
-def extract_office(pdf, start: int, end: int) -> dict:
+def extract_office(pdf, start: int, end: int, office_key: str = "") -> dict:
     # Collect all styled lines across the page range.
     all_lines: list[tuple[str, str]] = []
     for book_pg in range(start, end + 1):
         idx = book_pg - 1
         if idx < len(pdf.pages):
-            all_lines.extend(_page_styled_lines(pdf.pages[idx]))
+            all_lines.extend(_page_styled_lines(pdf.pages[idx], office=office_key))
 
     # Pull title (first heading line) and subtitle (first leader line before any section).
     title = ""
@@ -679,18 +726,23 @@ def extract_office(pdf, start: int, end: int) -> dict:
 
     for typ, text in all_lines:
         if _is_noise(typ, text):
+            _dbg(f"  NOISE [{typ}] {repr(text[:60])}", office=office_key)
             continue
         if not header_done:
             if not title and typ == "heading":
                 title = text
+                _dbg(f"  TITLE {repr(text[:60])}", office=office_key)
                 continue
             if title and not subtitle and typ == "leader":
                 subtitle = text
                 header_done = True
+                _dbg(f"  SUBTITLE {repr(text[:60])}", office=office_key)
                 continue
             if title and typ == "heading":
                 header_done = True
         filtered_lines.append((typ, text))
+
+    _dbg(f"\n=== SECTION ASSIGNMENT: {office_key} ===", office=office_key)
 
     # Walk lines and split into sections by heading markers.
     sections: dict[str, list[dict]] = {}
@@ -700,23 +752,30 @@ def extract_office(pdf, start: int, end: int) -> dict:
     def _flush():
         nonlocal current_segs
         if current_key is not None and current_segs:
+            _dbg(f"  FLUSH {current_key!r}: {len(current_segs)} segs", office=office_key)
             sections[current_key] = _merge(current_segs)
         current_segs = []
 
     for typ, text in filtered_lines:
         if typ == "heading":
             key = _heading_to_key(text)
+            raw_disp = repr(text[:60])
             if key is False:
                 # Unknown heading — treat as content in current section.
+                _dbg(f"  UNKNOWN-HDR → content in {current_key!r}: {raw_disp}", office=office_key)
                 if current_key is not None:
                     current_segs.append({"type": "rubric", "text": text})
                 continue
+            _dbg(f"  HEADING {raw_disp} → section {key!r}", office=office_key)
             _flush()
             current_key = key  # may be None (major section label → ignored)
             continue
 
         if current_key is not None:
+            _dbg(f"  [{current_key}] {typ} {repr(text[:60])}", office=office_key)
             current_segs.append({"type": typ, "text": text})
+        else:
+            _dbg(f"  [NO-SECTION] {typ} {repr(text[:60])}", office=office_key)
 
     _flush()
 
@@ -741,13 +800,13 @@ def extract_office(pdf, start: int, end: int) -> dict:
     _NO_ALT_SECTIONS = {"litany", "lords_prayer_intro"}
     for key in list(sections.keys()):
         if key not in _NO_ALT_SECTIONS:
-            sections[key] = _group_alternatives(sections[key])
+            sections[key] = _group_alternatives(sections[key], office=office_key, section=key)
 
     # Fold Berakah prayer blessing conclusions into nested alternatives inside
     # group II of seasonal opening_responses (not applicable to ordinary-time).
     if "opening_responses" in sections:
         sections["opening_responses"] = _fold_berakah_blessings(
-            sections["opening_responses"]
+            sections["opening_responses"], office=office_key
         )
 
     # Build result.
@@ -778,9 +837,18 @@ def run():
     offices: dict[str, dict] = {}
     with pdfplumber.open(pdf_path) as pdf:
         for key, start, end in OFFICES:
-            offices[key] = extract_office(pdf, start, end)
+            _dbg(f"\n{'='*60}\nEXTRACTING: {key} (pages {start}–{end})\n{'='*60}", office=key)
+            offices[key] = extract_office(pdf, start, end, office_key=key)
             sections = [k for k in offices[key] if k not in ("title", "subtitle")]
             print(f"  {key}: {sections}")
+            # Log final section group counts for quick audit.
+            for sk, sv in offices[key].items():
+                if sk in ("title", "subtitle") or not isinstance(sv, list):
+                    continue
+                for seg in sv:
+                    if seg.get('type') == 'alternatives':
+                        glabels = [g['label'] for g in seg.get('groups', [])]
+                        _dbg(f"  RESULT {sk}: alternatives {glabels}", office=key)
 
     offices = _dedup_shared(offices)
     n_shared = len(offices.get('_shared', {}))
