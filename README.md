@@ -1,129 +1,137 @@
 # Pray Without Ceasing — Daily Office
 
-A Go CLI that renders the Anglican Daily Office (Morning and Evening Prayer)
-for any date in the liturgical year, following the Book of Alternative Services
-(BAS) and the *Pray Without Ceasing* (PWC) office book of the Anglican Church
-of Canada.
+A web app for Morning and Evening Prayer following the Book of Alternative
+Services (BAS) and the *Pray Without Ceasing* (PWC) office book of the
+Anglican Church of Canada.
 
 ## What it does
 
-Given a date and office type, it produces a complete, ready-to-read office in
-Markdown:
+For any date in the liturgical year the app renders a complete, ready-to-pray
+office:
 
-- Liturgical form for the season (opening responses, invitatory, canticles,
-  litany, seasonal collects, Lord's Prayer, dismissal)
-- Appointed psalm(s) with full text
-- Scripture lessons with full text
-- Collect reference
-- Feast day and alternate readings where applicable
+- Full liturgical form for the season: opening responses, invitatory,
+  responsory, canticle, affirmation, litany, seasonal collects, Lord's Prayer,
+  dismissal
+- Appointed psalm(s) with full verse text and midpoint markers
+- Scripture lessons with full text (NRSVUE default, KJV available)
+- Collect of the Day
+- Observance toggle for feast days with alternate readings
+- Seasonal colour theming, dark mode, font-size control
+- PWA — installs on iOS/Android, works fully offline
 
-```
-$ dailyoffice --translation kjv mp 2026-04-05
-# Morning Prayer — Easter Day
-Sunday, 5 April 2026
-Season: Easter | Rank: PF | Colour: White or Gold
-...
-```
-
-## Building
-
-Requires Go 1.23+.
+## Running locally
 
 ```sh
-go build ./cmd/dailyoffice
+make serve        # http://localhost:8080
 ```
 
-## Running
+Requires `data/` to be populated — see **Data pipeline** below.
+
+## Deploying
 
 ```sh
-# Today's Morning Prayer (KJV, embedded — no setup required)
-./dailyoffice --translation kjv mp
-
-# A specific date, Evening Prayer
-./dailyoffice --translation kjv ep 2026-12-25
-
-# API.Bible (requires BIBLE_API_KEY in environment or .env)
-./dailyoffice --translation api mp
+make build        # assemble dist/ (stamps service worker cache hash)
+make check-dist   # verify completeness
+make deploy BUCKET=my-bucket CF_DISTRIBUTION_ID=XXXXX  # sync to S3 + invalidate CloudFront
 ```
+
+Requires the AWS CLI and ambient credentials (`AWS_PROFILE` or environment
+variables). `CF_DISTRIBUTION_ID` can be omitted if not using CloudFront.
 
 ## Testing
 
 ```sh
-# Unit tests (no network, no API key)
-make test
-
-# Smoke suite — 4 LLM-evaluated days, requires claude CLI
-make test-smoke
-
-# Seasonal suite — one MP+EP per liturgical season, requires claude CLI
-make test-seasonal
-
-# Full structural check — every day in 2026 × MP+EP
-make test-full
+make test         # Go unit tests (data parsing, season logic)
+make test-web     # Playwright E2E suite against web/
+make test-full    # structural check of every day × MP+EP in the lectionary year
 ```
 
-The smoke and seasonal suites use the `claude` CLI
-(`npm install -g @anthropic-ai/claude-code`) to evaluate rendered output
-against liturgical criteria and cross-check readings against
-[lectionary.anglican.ca](https://lectionary.anglican.ca).
+The smoke and seasonal suites use the `claude` CLI to evaluate rendered output
+against liturgical criteria:
 
-## Data files
+```sh
+make test-smoke    # 4 representative days, LLM-evaluated
+make test-seasonal # one MP+EP per liturgical season, LLM-evaluated
+```
 
-### Liturgical text
+## Data pipeline
 
-The psalter, office forms, and collects are extracted from *Pray Without
-Ceasing* and the Book of Alternative Services, both copyright the Anglican
-Church of Canada. These files are **not included** in the repository and must
-be obtained separately. The extraction tools in `tools/` can regenerate
-`data/` from the source PDFs. They require `pdfplumber`
-(`pip install pdfplumber`) and, for best results, `pdftotext` from
-[poppler](https://poppler.freedesktop.org/) (`brew install poppler` on macOS).
-Plain-text versions of the PDFs are generated automatically on first run.
+All data files are gitignored — they contain copyrighted ACC/BAS content
+and are generated locally from source PDFs and the ACC lectionary.
+
+### Liturgical text (one-time setup)
+
+Requires `pdfplumber` and `pdftotext` (poppler):
+
+```sh
+pip install pdfplumber
+brew install poppler   # macOS
+
+python3 tools/extract_offices.py    # → data/offices.json
+python3 tools/extract_psalter.py    # → data/psalter.json
+python3 tools/extract_collects.py   # → data/collects.json
+```
+
+Source PDFs go in `sources/` (gitignored).
+
+### Lectionary (annual update)
+
+The ACC publishes an annual CSV covering the current liturgical year
+(`bas_short_YYYY.csv`). Historical years are scraped from the ACC daily
+lectionary portal.
+
+```sh
+# Download current year's CSV from lectionary.anglican.ca and convert
+python3 tools/scrape_lectionary.py
+python3 tools/convert_lectionary.py   # → data/lectionary/YYYY-MM.json
+
+# Scrape historical HTML (slow — ~1 req/sec)
+python3 tools/scrape_daily.py --start 2016-11-27 --end 2025-11-29
+python3 tools/scrape_daily.py --re-parse  # reparse cache after parser changes
+python3 tools/scrape_daily.py --audit     # quality check
+
+# Validate HTML-scraped data against CSV
+python3 tools/validate_lectionary.py
+```
 
 ### Scripture
 
-**KJV** (King James Version 1769, with Apocrypha) is embedded in the binary
-and requires no setup. Use `--translation kjv`.
-
-**API.Bible** is also supported. Set `BIBLE_API_KEY` in the environment or a
-`.env` file and use `--translation api`.
-
-## Web interface
-
-A pure client-side SPA is included in `web/`. It reads the same `data/` files
-as the CLI and requires no build step or server.
+KJV is embedded in the Go binary (public domain, committed to the repo).
+NRSVUE requires a Bible API key:
 
 ```sh
-# Serve source tree for local development (http://localhost:8080/)
-make serve
-
-# Build deployable snapshot in dist/
-make build
-
-# Verify dist/ completeness before deploying
-make check-dist
-
-# Build and serve dist/ exactly as deployed (http://localhost:8081/)
-make serve-dist
+# Set in .env (gitignored)
+BIBLE_API_KEY=your_key_here
 ```
 
-The web app includes: full liturgical forms (opening responses, invitatory, responsory,
-canticle, affirmation, litany, collects, Lord's Prayer, dismissal), psalm and scripture
-text with reading responses, observance toggle for days with alternate readings, seasonal
-colour theming, translation switch (NRSVUE / KJV), dark mode, font-size toggle, PWA
-offline support (service worker), and a desktop layout.
+## Architecture
+
+```
+web/          Pure client-side SPA — HTML/CSS/vanilla JS, no build step
+  app.js      Routing, lectionary, office rendering, psalm/scripture fetching
+  office.css  Styling and seasonal theming
+  sw.js       Service worker — cache-first, offline support
+
+tools/        Python data pipeline (extraction, scraping, validation)
+data/         Generated JSON — gitignored (copyrighted content)
+  offices.json        All 31 office forms
+  psalter.json        Full psalter with verse numbers and midpoint markers
+  collects.json       Collects indexed by date
+  season_bounds.json  Liturgical season boundaries for current year
+  lectionary/         Monthly JSON — YYYY-MM.json
+
+*.go          Go CLI (dev tool) and data-integrity test suite
+cmd/          CLI entrypoint
+e2e/          Playwright and LLM-evaluated test suites
+```
 
 ## Status
 
-All 730 day/office combinations in the 2026 liturgical year render correctly
-and pass structural validation (`make test-full`). Prayers, psalms, and
-readings are reproduced word-for-word from the BAS and PWC — no liturgical
-content was generated or altered by AI. Developed with Claude Code (Anthropic).
-
-Open-sourcing is pending a licence discussion with the Anglican Church of
-Canada.
+- Lectionary data: 2016–2026 (Year B complete; Year A pending Advent 2026)
+- All 31 office forms rendering correctly
+- ACC licence inquiry pending (required before open-sourcing `data/`)
 
 ## Licence
 
-Source code: MIT.  
+Source code: MIT.
 Liturgical text and scripture: copyright their respective holders — see above.

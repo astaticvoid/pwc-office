@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: test test-smoke test-seasonal test-full build check-dist serve serve-dist deploy test-web test-web-netlify
+.PHONY: test test-smoke test-seasonal test-full build check-dist serve serve-dist deploy test-web
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -22,7 +22,7 @@ test-seasonal:
 test-full:
 	go test -tags e2e_full -timeout 5m ./e2e/...
 
-# Assemble dist/ for static deployment (Netlify, S3, etc.).
+# Assemble dist/ for static deployment (S3, etc.).
 # Copies web/ source + dereferences the data/ symlink into one deployable folder.
 # Stamps dist/sw.js with a content hash of the precached shell files so the
 # service worker cache is automatically invalidated on every deploy.
@@ -59,13 +59,8 @@ serve-dist: check-dist
 test-web:
 	npx playwright test
 
-# Disabled — hits live Netlify deployment (credits exhausted).
-test-web-netlify:
-	@echo "✗ test-web-netlify is disabled: Netlify credits exhausted. Use 'make test-web' instead."
-	@exit 1
-
-# Deploy is disabled — Netlify free-tier credits exhausted.
-# Re-enable when credits reset or hosting is migrated.
-deploy:
-	@echo "✗ deploy is disabled: Netlify credits exhausted. Test locally with 'make serve'."
-	@exit 1
+# Deploy — sync dist/ to S3 (requires AWS_PROFILE or ambient credentials).
+# Set BUCKET in environment or pass: make deploy BUCKET=my-bucket-name
+deploy: check-dist
+	aws s3 sync dist/ s3://$(BUCKET)/ --delete
+	aws cloudfront create-invalidation --distribution-id $(CF_DISTRIBUTION_ID) --paths "/*"
