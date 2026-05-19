@@ -86,15 +86,17 @@ def _lesson_key(lesson) -> tuple[str, bool]:
 def _cmp_office(csv_off: dict, html_off: dict, label: str) -> list[str]:
     issues = []
 
-    if 'psalm_sets' in csv_off:
-        # Multiple alternative psalm sets — check HTML psalms match at least one set.
-        html_ps = _psalm_nums(html_off.get('psalms', []))
-        matched = any(
-            _psalm_nums(s) == html_ps for s in csv_off['psalm_sets']
-        )
-        if not matched and html_ps:
-            all_csv = [_psalm_nums(s) for s in csv_off['psalm_sets']]
-            issues.append(f"  {label} psalms (sets): html={html_ps}  csv_sets={all_csv}")
+    if 'psalm_sets' in csv_off or 'psalm_sets' in html_off:
+        # Normalise both sides to a list of citation-string lists, then compare.
+        def _to_sets(off: dict) -> list[list[str]]:
+            if 'psalm_sets' in off:
+                return [_psalm_nums(s) for s in off['psalm_sets']]
+            return [_psalm_nums(off.get('psalms', []))]
+
+        csv_sets = _to_sets(csv_off)
+        html_sets = _to_sets(html_off)
+        if csv_sets != html_sets:
+            issues.append(f"  {label} psalm_sets: csv={csv_sets}  html={html_sets}")
     else:
         csv_ps = _psalm_nums(csv_off.get('psalms', []))
         html_ps = _psalm_nums(html_off.get('psalms', []))

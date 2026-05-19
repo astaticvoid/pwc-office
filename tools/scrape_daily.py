@@ -222,15 +222,56 @@ def _parse_psalm_token(tok: str):
     return {"citation": tok, "optional": True} if optional else tok
 
 
-def _parse_psalms(psalm_text: str) -> list:
-    """Parse "97, 99, [100]" or "Psalm 97, 99, [100]" → structured list."""
-    psalm_text = _RE_PSALM_PREFIX.sub('', psalm_text.strip())
+def _parse_psalm_group(text: str) -> list:
+    """
+    Parse one alternative in a psalm expression.
+
+    "[59, 60]" → all items optional: [{citation:'59', optional:True}, ...]
+    "146, 147" → plain list: ['146', '147']
+    "[83]"     → [{citation:'83', optional:True}]
+    """
+    text = text.strip()
+    # Entire group in square brackets → every psalm in the group is optional.
+    m = re.match(r'^\[([^\]]+)\]$', text)
+    if m:
+        return [{"citation": t.strip(), "optional": True}
+                for t in m.group(1).split(",") if t.strip()]
     results = []
-    for tok in re.split(r',\s*', psalm_text):
+    for tok in re.split(r',\s*', text):
         p = _parse_psalm_token(tok.strip())
         if p is not None:
             results.append(p)
     return results
+
+
+def _parse_psalms(psalm_text: str) -> tuple[str, list]:
+    """
+    Parse psalm text, detecting ' or ' alternatives.
+
+    Returns ('psalms', flat_list) for simple cases, or
+    ('psalm_sets', list_of_lists) when alternatives are present.
+
+    Examples:
+      "97, 99, [100]"      → ('psalms', ['97', '99', {citation:'100', optional:True}])
+      "[59, 60] or 118"    → ('psalm_sets', [[{...59}, {...60}], ['118']])
+      "[83] or 146, 147"   → ('psalm_sets', [[{...83}], ['146', '147']])
+      "113, 114 or 118"    → ('psalm_sets', [['113', '114'], ['118']])
+    """
+    psalm_text = _RE_PSALM_PREFIX.sub('', psalm_text.strip())
+    parts = re.split(r'\s+or\s+', psalm_text)
+    if len(parts) > 1:
+        return 'psalm_sets', [_parse_psalm_group(p) for p in parts if p.strip()]
+    return 'psalms', _parse_psalm_group(psalm_text)
+
+
+def _is_bare_psalm_seq(segment: str) -> bool:
+    """True if segment looks like psalm numbers without a Ps/Psalm prefix.
+
+    Accepts: "8, 84"  "8, 84 or 90"  "46"  "[59, 60] or 118"
+    Rejects: "3 Jn 1-15"  "Is 1:1-9"  (contain non-'or' letters)
+    """
+    cleaned = re.sub(r'\bor\b', '', segment, flags=re.IGNORECASE)
+    return bool(re.search(r'\d', cleaned)) and bool(re.match(r'^[\d\[\]()\s,\-]+$', cleaned))
 
 
 def _parse_lesson(text: str):
@@ -262,6 +303,7 @@ def parse_office_text(text: str) -> dict:
     text = re.split(r'\s+Or\s+(?=[A-Z])', text, maxsplit=1)[0]
 
     psalms: list = []
+    psalm_sets: list | None = None
     lessons: list = []
     collect: str = ""
     year_note: str = ""
@@ -295,10 +337,14 @@ def parse_office_text(text: str) -> dict:
             collect = m_collect.group(1).strip()
             continue
 
-        # Psalm block: starts with "Psalm/Ps" prefix
-        if _RE_PSALM_PREFIX.match(segment):
-            parsed = _parse_psalms(segment)
-            if parsed:
+        # Psalm block: starts with "Psalm/Ps" prefix, or is a bare psalm sequence
+        # (digits/brackets only, no letters except the word "or").
+        # e.g. "Ps 97, 99"  "[59, 60] or 118"  "8, 84"
+        if _RE_PSALM_PREFIX.match(segment) or _is_bare_psalm_seq(segment):
+            key, parsed = _parse_psalms(segment)
+            if key == 'psalm_sets':
+                psalm_sets = parsed
+            elif parsed:
                 psalms.extend(parsed)
             continue
 
@@ -308,21 +354,14 @@ def parse_office_text(text: str) -> dict:
             lessons.append({"citation": inner, "optional": True})
             continue
 
-        # Bare psalm number (no "Psalm" prefix): digits only, no letters.
-        # Excludes numbered-book refs like "3 Jn 1-15" that start with a digit.
-        if (re.match(r'^\d', segment) and ":" not in segment
-                and "," not in segment and not re.search(r'[a-zA-Z]', segment)):
-            p = _parse_psalm_token(segment)
-            if p is not None:
-                psalms.append(p)
-            continue
-
         # Everything else is a lesson citation (may contain ":" for chapter:verse)
         if segment:
             lessons.append(segment)
 
     result: dict = {}
-    if psalms:
+    if psalm_sets is not None:
+        result["psalm_sets"] = psalm_sets
+    elif psalms:
         result["psalms"] = psalms
     if year_note:
         result["year_note"] = year_note
