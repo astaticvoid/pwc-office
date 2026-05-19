@@ -283,6 +283,12 @@ def parse_office_text(text: str) -> dict:
         if m_feast_ps:
             segment = m_feast_ps.group(1)
 
+        # Strip parenthetical-label prefix: "(First Evensong of Christmas) Ps 89:1-29"
+        # Older pages sometimes label the office in parens before the psalm reference.
+        m_paren_ps = re.match(r'^\([^)]+\)\s+((?:Psalms?|Ps)\b.+)$', segment, re.IGNORECASE)
+        if m_paren_ps:
+            segment = m_paren_ps.group(1)
+
         # Collect reference — capture full string ("430 or FAS 359", "268")
         m_collect = _RE_COLLECT.match(segment)
         if m_collect:
@@ -328,6 +334,15 @@ def parse_office_text(text: str) -> dict:
 
 
 _FERIA_WORDS = {"feria"} | WEEKDAY_NAMES
+
+_COLOUR_WORDS = frozenset({
+    'white', 'red', 'violet', 'blue', 'green', 'gold', 'purple', 'rose', 'black',
+})
+
+
+def _looks_like_colour(s: str) -> bool:
+    """True if s contains at least one recognised liturgical colour word."""
+    return any(w in _COLOUR_WORDS for w in re.split(r'[\s/]+', s.lower()))
 
 # Dash-style rank marker: " - PF", " - HD", " - Memorial", etc. (post-Advent 2019 format).
 # Anchored to word boundary so " - Comment" doesn't match " - Com".
@@ -381,9 +396,12 @@ def _parse_title(raw: str) -> tuple[str, str, str]:
         # Detect this by checking for a colour paren before the rank marker.
         primary_part = s[:m_rank.start()]
         m_pre_col = re.search(r'\(([^)]+)\)', primary_part)
-        if m_pre_col:
-            # Multi-feast title: primary feast name is before its colour paren;
-            # rank marker and everything after belong to the secondary feast.
+        if m_pre_col and _looks_like_colour(m_pre_col.group(1)):
+            # Multi-feast title: primary feast has its own colour paren before
+            # the secondary feast's rank marker.
+            # e.g. "Rogation Day (Violet or White) Nightingale - Com (White)"
+            # Parens that are NOT colours (e.g. "(Konwatsijayenni)" in a name)
+            # are excluded by the _looks_like_colour guard.
             name = primary_part[:m_pre_col.start()].strip()
             colour = m_pre_col.group(1).strip()
             rank = ''  # inferred from name below

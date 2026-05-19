@@ -65,8 +65,11 @@ NAME_FIXES = {
 # Days where a co-occurring Commemoration raises the rank from feria.
 # Colour does not change — a Com uses the season colour.
 RANK_FIXES = {
-    "2026-02-27": "commemoration",
-    "2026-05-12": "commemoration",
+    # Multi-feast days where the primary observance is a special day (Ember/Rogation),
+    # not the co-occurring commemoration. HTML scraper confirms holy_day is correct.
+    "2026-02-27": "holy_day",   # Lenten Ember Day + George Herbert
+    "2026-05-12": "holy_day",   # Rogation Day + Florence Nightingale
+    # Days where the CSV rank marker belongs to the secondary feast; primary is a commemoration.
     "2026-05-27": "commemoration",
     "2026-05-30": "commemoration",
     "2026-09-19": "commemoration",
