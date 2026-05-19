@@ -347,23 +347,16 @@ function renderAlternatives(seg, shared, contextKey) {
 // as explicit headings/sections in the app — skip to avoid duplication.
 const SKIP_RUBRICS = /^(Affirmation of Faith|[Tt]he Lord'?s Prayer)\.?\s*$/i;
 
+function bindMidpoints(html) {
+  // Wrap [word * ] in a nowrap group so the asterisk never orphans on a new line.
+  return html.replace(/(\S+)(\s*)\*/g, (_, word, sp) =>
+    `<span class="midpoint-group">${word}${sp}<span class="midpoint">*</span></span>`);
+}
+
 function formatLiturgicalText(text) {
-  // For multi-sentence response text (creeds, LP, etc.), insert a visual paragraph
-  // break wherever a sentence ends (. ; ? !) and the next line starts with a capital.
   const lines = text.split('\n');
-  if (lines.length < 3) return esc(text);
-  let html = '';
-  for (let i = 0; i < lines.length; i++) {
-    if (i > 0) {
-      const prevLine = lines[i - 1].trim();
-      const curLine  = lines[i].trim();
-      const sentenceEnd = /[.;?!]$/.test(prevLine);
-      const capitalStart = /^[A-Z]/.test(curLine);
-      html += (sentenceEnd && capitalStart) ? '<br><br>' : '<br>';
-    }
-    html += esc(lines[i]);
-  }
-  return html;
+  if (lines.length < 2) return esc(text);
+  return lines.map(l => esc(l)).join('<br>');
 }
 
 function renderSegments(segs, shared) {
@@ -375,8 +368,8 @@ function renderSegments(segs, shared) {
     if (seg.type === 'rubric' && SKIP_RUBRICS.test(seg.text || '')) return '';
     const text = seg.text || '';
     if (seg.type === 'rubric')   return `<p class="seg-rubric">${esc(text)}</p>`;
-    if (seg.type === 'response') return `<p class="seg-response">${formatLiturgicalText(text)}</p>`;
-    return `<p class="seg-leader">${esc(text)}</p>`;
+    if (seg.type === 'response') return `<p class="seg-response">${bindMidpoints(formatLiturgicalText(text))}</p>`;
+    return `<p class="seg-leader">${bindMidpoints(esc(text))}</p>`;
   }).join('');
 }
 
@@ -428,7 +421,7 @@ async function renderPsalm(citStr) {
   const filtered = ref.start !== null ? verses.filter(v => v.num >= ref.start && v.num <= ref.end) : verses;
   const titleHtml = `<p class="psalm-title">Psalm ${data.number}${data.title ? ` — ${data.title}` : ''}</p>`;
   const versesHtml = filtered.map(v => {
-    const txt = esc(v.text).replace(/\*/g, '<span class="midpoint">*</span>');
+    const txt = bindMidpoints(esc(v.text));
     return `<div class="verse"><span class="verse-num">${v.num}</span><span class="verse-text">${txt}</span></div>`;
   }).join('');
   return `${titleHtml}<div class="psalm-block">${versesHtml}</div>`;
@@ -845,8 +838,8 @@ async function render(dateStr, officeType, translation) {
         if (last < t.length) frag.appendChild(document.createTextNode(t.slice(last)));
         return frag;
       };
-      if (text.length > 200) {
-        const cut = text.lastIndexOf(' ', 160) || 160;
+      if (text.length > 100) {
+        const cut = text.lastIndexOf(' ', 80) || 80;
         const short = text.slice(0, cut) + '…';
         p.appendChild(renderNoteText(short));
         p.classList.add('day-note-collapsible');
