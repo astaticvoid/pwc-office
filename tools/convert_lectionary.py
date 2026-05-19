@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """
-Convert sources/bas_short_2026.csv → data/lectionary/YYYY-MM.json
+Convert sources/bas_short_*.csv → data/lectionary/YYYY-MM.json
+
+Reads all bas_short_YYYY.csv files found in sources/ (or those given via
+--csv), merges rows by date (later file wins on overlap), and writes one
+JSON file per YYYY-MM. Use scrape_lectionary.py to download new/updated CSVs
+before running this tool.
 
 CSV columns (0-indexed):
   0: date (YYYY-MM-DD)
@@ -8,12 +13,13 @@ CSV columns (0-indexed):
   2: eucharist
   3: morning office
   4: evening office
-  5: extra (supplementary notes; 72 entries)
+  5: extra (supplementary notes)
 
 Run from the repo root:
-  python3 tools/convert_lectionary.py [--accept]
+  python3 tools/convert_lectionary.py [--csv PATH ...] [--accept]
 
-  --accept  Update tools/manifest.json with current output hashes.
+  --csv PATH  One or more CSV files (default: sources/bas_short_*.csv)
+  --accept    Update tools/manifest.json with current output hashes.
 """
 
 import argparse
@@ -399,6 +405,11 @@ def parse_name_meta(raw: str):
             rank = r
             desc = desc[: -len(suffix)].strip()
             break
+
+    # Sundays never carry an explicit rank marker in the CSV but are holy days.
+    if rank == "feria" and "sunday" in desc.lower():
+        rank = "holy_day"
+
     return desc.strip(), rank, colour
 
 
@@ -635,18 +646,32 @@ def parse_extra(raw: str, date_str: str) -> list[dict] | None:
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--csv", nargs="*", metavar="PATH",
+                    help="CSV files to process (default: sources/bas_short_*.csv)")
     ap.add_argument("--accept", action="store_true",
                     help="Update tools/manifest.json with current output hashes")
     args = ap.parse_args()
 
     root = Path(__file__).parent.parent
-    csv_path = root / "sources" / "bas_short_2026.csv"
     lect_dir = root / "data" / "lectionary"
     bounds_path = root / "data" / "season_bounds.json"
 
-    with open(csv_path, newline="", encoding="utf-8") as f:
-        reader = csv.reader(f, quoting=csv.QUOTE_MINIMAL)
-        rows = list(reader)
+    if args.csv:
+        csv_paths = [Path(p) for p in args.csv]
+    else:
+        csv_paths = sorted(root.glob("sources/bas_short_*.csv"))
+    if not csv_paths:
+        sys.exit("No CSV files found. Run: python3 tools/scrape_lectionary.py")
+
+    # Merge rows from all CSVs by date; sort by year so later files win on overlap.
+    rows_by_date: dict[str, list] = {}
+    for csv_path in csv_paths:
+        with open(csv_path, newline="", encoding="utf-8") as f:
+            for row in csv.reader(f, quoting=csv.QUOTE_MINIMAL):
+                if len(row) >= 5 and re.match(r"\d{4}-\d{2}-\d{2}", row[0].strip()):
+                    rows_by_date[row[0].strip()] = row
+    rows = sorted(rows_by_date.values(), key=lambda r: r[0])
+    print(f"Loaded {len(rows)} unique dates from {len(csv_paths)} CSV file(s)")
 
     bounds = detect_bounds(rows)
     entries = []
@@ -731,16 +756,35 @@ def main():
     print(f"Season bounds: {bounds}")
 
     # ── Verification ──────────────────────────────────────────────────────────
+    loaded_dates = {e["date"] for e in entries}
     with_eucharist = sum(1 for e in entries if e.get("eucharist"))
     with_obs = sum(1 for e in entries if e.get("observances"))
     with_notes = sum(1 for e in entries if e.get("notes"))
     rank_fixed = sum(1 for e in entries if e["date"] in RANK_FIXES)
     name_fixed = sum(1 for e in entries if e["date"] in NAME_FIXES)
-    print(f"  eucharist populated: {with_eucharist}/397")
-    print(f"  observances:         {with_obs} entries (expected 175)")
-    print(f"  notes:               {with_notes} entries (expected 71)")
-    print(f"  rank fixes applied:  {rank_fixed}/5")
-    print(f"  name fixes applied:  {name_fixed}/1")
+    lesson_fixed = sum(1 for key in LESSON_FIXES if key[0] in loaded_dates)
+    print(f"  eucharist populated: {with_eucharist}/{len(entries)}")
+    print(f"  observances:         {with_obs}/{len(OBSERVANCES)} from correction dict")
+    print(f"  notes:               {with_notes}/{len(NOTE_TYPES)} from correction dict")
+    print(f"  rank fixes applied:  {rank_fixed}/{len(RANK_FIXES)}")
+    print(f"  name fixes applied:  {name_fixed}/{len(NAME_FIXES)}")
+    print(f"  lesson fixes applied: {lesson_fixed}/{len(LESSON_FIXES)}")
+
+    # Warn about stale corrections (date in correction dict but not in loaded data).
+    stale = []
+    for (fix_date, fix_office) in LESSON_FIXES:
+        if fix_date not in loaded_dates:
+            stale.append(f"LESSON_FIXES[({fix_date!r}, {fix_office!r})]")
+    for fix_date in RANK_FIXES:
+        if fix_date not in loaded_dates:
+            stale.append(f"RANK_FIXES[{fix_date!r}]")
+    for fix_date in NAME_FIXES:
+        if fix_date not in loaded_dates:
+            stale.append(f"NAME_FIXES[{fix_date!r}]")
+    if stale:
+        print(f"  WARNING: {len(stale)} stale correction(s) — date not in any loaded CSV:")
+        for s in stale:
+            print(f"    {s}")
 
     check_manifest(output_paths, root, accept=args.accept)
 
