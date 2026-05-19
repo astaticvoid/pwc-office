@@ -72,12 +72,17 @@ body {
   left: 0;
   right: 0;
   z-index: 100;
+  border-bottom: none;
+}
+
+#nav-inner {
+  max-width: var(--content-max);
+  margin: 0 auto;
   padding: 0.5rem 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
   transition: padding 0.2s ease;
-  border-bottom: none;
 }
 
 /* Accent stripe — centered gradient fade below nav */
@@ -95,7 +100,7 @@ body {
 }
 
 /* Compact state: hide bottom row when scrolling down */
-#nav.nav-compact { padding-bottom: 0.25rem; }
+#nav.nav-compact #nav-inner { padding-bottom: 0.25rem; }
 #nav.nav-compact .nav-bottom {
   max-height: 0;
   opacity: 0;
@@ -304,7 +309,7 @@ body {
 
 .office-section-title {
   font-family: var(--font-ui);
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   font-weight: 500;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -316,7 +321,7 @@ body {
 
 .office-subsection-title {
   font-family: var(--font-ui);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -345,7 +350,7 @@ body {
 
 .seg-rubric {
   font-family: var(--font-ui);
-  font-size: 0.82rem;
+  font-size: 0.875rem;
   font-style: italic;
   color: var(--color-rubric);
   margin: 0.6em 0;
@@ -356,7 +361,7 @@ body {
 
 .psalm-heading {
   font-family: var(--font-ui);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -402,14 +407,15 @@ body {
 
 .verse-text { white-space: pre-wrap; }
 
-/* midpoint asterisk — keep visible but muted */
-.verse-text .midpoint { color: var(--color-muted); font-style: normal; }
+/* midpoint asterisk — keep visible but muted; group prevents orphaning on wrap */
+.midpoint { color: var(--color-muted); font-style: normal; }
+.midpoint-group { white-space: nowrap; }
 
 /* ── Scripture reading ─────────────────────────────────────────────────────── */
 
 .reading-heading {
   font-family: var(--font-ui);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -522,7 +528,7 @@ body {
 
 .alt-tab {
   font-family: var(--font-ui);
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   font-weight: 500;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -530,7 +536,7 @@ body {
   background: none;
   border: 1px solid var(--color-border);
   border-radius: 3px;
-  padding: 0.2rem 0.6rem;
+  padding: 0.35rem 0.85rem;
   cursor: pointer;
   transition: color 0.1s, border-color 0.1s;
 }
@@ -598,13 +604,14 @@ body {
   :root { --content-max: 54rem; }
 
   /* Single-row nav */
-  #nav {
+  #nav { box-shadow: 0 2px 0 var(--color-accent); }
+
+  #nav-inner {
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
-    padding: 0.4rem 2rem;
+    padding: 0.4rem 1.25rem;
     gap: 0;
-    box-shadow: 0 2px 0 var(--color-accent);
   }
 
   /* Suppress the column-layout accent stripe */
@@ -635,7 +642,7 @@ body {
     margin: 0 !important;
   }
 
-  #main { padding-left: 2.5rem; padding-right: 2.5rem; }
+  #main { padding-left: 1.25rem; padding-right: 1.25rem; }
 
   #day-title { font-size: 2rem; }
 }
