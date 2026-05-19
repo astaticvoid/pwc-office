@@ -302,8 +302,10 @@ def parse_office_text(text: str) -> dict:
             lessons.append({"citation": inner, "optional": True})
             continue
 
-        # Bare digit — could be a psalm number without "Psalm" prefix
-        if re.match(r'^\d', segment) and ":" not in segment and "," not in segment:
+        # Bare psalm number (no "Psalm" prefix): digits only, no letters.
+        # Excludes numbered-book refs like "3 Jn 1-15" that start with a digit.
+        if (re.match(r'^\d', segment) and ":" not in segment
+                and "," not in segment and not re.search(r'[a-zA-Z]', segment)):
             p = _parse_psalm_token(segment)
             if p is not None:
                 psalms.append(p)
@@ -374,13 +376,26 @@ def _parse_title(raw: str) -> tuple[str, str, str]:
 
     if m_rank:
         # Post-Advent-2019 dash format: "Name - PF (White or Gold)"
-        name = s[:m_rank.start()].strip()
-        rank = _rank_from_marker(m_rank.group('rk'))
-        rest = s[m_rank.end():]
-        # Colour: first (...) anywhere after the rank marker; use search to skip
-        # optional [annotation] brackets like "[Proper 1]" that precede the colour.
-        m_col = re.search(r'\(([^)]+)\)', rest)
-        colour = m_col.group(1).strip() if m_col else ''
+        # But the dash marker may belong to a *secondary* feast when the primary
+        # has its own colour paren: "Rogation Day (Violet or White) Nightingale - Com (White)".
+        # Detect this by checking for a colour paren before the rank marker.
+        primary_part = s[:m_rank.start()]
+        m_pre_col = re.search(r'\(([^)]+)\)', primary_part)
+        if m_pre_col:
+            # Multi-feast title: primary feast name is before its colour paren;
+            # rank marker and everything after belong to the secondary feast.
+            name = primary_part[:m_pre_col.start()].strip()
+            colour = m_pre_col.group(1).strip()
+            rank = ''  # inferred from name below
+        else:
+            # Single feast: rank marker belongs to this entry.
+            name = primary_part.strip()
+            rank = _rank_from_marker(m_rank.group('rk'))
+            rest = s[m_rank.end():]
+            # Colour: first (...) anywhere after the rank marker; use search to skip
+            # optional [annotation] brackets like "[Proper 1]" that precede the colour.
+            m_col = re.search(r'\(([^)]+)\)', rest)
+            colour = m_col.group(1).strip() if m_col else ''
     else:
         m_rank_p = _RANK_PAREN_RE.search(s)
         if m_rank_p:
