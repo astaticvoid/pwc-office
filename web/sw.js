@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE = 'pwc-v3';
+const CACHE = 'pwc-v4';
 
 // Shell + static data to pre-cache at install.
 // Bump CACHE version above whenever these files change.
