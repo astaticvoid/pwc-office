@@ -260,7 +260,7 @@ _CONTINUATION_STARTS = {'who', 'which', 'that', 'and', 'or', 'but', 'nor', 'yet'
 _DIVINE_FIXES: list[tuple[re.Pattern, str]] = [
     (re.compile(r'\bholy spirit\b',       re.IGNORECASE), 'Holy Spirit'),
     (re.compile(r'\bholy ghost\b',        re.IGNORECASE), 'Holy Ghost'),
-    (re.compile(r"\bgod's only son\b",    re.IGNORECASE), "God's only Son"),
+    (re.compile(r"\bgod[’']s only son\b", re.IGNORECASE), "God’s only Son"),
     (re.compile(r'\bgod the father\b',    re.IGNORECASE), 'God the Father'),
     (re.compile(r'\bgod the son\b',       re.IGNORECASE), 'God the Son'),
     (re.compile(r'\bson of god\b',        re.IGNORECASE), 'Son of God'),
@@ -288,13 +288,20 @@ def _fix_casing(seg: dict) -> dict:
       3. Fix standalone lowercase "i" → "I" (first-person pronoun).
       4. Restore capitalization of divine titles (small-caps encodes them lowercase).
     """
-    if seg["type"] != "response" or not seg["text"]:
+    if not seg["text"]:
         return seg
     seg = dict(seg)
     text = seg["text"]
 
+    # Normalize space before punctuation (PDF extraction artifact).
+    text = re.sub(r' ([!?])', r'\1', text)
+
+    if seg["type"] != "response":
+        seg["text"] = text
+        return seg
+
     # Normalize typographic apostrophes so pattern matching is consistent.
-    text = text.replace(''', "'").replace(''', "'")
+    text = text.replace('‘', "'").replace('’', "'")
 
     first_word = re.split(r'\W', text)[0].lower()
     if first_word not in _CONTINUATION_STARTS:
