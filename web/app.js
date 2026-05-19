@@ -399,7 +399,7 @@ function parsePsalmText(rawText) {
     if (m) {
       if (cur) verses.push(cur);
       cur = { num: parseInt(m[1]), text: m[2] };
-    } else if (cur) {
+    } else if (cur && (line.startsWith(' ') || /^[a-z]/.test(line))) {
       cur.text += '\n' + line.replace(/^ /, '');
     }
   }
