@@ -13,7 +13,7 @@ import (
 )
 
 func TestSmokeEasterMP(t *testing.T) {
-	t.Parallel()
+
 	const date = "2026-04-05"
 	rendered, day := renderOffice(t, date, "mp")
 	t.Logf("Day: %s | Season: %s | Rank: %s", day.Name, day.Season, day.Rank)
@@ -25,7 +25,7 @@ func TestSmokeEasterMP(t *testing.T) {
 }
 
 func TestSmokeEasterEP(t *testing.T) {
-	t.Parallel()
+
 	const date = "2026-04-05"
 	rendered, day := renderOffice(t, date, "ep")
 	t.Logf("Day: %s | Season: %s | Rank: %s", day.Name, day.Season, day.Rank)
@@ -37,7 +37,7 @@ func TestSmokeEasterEP(t *testing.T) {
 }
 
 func TestSmokeLentMP(t *testing.T) {
-	t.Parallel()
+
 	const date = "2026-03-08"
 	rendered, day := renderOffice(t, date, "mp")
 	t.Logf("Day: %s | Season: %s", day.Name, day.Season)
@@ -52,7 +52,7 @@ func TestSmokeLentMP(t *testing.T) {
 }
 
 func TestSmokeFeastDay(t *testing.T) {
-	t.Parallel()
+
 	const date = "2026-05-15" // Saint Matthias (observed)
 	rendered, day := renderOffice(t, date, "mp")
 	t.Logf("Day: %s | Season: %s | Rank: %s", day.Name, day.Season, day.Rank)

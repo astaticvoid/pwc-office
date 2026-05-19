@@ -55,8 +55,6 @@ func TestSeasonalOffices(t *testing.T) {
 	for _, tc := range seasonalCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
 			officeName := "Morning Prayer"
 			if tc.officeType == "ep" {
 				officeName = "Evening Prayer"

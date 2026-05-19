@@ -10,13 +10,23 @@ PORT_DIST ?= 8081
 test:
 	go test ./...
 
-# Smoke — 4 LLM evaluations of representative days. Requires ANTHROPIC_API_KEY.
+# Smoke — 4 LLM evaluations run sequentially; stops at first failure.
+# Output saved to /tmp/smoke_out.txt; summary printed at end.
 test-smoke:
-	go test -tags e2e_smoke -v -timeout 10m ./e2e/...
+	go test -tags e2e_smoke -v -failfast -timeout 10m ./e2e/... \
+	  > /tmp/smoke_out.txt 2>&1; \
+	  grep -E "^(=== RUN|--- (PASS|FAIL)|    seasonal_test|    smoke_test)" /tmp/smoke_out.txt || true; \
+	  grep "issue:" /tmp/smoke_out.txt || true; \
+	  tail -3 /tmp/smoke_out.txt
 
-# Seasonal — one MP+EP per liturgical season, parallel LLM evaluations.
+# Seasonal — one MP+EP per liturgical season, sequential with early exit on first failure.
+# Output saved to /tmp/seasonal_out.txt; summary printed at end.
 test-seasonal:
-	go test -tags e2e_seasonal -v -timeout 30m ./e2e/...
+	go test -tags e2e_seasonal -v -failfast -timeout 30m ./e2e/... \
+	  > /tmp/seasonal_out.txt 2>&1; \
+	  grep -E "^(=== RUN|--- (PASS|FAIL))" /tmp/seasonal_out.txt || true; \
+	  grep "issue:" /tmp/seasonal_out.txt || true; \
+	  tail -3 /tmp/seasonal_out.txt
 
 # Full — structural check of every day in the lectionary year. No API key needed.
 test-full:
