@@ -48,7 +48,7 @@ func renderOffice(t *testing.T, dateStr, officeType string) (string, *lectionary
 		t.Fatalf("Lookup(%s): %v", dateStr, err)
 	}
 
-	rendered := office.Render(day, officeType, ps, bible, collects, forms)
+	rendered := office.Render(day, officeType, ps, bible, collects, forms, l.Bounds)
 	return rendered, day
 }
 

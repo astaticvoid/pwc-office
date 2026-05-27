@@ -70,7 +70,7 @@ Criteria:
 - structure_ok: All required sections present — The Gathering of the Community (opening responses), The Proclamation of the Word (psalm + at least one reading), The Prayers of the Community (litany + seasonal collects + Lord's Prayer), The Sending Forth with dismissal.
 - season_appropriate: Liturgical content matches the season. Easter → alleluia/resurrection language in responses; Lent → penitential tone, no alleluia; Advent → waiting/coming of Christ; Christmas → incarnation; Passiontide → passion/cross; Pentecost → Holy Spirit; AllSaints → saints/cloud of witnesses. OrdinaryTime/general Pentecost season can be general. NOTE: The BAS Daily Office lectionary differs from the Sunday Eucharistic lectionary — do not flag readings as wrong simply because they differ from the RCL Sunday propers.
 - casing_ok: No capitalization errors — divine titles capitalized (Father, Son, Holy Spirit, Creator when referring to God, God's, Israel); first-person "I" capitalized throughout; sentences start with capital; vocative "O" capitalized (e.g. "Where, O death"); names of people and places capitalized.
-- artifact_free: No PDF extraction artifacts — no stray numbers mid-sentence, no garbled words, no running headers embedded in text, no line breaks in wrong places that break word meaning.
+- artifact_free: No PDF extraction artifacts — no stray numbers mid-sentence, no garbled words, no running headers embedded in text, no line breaks in wrong places that break word meaning. NOTE: The document always ends with an italic attribution line in the form "*Translation: X*" or a full copyright string — this is intentional and must NOT be flagged as an artifact.
 - pass: true only if all four criteria pass.
 
 <office>
