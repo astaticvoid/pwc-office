@@ -242,13 +242,17 @@ type lectMeta struct {
 	AdventI      string `json:"advent_i"`
 	Christmas    string `json:"christmas"`
 	Epiphany     string `json:"epiphany"`
+	Presentation string `json:"presentation,omitempty"`
 	AshWednesday string `json:"ash_wednesday"`
+	Passiontide  string `json:"passiontide,omitempty"`
 	PalmSunday   string `json:"palm_sunday"`
 	Easter       string `json:"easter"`
+	Ascension    string `json:"ascension,omitempty"`
 	Pentecost    string `json:"pentecost"`
+	TrinityS     string `json:"trinity_sunday,omitempty"`
 	AllSaints    string `json:"all_saints"`
 	AdventII     string `json:"advent_ii"`
-	ChristmasII  string `json:"christmas_ii"` // optional; Christmas of year N+1
+	ChristmasII  string `json:"christmas_ii,omitempty"`
 }
 
 type lectEntry struct {
@@ -324,6 +328,12 @@ func boundsFromMeta(m lectMeta) (SeasonBounds, error) {
 	}
 	var b SeasonBounds
 	var err error
+	parseOpt := func(s string) (time.Time, error) {
+		if s == "" {
+			return time.Time{}, nil
+		}
+		return time.Parse("2006-01-02", s)
+	}
 	if b.AdventI, err = parse(m.AdventI, "advent_i"); err != nil {
 		return b, err
 	}
@@ -333,8 +343,14 @@ func boundsFromMeta(m lectMeta) (SeasonBounds, error) {
 	if b.Epiphany, err = parse(m.Epiphany, "epiphany"); err != nil {
 		return b, err
 	}
+	if b.Presentation, err = parseOpt(m.Presentation); err != nil {
+		return b, fmt.Errorf("presentation: %w", err)
+	}
 	if b.AshWednesday, err = parse(m.AshWednesday, "ash_wednesday"); err != nil {
 		return b, err
+	}
+	if b.Passiontide, err = parseOpt(m.Passiontide); err != nil {
+		return b, fmt.Errorf("passiontide: %w", err)
 	}
 	if b.PalmSunday, err = parse(m.PalmSunday, "palm_sunday"); err != nil {
 		return b, err
@@ -342,8 +358,14 @@ func boundsFromMeta(m lectMeta) (SeasonBounds, error) {
 	if b.Easter, err = parse(m.Easter, "easter"); err != nil {
 		return b, err
 	}
+	if b.Ascension, err = parseOpt(m.Ascension); err != nil {
+		return b, fmt.Errorf("ascension: %w", err)
+	}
 	if b.Pentecost, err = parse(m.Pentecost, "pentecost"); err != nil {
 		return b, err
+	}
+	if b.TrinityS, err = parseOpt(m.TrinityS); err != nil {
+		return b, fmt.Errorf("trinity_sunday: %w", err)
 	}
 	if b.AllSaints, err = parse(m.AllSaints, "all_saints"); err != nil {
 		return b, err
@@ -351,10 +373,8 @@ func boundsFromMeta(m lectMeta) (SeasonBounds, error) {
 	if b.AdventII, err = parse(m.AdventII, "advent_ii"); err != nil {
 		return b, err
 	}
-	if m.ChristmasII != "" {
-		if b.ChristmasII, err = time.Parse("2006-01-02", m.ChristmasII); err != nil {
-			return b, fmt.Errorf("christmas_ii: %w", err)
-		}
+	if b.ChristmasII, err = parseOpt(m.ChristmasII); err != nil {
+		return b, fmt.Errorf("christmas_ii: %w", err)
 	}
 	return b, nil
 }

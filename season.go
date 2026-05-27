@@ -45,21 +45,31 @@ type SeasonBounds struct {
 	AdventI      time.Time // First Sunday of Advent (year N)
 	Christmas    time.Time // Christmas Day (year N)
 	Epiphany     time.Time // Baptism of the Lord (season start)
+	Presentation time.Time // Candlemas, Feb 2 — Epiphany form ends here
 	AshWednesday time.Time
-	PalmSunday   time.Time
+	Passiontide  time.Time // Fifth Sunday in Lent (Passion Sunday) — Passiontide form starts
+	PalmSunday   time.Time // fallback if Passiontide not set
 	Easter       time.Time
-	Pentecost    time.Time
+	Ascension    time.Time // Ascension Day — Pentecost form starts
+	Pentecost    time.Time // Pentecost Sunday — fallback if Ascension not set
+	TrinityS     time.Time // Trinity Sunday — Pentecost form ends (ordinary resumes next day)
 	AllSaints    time.Time // Nov 1
 	AdventII     time.Time // First Sunday of Advent (year N+1)
 	ChristmasII  time.Time // Christmas Day (year N+1); optional, resolves Dec 25 in Advent
 }
 
-// SeasonOf returns the liturgical season for date d, plus d's weekday.
-// The weekday is always returned so callers can use it for per-weekday
-// template selection in seasons like OrdinaryTime.
+// SeasonOf returns the broad liturgical season for date d (used for theming).
+// Passiontide begins at the 5th Sunday in Lent if set, otherwise Palm Sunday.
+// Pentecost season begins at Pentecost Sunday (not Ascension — see FormSeasonOf).
 func SeasonOf(d time.Time, b SeasonBounds) (Season, time.Weekday) {
 	d = midnight(d)
 	dow := d.Weekday()
+
+	passionStart := b.PalmSunday
+	if !b.Passiontide.IsZero() {
+		passionStart = b.Passiontide
+	}
+
 	switch {
 	case !b.ChristmasII.IsZero() && !d.Before(b.ChristmasII):
 		return Christmas, dow
@@ -71,7 +81,7 @@ func SeasonOf(d time.Time, b SeasonBounds) (Season, time.Weekday) {
 		return Pentecost, dow
 	case !b.Easter.IsZero() && !d.Before(b.Easter):
 		return Easter, dow
-	case !b.PalmSunday.IsZero() && !d.Before(b.PalmSunday):
+	case !passionStart.IsZero() && !d.Before(passionStart):
 		return Passiontide, dow
 	case !b.AshWednesday.IsZero() && !d.Before(b.AshWednesday):
 		return Lent, dow
@@ -83,6 +93,54 @@ func SeasonOf(d time.Time, b SeasonBounds) (Season, time.Weekday) {
 		return Advent, dow
 	default:
 		return OrdinaryTime, dow
+	}
+}
+
+// FormSeasonOf returns the season string used for office form lookup.
+// This is more granular than SeasonOf: it distinguishes the post-Trinity
+// ordinary period from the Pentecost season, and the post-Presentation
+// ordinary period from Epiphany.
+func FormSeasonOf(d time.Time, b SeasonBounds) string {
+	d = midnight(d)
+
+	passionStart := b.PalmSunday
+	if !b.Passiontide.IsZero() {
+		passionStart = b.Passiontide
+	}
+	pentecostFormStart := b.Pentecost
+	if !b.Ascension.IsZero() {
+		pentecostFormStart = b.Ascension
+	}
+
+	switch {
+	case !b.ChristmasII.IsZero() && !d.Before(b.ChristmasII):
+		return "Christmas"
+	case !b.AdventII.IsZero() && !d.Before(b.AdventII):
+		return "Advent"
+	case !b.AllSaints.IsZero() && !d.Before(b.AllSaints):
+		return "AllSaints"
+	// Post-Trinity: ordinary weekday forms (Trinity Sunday is the last day of Pentecost form)
+	case !b.TrinityS.IsZero() && d.After(b.TrinityS):
+		return "OrdinaryTime"
+	case !pentecostFormStart.IsZero() && !d.Before(pentecostFormStart):
+		return "Pentecost"
+	case !b.Easter.IsZero() && !d.Before(b.Easter):
+		return "Easter"
+	case !passionStart.IsZero() && !d.Before(passionStart):
+		return "Passiontide"
+	case !b.AshWednesday.IsZero() && !d.Before(b.AshWednesday):
+		return "Lent"
+	// Post-Presentation: ordinary weekday forms until Ash Wednesday
+	case !b.Presentation.IsZero() && !d.Before(b.Presentation):
+		return "OrdinaryTime"
+	case !b.Epiphany.IsZero() && !d.Before(b.Epiphany):
+		return "Epiphany"
+	case !b.Christmas.IsZero() && !d.Before(b.Christmas):
+		return "Christmas"
+	case !b.AdventI.IsZero() && !d.Before(b.AdventI):
+		return "Advent"
+	default:
+		return "OrdinaryTime"
 	}
 }
 

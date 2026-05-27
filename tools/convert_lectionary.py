@@ -440,16 +440,24 @@ def detect_bounds(rows) -> dict:
             bounds["christmas_ii"] = date_str
         elif "epiphany" not in bounds and "baptism of the lord" in desc:
             bounds["epiphany"] = date_str
+        elif "presentation" not in bounds and "presentation of" in desc:
+            bounds["presentation"] = date_str
         elif "ash_wednesday" not in bounds and "ash wednesday" in desc:
             bounds["ash_wednesday"] = date_str
+        elif "passiontide" not in bounds and "fifth sunday in lent" in desc:
+            bounds["passiontide"] = date_str
         elif "palm_sunday" not in bounds and "palm sunday" in desc:
             bounds["palm_sunday"] = date_str
         elif "easter" not in bounds and (
             "easter day" in desc or "sunday of the resurrection" in desc
         ):
             bounds["easter"] = date_str
+        elif "ascension" not in bounds and "ascension of the lord" in desc:
+            bounds["ascension"] = date_str
         elif "pentecost" not in bounds and "day of pentecost" in desc:
             bounds["pentecost"] = date_str
+        elif "trinity_sunday" not in bounds and "trinity sunday" in desc:
+            bounds["trinity_sunday"] = date_str
         elif "all_saints" not in bounds and "all saints" in desc:
             bounds["all_saints"] = date_str
     return bounds
