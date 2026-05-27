@@ -5,26 +5,25 @@ package office
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	lectionary "github.com/astaticvoid/pwc-office"
 )
 
+// scFooter matches the Lord's Prayer navigation rubric that closes seasonal collects.
+var scFooter = regexp.MustCompile(`(?i)^the\s+Lord['']s\s+Prayer`)
+
 // Render produces Markdown for the Daily Office on the given day.
 // officeType is "mp" (Morning Prayer) or "ep" (Evening Prayer).
+// bounds provides season boundary dates for accurate form selection.
 // Any of ps, bible, collects, forms may be nil; text is embedded only when available.
-func Render(day *lectionary.Day, officeType string, ps *lectionary.Psalter, bible lectionary.BibleSource, collects *lectionary.Collects, forms *lectionary.Forms) string {
+func Render(day *lectionary.Day, officeType string, ps *lectionary.Psalter, bible lectionary.BibleSource, collects *lectionary.Collects, forms *lectionary.Forms, bounds lectionary.SeasonBounds) string {
 	o := selectOffice(day, officeType)
 
 	var form *lectionary.Form
 	if forms != nil {
-		season := day.Season.String()
-		// Pentecost season covers ~6 months. Only Pentecost Sunday itself (a
-		// PrincipalFeast) uses the pentecost-{mp|ep} form; all other days in
-		// the season use the ordinary weekday forms (ordinary-{weekday}-{mp|ep}).
-		if day.Season == lectionary.Pentecost && day.Rank != lectionary.PrincipalFeast {
-			season = "OrdinaryTime"
-		}
+		season := lectionary.FormSeasonOf(day.Date, bounds)
 		form = forms.Lookup(season, officeType, day.Weekday)
 	}
 
@@ -41,6 +40,10 @@ func Render(day *lectionary.Day, officeType string, ps *lectionary.Psalter, bibl
 	w("Season: %s | Rank: %s | Colour: %s", day.Season, day.Rank, day.Colour)
 
 	for _, note := range day.Notes {
+		switch note.Type {
+		case "reconciliation_propers", "ember_crossref", "rogation_crossref", "precedence_rule":
+			continue
+		}
 		w("")
 		w("*%s*", note.Text)
 	}
@@ -138,6 +141,9 @@ func writeSegmentContent(b *strings.Builder, segs []lectionary.Segment, forms *l
 		}
 		switch seg.Type {
 		case "rubric":
+			if scFooter.MatchString(seg.Text) {
+				continue
+			}
 			for _, line := range strings.Split(seg.Text, "\n") {
 				if line = strings.TrimSpace(line); line != "" {
 					w("*%s*", line)
@@ -267,7 +273,7 @@ func writeAttribution(b *strings.Builder, bible lectionary.BibleSource) {
 	if copyright := bible.Copyright(); copyright != "" {
 		fmt.Fprintf(b, "*%s*\n\n", copyright)
 	} else {
-		fmt.Fprintf(b, "*Scripture: %s*\n\n", bible.Translation())
+		fmt.Fprintf(b, "*Translation: %s*\n\n", bible.Translation())
 	}
 	if url := bible.AttributionURL(); url != "" {
 		fmt.Fprintf(b, "*[api.bible](%s)*\n", url)

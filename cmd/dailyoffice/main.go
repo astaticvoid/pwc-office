@@ -110,7 +110,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Print(office.Render(day, officeType, ps, bible, collects, forms))
+	fmt.Print(office.Render(day, officeType, ps, bible, collects, forms, l.Bounds))
 }
 
 // xdgDataDir returns $XDG_DATA_HOME or ~/.local/share.

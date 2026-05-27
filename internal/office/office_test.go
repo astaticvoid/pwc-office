@@ -22,6 +22,7 @@ func mustLoad(t *testing.T) (*lectionary.Lectionary, *lectionary.Psalter) {
 	return l, ps
 }
 
+
 func mustLookup(t *testing.T, l *lectionary.Lectionary, y, m, d int) *lectionary.Day {
 	t.Helper()
 	day, err := l.Lookup(time.Date(y, time.Month(m), d, 0, 0, 0, 0, time.UTC))
@@ -37,7 +38,7 @@ func TestRenderAscensionMP(t *testing.T) {
 	l, ps := mustLoad(t)
 	day := mustLookup(t, l, 2026, 5, 14)
 
-	out := office.Render(day, "mp", ps, nil, nil, nil)
+	out := office.Render(day, "mp", ps, nil, nil, nil, l.Bounds)
 
 	checks := []struct {
 		label string
@@ -66,7 +67,7 @@ func TestRenderAscensionEP(t *testing.T) {
 	l, ps := mustLoad(t)
 	day := mustLookup(t, l, 2026, 5, 14)
 
-	out := office.Render(day, "ep", ps, nil, nil, nil)
+	out := office.Render(day, "ep", ps, nil, nil, nil, l.Bounds)
 
 	if !strings.Contains(out, "Evening Prayer") {
 		t.Error("missing 'Evening Prayer' in header")
@@ -85,7 +86,7 @@ func TestRenderNilPsalter(t *testing.T) {
 	l, _ := mustLoad(t)
 	day := mustLookup(t, l, 2026, 5, 14)
 
-	out := office.Render(day, "mp", nil, nil, nil, nil)
+	out := office.Render(day, "mp", nil, nil, nil, nil, l.Bounds)
 
 	if !strings.Contains(out, "Ascension of the Lord") {
 		t.Error("missing day name without psalter")
@@ -101,7 +102,7 @@ func TestRenderOrdinaryDay(t *testing.T) {
 	l, ps := mustLoad(t)
 	day := mustLookup(t, l, 2026, 7, 8)
 
-	out := office.Render(day, "mp", ps, nil, nil, nil)
+	out := office.Render(day, "mp", ps, nil, nil, nil, l.Bounds)
 
 	if out == "" {
 		t.Error("expected non-empty output for ordinary day")
@@ -111,28 +112,50 @@ func TestRenderOrdinaryDay(t *testing.T) {
 	}
 }
 
-// TestRenderOrdinaryTimeFormUsedInPentecostSeason verifies that weekdays in
-// the Pentecost season use the ordinary weekday office forms (not pentecost-mp/ep).
+// TestRenderOrdinaryFormAfterTrinity verifies that weekdays after Trinity Sunday
+// use the ordinary weekday office forms (not pentecost-mp/ep).
 // The ordinary Wednesday MP form includes an Invitatory; pentecost-mp does not.
-func TestRenderOrdinaryTimeFormUsedInPentecostSeason(t *testing.T) {
+func TestRenderOrdinaryFormAfterTrinity(t *testing.T) {
 	l, ps := mustLoad(t)
 	forms, err := lectionary.LoadForms()
 	if err != nil {
 		t.Fatalf("LoadForms: %v", err)
 	}
 
-	// 2026-06-10 is a Wednesday in the Pentecost season (Feria rank).
+	// 2026-06-10 is a Wednesday after Trinity Sunday (post-Pentecost ordinary time).
 	day := mustLookup(t, l, 2026, 6, 10)
 	if day.Season != lectionary.Pentecost {
-		t.Fatalf("expected Pentecost season, got %s", day.Season)
+		t.Fatalf("expected Pentecost (broad) season, got %s", day.Season)
 	}
 
-	out := office.Render(day, "mp", ps, nil, nil, forms)
+	out := office.Render(day, "mp", ps, nil, nil, forms, l.Bounds)
 
-	// The ordinary-wednesday-mp form includes an Invitatory section.
-	// If the wrong form (pentecost-mp) were used, this heading would be absent.
+	// ordinary-wednesday-mp has an Invitatory; pentecost-mp does not.
 	if !strings.Contains(out, "Invitatory Psalm") {
-		t.Error("ordinary Wednesday in Pentecost season: missing Invitatory Psalm (wrong form selected)")
+		t.Error("post-Trinity Wednesday: missing Invitatory Psalm (wrong form selected)")
+	}
+}
+
+// TestRenderPentecostFormDuringAscensionPeriod verifies that the pentecost-mp/ep
+// form is used from Ascension Day through Trinity Sunday (inclusive).
+func TestRenderPentecostFormDuringAscensionPeriod(t *testing.T) {
+	l, ps := mustLoad(t)
+	forms, err := lectionary.LoadForms()
+	if err != nil {
+		t.Fatalf("LoadForms: %v", err)
+	}
+
+	// 2026-05-16 is a Saturday between Ascension (May 14) and Pentecost (May 24).
+	day := mustLookup(t, l, 2026, 5, 16)
+	out := office.Render(day, "mp", ps, nil, nil, forms, l.Bounds)
+
+	// pentecost-mp uses the Pentecost responsory; ordinary forms do not.
+	if !strings.Contains(out, "Come, Holy Spirit") {
+		t.Error("Ascension-period day: missing Pentecost responsory (wrong form selected)")
+	}
+	// pentecost-mp has no Invitatory; ordinary forms do.
+	if strings.Contains(out, "Invitatory Psalm") {
+		t.Error("Ascension-period day: unexpected Invitatory Psalm (wrong form selected)")
 	}
 }
 
@@ -142,7 +165,7 @@ func TestRenderWithNote(t *testing.T) {
 	// Dec 17 has an O Antiphon note.
 	day := mustLookup(t, l, 2025, 12, 17)
 
-	out := office.Render(day, "mp", ps, nil, nil, nil)
+	out := office.Render(day, "mp", ps, nil, nil, nil, l.Bounds)
 
 	if !strings.Contains(out, "O Sapientia") {
 		t.Error("expected O Sapientia note in Dec 17 output")
@@ -155,7 +178,7 @@ func TestRenderLessonsPick(t *testing.T) {
 	// Christmas Eve morning: "Two of the following three readings".
 	day := mustLookup(t, l, 2025, 12, 24)
 
-	out := office.Render(day, "mp", ps, nil, nil, nil)
+	out := office.Render(day, "mp", ps, nil, nil, nil, l.Bounds)
 
 	if !strings.Contains(out, "Two of the following") {
 		t.Error("expected LessonsPick instruction for Christmas Eve")
@@ -169,7 +192,7 @@ func TestRenderAlternate(t *testing.T) {
 	// Dec 26: Saint Stephen (primary) or Feria (alternate).
 	day := mustLookup(t, l, 2025, 12, 26)
 
-	out := office.Render(day, "mp", ps, nil, nil, nil)
+	out := office.Render(day, "mp", ps, nil, nil, nil, l.Bounds)
 
 	for _, want := range []string{
 		"Saint Stephen",
@@ -189,7 +212,7 @@ func TestRenderPsalmSets(t *testing.T) {
 	// Feb 26 evening: [59, 60] or 19, 46.
 	day := mustLookup(t, l, 2026, 2, 26)
 
-	out := office.Render(day, "ep", ps, nil, nil, nil)
+	out := office.Render(day, "ep", ps, nil, nil, nil, l.Bounds)
 
 	if !strings.Contains(out, "[59, 60] or 19, 46") {
 		t.Errorf("expected psalm-sets display, got output missing '[59, 60] or 19, 46'")
@@ -208,7 +231,7 @@ func TestRenderWithKJV(t *testing.T) {
 	}
 	// 2026-05-16: Num 11:16-17,24-29 and Eph 2:11-22 are appointed.
 	day := mustLookup(t, l, 2026, 5, 16)
-	out := office.Render(day, "mp", ps, lectionary.KJV(), collects, nil)
+	out := office.Render(day, "mp", ps, lectionary.KJV(), collects, nil, l.Bounds)
 
 	checks := []struct {
 		label string
@@ -216,7 +239,7 @@ func TestRenderWithKJV(t *testing.T) {
 	}{
 		{"KJV Numbers text", "Gather unto me seventy men"},
 		{"KJV Ephesians text", "far off"},
-		{"attribution", "Scripture: KJV"},
+		{"attribution", "Translation: KJV"},
 	}
 	for _, c := range checks {
 		if !strings.Contains(out, c.want) {
@@ -235,7 +258,7 @@ func TestRenderKJVApocrypha(t *testing.T) {
 	l, ps := mustLoad(t)
 	// 2026-11-01 (All Saints): morning lesson is 2 Esd 2:42-47.
 	day := mustLookup(t, l, 2026, 11, 1)
-	out := office.Render(day, "mp", ps, lectionary.KJV(), nil, nil)
+	out := office.Render(day, "mp", ps, lectionary.KJV(), nil, nil, l.Bounds)
 
 	if !strings.Contains(out, "2 Esd 2:42-47") {
 		t.Error("missing 2 Esdras citation")
@@ -251,7 +274,7 @@ func TestRenderKJVCitationHeadingAlwaysShown(t *testing.T) {
 	l, ps := mustLoad(t)
 	day := mustLookup(t, l, 2026, 5, 16)
 	// Render without any bible — citation headings must still appear.
-	out := office.Render(day, "mp", ps, nil, nil, nil)
+	out := office.Render(day, "mp", ps, nil, nil, nil, l.Bounds)
 
 	if !strings.Contains(out, "### The Reading: Num 11:16-17, 24-29") {
 		t.Error("lesson citation heading missing when no bible provided")
@@ -264,7 +287,7 @@ func TestRenderYearNote(t *testing.T) {
 	// Advent I 2025 morning: Year 2 annotation.
 	day := mustLookup(t, l, 2025, 11, 30)
 
-	out := office.Render(day, "mp", ps, nil, nil, nil)
+	out := office.Render(day, "mp", ps, nil, nil, nil, l.Bounds)
 
 	if !strings.Contains(out, "(Year 2)") {
 		t.Error("expected '(Year 2)' in Advent I output")
