@@ -336,19 +336,30 @@ def _merge(segs: list[dict]) -> list[dict]:
             prev["type"] == "rubric"
             and (_OR_UPPER.match(prev["text"]) or _OR_LOWER.match(prev["text"]))
         )
+        # A truncated "continues with…" rubric (no trailing period) may absorb the
+        # immediately following non-structural rubric to complete the sentence.
+        prev_is_truncated_continues = (
+            prev["type"] == "rubric"
+            and _CONTINUES_ALT.search(prev["text"])
+            and not prev["text"].rstrip().endswith(".")
+        )
         can_merge = (
             seg["type"] == prev["type"]
             and not (
                 seg["type"] == "rubric" and (
                     # Incoming structural rubric always starts a new segment.
                     _is_structural_rubric(seg["text"])
-                    # Structural prev merges only when it's a bare Or/or (needs its name).
-                    or (_is_structural_rubric(prev["text"]) and not prev_is_bare_or)
+                    # Structural prev merges only when it's a bare Or/or (needs its name)
+                    # or a truncated continues rubric waiting for its continuation.
+                    or (_is_structural_rubric(prev["text"]) and not prev_is_bare_or
+                        and not prev_is_truncated_continues)
                 )
             )
         )
         if can_merge:
-            prev["text"] += "\n" + seg["text"]
+            # Truncated continues rubric: join with space (mid-sentence continuation).
+            sep = " " if prev_is_truncated_continues else "\n"
+            prev["text"] += sep + seg["text"]
         else:
             merged.append(dict(seg))
     return [_fix_casing(s) for s in merged if s["text"].strip()]
@@ -398,8 +409,8 @@ _GENERAL_INTRO  = re.compile(r'one of the following .+ may be said or sung\.\n(.
 # requires re-running that fixup. Fix: exclude "At the end of" / "After the Canticle" from
 # this pattern if you want the rubric captured natively.
 _BLOCK_SEP_ONLY = re.compile(r'of the following may be said or sung\.?\s*$', re.IGNORECASE)
-# "Morning/Evening Prayer continues with…" rubrics are intentionally discarded: they are
-# print-navigation cues that are redundant with the app's section headings.
+# Used as a structural separator to prevent "continues with…" rubrics from merging
+# with adjacent segments. The Lord's Prayer variant is discarded; others are kept as PWC text.
 _CONTINUES_ALT  = re.compile(r'(?:Morning|Evening) Prayer continues', re.IGNORECASE)
 
 def _is_structural_rubric(text: str) -> bool:
@@ -465,9 +476,10 @@ def _group_alternatives(segs: list[dict], office="", section="") -> list[dict]:
         typ  = seg.get('type', '')
         cur_grp = f"grp[{len(groups)}]" if groups is not None else "pending"
 
-        # Discard terminal rubrics ("Morning/Evening Prayer continues…")
-        if typ == 'rubric' and _CONTINUES_ALT.search(text):
-            _dbg(f"    DISCARD continues-rubric: {repr(text[:60])}", office=office, section=section)
+        # Discard only the Lord's Prayer navigation rubric ("…continues with the Lord's Prayer").
+        # Other "continues with…" rubrics are PWC liturgical transitions and are kept.
+        if typ == 'rubric' and _LP_CONTINUES.search(text):
+            _dbg(f"    DISCARD lp-continues-rubric: {repr(text[:60])}", office=office, section=section)
             continue
 
         # Canticle intro: '"Name A," "Name B," … may be said or sung.\nName A (citation)'
