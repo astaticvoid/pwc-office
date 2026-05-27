@@ -132,44 +132,84 @@ function lookupCollect(collects, ref) {
 
 function parseDate(s) { return s ? new Date(s + 'T00:00:00Z') : null; }
 
+// seasonOf: broad liturgical season for theming (data-season attribute, colours).
+// Passiontide begins at the 5th Sunday in Lent (if present), else at Palm Sunday.
+// Pentecost season begins at Pentecost Sunday (not Ascension — see officeFormSeason).
 function seasonOf(dateStr, bounds) {
   const d = parseDate(dateStr);
-  if (parseDate(bounds.christmas_ii)   && d >= parseDate(bounds.christmas_ii))   return 'Christmas';
-  if (parseDate(bounds.advent_ii)      && d >= parseDate(bounds.advent_ii))      return 'Advent';
-  if (parseDate(bounds.all_saints)     && d >= parseDate(bounds.all_saints))      return 'AllSaints';
-  if (parseDate(bounds.pentecost)      && d >= parseDate(bounds.pentecost))       return 'Pentecost';
-  if (parseDate(bounds.easter)         && d >= parseDate(bounds.easter))          return 'Easter';
-  if (parseDate(bounds.palm_sunday)    && d >= parseDate(bounds.palm_sunday))     return 'Passiontide';
-  if (parseDate(bounds.ash_wednesday)  && d >= parseDate(bounds.ash_wednesday))   return 'Lent';
-  if (parseDate(bounds.epiphany)       && d >= parseDate(bounds.epiphany))        return 'Epiphany';
-  if (parseDate(bounds.christmas)      && d >= parseDate(bounds.christmas))       return 'Christmas';
-  if (parseDate(bounds.advent_i)       && d >= parseDate(bounds.advent_i))        return 'Advent';
+  const passionStart = parseDate(bounds.passiontide || bounds.palm_sunday);
+  if (parseDate(bounds.christmas_ii)  && d >= parseDate(bounds.christmas_ii))  return 'Christmas';
+  if (parseDate(bounds.advent_ii)     && d >= parseDate(bounds.advent_ii))     return 'Advent';
+  if (parseDate(bounds.all_saints)    && d >= parseDate(bounds.all_saints))    return 'AllSaints';
+  if (parseDate(bounds.pentecost)     && d >= parseDate(bounds.pentecost))     return 'Pentecost';
+  if (parseDate(bounds.easter)        && d >= parseDate(bounds.easter))        return 'Easter';
+  if (passionStart                    && d >= passionStart)                    return 'Passiontide';
+  if (parseDate(bounds.ash_wednesday) && d >= parseDate(bounds.ash_wednesday)) return 'Lent';
+  if (parseDate(bounds.epiphany)      && d >= parseDate(bounds.epiphany))      return 'Epiphany';
+  if (parseDate(bounds.christmas)     && d >= parseDate(bounds.christmas))     return 'Christmas';
+  if (parseDate(bounds.advent_i)      && d >= parseDate(bounds.advent_i))      return 'Advent';
+  return 'OrdinaryTime';
+}
+
+// officeFormSeason: returns the season key used to look up the office form.
+// Follows PWOC form subtitle boundaries exactly:
+//   Epiphany form: Baptism of the Lord through Presentation (Feb 2)
+//   Passiontide form: 5th Sunday in Lent through Holy Saturday
+//   Easter form: Easter Day through day before Ascension
+//   Pentecost form: Ascension through Trinity Sunday (inclusive)
+//   Ordinary forms: everything else within the year
+function officeFormSeason(dateStr, bounds) {
+  const d = parseDate(dateStr);
+  const passionStart      = parseDate(bounds.passiontide || bounds.palm_sunday);
+  const pentecostFormStart = parseDate(bounds.ascension || bounds.pentecost);
+  const trinityEnd        = parseDate(bounds.trinity_sunday);
+  if (parseDate(bounds.christmas_ii)  && d >= parseDate(bounds.christmas_ii))  return 'Christmas';
+  if (parseDate(bounds.advent_ii)     && d >= parseDate(bounds.advent_ii))     return 'Advent';
+  if (parseDate(bounds.all_saints)    && d >= parseDate(bounds.all_saints))    return 'AllSaints';
+  if (trinityEnd                      && d > trinityEnd)                       return 'OrdinaryTime';
+  if (pentecostFormStart              && d >= pentecostFormStart)              return 'Pentecost';
+  if (parseDate(bounds.easter)        && d >= parseDate(bounds.easter))        return 'Easter';
+  if (passionStart                    && d >= passionStart)                    return 'Passiontide';
+  if (parseDate(bounds.ash_wednesday) && d >= parseDate(bounds.ash_wednesday)) return 'Lent';
+  if (parseDate(bounds.presentation)  && d >= parseDate(bounds.presentation))  return 'OrdinaryTime';
+  if (parseDate(bounds.epiphany)      && d >= parseDate(bounds.epiphany))      return 'Epiphany';
+  if (parseDate(bounds.christmas)     && d >= parseDate(bounds.christmas))     return 'Christmas';
+  if (parseDate(bounds.advent_i)      && d >= parseDate(bounds.advent_i))      return 'Advent';
   return 'OrdinaryTime';
 }
 
 // Returns 0-based week index within the season (0 = first week, 1 = second, …).
+// For Pentecost form, week counting starts from Ascension so the collect sub-periods align.
 function seasonWeekIndex(dateStr, season, bounds) {
   const d = parseDate(dateStr);
   const starts = {
-    Easter: bounds.easter, Lent: bounds.ash_wednesday,
-    Epiphany: bounds.epiphany, Christmas: bounds.christmas,
-    AllSaints: bounds.all_saints, Advent: bounds.advent_i,
-    Passiontide: bounds.palm_sunday, Pentecost: bounds.pentecost,
+    Easter:      bounds.easter,
+    Lent:        bounds.ash_wednesday,
+    Epiphany:    bounds.epiphany,
+    Christmas:   bounds.christmas,
+    AllSaints:   bounds.all_saints,
+    Advent:      bounds.advent_i,
+    Passiontide: bounds.passiontide || bounds.palm_sunday,
+    Pentecost:   bounds.ascension   || bounds.pentecost,
   };
   const start = parseDate(starts[season] || null);
   if (!start) return 0;
   return Math.floor((d - start) / (7 * 24 * 3600 * 1000));
 }
 
-// Filter seasonal_collects segments to the week matching weekIdx.
-// Splits on rubrics matching /^\s*(The\s+)?Week\b/i; pre-group = week 0.
-const WEEK_RUBRIC = /^\s*(?:The\s+)?Week\b/i;
+// Filter seasonal_collects to the period matching weekIdx.
+// All rubrics except the general "Additional intercessions…" header and
+// "the Lord's Prayer" close marker are treated as period/week boundaries.
+const SC_HEADER = /^Additional\s+intercessions/i;
+const SC_FOOTER = /^the\s+Lord['’]s\s+Prayer/i;
 
 function filterSeasonalCollects(segs, weekIdx) {
   const pre = [], groups = [];
   let cur = null;
   for (const seg of segs) {
-    if (seg.type === 'rubric' && WEEK_RUBRIC.test(seg.text)) {
+    if (seg.type === 'rubric' && SC_FOOTER.test(seg.text)) continue;
+    const isPeriodMarker = seg.type === 'rubric' && !SC_HEADER.test(seg.text);
+    if (isPeriodMarker) {
       if (cur !== null) groups.push(cur);
       cur = [seg];
     } else {
@@ -179,22 +219,25 @@ function filterSeasonalCollects(segs, weekIdx) {
   }
   if (cur !== null) groups.push(cur);
 
-  if (!groups.length) return segs; // No weekly structure — show all.
+  if (!groups.length) return segs;
 
-  // General instruction rubrics (e.g. "Additional intercessions…") always appear.
-  const preRubrics = pre.filter(s => s.type === 'rubric');
+  const preRubrics  = pre.filter(s => s.type === 'rubric');
   const week0Content = pre.filter(s => s.type !== 'rubric');
 
-  if (weekIdx <= 0) return [...preRubrics, ...week0Content];
-
-  const g = groups[Math.min(weekIdx - 1, groups.length - 1)];
-  return [...preRubrics, ...g];
+  if (week0Content.length) {
+    // Pre-group content exists (e.g. Lent, Easter, Christmas, Advent, Passiontide, Pentecost form).
+    // weekIdx 0 → general collect; weekIdx 1+ → week-specific group.
+    if (weekIdx <= 0) return [...preRubrics, ...week0Content];
+    return [...preRubrics, ...groups[Math.min(weekIdx - 1, groups.length - 1)]];
+  } else {
+    // No pre-group content; first period is groups[0] (e.g. Advent numbered collects).
+    return [...preRubrics, ...(groups[Math.min(weekIdx, groups.length - 1)] || [])];
+  }
 }
 
-// Returns the form key, mirroring Go's formKey + OrdinaryTime/Pentecost logic.
-function formKey(season, officeType, weekday, rank) {
+// Returns the offices.json key for the given form season, office type, and weekday.
+function formKey(season, officeType, weekday) {
   let s = season.toLowerCase();
-  if (s === 'pentecost' && rank !== 'principal_feast') s = 'ordinarytime';
   if (s === 'ordinarytime') {
     const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
     s = 'ordinary-' + days[weekday];
@@ -343,9 +386,11 @@ function renderAlternatives(seg, shared, contextKey) {
   return `<div class="alt-block"><div class="alt-tabs">${tabsHtml}</div>${panelsHtml}</div>`;
 }
 
-// Rubrics that are section-navigation cues in the printed book but are rendered
-// as explicit headings/sections in the app — skip to avoid duplication.
-const SKIP_RUBRICS = /^(Affirmation of Faith|[Tt]he Lord'?s Prayer)\.?\s*$/i;
+// Rubrics that are section-navigation cues in the printed book but are either
+// rendered as explicit headings or added programmatically as inter-section transitions.
+// "continues with the Litany" appears asymmetrically inside one affirmation group
+// (PDF artifact) — filtered here and added programmatically after the full Affirmation.
+const SKIP_RUBRICS = /^(Affirmation of Faith|[Tt]he Lord'?s Prayer)\.?\s*$|continues with the Lit/i;
 
 function bindMidpoints(html) {
   // Wrap [word * ] in a nowrap group so the asterisk never orphans on a new line.
@@ -581,15 +626,35 @@ function psalmHtml(officeData, shared) {
   const officeLabel = officeData.label ? `${esc(officeData.label)} — ` : '';
   let html = '';
   if (psalmSets && psalmSets.length) {
-    const label = psalmSets.map(set =>
+    // psalm_sets: alternative groups (e.g. [59, 60] or 19, 46).
+    // Add an "All" tab so the user can see every psalm; individual set tabs follow.
+    const allFlat = psalmSets.flat();
+    const setLabels = psalmSets.map(set =>
       set.map(p => { const c = typeof p === 'object' ? p.citation : p; return (typeof p === 'object' && p.optional) ? `[${c}]` : c; }).join(', ')
-    ).join(' or ');
-    html += `<h3 class="psalm-heading">${officeLabel}Psalm${psalmSets.flat().length > 1 ? 's' : ''}: ${esc(label)}</h3>`;
+    );
+    const label = setLabels.join(' or ');
+    html += `<h3 class="psalm-heading">${officeLabel}Psalm${allFlat.length > 1 ? 's' : ''}: ${esc(label)}</h3>`;
     html += `<p class="seg-rubric">A Psalm from the appointed lectionary is said or sung.</p>`;
+    const stateKey = 'pwc-psalmset-' + allFlat.map(p => typeof p === 'object' ? p.citation : p).join('-');
+    const saved = parseInt(localStorage.getItem(stateKey) || '0');
+    const active = Math.min(Math.max(0, saved), psalmSets.length); // 0 = All
+    const tabsHtml = [`<button class="alt-tab${active === 0 ? ' alt-tab-active' : ''}" data-idx="0" data-key="${esc(stateKey)}">All</button>`]
+      .concat(psalmSets.map((set, si) => {
+        const lbl = setLabels[si];
+        return `<button class="alt-tab${si + 1 === active ? ' alt-tab-active' : ''}" data-idx="${si + 1}" data-key="${esc(stateKey)}">${esc(lbl)}</button>`;
+      })).join('');
+    // Panel 0: all psalms in sequence
+    let allHtml = '';
+    allFlat.forEach(p => { allHtml += psalmWithGloria(p, shared); });
+    html += `<div class="alt-block"><div class="alt-tabs">${tabsHtml}</div>`;
+    html += `<div class="alt-panel${active !== 0 ? ' alt-panel-hidden' : ''}" data-idx="0">${allHtml}</div>`;
+    // Panels 1…N: individual sets
     psalmSets.forEach((set, si) => {
-      if (si > 0) html += `<p class="psalm-set-divider">— or —</p>`;
-      set.forEach(p => { html += psalmWithGloria(p, shared); });
+      let setHtml = '';
+      set.forEach(p => { setHtml += psalmWithGloria(p, shared); });
+      html += `<div class="alt-panel${si + 1 !== active ? ' alt-panel-hidden' : ''}" data-idx="${si + 1}">${setHtml}</div>`;
     });
+    html += `</div>`;
   } else if (psalms.length) {
     const label = psalms.map(p => typeof p === 'object' ? p.citation : p).join(', ');
     html += `<h3 class="psalm-heading">${officeLabel}Psalm${psalms.length > 1 ? 's' : ''}: ${esc(label)}</h3>`;
@@ -597,18 +662,24 @@ function psalmHtml(officeData, shared) {
       html += `<p class="seg-rubric">The following Psalm from the appointed lectionary is said or sung.</p>`;
       html += psalmWithGloria(psalms[0], shared);
     } else {
-      // Multiple psalms: show as selectable tabs (PWOC directs one psalm per office).
+      // Multiple appointed psalms — all said in sequence; tabs let you focus on one.
       const stateKey = 'pwc-psalm-' + psalms.map(p => typeof p === 'object' ? p.citation : p).join('-');
       const saved = parseInt(localStorage.getItem(stateKey) || '0');
-      const active = Math.min(Math.max(0, saved), psalms.length - 1);
-      const tabsHtml = psalms.map((p, i) => {
-        const c = typeof p === 'object' ? p.citation : p;
-        return `<button class="alt-tab${i === active ? ' alt-tab-active' : ''}" data-idx="${i}" data-key="${esc(stateKey)}">Psalm ${esc(c)}</button>`;
-      }).join('');
-      html += `<p class="seg-rubric">One of the following Psalms from the appointed lectionary is said or sung.</p>`;
+      const active = Math.min(Math.max(0, saved), psalms.length); // 0 = All
+      const tabsHtml = [`<button class="alt-tab${active === 0 ? ' alt-tab-active' : ''}" data-idx="0" data-key="${esc(stateKey)}">All</button>`]
+        .concat(psalms.map((p, i) => {
+          const c = typeof p === 'object' ? p.citation : p;
+          return `<button class="alt-tab${i + 1 === active ? ' alt-tab-active' : ''}" data-idx="${i + 1}" data-key="${esc(stateKey)}">Psalm ${esc(c)}</button>`;
+        })).join('');
+      html += `<p class="seg-rubric">The following Psalms from the appointed lectionary are said or sung.</p>`;
       html += `<div class="alt-block"><div class="alt-tabs">${tabsHtml}</div>`;
+      // Panel 0: all psalms in sequence
+      let allHtml = '';
+      psalms.forEach(p => { allHtml += psalmWithGloria(p, shared); });
+      html += `<div class="alt-panel${active !== 0 ? ' alt-panel-hidden' : ''}" data-idx="0">${allHtml}</div>`;
+      // Panels 1…N: individual psalms
       psalms.forEach((p, i) => {
-        html += `<div class="alt-panel${i !== active ? ' alt-panel-hidden' : ''}" data-idx="${i}">`;
+        html += `<div class="alt-panel${i + 1 !== active ? ' alt-panel-hidden' : ''}" data-idx="${i + 1}">`;
         html += psalmWithGloria(p, shared);
         html += `</div>`;
       });
@@ -624,14 +695,12 @@ function lessonHtml(lesson, shared, form) {
   const displayCitation = expandCitationForDisplay(rawCitation);
   const display = optional ? `(${displayCitation})` : displayCitation;
   const preambleRubric = `<p class="seg-rubric">A Reading from the appointed lectionary is read.</p>`;
-  const endRubric = `<p class="seg-rubric">Here ends the Reading.</p>`;
   const reflectionRubric = `<p class="seg-rubric">After a period of silent reflection one of the following is said.</p>`;
   const readingResponse = (form && form.reading_response) || READING_RESPONSE;
   const responseHtml = `<div class="liturgy">${renderAlternatives(readingResponse, shared, 'reading_response')}</div>`;
   return `<h3 class="reading-heading">The Reading: ${esc(display)}</h3>`
     + preambleRubric
     + `<div class="scripture-placeholder" data-citation="${esc(rawCitation)}"><p class="loading">Loading…</p></div>`
-    + endRubric
     + reflectionRubric
     + responseHtml;
 }
@@ -659,10 +728,11 @@ function collectHtml(collects, ref) {
 // Renders the collect section as a toggle between the daily collect and
 // the seasonal alternatives, as the rubric directs: "either…or".
 function collectToggleHtml(collects, collectRef, seasonalSegs, shared) {
-  // Separate general instruction rubrics (shown above the toggle) from collect content.
+  // Separate the general "Additional intercessions…" rubric (display above toggle)
+  // from the actual seasonal collect content.
   let splitAt = 0;
   while (splitAt < seasonalSegs.length && seasonalSegs[splitAt].type === 'rubric'
-         && !WEEK_RUBRIC.test(seasonalSegs[splitAt].text)) splitAt++;
+         && SC_HEADER.test(seasonalSegs[splitAt].text)) splitAt++;
   const generalRubrics = seasonalSegs.slice(0, splitAt);
   const seasonalContent = seasonalSegs.slice(splitAt);
 
@@ -681,12 +751,15 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared) {
       `<button class="alt-tab${i === activeIdx ? ' alt-tab-active' : ''}" data-idx="${i}" data-key="${esc(stateKey)}">${esc(label)}</button>`;
     const panel = (content, i) =>
       `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" data-idx="${i}">${content}</div>`;
-    // Strip "Week of Easter X" / "Week N" labels from the panel — those are selection
-    // identifiers, not liturgical text to display.
-    const displaySeasonal = seasonalContent.filter(s => !(s.type === 'rubric' && WEEK_RUBRIC.test(s.text)));
+    // Strip period-marker rubrics from the panel content; use the first one as a title.
+    const periodMarker = seasonalContent.find(s => s.type === 'rubric');
+    const displaySeasonal = seasonalContent.filter(s => s.type !== 'rubric');
+    const seasonalTitle = periodMarker
+      ? `<p class="alt-source">${esc(periodMarker.text)}</p>`
+      : '';
     html += `<div class="alt-block"><div class="alt-tabs">${tab('Collect of the Day', 0)}${tab('Seasonal Collect', 1)}</div>`
           + panel(collectHtml(collects, collectRef), 0)
-          + panel(`<div class="liturgy">${renderSegments(displaySeasonal, shared)}</div>`, 1)
+          + panel(seasonalTitle + `<div class="liturgy">${renderSegments(displaySeasonal, shared)}</div>`, 1)
           + `</div>`;
   } else if (hasDaily) {
     html += `<h3 class="office-subsection-title">Collect of the Day</h3>${collectHtml(collects, collectRef)}`;
@@ -755,8 +828,9 @@ async function render(dateStr, officeType, translation) {
   const d = new Date(dateStr + 'T00:00:00Z');
   const weekday = d.getUTCDay();
   const season = seasonOf(dateStr, bounds);
-  const weekIdx = seasonWeekIndex(dateStr, season, bounds);
-  const key = formKey(season, officeType, weekday, day.rank);
+  const fSeason = officeFormSeason(dateStr, bounds);
+  const weekIdx = seasonWeekIndex(dateStr, fSeason, bounds);
+  const key = formKey(fSeason, officeType, weekday);
   const form = offices[key] || null;
 
   document.documentElement.setAttribute('data-season', season);
@@ -815,7 +889,7 @@ async function render(dateStr, officeType, translation) {
     + colourChip;
 
   document.querySelectorAll('.day-note, .day-note-details').forEach(el => el.remove());
-  const SUPPRESS_NOTE_TYPES = new Set(['ember_crossref', 'rogation_crossref', 'precedence_rule']);
+  const SUPPRESS_NOTE_TYPES = new Set(['ember_crossref', 'rogation_crossref', 'precedence_rule', 'reconciliation_propers']);
   if (day.notes && day.notes.length) {
     const headerEl = document.getElementById('day-header');
     day.notes.forEach(n => {
@@ -860,6 +934,14 @@ async function render(dateStr, officeType, translation) {
 
   let html = '';
 
+  // ── Form title / subtitle ──────────────────────────────────────────────────
+  if (form && form.title) {
+    const titleStr = form.title.replace(/\b\w/g, c => c.toUpperCase());
+    html += `<div class="form-header"><p class="form-title">${esc(titleStr)}</p>`;
+    if (form.subtitle) html += `<p class="form-subtitle">${esc(form.subtitle)}</p>`;
+    html += `</div>`;
+  }
+
   // ── Gathering ──────────────────────────────────────────────────────────────
   if (form && (form.opening_responses || form.thanksgiving_for_light || form.phos_hilaron || form.invitatory)) {
     html += `<h2 class="office-section-title">The Gathering of the Community</h2>`;
@@ -894,8 +976,13 @@ async function render(dateStr, officeType, translation) {
 
   // Affirmation of Faith closes the Proclamation section (not Prayers).
   if (form && form.affirmation && form.affirmation.length) {
+    const mpOrEp = (form.title || '').toLowerCase().startsWith('evening') ? 'Evening' : 'Morning';
+    const hasLitany = form.litany && form.litany.length;
+    const affirmTransition = hasLitany
+      ? `${mpOrEp} Prayer continues with an Affirmation of Faith or the Litany.`
+      : `${mpOrEp} Prayer continues with the Affirmation of Faith.`;
+    html += `<p class="seg-rubric">${esc(affirmTransition)}</p>`;
     html += `<h3 class="office-subsection-title">Affirmation of Faith</h3>`;
-    html += `<p class="seg-rubric">One of the following Affirmations of Faith may be said or sung.</p>`;
     html += `<div class="liturgy">${renderSegments(form.affirmation, shared)}</div>`;
   }
 
@@ -905,7 +992,13 @@ async function render(dateStr, officeType, translation) {
     // Day-specific intercession prompts guide the free-prayer period before the formal litany.
     if (form.intercessions && form.intercessions.length)
       html += renderSubsection('Intercessions and Thanksgivings', form.intercessions, shared);
-    html += renderSubsection('The Litany', form.litany, shared);
+    if (form.litany && form.litany.length) {
+      if (form.affirmation && form.affirmation.length) {
+        const mpOrEp2 = (form.title || '').toLowerCase().startsWith('evening') ? 'Evening' : 'Morning';
+        html += `<p class="seg-rubric">${esc(mpOrEp2 + ' Prayer continues with the Litany.')}</p>`;
+      }
+      html += renderSubsection('The Litany', form.litany, shared);
+    }
     html += `<h3 class="office-subsection-title">The Collect</h3>`;
     html += `<div id="prayers-collect">${collectToggleHtml(collects, officeData.collect, seasonalSegs, shared)}</div>`;
     if (form.lords_prayer_intro && form.lords_prayer_intro.length) {
@@ -921,7 +1014,7 @@ async function render(dateStr, officeType, translation) {
     html += `<div class="liturgy">${renderSegments(form.dismissal, shared)}</div>`;
   }
 
-  html += `<p class="scripture-attr" id="scripture-attr">Scripture: ${esc(translation.toUpperCase())}</p>`;
+  html += `<p class="scripture-attr" id="scripture-attr">Translation: ${esc(translation.toUpperCase())}</p>`;
 
   contentEl.innerHTML = html;
 
@@ -1065,8 +1158,9 @@ function handleHashChange() {
     state.date = parsed.date;
     state.office = parsed.office;
   } else {
-    location.hash = hashFor(todayStr(), defaultOffice());
-    return;
+    // No valid hash — render today in place without modifying the URL.
+    state.date = todayStr();
+    state.office = defaultOffice();
   }
   render(state.date, state.office, state.translation);
 }
@@ -1120,7 +1214,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('nav-brand').addEventListener('click', e => {
     e.preventDefault();
-    location.hash = hashFor(todayStr(), state.office);
+    history.pushState({}, '', location.pathname);
+    handleHashChange();
   });
 
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
@@ -1172,7 +1267,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'ArrowRight' || e.key === 'l') location.hash = hashFor(offsetDate(state.date, +1), state.office);
     if (e.key === 'm') location.hash = hashFor(state.date, 'mp');
     if (e.key === 'e') location.hash = hashFor(state.date, 'ep');
-    if (e.key === 't') location.hash = hashFor(todayStr(), state.office);
+    if (e.key === 't') { history.pushState({}, '', location.pathname); handleHashChange(); }
   });
 
   window.addEventListener('hashchange', handleHashChange);
@@ -1188,6 +1283,7 @@ document.addEventListener('DOMContentLoaded', () => {
   handleHashChange();
 
   if ('serviceWorker' in navigator && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+    navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
     navigator.serviceWorker.register('/sw.js');
   }
 });
