@@ -1239,7 +1239,31 @@ document.addEventListener('DOMContentLoaded', () => {
   settingsBtn.addEventListener('click', openSettings);
   settingsClose.addEventListener('click', closeSettings);
   settingsBackdrop.addEventListener('click', closeSettings);
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSettings(); });
+
+  // Book mode toggle
+  const viewToggle = document.getElementById('view-toggle');
+  const bookModeKey = 'pwc-book-mode';
+
+  if (localStorage.getItem(bookModeKey) === '1') {
+    document.body.classList.add('book-mode');
+    viewToggle.setAttribute('aria-pressed', 'true');
+    viewToggle.innerHTML = viewToggle.innerHTML.replace('Book view', 'Interactive');
+  }
+
+  viewToggle.addEventListener('click', () => {
+    const isBook = document.body.classList.toggle('book-mode');
+    viewToggle.setAttribute('aria-pressed', String(isBook));
+    viewToggle.innerHTML = viewToggle.innerHTML.replace(
+      isBook ? 'Book view' : 'Interactive',
+      isBook ? 'Interactive' : 'Book view'
+    );
+    localStorage.setItem(bookModeKey, isBook ? '1' : '0');
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeSettings();
+    if (e.key === 'b' && !e.target.matches('input,select,textarea')) viewToggle.click();
+  });
 
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
   document.getElementById('font-size-toggle').addEventListener('click', cycleFontSize);
