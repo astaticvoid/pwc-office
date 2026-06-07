@@ -386,9 +386,11 @@ function renderAlternatives(seg, shared, contextKey) {
       }).join('\x1f');
   const savedIdx  = parseInt(localStorage.getItem(stateKey) || '0');
   const activeIdx = Math.min(Math.max(0, savedIdx), seg.groups.length - 1);
-  const tabsHtml = seg.groups.map((g, i) =>
-    `<button class="alt-tab${i === activeIdx ? ' alt-tab-active' : ''}" data-idx="${i}" data-key="${esc(stateKey)}">${esc(g.label)}</button>`
-  ).join('');
+  const tabsHtml = seg.groups.map((g, i) => {
+    const label = g.label || '';
+    const displayLabel = label.length > 22 ? label.slice(0, 21) + '…' : label;
+    return `<button class="alt-tab${i === activeIdx ? ' alt-tab-active' : ''}" data-idx="${i}" data-key="${esc(stateKey)}" title="${esc(label)}">${esc(displayLabel)}</button>`;
+  }).join('');
   const panelsHtml = seg.groups.map((g, i) => {
     let sourceHtml = '';
     if (!SHORT_LABEL_RE.test(g.label.trim())) {
