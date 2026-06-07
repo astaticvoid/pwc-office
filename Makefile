@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: test test-smoke test-seasonal test-full build check-dist serve serve-dist deploy test-web validate
+.PHONY: test test-smoke test-seasonal test-full test-tools build check-dist serve serve-dist deploy test-web validate
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -64,6 +64,10 @@ serve:
 serve-dist: check-dist
 	-lsof -ti:$(PORT_DIST) | xargs kill -9 2>/dev/null; true
 	python3 -m http.server $(PORT_DIST) --directory dist
+
+# Unit tests for Python extraction tools (requires pytest: brew install pytest).
+test-tools:
+	pytest tools/tests/ -v
 
 # Validate extracted lectionary data against the ACC HTML source.
 # Requires network access; run manually before a data re-extraction.
