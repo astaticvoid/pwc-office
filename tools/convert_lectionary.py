@@ -685,6 +685,16 @@ def main():
     print(f"Loaded {len(rows)} unique dates from {len(csv_paths)} CSV file(s)")
 
     bounds = detect_bounds(rows)
+    _REQUIRED_BOUNDS = [
+        'advent_i', 'christmas', 'epiphany', 'ash_wednesday',
+        'easter', 'pentecost', 'trinity_sunday', 'all_saints',
+    ]
+    missing = [k for k in _REQUIRED_BOUNDS if k not in bounds]
+    if missing:
+        sys.exit(
+            f"ERROR: detect_bounds() missing required keys: {', '.join(missing)}\n"
+            "Check CSV name strings and update detect_bounds() if ACC wording changed."
+        )
     entries = []
     skipped = 0
 
