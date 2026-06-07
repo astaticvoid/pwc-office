@@ -379,6 +379,7 @@ function renderAlternatives(seg, shared, contextKey) {
     let sourceHtml = '';
     if (!SHORT_LABEL_RE.test(g.label.trim())) {
       const citation = CANTICLE_SOURCE[g.label];
+      if (!citation) console.warn('CANTICLE_SOURCE missing entry for:', g.label);
       sourceHtml = `<p class="alt-source">${esc(g.label)}${citation ? ` — ${esc(citation)}` : ''}</p>`;
     }
     return `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" data-idx="${i}">${sourceHtml}${renderSegments(g.segments, shared)}</div>`;
