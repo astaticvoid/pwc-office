@@ -401,14 +401,16 @@ _BLESSED_BE     = re.compile(r'^Blessed be (?:God|the holy)\b', re.IGNORECASE)
 # Handles all line-break variants (“may be\nsaid”, “may\nbe said”, “may be said”).
 _CANTICLE_INTRO = re.compile(r'^[“”].+?said or sung\.\n(.+)', re.DOTALL)
 _GENERAL_INTRO  = re.compile(r'one of the following .+ may be said or sung\.\n(.+)', re.IGNORECASE | re.DOTALL)
-# KNOWN SIDE-EFFECT: "At the end of the Canticle one of the following may be said or sung."
-# and "After the Canticle one of the following may be said or sung." both end with this pattern
-# and are silently consumed as block separators. The doxology following them is still captured
-# (deduped to _shared.doxology), but the intro rubric is lost. A post-extraction script adds
-# these rubrics back into each canticle section in offices.json. Re-running the extractor
-# requires re-running that fixup. Fix: exclude "At the end of" / "After the Canticle" from
-# this pattern if you want the rubric captured natively.
+# Matches pure block separator rubrics (no embedded label).
+# Canticle doxology intros ("At the end of the Canticle…" / "After the Canticle…") also
+# match this pattern, but are now emitted as plain rubric segments rather than discarded
+# — see the BLOCK-SEP branch in _group_alternatives.
 _BLOCK_SEP_ONLY = re.compile(r'of the following may be said or sung\.?\s*$', re.IGNORECASE)
+# Identifies the two canticle doxology intro phrasings so _group_alternatives can
+# preserve them in the output instead of silently discarding them.
+_CANTICLE_DOXOLOGY_INTRO = re.compile(
+    r'^(?:At the end of the Canticle|After the Canticle)\b', re.IGNORECASE
+)
 # Used as a structural separator to prevent "continues with…" rubrics from merging
 # with adjacent segments. The Lord's Prayer variant is discarded; others are kept as PWC text.
 _CONTINUES_ALT  = re.compile(r'(?:Morning|Evening) Prayer continues', re.IGNORECASE)
@@ -510,6 +512,10 @@ def _group_alternatives(segs: list[dict], office="", section="") -> list[dict]:
             _dbg(f"    BLOCK-SEP → flush, start unnamed groups: {repr(text[:60])}", office=office, section=section)
             _flush_groups()
             _flush_pending()
+            # Canticle doxology intros are structural separators but also carry
+            # liturgical text — emit them as plain rubrics before the group block.
+            if _CANTICLE_DOXOLOGY_INTRO.match(text):
+                result.append(seg)
             groups = []
             unnamed_n[0] = 0
             continue
@@ -847,17 +853,10 @@ def _dedup_shared(offices: dict) -> dict:
             if _is_doxology(seg):
                 if 'doxology' not in shared:
                     shared['doxology'] = _canonical_doxology(seg)
-                # The canticle doxology intro rubric is swallowed by _BLOCK_SEP_ONLY
-                # during extraction. Re-insert it here at dedup time, but only in
-                # the canticle section — the doxology also appears in opening_responses
-                # where no intro rubric is needed.
-                if section_key == 'canticle':
-                    rubric_text = (
-                        "After the Canticle one of the following may be said or sung."
-                        if office_key.startswith('ordinary-')
-                        else "At the end of the Canticle one of the following may be said or sung."
-                    )
-                    out.append({'type': 'rubric', 'text': rubric_text})
+                # The canticle doxology intro rubric ("At the end of the Canticle…" /
+                # "After the Canticle…") is now emitted natively by _group_alternatives
+                # as a plain rubric segment immediately before this alternatives block,
+                # so no re-insertion is needed here.
                 out.append({'type': 'shared', 'key': 'doxology'})
             elif _is_affirmation(seg):
                 if 'affirmation' not in shared:
