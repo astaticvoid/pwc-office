@@ -944,26 +944,68 @@ async function render(dateStr, officeType, translation) {
   const SUPPRESS_NOTE_TYPES = new Set(['ember_crossref', 'rogation_crossref', 'precedence_rule', 'reconciliation_propers']);
   if (day.notes && day.notes.length) {
     const headerEl = document.getElementById('day-header');
+
+    // Convert bare URLs in a string to clickable links, returned as a DocumentFragment.
+    const renderNoteText = t => {
+      const urlPat = /https?:\/\/[^\s)>]+/g;
+      let last = 0, frag = document.createDocumentFragment();
+      let m;
+      while ((m = urlPat.exec(t)) !== null) {
+        if (m.index > last) frag.appendChild(document.createTextNode(t.slice(last, m.index)));
+        const a = document.createElement('a');
+        a.href = m[0]; a.textContent = m[0]; a.target = '_blank'; a.rel = 'noopener noreferrer';
+        frag.appendChild(a);
+        last = m.index + m[0].length;
+      }
+      if (last < t.length) frag.appendChild(document.createTextNode(t.slice(last)));
+      return frag;
+    };
+
     day.notes.forEach(n => {
       if (typeof n === 'object' && SUPPRESS_NOTE_TYPES.has(n.type)) return;
+      const type = typeof n === 'object' ? (n.type || 'pastoral') : 'pastoral';
       const text = typeof n === 'object' ? n.text : n;
+
+      // ── O Antiphon — liturgical block with Latin title ──────────────────────
+      if (type === 'o_antiphon') {
+        // Text format: "O Sapientia: O Wisdom, coming forth…"
+        const colonIdx = text.indexOf(': ');
+        const latinName = colonIdx > 0 ? text.slice(0, colonIdx) : 'O Antiphon';
+        const body = colonIdx > 0 ? text.slice(colonIdx + 2) : text;
+        const block = document.createElement('div');
+        block.className = 'day-note day-note--antiphon';
+        const label = document.createElement('span');
+        label.className = 'note-antiphon-label';
+        label.textContent = latinName;
+        const bodyP = document.createElement('p');
+        bodyP.className = 'note-antiphon-body';
+        bodyP.appendChild(renderNoteText(body));
+        block.appendChild(label);
+        block.appendChild(bodyP);
+        headerEl.appendChild(block);
+        return;
+      }
+
+      // ── Civil day / Week of Prayer — muted informational note ───────────────
+      if (type === 'civil_day' || type === 'week_of_prayer') {
+        const colonIdx = text.indexOf(': ');
+        const title = colonIdx > 0 ? text.slice(0, colonIdx) : '';
+        const body  = colonIdx > 0 ? text.slice(colonIdx + 2) : text;
+        const p = document.createElement('p');
+        p.className = `day-note day-note--info`;
+        if (title) {
+          const strong = document.createElement('strong');
+          strong.textContent = title + ': ';
+          p.appendChild(strong);
+        }
+        p.appendChild(renderNoteText(body));
+        headerEl.appendChild(p);
+        return;
+      }
+
+      // ── Default: pastoral / office_note — existing expand-on-read behaviour ─
       const p = document.createElement('p');
       p.className = 'day-note';
-      const renderNoteText = t => {
-        // Convert bare URLs to clickable links.
-        const urlPat = /https?:\/\/[^\s)>]+/g;
-        let last = 0, frag = document.createDocumentFragment();
-        let m;
-        while ((m = urlPat.exec(t)) !== null) {
-          if (m.index > last) frag.appendChild(document.createTextNode(t.slice(last, m.index)));
-          const a = document.createElement('a');
-          a.href = m[0]; a.textContent = m[0]; a.target = '_blank'; a.rel = 'noopener noreferrer';
-          frag.appendChild(a);
-          last = m.index + m[0].length;
-        }
-        if (last < t.length) frag.appendChild(document.createTextNode(t.slice(last)));
-        return frag;
-      };
       if (text.length > 100) {
         const cut = text.lastIndexOf(' ', 80) || 80;
         const short = text.slice(0, cut) + '…';

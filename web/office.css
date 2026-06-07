@@ -774,6 +774,40 @@ body.book-mode .alt-panel + .alt-panel::before {
 }
 .day-note a { color: var(--color-link); text-decoration: underline; font-style: normal; }
 
+/* O Antiphon — liturgical block with Latin title accent */
+.day-note--antiphon {
+  font-style: normal;
+  color: var(--color-text);
+  border-left: 3px solid var(--color-accent);
+  padding-left: 0.75rem;
+  margin: 0.75rem 0;
+}
+.note-antiphon-label {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  margin-bottom: 0.2rem;
+}
+.note-antiphon-body {
+  font-family: var(--font-liturgy);
+  font-size: 1rem;
+  font-style: italic;
+  line-height: var(--line-height);
+}
+
+/* Civil day / Week of Prayer — muted informational note */
+.day-note--info {
+  font-size: 0.85rem;
+  font-style: normal;
+  font-family: var(--font-ui);
+  color: var(--color-muted);
+}
+.day-note--info strong { font-weight: 500; color: var(--color-text); }
+
 .note-expand-btn {
   background: none;
   border: none;
