@@ -737,9 +737,18 @@ body.book-mode .alt-panel + .alt-panel::before {
   margin: 0.4rem 0;
 }
 .day-note a { color: var(--color-link); text-decoration: underline; font-style: normal; }
-.day-note-collapsible { cursor: pointer; }
-.day-note-collapsible::after { content: ' \25b8'; font-size: 0.75em; font-style: normal; opacity: 0.5; }
-.day-note-collapsible.day-note-expanded::after { content: ' \25b4'; }
+
+.note-expand-btn {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--color-accent);
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  font-style: normal;
+}
 
 
 /* ── Alternatives toggle ───────────────────────────────────────────────────── */

@@ -966,12 +966,13 @@ async function render(dateStr, officeType, translation) {
         const cut = text.lastIndexOf(' ', 80) || 80;
         const short = text.slice(0, cut) + '…';
         p.appendChild(renderNoteText(short));
-        p.classList.add('day-note-collapsible');
-        p.addEventListener('click', () => {
-          const isShort = p.classList.contains('day-note-collapsible') && !p.classList.contains('day-note-expanded');
+        const expandBtn = document.createElement('button');
+        expandBtn.className = 'note-expand-btn';
+        expandBtn.textContent = 'Read more';
+        p.appendChild(expandBtn);
+        expandBtn.addEventListener('click', () => {
           p.innerHTML = '';
-          p.appendChild(renderNoteText(isShort ? text : short));
-          p.classList.toggle('day-note-expanded', isShort);
+          p.appendChild(renderNoteText(text));
         });
       } else {
         p.appendChild(renderNoteText(text));
