@@ -103,8 +103,11 @@ body {
   background: var(--color-accent);
 }
 
-/* Compact state: hide bottom row when scrolling down */
+/* Compact state: hide bottom rows when scrolling down */
 #nav.nav-compact #nav-inner { padding-bottom: 0.25rem; }
+/* On mobile, only collapse the MP/EP + controls row.
+   The observance row stays visible so users can switch Primary/Alternate
+   mid-scroll on saint's days without scrolling back to the top. */
 #nav.nav-compact .nav-bottom {
   max-height: 0;
   opacity: 0;
@@ -156,6 +159,18 @@ body {
   opacity: 1;
   transition: max-height 0.2s ease, opacity 0.15s ease;
 }
+
+/* Observance row: only shown on days with an alternate observance (set by JS) */
+.nav-observance-row {
+  display: none;
+  justify-content: center;
+  gap: 0.3rem;
+  max-height: 3rem;
+  overflow: hidden;
+  opacity: 1;
+  transition: max-height 0.2s ease, opacity 0.15s ease;
+}
+.nav-observance-row.nav-obs-active { display: flex; }
 
 #nav-office { flex: 1; }
 .nav-controls { flex: 1; display: flex; gap: 0.3rem; justify-content: flex-end; align-items: center; }
@@ -211,6 +226,22 @@ body {
 }
 
 .nav-disabled { opacity: 0.2 !important; pointer-events: none; cursor: default; }
+
+/* "Today" link — hidden when already on today; shown when navigated elsewhere */
+#nav-today {
+  display: none;
+  font-size: 0.72rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.1);
+  color: var(--color-nav-text);
+  text-decoration: none;
+  white-space: nowrap;
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+#nav-today.nav-today-visible { display: inline-flex; align-items: center; }
+@media (hover: hover) { #nav-today:hover { opacity: 1; background: rgba(255,255,255,0.18); } }
 
 #nav-office { display: flex; gap: 0.3rem; justify-content: center; }
 
@@ -483,7 +514,6 @@ body {
 
 /* ── Observance readings toggle ────────────────────────────────────────────── */
 
-.nav-row-hidden { display: none; }
 #nav-observance { display: flex; gap: 0.3rem; }
 
 .obs-readings.obs-hidden { display: none; }
@@ -506,6 +536,15 @@ body {
   border-radius: 4px;
   padding: 0.75rem 1rem;
   margin: 1rem 0;
+}
+
+/* UX-08: Per-reading fallback note when preferred translation is unavailable */
+.scripture-fallback-note {
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--color-muted);
+  margin-top: 0.4rem;
 }
 
 /* ── Scripture attribution ─────────────────────────────────────────────────── */
@@ -629,6 +668,33 @@ body {
 .obs-nav-btn:hover      { opacity: 1; background: rgba(255,255,255,0.08); }
 .obs-nav-btn.nav-active { opacity: 1; background: rgba(255,255,255,0.14); font-weight: 500; }
 
+/* ── Out-of-range message ──────────────────────────────────────────────────── */
+
+.out-of-range-msg {
+  padding: 2rem 0 1rem;
+  font-family: var(--font-liturgy);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.out-of-range-title {
+  font-weight: 600;
+  font-size: 1.2rem;
+  margin-bottom: 0.75rem;
+}
+
+.out-of-range-note {
+  font-style: italic;
+  color: var(--color-muted);
+  margin-top: 0.5rem;
+}
+
+.out-of-range-msg a {
+  color: var(--color-link);
+  margin-top: 1.25rem;
+  display: inline-block;
+}
+
 /* ── Desktop layout ────────────────────────────────────────────────────────── */
 
 @media (min-width: 820px) {
@@ -665,12 +731,19 @@ body {
     gap: 0.5rem;
   }
 
-  /* Don't hide bottom row on scroll-compact (meaningless on desktop) */
-  #nav.nav-compact .nav-bottom {
+  /* Don't hide bottom rows on scroll-compact (meaningless on desktop) */
+  #nav.nav-compact .nav-bottom,
+  #nav.nav-compact .nav-observance-row {
     max-height: none !important;
     opacity: 1 !important;
     pointer-events: auto !important;
     margin: 0 !important;
+  }
+
+  /* Observance row spans full width on desktop, appearing below the main nav row */
+  .nav-observance-row.nav-obs-active {
+    width: 100%;
+    padding-bottom: 0.25rem;
   }
 
   #main { padding-left: 1.25rem; padding-right: 1.25rem; }

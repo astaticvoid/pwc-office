@@ -802,10 +802,29 @@ async function render(dateStr, officeType, translation) {
     return;
   }
 
+  // Update nav date immediately (even for out-of-range dates, so the user
+  // sees the date they navigated to, not the previous page's date).
+  document.getElementById('nav-date').textContent = fmtNavDate(dateStr);
+  const todayLinkEarly = document.getElementById('nav-today');
+  if (todayLinkEarly) todayLinkEarly.classList.toggle('nav-today-visible', dateStr !== todayStr());
+
   // Bounds enforcement before attempting to fetch the day file.
   const boundsMax = offsetDate(bounds.christmas_ii, 6);
-  if (dateStr < bounds.advent_i || dateStr > boundsMax) {
-    location.hash = hashFor(todayStr(), defaultOffice());
+  if (dateStr > boundsMax) {
+    contentEl.innerHTML = `<div class="out-of-range-msg">
+      <p class="out-of-range-title">Readings not yet available</p>
+      <p>Coverage extends through <strong>${esc(fmtFullDate(boundsMax))}</strong>.</p>
+      <p class="out-of-range-note">Year A readings (Advent 2026 and beyond) are in preparation.</p>
+      <p><a href="${hashFor(todayStr(), defaultOffice())}">Return to today</a></p>
+    </div>`;
+    return;
+  }
+  if (dateStr < bounds.advent_i) {
+    contentEl.innerHTML = `<div class="out-of-range-msg">
+      <p class="out-of-range-title">Outside coverage</p>
+      <p>Daily Office data begins with Advent I, ${esc(bounds.advent_i.slice(0, 4))}.</p>
+      <p><a href="${hashFor(todayStr(), defaultOffice())}">Return to today</a></p>
+    </div>`;
     return;
   }
 
@@ -840,7 +859,6 @@ async function render(dateStr, officeType, translation) {
   const officeData = officeType === 'mp' ? (day.morning || {}) : (day.evening || {});
 
   // Nav
-  document.getElementById('nav-date').textContent = fmtNavDate(dateStr);
   const prevEl = document.getElementById('nav-prev');
   const nextEl = document.getElementById('nav-next');
   const prevDate = offsetDate(dateStr, -1);
@@ -861,15 +879,19 @@ async function render(dateStr, officeType, translation) {
   document.getElementById('day-office-name').textContent = officeName;
   document.getElementById('day-title').textContent = day.name;
   document.getElementById('day-subtitle').textContent = fmtFullDate(dateStr);
-  // Observance toggle — own nav row so it doesn't shift nav-bottom layout
-  const obsEl = document.getElementById('nav-observance');
+  // Observance toggle — rendered in its own nav row (#nav-observance-row) so it
+  // never competes with the MP/EP buttons for horizontal space.
+  const obsEl  = document.getElementById('nav-observance');
+  const obsRow = document.getElementById('nav-observance-row');
   if (officeData.alternate) {
     const priLabel = officeData.label || 'Primary';
     const altLabel = officeData.alternate.label || 'Alternate';
     obsEl.innerHTML = `<a class="obs-nav-btn nav-active" data-obs="primary">${esc(priLabel)}</a>`
       + `<a class="obs-nav-btn" data-obs="alternate">${esc(altLabel)}</a>`;
+    if (obsRow) obsRow.classList.add('nav-obs-active');
   } else {
     obsEl.innerHTML = '';
+    if (obsRow) obsRow.classList.remove('nav-obs-active');
   }
 
   const hexes = colourHexes(day.colour);
@@ -937,7 +959,10 @@ async function render(dateStr, officeType, translation) {
   let html = '';
 
   // ── Form title / subtitle ──────────────────────────────────────────────────
-  if (form && form.title) {
+  // Suppress on ordinary-time: "Evening Prayer For Saturday" is redundant with
+  // the day-office-name header. Show only for seasonal forms whose titles carry
+  // liturgical meaning (e.g., "Advent Morning Prayer", "Easter Evening Prayer").
+  if (form && form.title && fSeason !== 'OrdinaryTime') {
     const titleStr = form.title.replace(/\b\w/g, c => c.toUpperCase());
     html += `<div class="form-header"><p class="form-title">${esc(titleStr)}</p>`;
     if (form.subtitle) html += `<p class="form-subtitle">${esc(form.subtitle)}</p>`;
@@ -1115,6 +1140,10 @@ function fillScripture(root, translation) {
       el.innerHTML = allVerses.map(({ v, text }) =>
         `<div class="scripture-verse"><span class="verse-num">${v}</span><span class="verse-text">${esc(text)}</span></div>`
       ).join('');
+      // UX-08: Inform the user when the preferred translation was unavailable.
+      if (usedTranslation !== translation) {
+        el.innerHTML += `<p class="scripture-fallback-note">[${usedTranslation.toUpperCase()} shown — ${translation.toUpperCase()} unavailable for this reading]</p>`;
+      }
     } catch (e) {
       el.innerHTML = `<p class="error-msg">Error: ${esc(String(e))}</p>`;
     }
@@ -1215,6 +1244,12 @@ document.addEventListener('DOMContentLoaded', () => {
   initScrollBehaviour();
 
   document.getElementById('nav-brand').addEventListener('click', e => {
+    e.preventDefault();
+    history.pushState({}, '', location.pathname);
+    handleHashChange();
+  });
+
+  document.getElementById('nav-today').addEventListener('click', e => {
     e.preventDefault();
     history.pushState({}, '', location.pathname);
     handleHashChange();

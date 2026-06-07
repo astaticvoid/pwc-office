@@ -27,18 +27,18 @@
       </a>
       <div class="nav-date-nav">
         <a id="nav-prev" class="nav-arrow" aria-label="Previous day">&#8592;</a>
-        <span id="nav-date-wrapper">
+        <span id="nav-date-wrapper" title="Tap to jump to a date">
           <span id="nav-date">—</span>
           <input type="date" id="nav-date-picker" aria-label="Go to date">
         </span>
         <a id="nav-next" class="nav-arrow" aria-label="Next day">&#8594;</a>
+        <a id="nav-today" href="#" aria-label="Go to today">Today</a>
       </div>
     </div>
     <div class="nav-row nav-bottom">
       <div id="nav-office">
         <a id="nav-mp">Morning</a>
         <a id="nav-ep">Evening</a>
-        <div id="nav-observance"></div>
       </div>
       <div class="nav-controls">
         <select id="nav-translation" aria-label="Bible translation">
@@ -48,6 +48,9 @@
         <button id="font-size-toggle" aria-label="Adjust text size">A</button>
         <button id="theme-toggle" aria-label="Toggle theme">☽</button>
       </div>
+    </div>
+    <div class="nav-row nav-observance-row" id="nav-observance-row" aria-label="Observance">
+      <div id="nav-observance"></div>
     </div>
     </div><!-- #nav-inner -->
   </nav>
