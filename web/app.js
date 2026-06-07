@@ -1163,7 +1163,7 @@ function switchTranslation(newTranslation) {
 // ── Evaluation banner ─────────────────────────────────────────────────────────
 
 function initEvalBanner() {
-  if (sessionStorage.getItem('pwc-banner-dismissed')) return;
+  if (localStorage.getItem('pwc-eval-dismissed')) return;
   const banner = document.createElement('div');
   banner.id = 'eval-banner';
   banner.className = 'eval-banner';
@@ -1171,7 +1171,7 @@ function initEvalBanner() {
     + `<button class="eval-banner-dismiss" aria-label="Dismiss">&#215;</button>`;
   document.getElementById('main').insertAdjacentElement('afterbegin', banner);
   banner.querySelector('.eval-banner-dismiss').addEventListener('click', () => {
-    sessionStorage.setItem('pwc-banner-dismissed', '1');
+    localStorage.setItem('pwc-eval-dismissed', '1');
     banner.remove();
   });
 }
