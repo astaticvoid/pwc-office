@@ -929,7 +929,9 @@ async function render(dateStr, officeType, translation) {
       + (hexes.length > 1
           ? `<button class="colour-chip colour-chip-toggle" style="background:${firstHex}" data-hexes='${JSON.stringify(hexes)}' data-idx="0" title="Tap to cycle colour options" aria-label="${esc(day.colour)}"></button>`
           : `<span class="colour-chip" style="background:${firstHex}"></span>`)
-      + `<span class="colour-name">${esc(day.colour)}</span>`
+      + `<span class="colour-name">${esc(day.colour)}`
+      + (hexes.length > 1 ? ` <span class="colour-cycle-hint" aria-hidden="true">↺</span>` : '')
+      + `</span>`
       + `</span>`
     : '';
   document.getElementById('day-meta').innerHTML = `

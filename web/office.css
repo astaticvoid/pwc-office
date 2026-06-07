@@ -424,6 +424,8 @@ body {
 }
 .colour-chip-toggle:hover { transform: scale(1.25); }
 
+.colour-cycle-hint { font-size: 0.7em; opacity: 0.6; }
+
 .colour-name {
   font-size: 0.78rem;
   color: var(--color-muted);
