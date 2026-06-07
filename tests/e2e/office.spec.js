@@ -442,3 +442,34 @@ test.describe('Observance toggle', () => {
     await expect(page.locator('#prayers-collect')).toContainText('Seventh Sunday of Easter', { timeout: 5000 });
   });
 });
+
+// ── Season theming (JS/Go parity) ────────────────────────────────────────────
+// These boundary dates must agree with TestFormSeasonOf in season_test.go.
+// A failure here means seasonOf() or officeFormSeason() in app.js has drifted
+// from the Go implementations in season.go.
+
+test.describe('Season theming parity', () => {
+  const cases = [
+    // data-season is set by seasonOf() in app.js
+    { date: '2025-11-30', season: 'Advent',       label: 'Advent I' },
+    { date: '2025-12-25', season: 'Christmas',    label: 'Christmas Day' },
+    { date: '2026-01-11', season: 'Epiphany',     label: 'Baptism of the Lord' },
+    { date: '2026-02-18', season: 'Lent',         label: 'Ash Wednesday' },
+    { date: '2026-03-22', season: 'Passiontide',  label: '5th Sunday in Lent' },
+    { date: '2026-04-05', season: 'Easter',       label: 'Easter Day' },
+    // Ascension: seasonOf uses Pentecost as season boundary (not Ascension)
+    { date: '2026-05-14', season: 'Easter',       label: 'Ascension — still Easter theme' },
+    { date: '2026-05-24', season: 'Pentecost',    label: 'Pentecost Sunday' },
+    { date: '2026-11-01', season: 'AllSaints',    label: 'All Saints' },
+    { date: '2026-11-29', season: 'Advent',       label: 'Advent I (year N+1)' },
+    { date: '2026-12-25', season: 'Christmas',    label: 'Christmas Day 2026' },
+  ];
+
+  for (const { date, season, label } of cases) {
+    test(`${label}: data-season="${season}"`, async ({ page }) => {
+      await page.goto(`/#/${date}/mp`);
+      await page.locator('#day-title').waitFor({ timeout: 5000 });
+      await expect(page.locator('html')).toHaveAttribute('data-season', season);
+    });
+  }
+});
