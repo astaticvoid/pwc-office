@@ -155,6 +155,12 @@ All sections verified: Evening Hymn "O Light, whose splendour thrills" (both sta
 
 ## Known bugs found
 
+**BUG-19 (P1): Bare verse-range psalm citations parsed as wrong psalm** ✅ Fixed  
+Source CSV uses `Ps 139:1-17, (18-23)` where `(18-23)` is an optional extension of Psalm 139, not a separate psalm. The converter stored the inner citation as `"18-23"` (no psalm number); `parsePsalmCitation("18-23")` called `parseInt("18-23")` → 18, loading all 50 verses of Psalm 18.  
+**Scope**: 535 occurrences across 86 lectionary files (entire 2016–2026 range), 14 distinct recurring patterns (e.g. `Ps 139:1-17, (18-23)`, `Ps 68:1-20, (21-23), 24-36`).  
+**Fix**: `_psalm_group` in `tools/convert_lectionary.py` now tracks the last psalm number and prefixes bare verse ranges: `(18-23)` after `139:1-17` → `{"citation": "139:18-23", "optional": true}`. All existing JSON files patched via migration script.  
+_Severity:_ P1 — shows entirely wrong psalm (sometimes 50 verses instead of 6).
+
 **BUG-18 (P3): Litany response capitalisation — Wednesday MP and EP** ✅ Fixed  
 The PDF source uses lowercase for congregation responses in the Wednesday litany (following ACC typographic convention). The extraction pipeline normalised these to sentence case. Patched directly in `data/offices.json`: 8 responses in `ordinary-wednesday-mp` (`"holy one, accomplish your purposes in us."`) and 4 responses in `ordinary-wednesday-ep` (`"to declare the mystery of Christ."` etc.) lowercased.  
 _Severity:_ P3 — invisible to most users; not a doctrinal error.

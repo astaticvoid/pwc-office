@@ -486,10 +486,22 @@ def _psalm_group(s: str) -> list:
             if t.strip()
         ]
     result = []
+    last_psalm_num: str | None = None
     for tok in s.split(", "):
         p = _psalm_token(tok)
-        if p is not None:
-            result.append(p)
+        if p is None:
+            continue
+        is_optional = isinstance(p, dict)
+        c = p["citation"] if is_optional else p
+        if ":" in c:
+            # Normal "139:1-17" style — record psalm number for continuations.
+            last_psalm_num = c.split(":")[0]
+        elif "-" in c and last_psalm_num:
+            # Bare verse range like "(18-23)" following "139:1-17".
+            # The parenthesised suffix continues the same psalm, not a new one.
+            new_c = f"{last_psalm_num}:{c}"
+            p = {"citation": new_c, "optional": True} if is_optional else new_c
+        result.append(p)
     return result
 
 
