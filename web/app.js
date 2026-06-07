@@ -1344,10 +1344,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('keydown', e => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.isContentEditable) return;
-    if (e.key === 'ArrowLeft'  || e.key === 'h') location.hash = hashFor(offsetDate(state.date, -1), state.office);
-    if (e.key === 'ArrowRight' || e.key === 'l') location.hash = hashFor(offsetDate(state.date, +1), state.office);
-    if (e.key === 'm') location.hash = hashFor(state.date, 'mp');
-    if (e.key === 'e') location.hash = hashFor(state.date, 'ep');
+    // Update state synchronously so rapid keypresses see the latest date.
+    if (e.key === 'ArrowLeft'  || e.key === 'h') { state.date = offsetDate(state.date, -1); location.hash = hashFor(state.date, state.office); }
+    if (e.key === 'ArrowRight' || e.key === 'l') { state.date = offsetDate(state.date, +1); location.hash = hashFor(state.date, state.office); }
+    if (e.key === 'm') { state.office = 'mp'; location.hash = hashFor(state.date, 'mp'); }
+    if (e.key === 'e') { state.office = 'ep'; location.hash = hashFor(state.date, 'ep'); }
     if (e.key === 't') { history.pushState({}, '', location.pathname); handleHashChange(); }
   });
 
