@@ -484,7 +484,7 @@ async function renderPsalm(citStr) {
   const titleHtml = `<p class="psalm-title">Psalm ${data.number}${data.title ? ` — ${data.title}` : ''}</p>`;
   const versesHtml = filtered.map(v => {
     const txt = bindMidpoints(esc(v.text));
-    return `<div class="verse"><span class="verse-num">${v.num}</span><span class="verse-text">${txt}</span></div>`;
+    return `<div class="verse"><span class="verse-num" aria-hidden="true">${v.num}</span><span class="verse-text">${txt}</span></div>`;
   }).join('');
   return `${titleHtml}<div class="psalm-block">${versesHtml}</div>`;
 }
@@ -1138,7 +1138,7 @@ function fillScripture(root, translation) {
 
       const allVerses = ranges.flatMap(r => extractVerses(bookData, r));
       el.innerHTML = allVerses.map(({ v, text }) =>
-        `<div class="scripture-verse"><span class="verse-num">${v}</span><span class="verse-text">${esc(text)}</span></div>`
+        `<div class="scripture-verse"><span class="verse-num" aria-hidden="true">${v}</span><span class="verse-text">${esc(text)}</span></div>`
       ).join('');
       // UX-08: Inform the user when the preferred translation was unavailable.
       if (usedTranslation !== translation) {
