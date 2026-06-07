@@ -740,6 +740,49 @@ def _canonical_doxology(alt_block: dict) -> dict:
     return alt_block  # fallback: leave as-is if we can't normalise
 
 
+# ── Post-extraction text patches ─────────────────────────────────────────────
+# Some PDF responses are genuinely lowercase in the source (not small-caps
+# artefacts). _fix_casing capitalises them because they aren't in
+# _CONTINUATION_STARTS. Patch them back here rather than widening
+# _CONTINUATION_STARTS (which would affect every response).
+#
+# Format: (office_key, section_key, old_text, new_text)
+_TEXT_PATCHES: list[tuple[str, str, str, str]] = [
+    # BUG-18: Wednesday litany responses are lowercase in the PDF.
+    # MP: eight identical responses
+    ("ordinary-wednesday-mp", "litany",
+     "Holy one, accomplish your purposes in us.",
+     "holy one, accomplish your purposes in us."),
+    # EP: four distinct responses that start with a capital after _fix_casing
+    ("ordinary-wednesday-ep", "litany",
+     "To declare the mystery of Christ.",
+     "to declare the mystery of Christ."),
+    ("ordinary-wednesday-ep", "litany",
+     "Behold and tend the vine you have planted.",
+     "behold and tend the vine you have planted."),
+    ("ordinary-wednesday-ep", "litany",
+     "In the strength of your name.",
+     "in the strength of your name."),
+    ("ordinary-wednesday-ep", "litany",
+     "As we have put our hope in you.",
+     "as we have put our hope in you."),
+]
+
+
+def _apply_text_patches(offices: dict) -> dict:
+    """Apply _TEXT_PATCHES to correct responses the extractor mis-capitalised."""
+    import copy
+    offices = copy.deepcopy(offices)
+    for office_key, section_key, old, new in _TEXT_PATCHES:
+        section = offices.get(office_key, {}).get(section_key)
+        if not isinstance(section, list):
+            continue
+        for seg in section:
+            if seg.get("type") == "response" and seg.get("text") == old:
+                seg["text"] = new
+    return offices
+
+
 def _add_reading_responses(offices: dict) -> dict:
     """
     Add reading_response to each office. The three alternatives are the same
@@ -1010,6 +1053,7 @@ def run():
 
     offices = _dedup_shared(offices)
     offices = _add_reading_responses(offices)
+    offices = _apply_text_patches(offices)
     n_shared = len(offices.get('_shared', {}))
     print(f"\nShared blocks extracted: {list(offices.get('_shared', {}).keys())}")
 
