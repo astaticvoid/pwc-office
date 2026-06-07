@@ -685,4 +685,11 @@ body {
   #main          { max-width: 100%; padding: 1rem; }
   .office-section-title { page-break-before: auto; }
   .seg-rubric    { color: #555; }
+  /* Reveal all alternative panels so the full text prints */
+  .alt-panel-hidden { display: block !important; }
+  .alt-tabs      { display: none; }
+  /* Canticle/option source lines run inline with no extra top margin */
+  .alt-source    { margin-top: 0; }
+  /* Hide interactive chrome */
+  .date-nav, .obs-nav-btn, .eval-banner, .font-size-btn, #theme-toggle { display: none; }
 }
