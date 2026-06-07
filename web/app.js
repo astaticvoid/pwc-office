@@ -49,14 +49,14 @@ function updateThemeButton() {
   const btn = document.getElementById('theme-toggle');
   if (!btn) return;
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  btn.textContent = isDark ? '🌙' : '☀';
+  btn.textContent = isDark ? 'Dark' : 'Light';
   btn.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
 }
 
 // ── Font size ─────────────────────────────────────────────────────────────────
 
 const FONT_SIZES = ['medium', 'large'];
-const FONT_LABELS = { medium: 'A', large: 'A⁺' };
+const FONT_LABELS = { medium: 'Medium', large: 'Large' };
 
 function initFontSize() {
   const raw = localStorage.getItem('pwc-font-size') || 'medium';
@@ -889,20 +889,6 @@ async function render(dateStr, officeType, translation) {
   document.getElementById('day-office-name').textContent = officeName;
   document.getElementById('day-title').textContent = day.name;
   document.getElementById('day-subtitle').textContent = fmtFullDate(dateStr);
-  // Observance toggle — rendered in its own nav row (#nav-observance-row) so it
-  // never competes with the MP/EP buttons for horizontal space.
-  const obsEl  = document.getElementById('nav-observance');
-  const obsRow = document.getElementById('nav-observance-row');
-  if (officeData.alternate) {
-    const priLabel = officeData.label || 'Primary';
-    const altLabel = officeData.alternate.label || 'Alternate';
-    obsEl.innerHTML = `<a class="obs-nav-btn nav-active" data-obs="primary">${esc(priLabel)}</a>`
-      + `<a class="obs-nav-btn" data-obs="alternate">${esc(altLabel)}</a>`;
-    if (obsRow) obsRow.classList.add('nav-obs-active');
-  } else {
-    obsEl.innerHTML = '';
-    if (obsRow) obsRow.classList.remove('nav-obs-active');
-  }
 
   const hexes = colourHexes(day.colour);
   const firstHex = hexes[0] || '#b5a882';
@@ -1054,35 +1040,6 @@ async function render(dateStr, officeType, translation) {
   html += `<p class="scripture-attr" id="scripture-attr">Translation: ${esc(translation.toUpperCase())}</p>`;
 
   contentEl.innerHTML = html;
-
-  // Wire observance toggle — fill both blocks; toggling is instant show/hide.
-  document.querySelectorAll('.obs-nav-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const target = btn.dataset.obs;
-      document.querySelectorAll('.obs-nav-btn').forEach(b =>
-        b.classList.toggle('nav-active', b.dataset.obs === target));
-      contentEl.querySelectorAll('.obs-readings').forEach(r =>
-        r.classList.toggle('obs-hidden', r.dataset.obs !== target));
-      // Update heading and browser title to reflect selected observance.
-      const alt = officeData.alternate;
-      const officeName = document.getElementById('day-office-name').textContent;
-      const titleEl = document.getElementById('day-title');
-      if (target === 'alternate' && alt) {
-        const altName = alt.label || alt.name || day.name;
-        titleEl.textContent = altName;
-        document.title = `${officeName} — ${altName}`;
-      } else {
-        titleEl.textContent = day.name;
-        document.title = `${officeName} — ${day.name}`;
-      }
-      // Update collect to match the active observance.
-      const collectEl = document.getElementById('prayers-collect');
-      if (collectEl) {
-        const activeObs = target === 'alternate' && alt ? alt : officeData;
-        collectEl.innerHTML = collectToggleHtml(collects, activeObs.collect, seasonalSegs, shared);
-      }
-    });
-  });
 
   fillPsalms(contentEl);
   fillScripture(contentEl, translation);
@@ -1264,6 +1221,25 @@ document.addEventListener('DOMContentLoaded', () => {
     history.pushState({}, '', location.pathname);
     handleHashChange();
   });
+
+  // Settings sheet
+  const settingsSheet = document.getElementById('settings-sheet');
+  const settingsBtn = document.getElementById('nav-settings-btn');
+  const settingsClose = document.getElementById('settings-close-btn');
+  const settingsBackdrop = document.getElementById('settings-backdrop');
+
+  function openSettings() {
+    settingsSheet.setAttribute('aria-hidden', 'false');
+    settingsBtn.setAttribute('aria-expanded', 'true');
+  }
+  function closeSettings() {
+    settingsSheet.setAttribute('aria-hidden', 'true');
+    settingsBtn.setAttribute('aria-expanded', 'false');
+  }
+  settingsBtn.addEventListener('click', openSettings);
+  settingsClose.addEventListener('click', closeSettings);
+  settingsBackdrop.addEventListener('click', closeSettings);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSettings(); });
 
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
   document.getElementById('font-size-toggle').addEventListener('click', cycleFontSize);

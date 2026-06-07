@@ -103,16 +103,22 @@ body {
   background: var(--color-accent);
 }
 
-/* Compact state: hide bottom rows when scrolling down */
+/* Compact state: hide office row when scrolling down */
 #nav.nav-compact #nav-inner { padding-bottom: 0.25rem; }
-/* On mobile, only collapse the MP/EP + controls row.
-   The observance row stays visible so users can switch Primary/Alternate
-   mid-scroll on saint's days without scrolling back to the top. */
-#nav.nav-compact .nav-bottom {
+#nav.nav-compact .nav-office-row {
   max-height: 0;
   opacity: 0;
   pointer-events: none;
-  margin: 0;
+  overflow: hidden;
+}
+/* Desktop: always show office row */
+@media (min-width: 820px) {
+  #nav.nav-compact .nav-office-row {
+    max-height: none !important;
+    opacity: 1 !important;
+    pointer-events: all !important;
+    overflow: visible !important;
+  }
 }
 
 .nav-row {
@@ -136,14 +142,6 @@ body {
 
 .nav-logo { flex-shrink: 0; opacity: 0.9; }
 
-.nav-brand-name {
-  font-size: 0.72rem;
-  font-weight: 500;
-  letter-spacing: 0.03em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 .nav-date-nav {
   display: flex;
@@ -152,28 +150,135 @@ body {
   flex-shrink: 0;
 }
 
-.nav-bottom {
-  gap: 0.4rem;
+/* Nav office row (MP / EP) */
+.nav-office-row {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  border-top: 1px solid rgba(255,255,255,0.1);
   max-height: 4rem;
   overflow: hidden;
   opacity: 1;
   transition: max-height 0.2s ease, opacity 0.15s ease;
 }
 
-/* Observance row: only shown on days with an alternate observance (set by JS) */
-.nav-observance-row {
-  display: none;
-  justify-content: center;
-  gap: 0.3rem;
-  max-height: 3rem;
-  overflow: hidden;
-  opacity: 1;
-  transition: max-height 0.2s ease, opacity 0.15s ease;
+.nav-office-row a {
+  flex: 1;
+  text-align: center;
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+  font-family: var(--font-ui);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-nav-text);
+  opacity: 0.7;
+  text-decoration: none;
+  transition: opacity 0.15s, background 0.15s;
+  cursor: pointer;
 }
-.nav-observance-row.nav-obs-active { display: flex; }
 
-#nav-office { flex: 1; }
-.nav-controls { flex: 1; display: flex; gap: 0.3rem; justify-content: flex-end; align-items: center; }
+#nav .nav-office-row a.nav-active {
+  opacity: 1;
+  background: rgba(255,255,255,0.08);
+  border-bottom: 2px solid var(--color-accent);
+  font-weight: normal;
+}
+
+/* Settings button in nav-top */
+#nav-settings-btn {
+  background: none;
+  border: none;
+  color: var(--color-nav-text);
+  cursor: pointer;
+  padding: 0.25rem;
+  opacity: 0.7;
+  display: flex;
+  align-items: center;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+#nav-settings-btn:hover { opacity: 1; }
+
+/* Settings bottom sheet */
+.settings-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  pointer-events: none;
+  display: flex;
+  align-items: flex-end;
+}
+.settings-sheet[aria-hidden="false"] { pointer-events: all; }
+
+.settings-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.settings-sheet[aria-hidden="false"] .settings-backdrop { opacity: 1; }
+
+.settings-panel {
+  position: relative;
+  width: 100%;
+  background: var(--color-surface);
+  border-radius: 12px 12px 0 0;
+  padding: 1rem 1.25rem 2rem;
+  transform: translateY(100%);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  max-width: 480px;
+  margin: 0 auto;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.15);
+}
+.settings-sheet[aria-hidden="false"] .settings-panel { transform: translateY(0); }
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+}
+#settings-close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-muted);
+  padding: 0.25rem;
+  display: flex;
+}
+
+.settings-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--color-border);
+  cursor: default;
+}
+.settings-row:last-child { border-bottom: none; }
+.settings-label {
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  color: var(--color-text);
+}
+.settings-row select,
+.settings-row button {
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  background: var(--color-surface-alt, rgba(0,0,0,0.05));
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.3rem 0.6rem;
+  color: var(--color-text);
+  cursor: pointer;
+}
 
 #nav a {
   color: var(--color-nav-text);
@@ -243,24 +348,6 @@ body {
 #nav-today.nav-today-visible { display: inline-flex; align-items: center; }
 @media (hover: hover) { #nav-today:hover { opacity: 1; background: rgba(255,255,255,0.18); } }
 
-#nav-office { display: flex; gap: 0.3rem; justify-content: center; }
-
-#nav-translation,
-#theme-toggle,
-#font-size-toggle {
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.2);
-  color: var(--color-nav-text);
-  font-family: var(--font-ui);
-  font-size: 0.8rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: 3px;
-  cursor: pointer;
-}
-
-#nav-translation { appearance: none; }
-#theme-toggle, #font-size-toggle { min-width: 2rem; text-align: center; }
-#theme-toggle:hover, #font-size-toggle:hover { background: rgba(255,255,255,0.14); }
 
 
 /* ── Main content ──────────────────────────────────────────────────────────── */
@@ -514,8 +601,6 @@ body {
 
 /* ── Observance readings toggle ────────────────────────────────────────────── */
 
-#nav-observance { display: flex; gap: 0.3rem; }
-
 .obs-readings.obs-hidden { display: none; }
 
 /* ── Loading / error states ────────────────────────────────────────────────── */
@@ -700,51 +785,10 @@ body {
 @media (min-width: 820px) {
   :root { --content-max: 54rem; }
 
-  /* Single-row nav */
   #nav { box-shadow: 0 2px 0 var(--color-accent); }
-
-  #nav-inner {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    padding: 0.4rem 1.25rem;
-    gap: 0;
-  }
 
   /* Suppress the column-layout accent stripe */
   #nav::after { display: none; }
-
-  .nav-top {
-    flex: 0 0 auto;
-    gap: 0.75rem;
-    justify-content: flex-start;
-    font-size: 0.875rem;
-  }
-
-  .nav-bottom {
-    flex: 1;
-    justify-content: flex-end;
-    max-height: none !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-    margin: 0 !important;
-    gap: 0.5rem;
-  }
-
-  /* Don't hide bottom rows on scroll-compact (meaningless on desktop) */
-  #nav.nav-compact .nav-bottom,
-  #nav.nav-compact .nav-observance-row {
-    max-height: none !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-    margin: 0 !important;
-  }
-
-  /* Observance row spans full width on desktop, appearing below the main nav row */
-  .nav-observance-row.nav-obs-active {
-    width: 100%;
-    padding-bottom: 0.25rem;
-  }
 
   #main { padding-left: 1.25rem; padding-right: 1.25rem; }
 

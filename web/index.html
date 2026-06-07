@@ -16,44 +16,68 @@
 <body>
   <nav id="nav">
     <div id="nav-inner">
-    <div class="nav-row nav-top">
-      <a id="nav-brand" href="#" aria-label="Pray Without Ceasing — go to today">
-        <svg class="nav-logo" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-          <rect x="7" y="1" width="4" height="16" rx="1" fill="currentColor"/>
-          <rect x="1" y="7" width="16" height="4" rx="1" fill="currentColor"/>
-          <circle cx="9" cy="9" r="5.5" stroke="currentColor" stroke-width="2.5"/>
-        </svg>
-        <span class="nav-brand-name">Pray Without Ceasing</span>
-      </a>
-      <div class="nav-date-nav">
-        <a id="nav-prev" class="nav-arrow" aria-label="Previous day">&#8592;</a>
-        <span id="nav-date-wrapper" title="Tap to jump to a date">
-          <span id="nav-date">—</span>
-          <input type="date" id="nav-date-picker" aria-label="Go to date">
-        </span>
-        <a id="nav-next" class="nav-arrow" aria-label="Next day">&#8594;</a>
-        <a id="nav-today" href="#" aria-label="Go to today">Today</a>
+      <!-- Row 1: logo | ← date → | Today | ⚙ -->
+      <div class="nav-row nav-top">
+        <a id="nav-brand" href="#" aria-label="Pray Without Ceasing — go to today">
+          <svg class="nav-logo" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <rect x="7" y="1" width="4" height="16" rx="1" fill="currentColor"/>
+            <rect x="1" y="7" width="16" height="4" rx="1" fill="currentColor"/>
+            <circle cx="9" cy="9" r="5.5" stroke="currentColor" stroke-width="2.5"/>
+          </svg>
+        </a>
+        <div class="nav-date-nav">
+          <a id="nav-prev" class="nav-arrow" aria-label="Previous day">&#8592;</a>
+          <span id="nav-date-wrapper" title="Tap to jump to a date">
+            <span id="nav-date">—</span>
+            <input type="date" id="nav-date-picker" aria-label="Go to date">
+          </span>
+          <a id="nav-next" class="nav-arrow" aria-label="Next day">&#8594;</a>
+          <a id="nav-today" href="#" aria-label="Go to today">Today</a>
+        </div>
+        <button id="nav-settings-btn" aria-label="Settings" aria-expanded="false">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
       </div>
-    </div>
-    <div class="nav-row nav-bottom">
-      <div id="nav-office">
-        <a id="nav-mp">Morning</a>
-        <a id="nav-ep">Evening</a>
+      <!-- Row 2: Morning Prayer | Evening Prayer -->
+      <div class="nav-row nav-office-row">
+        <a id="nav-mp" role="button">Morning Prayer</a>
+        <a id="nav-ep" role="button">Evening Prayer</a>
       </div>
-      <div class="nav-controls">
-        <select id="nav-translation" aria-label="Bible translation">
-          <option value="nrsvue">NRSVUE</option>
-          <option value="kjv">KJV</option>
-        </select>
-        <button id="font-size-toggle" aria-label="Adjust text size">A</button>
-        <button id="theme-toggle" aria-label="Toggle theme">☽</button>
-      </div>
-    </div>
-    <div class="nav-row nav-observance-row" id="nav-observance-row" aria-label="Observance">
-      <div id="nav-observance"></div>
-    </div>
     </div><!-- #nav-inner -->
   </nav>
+
+  <!-- Settings bottom sheet -->
+  <div id="settings-sheet" class="settings-sheet" aria-hidden="true" aria-label="Settings">
+    <div class="settings-backdrop" id="settings-backdrop"></div>
+    <div class="settings-panel" role="dialog">
+      <div class="settings-header">
+        <span>Settings</span>
+        <button id="settings-close-btn" aria-label="Close settings">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="settings-body">
+        <label class="settings-row">
+          <span class="settings-label">Translation</span>
+          <select id="nav-translation" aria-label="Bible translation">
+            <option value="nrsvue">NRSVUE</option>
+            <option value="kjv">KJV</option>
+          </select>
+        </label>
+        <label class="settings-row">
+          <span class="settings-label">Theme</span>
+          <button id="theme-toggle" aria-label="Toggle theme">Light</button>
+        </label>
+        <label class="settings-row">
+          <span class="settings-label">Text size</span>
+          <button id="font-size-toggle" aria-label="Adjust text size">Medium</button>
+        </label>
+      </div>
+    </div>
+  </div>
+
   <div id="nav-spacer" aria-hidden="true"></div>
 
   <main id="main">
