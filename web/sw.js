@@ -2,18 +2,24 @@
 
 const CACHE = 'pwc-v1';
 
-// Shell + static data to pre-cache at install.
-// Bump CACHE version above whenever these files change.
-const PRECACHE = [
-  '/',
+// Shell files — updated frequently in development.
+// Network-first: always try the network, fall back to cache if offline.
+const NETWORK_FIRST = [
   '/app.js',
   '/office.css',
   '/manifest.json',
+];
+
+// Data + static assets — stable, large. Cache-first.
+const CACHE_FIRST = [
+  '/',
   '/data/offices.json',
   '/data/collects.json',
   '/data/season_bounds.json',
   '/data/psalter.json',
 ];
+
+const PRECACHE = [...NETWORK_FIRST, ...CACHE_FIRST];
 
 self.addEventListener('install', evt => {
   evt.waitUntil(
@@ -32,13 +38,32 @@ self.addEventListener('activate', evt => {
 });
 
 self.addEventListener('fetch', evt => {
-  // Only intercept same-origin GET requests.
   if (evt.request.method !== 'GET') return;
   const url = new URL(evt.request.url);
   if (url.origin !== location.origin) return;
 
-  evt.respondWith(cacheFirst(evt.request));
+  const path = url.pathname;
+
+  if (NETWORK_FIRST.includes(path)) {
+    evt.respondWith(networkFirst(evt.request));
+  } else {
+    evt.respondWith(cacheFirst(evt.request));
+  }
 });
+
+async function networkFirst(request) {
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(CACHE);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch {
+    const cached = await caches.match(request);
+    return cached || new Response('Offline', { status: 503 });
+  }
+}
 
 async function cacheFirst(request) {
   const cached = await caches.match(request);

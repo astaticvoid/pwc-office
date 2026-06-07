@@ -1,5 +1,15 @@
 'use strict';
 
+// ── Cache reset escape hatch ───────────────────────────────────────────────────
+// Visit /?reset to unregister the service worker and clear all caches.
+// Useful when a stale SW is stuck on a device after a deploy.
+if (location.search === '?reset' && 'serviceWorker' in navigator) {
+  Promise.all([
+    navigator.serviceWorker.getRegistrations().then(regs => Promise.all(regs.map(r => r.unregister()))),
+    caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))),
+  ]).then(() => { location.replace(location.pathname); });
+}
+
 // ── Data path ─────────────────────────────────────────────────────────────────
 // Dev: python3 -m http.server 8080 from repo root, open /web/ — web/data symlink
 // Prod: web/ synced to S3 bucket root, data/ at same root

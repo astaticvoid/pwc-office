@@ -72,5 +72,10 @@ test-web:
 # Deploy — sync dist/ to S3 (requires AWS_PROFILE or ambient credentials).
 # Set BUCKET in environment or pass: make deploy BUCKET=my-bucket-name
 deploy: check-dist
-	aws s3 sync dist/ s3://$(BUCKET)/ --delete
+	# sw.js must be no-cache so browsers always revalidate after a deploy.
+	# Sync everything except sw.js, then upload sw.js with explicit header.
+	aws s3 sync dist/ s3://$(BUCKET)/ --delete --exclude "sw.js"
+	aws s3 cp dist/sw.js s3://$(BUCKET)/sw.js \
+	  --cache-control "no-cache, no-store" \
+	  --content-type "application/javascript"
 	aws cloudfront create-invalidation --distribution-id $(CF_DISTRIBUTION_ID) --paths "/*"
