@@ -29,14 +29,15 @@
 [data-font-size="large"]  { font-size: 112.5%; --line-height: 1.7; }
 
 /* Seasonal accent colours */
-[data-season="Advent"]      { --color-accent: #5c3a8a; }
-[data-season="Christmas"]   { --color-accent: #b8860b; }
-[data-season="Epiphany"]    { --color-accent: #b8860b; }
-[data-season="Lent"]        { --color-accent: #4a2577; }
-[data-season="Passiontide"] { --color-accent: #62081f; }
-[data-season="Easter"]      { --color-accent: #b8860b; }
-[data-season="Pentecost"]   { --color-accent: #8c2525; }
-[data-season="AllSaints"]   { --color-accent: #00402f; }
+[data-season="Advent"]       { --color-accent: #4B4D9E; }
+[data-season="Christmas"]    { --color-accent: #C89B3C; }
+[data-season="Epiphany"]     { --color-accent: #2D7D7D; }
+[data-season="Lent"]         { --color-accent: #6B4C8A; }
+[data-season="Passiontide"]  { --color-accent: #8B1A1A; }
+[data-season="Easter"]       { --color-accent: #C89B3C; }
+[data-season="Pentecost"]    { --color-accent: #B22222; }
+[data-season="AllSaints"]    { --color-accent: #4A6080; }
+[data-season="OrdinaryTime"] { --color-accent: #4A7C4E; }
 
 /* ── Dark mode — manual toggle only; default is always light ───────────────── */
 
