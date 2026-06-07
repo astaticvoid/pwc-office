@@ -1253,8 +1253,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('nav-today').addEventListener('click', e => {
     e.preventDefault();
-    history.pushState({}, '', location.pathname);
-    handleHashChange();
+    location.hash = hashFor(todayStr(), defaultOffice());
   });
 
   // Settings sheet

@@ -194,32 +194,27 @@ test.describe('Keyboard navigation', () => {
 test.describe('Notes', () => {
   test('long note is truncated by default', async ({ page }) => {
     await page.goto(MP);
-    const note = page.locator('p.day-note-collapsible').first();
-    await expect(note).toBeVisible({ timeout: 5000 });
-    const text = await note.textContent();
-    // Should end with ellipsis (truncated). The expand arrow is CSS ::after — not in textContent.
-    expect(text).toMatch(/…\s*$/);
-    await expect(note).not.toHaveClass(/day-note-expanded/);
+    const expandBtn = page.locator('.note-expand-btn').first();
+    await expect(expandBtn).toBeVisible({ timeout: 5000 });
+    await expect(expandBtn).toHaveText('Read more');
+    // The containing note paragraph should show truncated text with ellipsis
+    const noteText = await page.locator('p.day-note').first().textContent();
+    expect(noteText).toMatch(/…/);
   });
 
-  test('tapping long note expands to full text, tapping again collapses', async ({ page }) => {
+  test('clicking Read More expands note to full text', async ({ page }) => {
     await page.goto(MP);
-    const note = page.locator('p.day-note-collapsible').first();
-    await expect(note).toBeVisible({ timeout: 5000 });
-    const shortText = await note.textContent();
+    const expandBtn = page.locator('.note-expand-btn').first();
+    await expect(expandBtn).toBeVisible({ timeout: 5000 });
+    const shortText = await page.locator('p.day-note').first().textContent();
+    expect(shortText).toMatch(/…/);
 
-    // Expand
-    await note.click();
-    await expect(note).toHaveClass(/day-note-expanded/);
-    const fullText = await note.textContent();
-    expect((fullText || '').length).toBeGreaterThan((shortText || '').length);
+    await expandBtn.click();
+
+    // Button is gone, full text is shown
+    const fullText = await page.locator('p.day-note').first().textContent();
     expect(fullText).not.toMatch(/…/);
-
-    // Collapse again
-    await note.click();
-    await expect(note).not.toHaveClass(/day-note-expanded/);
-    const collapsedText = await note.textContent();
-    expect(collapsedText).toMatch(/…/);
+    expect((fullText || '').length).toBeGreaterThan((shortText || '').length);
   });
 });
 
@@ -405,10 +400,10 @@ test.describe('Translation switch', () => {
 
 test.describe('Observance toggle', () => {
   // 2026-05-17 has Easter VII (primary) and Ascension (alternate)
-  test('observance row is visible', async ({ page }) => {
+  test('observance card is visible', async ({ page }) => {
     await page.goto(MP);
-    await expect(page.locator('#nav-observance-row')).not.toHaveClass(/nav-row-hidden/);
-    await expect(page.locator('.obs-nav-btn')).toHaveCount(2);
+    await expect(page.locator('.observance-card')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.observance-card-link')).toBeVisible();
   });
 
   test('primary readings visible by default, alternate hidden', async ({ page }) => {
@@ -419,7 +414,8 @@ test.describe('Observance toggle', () => {
 
   test('clicking alternate observance swaps visible readings', async ({ page }) => {
     await page.goto(MP);
-    await page.locator('.obs-nav-btn[data-obs="alternate"]').click();
+    await expect(page.locator('.observance-card-link')).toBeVisible({ timeout: 5000 });
+    await page.locator('.observance-card-link').click();
     await expect(page.locator('.obs-readings[data-obs="primary"]')).toHaveClass(/obs-hidden/);
     await expect(page.locator('.obs-readings[data-obs="alternate"]')).not.toHaveClass(/obs-hidden/);
   });
@@ -427,7 +423,8 @@ test.describe('Observance toggle', () => {
   test('title updates to reflect alternate observance', async ({ page }) => {
     await page.goto(MP);
     const originalTitle = await page.title();
-    await page.locator('.obs-nav-btn[data-obs="alternate"]').click();
+    await expect(page.locator('.observance-card-link')).toBeVisible({ timeout: 5000 });
+    await page.locator('.observance-card-link').click();
     const newTitle = await page.title();
     expect(newTitle).not.toBe(originalTitle);
     expect(newTitle).toContain('Ascension');
@@ -438,10 +435,11 @@ test.describe('Observance toggle', () => {
     // Primary: Seventh Sunday of Easter (collect 344)
     await expect(page.locator('#prayers-collect')).toContainText('Seventh Sunday of Easter', { timeout: 5000 });
     // Switch to Ascension (collect 343)
-    await page.locator('.obs-nav-btn[data-obs="alternate"]').click();
-    await expect(page.locator('#prayers-collect')).toContainText('Ascension of the Lord');
+    await expect(page.locator('.observance-card-link')).toBeVisible({ timeout: 5000 });
+    await page.locator('.observance-card-link').click();
+    await expect(page.locator('#prayers-collect')).toContainText('Ascension of the Lord', { timeout: 5000 });
     // Switch back — primary collect restored
-    await page.locator('.obs-nav-btn[data-obs="primary"]').click();
-    await expect(page.locator('#prayers-collect')).toContainText('Seventh Sunday of Easter');
+    await page.locator('.observance-card-link').click();
+    await expect(page.locator('#prayers-collect')).toContainText('Seventh Sunday of Easter', { timeout: 5000 });
   });
 });
