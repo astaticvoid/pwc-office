@@ -331,7 +331,9 @@ test.describe('Alternatives', () => {
 // ── Service worker / offline ──────────────────────────────────────────────────
 
 test.describe('Service worker', () => {
-  test('app loads offline after initial online visit', async ({ page, context }) => {
+  test('app loads offline after initial online visit', async ({ page, context }, testInfo) => {
+    // SW is intentionally not registered on localhost — skip when running locally.
+    test.skip((testInfo.project.use.baseURL || '').startsWith('http://localhost'), 'SW not registered on localhost');
     // First visit online — warms the SW cache (shell + all fetched data).
     await page.goto(MP);
     await waitForContentLoaded(page);
@@ -422,12 +424,9 @@ test.describe('Observance toggle', () => {
 
   test('title updates to reflect alternate observance', async ({ page }) => {
     await page.goto(MP);
-    const originalTitle = await page.title();
     await expect(page.locator('.observance-card-link')).toBeVisible({ timeout: 5000 });
     await page.locator('.observance-card-link').click();
-    const newTitle = await page.title();
-    expect(newTitle).not.toBe(originalTitle);
-    expect(newTitle).toContain('Ascension');
+    await expect(page).toHaveTitle(/Ascension/, { timeout: 5000 });
   });
 
   test('collect updates to alternate observance collect', async ({ page }) => {
