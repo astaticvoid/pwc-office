@@ -405,9 +405,11 @@ function renderAlternatives(seg, shared, contextKey) {
 
 // Rubrics that are section-navigation cues in the printed book but are either
 // rendered as explicit headings or added programmatically as inter-section transitions.
-// "continues with the Litany" appears asymmetrically inside one affirmation group
-// (PDF artifact) — filtered here and added programmatically after the full Affirmation.
-const SKIP_RUBRICS = /^(Affirmation of Faith|[Tt]he Lord'?s Prayer)\.?\s*$|continues with the Lit/i;
+// "continues with …" rubrics are section-navigation cues from the printed book; they
+// appear in shared doxology/affirmation segments as "Morning Prayer continues with…"
+// regardless of the actual office.  All such transitions are emitted programmatically
+// with the correct office name, so strip the raw-data versions unconditionally.
+const SKIP_RUBRICS = /^(Affirmation of Faith|[Tt]he Lord'?s Prayer)\.?\s*$|continues with/i;
 
 function bindMidpoints(html) {
   // Wrap [word * ] in a nowrap group so the asterisk never orphans on a new line.
