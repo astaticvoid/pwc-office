@@ -20,6 +20,7 @@ const DATA = 'data';
 const state = {
   date:        todayStr(),
   office:      defaultOffice(),
+  observance:  'primary',
   translation: localStorage.getItem('pwc-translation') || 'nrsvue',
 };
 
@@ -291,11 +292,14 @@ function todayStr() {
 }
 
 function parseHash(hash) {
-  const m = /^#\/(\d{4}-\d{2}-\d{2})\/(mp|ep)$/.exec(hash);
-  return m ? { date: m[1], office: m[2] } : null;
+  const m = /^#\/(\d{4}-\d{2}-\d{2})\/(mp|ep)(?:\/(primary|alternate))?$/.exec(hash);
+  return m ? { date: m[1], office: m[2], observance: m[3] || 'primary' } : null;
 }
 
-function hashFor(date, office) { return `#/${date}/${office}`; }
+function hashFor(date, office, observance) {
+  const obs = observance && observance !== 'primary' ? '/' + observance : '';
+  return `#/${date}/${office}${obs}`;
+}
 
 function offsetDate(dateStr, days) {
   const d = new Date(dateStr + 'T00:00:00Z');
@@ -602,6 +606,25 @@ function extractVerses(book, range) {
   return lines;
 }
 
+// ── Observance card ───────────────────────────────────────────────────────────
+
+function renderObservanceCard(officeData, currentObservance) {
+  const alt = officeData.alternate;
+  if (!alt) return '';
+  const isUsingAlt = currentObservance === 'alternate';
+  if (isUsingAlt) {
+    return `<div class="observance-card observance-card--alt">
+      <span class="observance-card-name">${esc(alt.label)}</span>
+      <a href="${hashFor(state.date, state.office, 'primary')}" class="observance-card-link">← Primary observance</a>
+    </div>`;
+  }
+  return `<div class="observance-card">
+    <span class="observance-card-label">Also observed</span>
+    <span class="observance-card-name">${esc(alt.label)}</span>
+    <a href="${hashFor(state.date, state.office, 'alternate')}" class="observance-card-link">Use this observance →</a>
+  </div>`;
+}
+
 // ── Office HTML building ──────────────────────────────────────────────────────
 
 const READING_RESPONSE = {
@@ -885,9 +908,14 @@ async function render(dateStr, officeType, translation) {
 
   // Header
   const officeName = officeType === 'mp' ? 'Morning Prayer' : 'Evening Prayer';
-  document.title = `${officeName} — ${day.name}`;
+  const activeObs = state.observance === 'alternate' && officeData.alternate ? 'alternate' : 'primary';
+  const activeOfficeData = activeObs === 'alternate' ? officeData.alternate : officeData;
+  const activeName = activeObs === 'alternate'
+    ? (officeData.alternate.label || officeData.alternate.name || day.name)
+    : day.name;
+  document.title = `${officeName} — ${activeName}`;
   document.getElementById('day-office-name').textContent = officeName;
-  document.getElementById('day-title').textContent = day.name;
+  document.getElementById('day-title').textContent = activeName;
   document.getElementById('day-subtitle').textContent = fmtFullDate(dateStr);
 
   const hexes = colourHexes(day.colour);
@@ -952,7 +980,7 @@ async function render(dateStr, officeType, translation) {
 
   const seasonalSegs = form ? filterSeasonalCollects(form.seasonal_collects || [], weekIdx) : [];
 
-  let html = '';
+  let html = renderObservanceCard(officeData, activeObs);
 
   // ── Form title / subtitle ──────────────────────────────────────────────────
   // Suppress on ordinary-time: "Evening Prayer For Saturday" is redundant with
@@ -983,15 +1011,15 @@ async function render(dateStr, officeType, translation) {
   html += `<h2 class="office-section-title">The Proclamation of the Word</h2>`;
 
   // Primary readings — psalms, lesson 1, responsory, canticle, lesson 2+ (if any).
-  html += `<div class="obs-readings" data-obs="primary">`;
+  html += `<div class="obs-readings${activeObs !== 'primary' ? ' obs-hidden' : ''}" data-obs="primary">`;
   if (officeData.label) html += `<h3 class="office-subsection-title">${esc(officeData.label)}</h3>`;
   html += proclamationHtml(officeData, form, shared);
   html += `</div>`;
 
-  // Alternate readings (hidden; toggled by observance buttons in header).
+  // Alternate readings.
   if (officeData.alternate) {
     const alt = officeData.alternate;
-    html += `<div class="obs-readings obs-hidden" data-obs="alternate">`;
+    html += `<div class="obs-readings${activeObs !== 'alternate' ? ' obs-hidden' : ''}" data-obs="alternate">`;
     if (alt.label) html += `<h3 class="office-subsection-title">${esc(alt.label)}</h3>`;
     html += proclamationHtml(alt, form, shared);
     html += `</div>`;
@@ -1023,7 +1051,7 @@ async function render(dateStr, officeType, translation) {
       html += renderSubsection('The Litany', form.litany, shared);
     }
     html += `<h3 class="office-subsection-title">The Collect</h3>`;
-    html += `<div id="prayers-collect">${collectToggleHtml(collects, officeData.collect, seasonalSegs, shared)}</div>`;
+    html += `<div id="prayers-collect">${collectToggleHtml(collects, activeOfficeData.collect, seasonalSegs, shared)}</div>`;
     if (form.lords_prayer_intro && form.lords_prayer_intro.length) {
       html += `<h3 class="office-subsection-title">The Lord's Prayer</h3>`;
       html += `<div class="liturgy">${renderSegments(form.lords_prayer_intro, shared)}</div>`;
@@ -1155,10 +1183,12 @@ function handleHashChange() {
   if (parsed) {
     state.date = parsed.date;
     state.office = parsed.office;
+    state.observance = parsed.observance;
   } else {
     // No valid hash — render today in place without modifying the URL.
     state.date = todayStr();
     state.office = defaultOffice();
+    state.observance = 'primary';
   }
   render(state.date, state.office, state.translation);
 }

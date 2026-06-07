@@ -647,6 +647,39 @@ body.book-mode .alt-panel + .alt-panel::before {
   margin: 0.5rem 0;
 }
 
+/* ── Observance card ───────────────────────────────────────────────────────── */
+
+.observance-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  background: var(--color-surface-alt, rgba(0,0,0,0.03));
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.6rem 0.85rem;
+  margin-bottom: 1.25rem;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+}
+.observance-card-label {
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.7rem;
+}
+.observance-card-name {
+  color: var(--color-text);
+  font-weight: 500;
+  flex: 1;
+}
+.observance-card-link {
+  color: var(--color-accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.observance-card-link:hover { text-decoration: underline; }
+
 /* ── Observance readings toggle ────────────────────────────────────────────── */
 
 .obs-readings.obs-hidden { display: none; }
