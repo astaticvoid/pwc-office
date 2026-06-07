@@ -143,6 +143,15 @@ body {
 
 .nav-logo { flex-shrink: 0; opacity: 0.9; }
 
+.nav-brand-name {
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  opacity: 0.85;
+}
+@media (max-width: 480px) { .nav-brand-name { display: none; } }
+
 
 .nav-date-nav {
   display: flex;
