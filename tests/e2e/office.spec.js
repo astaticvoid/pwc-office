@@ -333,7 +333,7 @@ test.describe('Alternatives', () => {
 test.describe('Service worker', () => {
   test('app loads offline after initial online visit', async ({ page, context }, testInfo) => {
     // SW is intentionally not registered on localhost — skip when running locally.
-    test.skip((testInfo.project.use.baseURL || '').startsWith('http://localhost'), 'SW not registered on localhost');
+    test.skip((process.env.BASE_URL || 'http://localhost:8080').startsWith('http://localhost'), 'SW not registered on localhost');
     // First visit online — warms the SW cache (shell + all fetched data).
     await page.goto(MP);
     await waitForContentLoaded(page);
