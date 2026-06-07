@@ -149,8 +149,12 @@ body {
   font-weight: 500;
   letter-spacing: 0.03em;
   opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-@media (max-width: 480px) { .nav-brand-name { display: none; } }
+/* Very small devices only — most modern phones (390px+) can show the name */
+@media (max-width: 340px) { .nav-brand-name { display: none; } }
 
 
 .nav-date-nav {
@@ -342,9 +346,13 @@ body {
 
 .nav-disabled { opacity: 0.2 !important; pointer-events: none; cursor: default; }
 
-/* "Today" link — hidden when already on today; shown when navigated elsewhere */
+/* "Today" link — invisible when already on today; shown when navigated elsewhere.
+   Uses visibility:hidden (not display:none) so the button always occupies space
+   and the surrounding arrows never shift position. */
 #nav-today {
-  display: none;
+  visibility: hidden;
+  display: inline-flex;
+  align-items: center;
   font-size: 0.72rem;
   padding: 0.1rem 0.45rem;
   border-radius: 2px;
@@ -355,7 +363,7 @@ body {
   opacity: 0.85;
   flex-shrink: 0;
 }
-#nav-today.nav-today-visible { display: inline-flex; align-items: center; }
+#nav-today.nav-today-visible { visibility: visible; }
 @media (hover: hover) { #nav-today:hover { opacity: 1; background: rgba(255,255,255,0.18); } }
 
 
@@ -691,6 +699,13 @@ body.book-mode .alt-panel + .alt-panel::before {
   white-space: nowrap;
 }
 .observance-card-link:hover { text-decoration: underline; }
+/* Mobile: label + link on row 1, observance name on row 2 */
+@media (max-width: 520px) {
+  .observance-card { flex-wrap: wrap; }
+  .observance-card-label { order: 1; flex: 0 0 auto; }
+  .observance-card-link  { order: 2; margin-left: auto; flex: 0 0 auto; }
+  .observance-card-name  { order: 3; flex: 0 0 100%; margin-top: 0.1rem; font-size: 0.85rem; }
+}
 
 /* ── Observance readings toggle ────────────────────────────────────────────── */
 

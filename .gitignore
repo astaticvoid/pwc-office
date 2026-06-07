@@ -28,8 +28,9 @@ boneyard/data/
 # Claude Code local settings
 .claude/
 
-# Local planning doc
+# Local planning docs — internal, not for public repo
 PLAN.md
+REVIEW_PLAN.md
 
 # Dead code kept for local reference
 boneyard/
