@@ -600,7 +600,7 @@ const READING_RESPONSE = {
                                 { type: 'response', text: 'Thanks be to God.' }] },
     { label: 'II',  segments: [{ type: 'leader',   text: 'Hear what the Spirit is saying to the Church.' },
                                 { type: 'response', text: 'Thanks be to God.' }] },
-    { label: 'III', segments: [{ type: 'leader',   text: 'Holy Word, Holy Wisdom.' },
+    { label: 'III', segments: [{ type: 'leader',   text: 'Holy wisdom, holy word.' },
                                 { type: 'response', text: 'Thanks be to God.' }] },
   ],
 };
@@ -696,6 +696,7 @@ function lessonHtml(lesson, shared, form) {
   const display = optional ? `(${displayCitation})` : displayCitation;
   const preambleRubric = `<p class="seg-rubric">A Reading from the appointed lectionary is read.</p>`;
   const reflectionRubric = `<p class="seg-rubric">After a period of silent reflection one of the following is said.</p>`;
+  if (!form || !form.reading_response) console.warn('lessonHtml: no reading_response on form, using fallback');
   const readingResponse = (form && form.reading_response) || READING_RESPONSE;
   const responseHtml = `<div class="liturgy">${renderAlternatives(readingResponse, shared, 'reading_response')}</div>`;
   return `<h3 class="reading-heading">The Reading: ${esc(display)}</h3>`
