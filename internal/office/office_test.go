@@ -122,10 +122,11 @@ func TestRenderOrdinaryFormAfterTrinity(t *testing.T) {
 		t.Fatalf("LoadForms: %v", err)
 	}
 
-	// 2026-06-10 is a Wednesday after Trinity Sunday (post-Pentecost ordinary time).
+	// 2026-06-10 is a Wednesday after Trinity Sunday.
+	// After Trinity Sunday, the broad theming season is OrdinaryTime (not Pentecost).
 	day := mustLookup(t, l, 2026, 6, 10)
-	if day.Season != lectionary.Pentecost {
-		t.Fatalf("expected Pentecost (broad) season, got %s", day.Season)
+	if day.Season != lectionary.OrdinaryTime {
+		t.Fatalf("expected OrdinaryTime (broad) season after Trinity, got %s", day.Season)
 	}
 
 	out := office.Render(day, "mp", ps, nil, nil, forms, l.Bounds)

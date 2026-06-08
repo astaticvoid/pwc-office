@@ -152,6 +152,7 @@ function seasonOf(dateStr, bounds) {
   if (parseDate(bounds.christmas_ii)  && d >= parseDate(bounds.christmas_ii))  return 'Christmas';
   if (parseDate(bounds.advent_ii)     && d >= parseDate(bounds.advent_ii))     return 'Advent';
   if (parseDate(bounds.all_saints)    && d >= parseDate(bounds.all_saints))    return 'AllSaints';
+  if (parseDate(bounds.trinity_sunday) && d > parseDate(bounds.trinity_sunday)) return 'OrdinaryTime';
   if (parseDate(bounds.pentecost)     && d >= parseDate(bounds.pentecost))     return 'Pentecost';
   if (parseDate(bounds.easter)        && d >= parseDate(bounds.easter))        return 'Easter';
   if (passionStart                    && d >= passionStart)                    return 'Passiontide';
@@ -926,23 +927,52 @@ async function render(dateStr, officeType, translation) {
   const firstHex = hexes[0] || '#b5a882';
   document.documentElement.style.setProperty('--color-day', firstHex);
   const colourChip = hexes.length > 0
-    ? `<span class="meta-sep">·</span>`
-      + `<span class="meta-item">`
+    ? `<span class="meta-item">`
+      + `<span class="meta-lbl">Colour</span>`
       + (hexes.length > 1
-          ? `<button class="colour-chip colour-chip-toggle" style="background:${firstHex}" data-hexes='${JSON.stringify(hexes)}' data-idx="0" title="Tap to cycle colour options" aria-label="${esc(day.colour)}"></button>`
+          ? `<button class="colour-chip colour-chip-toggle" style="background:${firstHex}" data-hexes='${JSON.stringify(hexes)}' data-idx="0" title="Tap to cycle liturgical colour" aria-label="${esc(day.colour)} — tap to cycle"></button>`
           : `<span class="colour-chip" style="background:${firstHex}"></span>`)
-      + `<span class="colour-name">${esc(day.colour)}`
+      + `<span class="colour-name meta-val">${esc(day.colour)}`
       + (hexes.length > 1 ? ` <span class="colour-cycle-hint" aria-hidden="true">↺</span>` : '')
       + `</span>`
       + `</span>`
     : '';
-  document.getElementById('day-meta').innerHTML = `
-    <span class="meta-item">${esc(season)}</span>
-    <span class="meta-sep">·</span>
-    <span class="meta-item">${esc(formatRank(day.rank))}</span>`
+  document.getElementById('day-meta').innerHTML =
+    `<span class="meta-item meta-item--season">`
+    + `<span class="meta-lbl">Season</span>`
+    + `<span class="meta-val">${esc(season)}</span>`
+    + `</span>`
+    + `<span class="meta-sep">·</span>`
+    + `<span class="meta-item">${esc(formatRank(day.rank))}</span>`
     + colourChip;
 
   document.querySelectorAll('.day-note, .day-note-details').forEach(el => el.remove());
+
+  // ── Office + Observance controls in day header ────────────────────────────
+  const ctrlEl = document.getElementById('day-office-controls');
+  if (ctrlEl) {
+    let ctrlHtml = `<div class="day-ctrl-group">
+      <div class="day-ctrl-cap">Office \u00b7 by time of day</div>
+      <div class="day-ctrl-seg">
+        <a href="${hashFor(dateStr, 'mp')}" class="day-ctrl-btn${officeType === 'mp' ? ' is-active' : ''}">
+          Morning<span class="day-ctrl-sub">Said in the morning</span></a>
+        <a href="${hashFor(dateStr, 'ep')}" class="day-ctrl-btn${officeType === 'ep' ? ' is-active' : ''}">
+          Evening<span class="day-ctrl-sub">Said from ~5\u202fpm</span></a>
+      </div></div>`;
+    if (officeData.alternate) {
+      const altLabel = officeData.alternate.label || 'Alternate';
+      const primaryLabel = day.name.length > 26 ? day.name.slice(0,24)+'\u2026' : day.name;
+      ctrlHtml += `<div class="day-ctrl-group day-ctrl-group--obs">
+        <div class="day-ctrl-cap">Observance \u00b7 whose readings <span class="day-ctrl-obs-mark">\u25c6</span></div>
+        <div class="day-ctrl-seg day-ctrl-seg--obs">
+          <a href="${hashFor(dateStr, officeType, 'primary')}" class="day-ctrl-btn${activeObs === 'primary' ? ' is-active' : ''}">
+            ${esc(primaryLabel)}</a>
+          <a href="${hashFor(dateStr, officeType, 'alternate')}" class="day-ctrl-btn${activeObs === 'alternate' ? ' is-active' : ''}">
+            ${esc(altLabel)}</a>
+        </div></div>`;
+    }
+    ctrlEl.innerHTML = ctrlHtml;
+  }
   const SUPPRESS_NOTE_TYPES = new Set(['ember_crossref', 'rogation_crossref', 'precedence_rule', 'reconciliation_propers']);
   if (day.notes && day.notes.length) {
     const headerEl = document.getElementById('day-header');
@@ -1247,41 +1277,11 @@ function handleHashChange() {
 function initScrollBehaviour() {
   const nav    = document.getElementById('nav');
   const spacer = document.getElementById('nav-spacer');
-  let lastY = 0, compact = false, downTravel = 0, upTravel = 0;
-
-  function syncNavPad() {
-    spacer.style.height = nav.offsetHeight + 'px';
-  }
+  // Stable nav: only sync height for the spacer; no compact collapse while praying.
+  function syncNavPad() { spacer.style.height = nav.offsetHeight + 'px'; }
   syncNavPad();
   window.addEventListener('load', syncNavPad);
   new ResizeObserver(syncNavPad).observe(nav);
-
-  window.addEventListener('scroll', () => {
-    const y = window.scrollY;
-    const delta = y - lastY;
-    if (delta > 0) {
-      upTravel = 0;
-      downTravel += delta;
-      if (!compact && y > 80 && downTravel > 40) {
-        compact = true; downTravel = 0; nav.classList.add('nav-compact');
-      }
-    } else if (delta < 0) {
-      downTravel = 0;
-      upTravel += -delta;
-      if (compact && upTravel > 30) {
-        compact = false; upTravel = 0; nav.classList.remove('nav-compact');
-      }
-    }
-    lastY = y;
-  }, { passive: true });
-
-  nav.addEventListener('click', e => {
-    if (!compact) return;
-    const interactive = e.target.closest('button, a, select, input, label');
-    if (interactive) return;
-    compact = false; upTravel = 0; downTravel = 0;
-    nav.classList.remove('nav-compact');
-  });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1318,29 +1318,59 @@ document.addEventListener('DOMContentLoaded', () => {
   settingsClose.addEventListener('click', closeSettings);
   settingsBackdrop.addEventListener('click', closeSettings);
 
-  // Book mode toggle
+  // Book mode toggle — wired to both the header button and the settings seg
   const viewToggle = document.getElementById('view-toggle');
   const bookModeKey = 'pwc-book-mode';
 
-  if (localStorage.getItem(bookModeKey) === '1') {
-    document.body.classList.add('book-mode');
-    viewToggle.setAttribute('aria-pressed', 'true');
-    viewToggle.innerHTML = viewToggle.innerHTML.replace('Book view', 'Interactive');
+  function syncViewModeUI(isBook) {
+    if (viewToggle) {
+      viewToggle.setAttribute('aria-pressed', String(isBook));
+      viewToggle.innerHTML = viewToggle.innerHTML.replace(
+        isBook ? 'Book view' : 'Interactive',
+        isBook ? 'Interactive' : 'Book view'
+      );
+    }
+    const offBtn = document.getElementById('view-mode-office');
+    const bkBtn  = document.getElementById('view-mode-book');
+    if (offBtn) { offBtn.classList.toggle('is-active', !isBook); offBtn.setAttribute('aria-pressed', String(!isBook)); }
+    if (bkBtn)  { bkBtn.classList.toggle('is-active',  isBook);  bkBtn.setAttribute('aria-pressed', String(isBook)); }
   }
 
-  viewToggle.addEventListener('click', () => {
+  if (localStorage.getItem(bookModeKey) === '1') {
+    document.body.classList.add('book-mode');
+    syncViewModeUI(true);
+  }
+
+  if (viewToggle) viewToggle.addEventListener('click', () => {
     const isBook = document.body.classList.toggle('book-mode');
-    viewToggle.setAttribute('aria-pressed', String(isBook));
-    viewToggle.innerHTML = viewToggle.innerHTML.replace(
-      isBook ? 'Book view' : 'Interactive',
-      isBook ? 'Interactive' : 'Book view'
-    );
+    syncViewModeUI(isBook);
     localStorage.setItem(bookModeKey, isBook ? '1' : '0');
+  });
+
+  const viewModeOffice = document.getElementById('view-mode-office');
+  const viewModeBook   = document.getElementById('view-mode-book');
+  if (viewModeOffice) viewModeOffice.addEventListener('click', () => {
+    if (document.body.classList.contains('book-mode')) {
+      document.body.classList.remove('book-mode');
+      syncViewModeUI(false);
+      localStorage.setItem(bookModeKey, '0');
+    }
+  });
+  if (viewModeBook) viewModeBook.addEventListener('click', () => {
+    if (!document.body.classList.contains('book-mode')) {
+      document.body.classList.add('book-mode');
+      syncViewModeUI(true);
+      localStorage.setItem(bookModeKey, '1');
+    }
   });
 
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') closeSettings();
-    if (e.key === 'b' && !e.target.matches('input,select,textarea')) viewToggle.click();
+    if (e.key === 'b' && !e.target.matches('input,select,textarea')) {
+      const isBook = document.body.classList.toggle('book-mode');
+      syncViewModeUI(isBook);
+      localStorage.setItem(bookModeKey, isBook ? '1' : '0');
+    }
   });
 
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
@@ -1410,6 +1440,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if ('serviceWorker' in navigator && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
     navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
-    navigator.serviceWorker.register('/sw.js');
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
 });

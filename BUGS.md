@@ -1,6 +1,6 @@
 # PWC — Bug Tracker
 
-_Last updated: 2026-06-07 (10 bugs closed)_
+_Last updated: 2026-06-07 (11 bugs closed)_
 
 Severity scale: **P0** = data corruption / silent wrong output �� **P1** = incorrect content shown to user · **P2** = missing content / broken feature · **P3** = UX issue / cosmetic
 
@@ -67,6 +67,10 @@ _Files:_ `tools/convert_lectionary.py:NOTE_TYPES`, `web/app.js:SUPPRESS_NOTE_TYP
 ---
 
 ## Closed
+
+**BUG-20: "Morning Prayer continues" shown in Evening Prayer**  
+Fixed 2026-06-07. `_shared.doxology` segments contained hardcoded "Morning Prayer continues with…" rubrics (PDF artifact). These showed 3× verbatim in EP. Broadened `SKIP_RUBRICS` from `continues with the Lit` to `continues with` so all such navigational rubrics from raw data are stripped. Transitions are emitted programmatically with the correct office name at app.js:1080 and 1096.  
+_Commits:_ `web/app.js`
 
 **BUG-18: Wednesday litany response capitalisation**  
 Fixed 2026-06-07. `_fix_casing` was uppercasing responses that are intentionally lowercase in the PDF. Added `_TEXT_PATCHES` table and `_apply_text_patches()` to `extract_offices.py`; Wednesday MP (×8) and EP (×4) responses corrected. Noted in CORRECTNESS.md.  

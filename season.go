@@ -77,6 +77,8 @@ func SeasonOf(d time.Time, b SeasonBounds) (Season, time.Weekday) {
 		return Advent, dow
 	case !b.AllSaints.IsZero() && !d.Before(b.AllSaints):
 		return AllSaints, dow
+	case !b.TrinityS.IsZero() && d.After(b.TrinityS):
+		return OrdinaryTime, dow
 	case !b.Pentecost.IsZero() && !d.Before(b.Pentecost):
 		return Pentecost, dow
 	case !b.Easter.IsZero() && !d.Before(b.Easter):
