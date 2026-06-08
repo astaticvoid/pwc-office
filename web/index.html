@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Daily Office</title>
+  <title>Pray Without Ceasing — Daily Office</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="office.css">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -19,21 +19,23 @@
       <!-- Row 1: logo | ← date → | Today | ⚙ -->
       <div class="nav-row nav-top">
         <a id="nav-brand" href="#" aria-label="Pray Without Ceasing — go to today">
-          <svg class="nav-logo" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-            <rect x="7" y="1" width="4" height="16" rx="1" fill="currentColor"/>
-            <rect x="1" y="7" width="16" height="4" rx="1" fill="currentColor"/>
-            <circle cx="9" cy="9" r="5.5" stroke="currentColor" stroke-width="2.5"/>
+          <svg class="nav-logo" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="6.6" stroke="currentColor" stroke-width="1.5"/>
+            <rect x="10.85" y="1.5" width="2.3" height="21" rx="0.6" fill="currentColor"/>
+            <rect x="1.5" y="10.85" width="21" height="2.3" rx="0.6" fill="currentColor"/>
           </svg>
           <span class="nav-brand-name">Pray Without Ceasing</span>
         </a>
         <div class="nav-date-nav">
-          <a id="nav-prev" class="nav-arrow" aria-label="Previous day">&#8592;</a>
-          <span id="nav-date-wrapper" title="Tap to jump to a date">
-            <span id="nav-date">—</span>
+          <a id="nav-prev" class="nav-arrow nav-arrow--hidden" aria-label="Previous day">&#8592;</a>
+          <span id="nav-date-wrapper" title="Tap to choose a date">
+            <svg class="nav-cal-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <rect x="3" y="4.5" width="18" height="17" rx="2.5"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/>
+            </svg>
+            <span id="nav-date" class="nav-date--hidden">—</span>
             <input type="date" id="nav-date-picker" aria-label="Go to date">
           </span>
-          <a id="nav-next" class="nav-arrow" aria-label="Next day">&#8594;</a>
-          <a id="nav-today" href="#" aria-label="Go to today">Today</a>
+          <a id="nav-next" class="nav-arrow nav-arrow--hidden" aria-label="Next day">&#8594;</a>
         </div>
         <button id="nav-settings-btn" aria-label="Settings" aria-expanded="false">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -60,6 +62,16 @@
         </button>
       </div>
       <div class="settings-body">
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">View</div>
+            <div class="settings-sublabel">Read along, or show the full book page</div>
+          </div>
+          <div class="settings-mini-seg" id="view-mode-seg">
+            <button id="view-mode-office" class="is-active" aria-pressed="true">Office</button>
+            <button id="view-mode-book" aria-pressed="false">Book</button>
+          </div>
+        </div>
         <label class="settings-row">
           <span class="settings-label">Translation</span>
           <select id="nav-translation" aria-label="Bible translation">
@@ -88,12 +100,7 @@
       <h1 id="day-title"></h1>
       <div id="day-subtitle"></div>
       <div id="day-meta"></div>
-      <div id="view-toggle-row">
-        <button id="view-toggle" aria-pressed="false">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-          Book view
-        </button>
-      </div>
+      <div id="day-office-controls"></div>
     </header>
     <div id="office-content">
       <p class="loading">Loading…</p>

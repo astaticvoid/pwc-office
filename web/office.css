@@ -1,58 +1,71 @@
 /* ── Variables ─────────────────────────────────────────────────────────────── */
 
 :root {
-  --font-liturgy: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+  --font-liturgy: 'EB Garamond', Georgia, 'Times New Roman', serif;
   --font-ui: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
   --line-height: 1.65;
+  --indent: 1.35rem;
 
-  /* ACC palette */
-  --color-bg:       #faf9f7;
-  --color-text:     #1a1a18;
-  --color-rubric:   #62081f;
-  --color-nav-bg:   #2c3e50;
-  --color-nav-text: #e8e4dc;
-  --color-link:     #4b7188;
-  --color-muted:    #6b6b68;
-  --color-border:   #d8d4cc;
-  --color-surface:  #f4f1eb;
+  /* ACC / PWC palette */
+  --color-bg:          #F4EEDF;
+  --color-text:        #262219;
+  --color-rubric:      #9A2B22;
+  --color-nav-bg:      #15382A;
+  --color-nav-text:    #F3EEDF;
+  --color-link:        #2C7060;
+  --color-muted:       #7B7460;
+  --color-border:      #E2D8C2;
+  --color-surface:     #FBF6EB;
+  --color-heading:     #15382A;
+  --color-brass:       #9A7B3F;
+  --color-brass-ink:   #8A6B2F;
+  --color-brass-on-nav:#CBA85A;
 
   /* Liturgical accent — overridden per season on <html> */
-  --color-accent: #4b7188;
+  --color-accent: #3B6B4E;
   /* Day colour — overridden per day by JS */
-  --color-day: #4b7188;
+  --color-day: #3B6B4E;
 
   --content-max: 42rem;
 }
 
 /* Font size — scale html so all rem values change uniformly */
 [data-font-size="medium"] { font-size: 100%;   --line-height: 1.65; }
-[data-font-size="large"]  { font-size: 112.5%; --line-height: 1.7; }
+[data-font-size="large"]  { font-size: 112.5%; --line-height: 1.7;  }
 
 /* Seasonal accent colours */
-[data-season="Advent"]       { --color-accent: #4B4D9E; }
-[data-season="Christmas"]    { --color-accent: #C89B3C; }
-[data-season="Epiphany"]     { --color-accent: #2D7D7D; }
+[data-season="Advent"]       { --color-accent: #4B3F8C; }
+[data-season="Christmas"]    { --color-accent: #B0863A; }
+[data-season="Epiphany"]     { --color-accent: #2C7370; }
 [data-season="Lent"]         { --color-accent: #6B4C8A; }
-[data-season="Passiontide"]  { --color-accent: #8B1A1A; }
-[data-season="Easter"]       { --color-accent: #C89B3C; }
-[data-season="Pentecost"]    { --color-accent: #B22222; }
+[data-season="Passiontide"]  { --color-accent: #7E2420; }
+[data-season="Easter"]       { --color-accent: #B0863A; }
+[data-season="Pentecost"]    { --color-accent: #A43328; }
 [data-season="AllSaints"]    { --color-accent: #4A6080; }
-[data-season="OrdinaryTime"] { --color-accent: #4A7C4E; }
+[data-season="OrdinaryTime"] { --color-accent: #3B6B4E; }
 
-/* ── Dark mode — manual toggle only; default is always light ───────────────── */
+/* ── Dark mode ──────────────────────────────────────────────────────────────── */
 
 [data-theme="dark"] {
-  --color-bg:       #16140f; --color-text:     #e8e4dc; --color-rubric:   #e07070;
-  --color-nav-bg:   #0f0e0a; --color-nav-text: #c8c4bc; --color-link:     #7ab0cc;
-  --color-muted:    #9a968e; --color-border:   #3a362e; --color-surface:  #1e1c16;
+  --color-bg:       #15140E;
+  --color-text:     #E9E2D2;
+  --color-rubric:   #E0907A;
+  --color-nav-bg:   #0F1A14;
+  --color-nav-text: #D8D0BF;
+  --color-link:     #7EC0A8;
+  --color-muted:    #9A9281;
+  --color-border:   #322F23;
+  --color-surface:  #1E1C14;
+  --color-heading:  #86C0A4;
+  --color-brass:    #CBA24E;
+  --color-brass-ink:#CBA24A;
+  --color-brass-on-nav:#D8B968;
 }
 
 /* ── Reset ─────────────────────────────────────────────────────────────────── */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 a, button { -webkit-tap-highlight-color: transparent; }
-
-/* Remove focus ring when activated by mouse/touch; keep it for keyboard nav. */
 :focus:not(:focus-visible) { outline: none; }
 
 body {
@@ -62,8 +75,6 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   -webkit-font-smoothing: antialiased;
-  /* Prevent double-tap zoom on interactive elements (roman numerals, tabs, etc.)
-     while keeping pinch-to-zoom available for accessibility. */
   touch-action: manipulation;
 }
 
@@ -73,11 +84,9 @@ body {
   background: var(--color-nav-bg);
   color: var(--color-nav-text);
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 0; left: 0; right: 0;
   z-index: 100;
-  border-bottom: none;
+  box-shadow: 0 2px 0 var(--color-accent), 0 4px 16px rgba(0,0,0,0.18);
 }
 
 #nav-inner {
@@ -86,40 +95,17 @@ body {
   padding: 0.5rem 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.3rem;
   transition: padding 0.2s ease;
 }
 
-/* Accent stripe — centered gradient fade below nav */
-#nav::after {
-  content: '';
-  display: block;
-  height: 1px;
-  margin-top: 0.4rem;
-  background: linear-gradient(to right, transparent, var(--color-accent) 25%, var(--color-accent) 75%, transparent);
-}
+/* Compact state — keep both rows, just tighten */
+#nav.nav-compact #nav-inner { padding-bottom: 0.2rem; padding-top: 0.3rem; }
 
-[data-theme="dark"] #nav::after {
-  height: 2px;
-  background: var(--color-accent);
-}
-
-/* Compact state: hide office row when scrolling down */
-#nav.nav-compact #nav-inner { padding-bottom: 0.25rem; }
-#nav.nav-compact .nav-office-row {
-  max-height: 0;
-  opacity: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-/* Desktop: always show office row */
+/* Desktop: always expanded */
 @media (min-width: 820px) {
-  #nav.nav-compact .nav-office-row {
-    max-height: none !important;
-    opacity: 1 !important;
-    pointer-events: all !important;
-    overflow: visible !important;
-  }
+  #nav { box-shadow: 0 2px 0 var(--color-accent); }
+  #nav.nav-compact #nav-inner { padding: 0.5rem 1rem; }
 }
 
 .nav-row {
@@ -129,775 +115,105 @@ body {
   font-size: 0.85rem;
 }
 
-.nav-top {
-  justify-content: space-between;
-}
+.nav-top { justify-content: flex-start; gap: 0.5rem; }
+#nav-brand { flex: 1; }
 
+/* Brand */
 #nav-brand {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
   flex-shrink: 1;
   min-width: 0;
+  text-decoration: none;
 }
-
-.nav-logo { flex-shrink: 0; opacity: 0.9; }
-
+.nav-logo { flex-shrink: 0; color: var(--color-brass-on-nav); opacity: 0.95; }
 .nav-brand-name {
-  font-family: var(--font-ui);
-  font-size: 0.8rem;
-  font-weight: 500;
-  letter-spacing: 0.03em;
-  opacity: 0.85;
+  font-family: var(--font-liturgy);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--color-brass-on-nav);
+  white-space: nowrap;
 }
-/* On mobile the brand moves into the day-header; nav keeps only the icon */
-@media (max-width: 520px) { .nav-brand-name { display: none; } }
+@media (max-width: 520px) {
+  .nav-brand-name { font-size: 0.88rem; }
+}
 
-
+/* Date navigation — secondary, compact */
 .nav-date-nav {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.2rem;
   flex-shrink: 0;
 }
 
-/* Nav office row (MP / EP) */
+/* Office row (Morning / Evening) */
 .nav-office-row {
   display: flex;
   justify-content: center;
   gap: 0;
-  border-top: 1px solid rgba(255,255,255,0.1);
-  max-height: 4rem;
+  border-top: 1px solid rgba(255,255,255,0.09);
   overflow: hidden;
+  max-height: 4rem;
   opacity: 1;
   transition: max-height 0.2s ease, opacity 0.15s ease;
 }
+/* Office row now in day header — hide from nav (keep in DOM for JS) */
+.nav-office-row { display: none !important; }
 
-.nav-office-row a {
+/* Observance row */
+.nav-observance-row {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  overflow: hidden;
+  max-height: 4rem;
+  opacity: 1;
+  transition: max-height 0.2s ease, opacity 0.15s ease;
+}
+/* Label prefix before observance buttons */
+.nav-observance-row::before {
+  content: "Observance:";
+  font-family: var(--font-ui);
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-brass-on-nav);
+  opacity: 0.7;
+  align-self: center;
+  padding: 0.5rem 0.5rem 0.5rem 0;
+  white-space: nowrap;
+}
+
+.nav-office-row a, .nav-observance-row a {
   flex: 1;
   text-align: center;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 0.75rem;
   font-size: 0.8rem;
   font-family: var(--font-ui);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--color-nav-text);
-  opacity: 0.7;
+  opacity: 0.68;
   text-decoration: none;
   transition: opacity 0.15s, background 0.15s;
   cursor: pointer;
 }
 
-#nav .nav-office-row a.nav-active {
+#nav .nav-office-row a.nav-active,
+#nav .nav-observance-row a.nav-active {
   opacity: 1;
   background: rgba(255,255,255,0.08);
   border-bottom: 2px solid var(--color-accent);
-  font-weight: normal;
 }
 
-/* Settings button in nav-top */
-#nav-settings-btn {
-  background: none;
-  border: none;
-  color: var(--color-nav-text);
-  cursor: pointer;
-  padding: 0.25rem;
-  opacity: 0.7;
-  display: flex;
-  align-items: center;
-  transition: opacity 0.15s;
-  flex-shrink: 0;
+/* Observance buttons: brass accent instead of season accent */
+#nav .nav-observance-row a.nav-active {
+  border-bottom-color: var(--color-brass-on-nav);
+  color: var(--color-brass-on-nav);
 }
-#nav-settings-btn:hover { opacity: 1; }
-
-/* Settings bottom sheet */
-.settings-sheet {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  pointer-events: none;
-  display: flex;
-  align-items: flex-end;
-}
-.settings-sheet[aria-hidden="false"] { pointer-events: all; }
-
-.settings-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,0.4);
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-.settings-sheet[aria-hidden="false"] .settings-backdrop { opacity: 1; }
-
-.settings-panel {
-  position: relative;
-  width: 100%;
-  background: var(--color-surface);
-  border-radius: 12px 12px 0 0;
-  padding: 1rem 1.25rem 2rem;
-  transform: translateY(100%);
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  max-width: 480px;
-  margin: 0 auto;
-  box-shadow: 0 -4px 24px rgba(0,0,0,0.15);
-}
-.settings-sheet[aria-hidden="false"] .settings-panel { transform: translateY(0); }
-
-.settings-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.25rem;
-  font-family: var(--font-ui);
-  font-size: 0.85rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--color-muted);
-}
-#settings-close-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--color-muted);
-  padding: 0.25rem;
-  display: flex;
-}
-
-.settings-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--color-border);
-  cursor: default;
-}
-.settings-row:last-child { border-bottom: none; }
-.settings-label {
-  font-family: var(--font-ui);
-  font-size: 0.9rem;
-  color: var(--color-text);
-}
-.settings-row select,
-.settings-row button {
-  font-family: var(--font-ui);
-  font-size: 0.85rem;
-  background: var(--color-surface-alt, rgba(0,0,0,0.05));
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  padding: 0.3rem 0.6rem;
-  color: var(--color-text);
-  cursor: pointer;
-}
-
-#nav a {
-  color: var(--color-nav-text);
-  text-decoration: none;
-  opacity: 0.8;
-  padding: 0.2rem 0.5rem;
-  border-radius: 3px;
-  transition: opacity 0.1s, background 0.1s;
-  white-space: nowrap;
-}
-
-@media (hover: hover) {
-  #nav a:hover { opacity: 1; background: rgba(255,255,255,0.08); }
-}
-#nav a.nav-active { opacity: 1; background: rgba(255,255,255,0.14); font-weight: 500; }
-
-#nav-date-wrapper {
-  flex: 1;
-  text-align: center;
-  cursor: pointer;
-  position: relative;
-}
-
-#nav-date {
-  display: inline-block;
-  width: 9rem;
-  font-weight: 500;
-  font-size: 0.875rem;
-  text-decoration: underline dotted rgba(255,255,255,0.35);
-  text-underline-offset: 3px;
-}
-
-/* Transparent overlay covering the date wrapper — tap/click opens native picker on all platforms */
-#nav-date-picker {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
-  border: none;
-  padding: 0;
-  color-scheme: dark;
-}
-
-.nav-arrow {
-  font-size: 1.1rem;
-  padding: 0.15rem 0.6rem;
-  flex-shrink: 0;
-}
-
-.nav-disabled { opacity: 0.2 !important; pointer-events: none; cursor: default; }
-
-/* "Today" link — invisible when already on today; shown when navigated elsewhere.
-   Uses visibility:hidden (not display:none) so the button always occupies space
-   and the surrounding arrows never shift position. */
-#nav-today {
-  visibility: hidden;
-  display: inline-flex;
-  align-items: center;
-  font-size: 0.72rem;
-  padding: 0.1rem 0.45rem;
-  border-radius: 2px;
-  background: rgba(255,255,255,0.1);
-  color: var(--color-nav-text);
-  text-decoration: none;
-  white-space: nowrap;
-  opacity: 0.85;
-  flex-shrink: 0;
-}
-#nav-today.nav-today-visible { visibility: visible; }
-@media (hover: hover) { #nav-today:hover { opacity: 1; background: rgba(255,255,255,0.18); } }
-
-
-
-/* ── Main content ──────────────────────────────────────────────────────────── */
-
-#nav-spacer {
-  display: block;
-  /* height set by JS to match the fixed nav */
-}
-
-#main {
-  max-width: var(--content-max);
-  margin: 0 auto;
-  padding: 1.5rem 1.25rem 4rem;
-}
-
-/* ── Day header ────────────────────────────────────────────────────────────── */
-
-/* App name — hidden on desktop (shown in nav instead); appears above office name on mobile */
-#day-brand {
-  display: none;
-  font-family: var(--font-ui);
-  font-size: 0.6rem;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-  margin-bottom: 0.3rem;
-}
-@media (max-width: 520px) { #day-brand { display: block; } }
-
-#day-header {
-  padding-top: 0.75rem;
-  margin-bottom: 0.75rem;
-  padding-bottom: 0.5rem;
-}
-
-#day-office-name {
-  font-family: var(--font-ui);
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-  margin-bottom: 0.35rem;
-}
-
-#day-title {
-  font-family: var(--font-liturgy);
-  font-size: 1.6rem;
-  font-weight: 600;
-  line-height: 1.25;
-  margin-bottom: 0.5rem;
-}
-
-#day-subtitle {
-  font-family: var(--font-liturgy);
-  font-size: 1rem;
-  font-style: italic;
-  color: var(--color-muted);
-  margin-bottom: 0.5rem;
-}
-
-#day-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  font-size: 0.8rem;
-  color: var(--color-muted);
-}
-
-.colour-chip {
-  display: inline-block;
-  width: 13px;
-  height: 13px;
-  border-radius: 2px;
-  border: 1px solid rgba(0,0,0,0.18);
-  flex-shrink: 0;
-  vertical-align: middle;
-  padding: 0;
-}
-
-.colour-chip-toggle {
-  cursor: pointer;
-  transition: transform 0.15s ease;
-}
-.colour-chip-toggle:hover { transform: scale(1.25); }
-
-.colour-cycle-hint { font-size: 0.7em; opacity: 0.6; }
-
-.colour-name {
-  font-size: 0.78rem;
-  color: var(--color-muted);
-}
-
-.meta-item { display: flex; align-items: center; gap: 0.35rem; }
-.meta-sep  { color: var(--color-border); }
-
-/* ── View toggle (book mode) ───────────────────────────────────────────────── */
-
-#view-toggle-row {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 0.5rem;
-}
-#view-toggle {
-  font-family: var(--font-ui);
-  font-size: 0.75rem;
-  background: none;
-  border: 1px solid var(--color-border);
-  border-radius: 3px;
-  padding: 0.25rem 0.6rem;
-  color: var(--color-muted);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  transition: color 0.15s, border-color 0.15s;
-}
-#view-toggle:hover,
-#view-toggle[aria-pressed="true"] {
-  color: var(--color-text);
-  border-color: var(--color-accent);
-}
-
-/* Book mode — applied to <body> */
-body.book-mode .alt-tabs          { display: none !important; }
-body.book-mode .alt-panel         { display: block !important; }
-body.book-mode .alt-panel-hidden  { display: block !important; }
-
-/* "or" divider between alternatives in book mode */
-body.book-mode .alt-panel + .alt-panel::before {
-  content: "or";
-  display: block;
-  text-align: center;
-  font-family: var(--font-ui);
-  font-size: 0.75rem;
-  color: var(--color-muted);
-  text-transform: lowercase;
-  letter-spacing: 0.1em;
-  margin: 0.5rem 0;
-  padding: 0.25rem 0;
-  border-top: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
-}
-
-/* ── Form title / subtitle ─────────────────────────────────────────────────── */
-
-.form-header {
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.form-title {
-  font-family: var(--font-liturgy);
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--color-text);
-  margin-bottom: 0.2rem;
-}
-
-.form-subtitle {
-  font-family: var(--font-liturgy);
-  font-size: 0.9rem;
-  font-style: italic;
-  color: var(--color-muted);
-}
-
-/* ── Office section headings ───────────────────────────────────────────────── */
-
-.office-section-title {
-  font-family: var(--font-ui);
-  font-size: 0.85rem;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-  margin: 2rem 0 1rem;
-  padding-top: 1.25rem;
-  border-top: 2px solid var(--color-day);
-}
-
-.office-subsection-title {
-  font-family: var(--font-ui);
-  font-size: 0.8rem;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-  margin: 1.5rem 0 0.5rem;
-}
-
-/* ── Liturgical segments ───────────────────────────────────────────────────── */
-
-.liturgy { font-family: var(--font-liturgy); }
-
-.seg-leader {
-  font-family: var(--font-liturgy);
-  font-size: 1.15rem;
-  margin: 0.55em 0;
-  white-space: pre-wrap;
-}
-
-.seg-response {
-  font-family: var(--font-liturgy);
-  font-size: 1.15rem;
-  font-weight: 600;
-  margin: 0.55em 0;
-  white-space: pre-wrap;
-}
-
-.seg-rubric {
-  font-family: var(--font-ui);
-  font-size: 0.875rem;
-  font-style: italic;
-  color: var(--color-rubric);
-  margin: 0.6em 0;
-  white-space: pre-wrap;
-}
-
-/* ── Psalm text ────────────────────────────────────────────────────────────── */
-
-.psalm-heading {
-  font-family: var(--font-ui);
-  font-size: 0.8rem;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-  margin: 1.5rem 0 0.5rem;
-}
-
-.psalm-title {
-  font-family: var(--font-liturgy);
-  font-size: 0.9rem;
-  font-style: italic;
-  color: var(--color-muted);
-  margin-bottom: 0.75rem;
-}
-
-.psalm-set-divider {
-  font-family: var(--font-ui);
-  font-size: 0.75rem;
-  font-style: italic;
-  color: var(--color-muted);
-  text-align: center;
-  margin: 1rem 0;
-}
-
-.verse {
-  display: grid;
-  grid-template-columns: 1.75rem 1fr;
-  gap: 0 0.25rem;
-  margin: 0.45em 0;
-  font-family: var(--font-liturgy);
-  font-size: 1.15rem;
-  line-height: var(--line-height);
-}
-
-.verse-num {
-  font-size: 0.72em;
-  color: var(--color-muted);
-  text-align: right;
-  padding-top: 0.22em;
-  font-family: var(--font-ui);
-  user-select: none;
-}
-
-.verse-text { white-space: pre-wrap; }
-
-/* midpoint asterisk — keep visible but muted; group prevents orphaning on wrap */
-.midpoint { color: var(--color-muted); font-style: normal; }
-.midpoint-group { white-space: nowrap; }
-
-/* ── Scripture reading ─────────────────────────────────────────────────────── */
-
-.reading-heading {
-  font-family: var(--font-ui);
-  font-size: 0.8rem;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-  margin: 1.5rem 0 0.5rem;
-}
-
-.scripture-verse {
-  display: grid;
-  grid-template-columns: 1.75rem 1fr;
-  gap: 0 0.25rem;
-  margin: 0.45em 0;
-  font-family: var(--font-liturgy);
-  font-size: 1.15rem;
-  line-height: var(--line-height);
-}
-
-.psalm-gloria {
-  font-family: var(--font-liturgy);
-  margin-top: 0.5rem;
-  padding-top: 0.25rem;
-  border-top: 1px solid rgba(0,0,0,0.1);
-}
-[data-theme="dark"] .psalm-gloria { border-top-color: rgba(255,255,255,0.1); }
-
-/* ── Collect ───────────────────────────────────────────────────────────────── */
-
-.collect-text {
-  font-family: var(--font-liturgy);
-  font-size: 1.15rem;
-  white-space: pre-wrap;
-  margin: 0.5rem 0;
-}
-
-/* ── Observance card ───────────────────────────────────────────────────────── */
-
-.observance-card {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  background: var(--color-surface-alt, rgba(0,0,0,0.03));
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  padding: 0.6rem 0.85rem;
-  margin-bottom: 1.25rem;
-  font-family: var(--font-ui);
-  font-size: 0.8rem;
-}
-.observance-card-label {
-  color: var(--color-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 0.7rem;
-}
-.observance-card-name {
-  color: var(--color-text);
-  font-weight: 500;
-  flex: 1;
-}
-.observance-card-link {
-  color: var(--color-accent);
-  text-decoration: none;
-  white-space: nowrap;
-}
-.observance-card-link:hover { text-decoration: underline; }
-/* Mobile: label + link on row 1, observance name on row 2 */
-@media (max-width: 520px) {
-  .observance-card { flex-wrap: wrap; }
-  .observance-card-label { order: 1; flex: 0 0 auto; }
-  .observance-card-link  { order: 2; margin-left: auto; flex: 0 0 auto; }
-  .observance-card-name  { order: 3; flex: 0 0 100%; margin-top: 0.1rem; font-size: 0.85rem; }
-}
-
-/* ── Observance readings toggle ────────────────────────────────────────────── */
-
-.obs-readings.obs-hidden { display: none; }
-
-/* ── Loading / error states ────────────────────────────────────────────────── */
-
-.loading {
-  color: var(--color-muted);
-  font-style: italic;
-  font-size: 0.9rem;
-  margin: 2rem 0;
-  text-align: center;
-}
-
-.error-msg {
-  font-family: var(--font-ui);
-  font-size: 0.9rem;
-  color: var(--color-rubric);
-  border: 1px solid var(--color-rubric);
-  border-radius: 4px;
-  padding: 0.75rem 1rem;
-  margin: 1rem 0;
-}
-
-/* UX-08: Per-reading fallback note when preferred translation is unavailable */
-.scripture-fallback-note {
-  font-family: var(--font-ui);
-  font-size: 0.78rem;
-  font-style: italic;
-  color: var(--color-muted);
-  margin-top: 0.4rem;
-}
-
-/* ── Scripture attribution ─────────────────────────────────────────────────── */
-
-.scripture-attr {
-  font-family: var(--font-ui);
-  font-size: 0.75rem;
-  color: var(--color-muted);
-  font-style: italic;
-  margin-top: 2rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--color-border);
-  text-align: center;
-}
-
-/* ── Notes ─────────────────────────────────────────────────────────────────── */
-
-.day-note {
-  font-family: var(--font-liturgy);
-  font-size: 0.95rem;
-  font-style: italic;
-  color: var(--color-muted);
-  margin: 0.4rem 0;
-}
-.day-note a { color: var(--color-link); text-decoration: underline; font-style: normal; }
-
-/* O Antiphon — liturgical block with Latin title accent */
-.day-note--antiphon {
-  font-style: normal;
-  color: var(--color-text);
-  border-left: 3px solid var(--color-accent);
-  padding-left: 0.75rem;
-  margin: 0.75rem 0;
-}
-.note-antiphon-label {
-  display: block;
-  font-family: var(--font-ui);
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-accent);
-  margin-bottom: 0.2rem;
-}
-.note-antiphon-body {
-  font-family: var(--font-liturgy);
-  font-size: 1rem;
-  font-style: italic;
-  line-height: var(--line-height);
-}
-
-/* Civil day / Week of Prayer — muted informational note */
-.day-note--info {
-  font-size: 0.85rem;
-  font-style: normal;
-  font-family: var(--font-ui);
-  color: var(--color-muted);
-}
-.day-note--info strong { font-weight: 500; color: var(--color-text); }
-
-.note-expand-btn {
-  background: none;
-  border: none;
-  font-family: inherit;
-  font-size: inherit;
-  color: var(--color-accent);
-  cursor: pointer;
-  padding: 0;
-  text-decoration: underline;
-  font-style: normal;
-}
-
-
-/* ── Alternatives toggle ───────────────────────────────────────────────────── */
-
-.alt-source {
-  font-family: var(--font-ui);
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-  margin: 0 0 0.4rem;
-}
-
-.alt-block { margin: 0.75rem 0; }
-
-.alt-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-  margin-bottom: 0.6rem;
-}
-
-.alt-tab {
-  font-family: var(--font-ui);
-  font-size: 0.78rem;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-  background: none;
-  border: 1px solid var(--color-border);
-  border-radius: 3px;
-  padding: 0.35rem 0.85rem;
-  cursor: pointer;
-  transition: color 0.1s, border-color 0.1s;
-}
-
-.alt-tab:hover { color: var(--color-text); border-color: var(--color-muted); }
-
-.alt-tab.alt-tab-active {
-  color: var(--color-accent);
-  border-color: var(--color-accent);
-}
-
-.alt-panel-hidden { display: none; }
-
-/* ── Evaluation banner ─────────────────────────────────────────────────────── */
-
-.eval-banner {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.55rem 0.75rem;
-  margin-bottom: 1.5rem;
-  background: var(--color-surface);
-  border-left: 2px solid var(--color-accent);
-  font-family: var(--font-ui);
-  font-size: 0.78rem;
-  font-style: italic;
-  color: var(--color-muted);
-}
-
-.eval-banner-dismiss {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--color-muted);
-  font-size: 1.1rem;
-  line-height: 1;
-  padding: 0;
-  flex-shrink: 0;
-  opacity: 0.6;
-}
-
-.eval-banner-dismiss:hover { opacity: 1; }
-
-/* ── Observance nav buttons ────────────────────────────────────────────────── */
 
 .obs-nav-btn {
   font-family: var(--font-ui);
@@ -907,67 +223,551 @@ body.book-mode .alt-panel + .alt-panel::before {
   cursor: pointer;
   color: var(--color-nav-text);
   text-decoration: none;
-  opacity: 0.7;
+  opacity: 0.68;
   transition: opacity 0.1s, background 0.1s;
 }
+.obs-nav-btn:hover { opacity: 1; background: rgba(255,255,255,0.08); }
+.obs-nav-btn.nav-active { opacity: 1; background: rgba(255,255,255,0.12); }
 
-.obs-nav-btn:hover      { opacity: 1; background: rgba(255,255,255,0.08); }
-.obs-nav-btn.nav-active { opacity: 1; background: rgba(255,255,255,0.14); font-weight: 500; }
+/* Settings button — matches #nav-date-wrapper pill style */
+#nav-settings-btn {
+  flex: 0; width: 34px; height: 34px; border-radius: 9px;
+  background: rgba(255,255,255,0.1); border: none;
+  color: var(--color-nav-text); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0.85; transition: background 0.15s, opacity 0.15s;
+  flex-shrink: 0;
+}
+#nav-settings-btn:hover { background: rgba(255,255,255,0.18); opacity: 1; }
 
-/* ── Out-of-range message ──────────────────────────────────────────────────── */
+/* Nav links */
+#nav a {
+  color: var(--color-nav-text);
+  text-decoration: none;
+  opacity: 0.78;
+  padding: 0.2rem 0.5rem;
+  border-radius: 3px;
+  transition: opacity 0.1s, background 0.1s;
+  white-space: nowrap;
+}
+@media (hover: hover) {
+  #nav a:hover { opacity: 1; background: rgba(255,255,255,0.08); }
+}
+#nav a.nav-active { opacity: 1; background: rgba(255,255,255,0.12); font-weight: 500; }
 
-.out-of-range-msg {
-  padding: 2rem 0 1rem;
+/* #nav-date and #nav-date-picker: replaced by icon button layout above */
+#nav-date-picker {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; cursor: pointer; border: none; padding: 0; color-scheme: dark;
+}
+
+.nav-arrow { font-size: 1.1rem; padding: 0.15rem 0.55rem; flex-shrink: 0; }
+/* hidden in new nav layout but kept in DOM for keyboard shortcuts */
+.nav-arrow--hidden { position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0; overflow: hidden; }
+.nav-date--hidden { display: none; }
+/* calendar icon visual style */
+.nav-cal-icon { display: block; color: var(--color-nav-text); opacity: 0.8; }
+/* nav-date-wrapper becomes an icon button */
+#nav-date-wrapper {
+  flex: 0; width: 34px; height: 34px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.1); cursor: pointer; position: relative;
+}
+#nav-date-wrapper:hover { background: rgba(255,255,255,0.18); }
+/* ── Settings bottom sheet ──────────────────────────────────────────────────── */
+
+.settings-sheet {
+  position: fixed; inset: 0; z-index: 200;
+  pointer-events: none; display: flex; align-items: flex-end;
+}
+.settings-sheet[aria-hidden="false"] { pointer-events: all; }
+
+.settings-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(10,18,14,0.45); opacity: 0;
+  transition: opacity 0.22s;
+}
+.settings-sheet[aria-hidden="false"] .settings-backdrop { opacity: 1; }
+
+.settings-panel {
+  position: relative; width: 100%;
+  background: var(--color-surface);
+  border-radius: 18px 18px 0 0;
+  padding: 0.6rem 1.25rem 2.4rem;
+  transform: translateY(100%);
+  transition: transform 0.28s cubic-bezier(0.32,0.72,0,1);
+  max-width: 480px; margin: 0 auto;
+  box-shadow: 0 -12px 40px rgba(0,0,0,0.22);
+}
+.settings-sheet[aria-hidden="false"] .settings-panel { transform: translateY(0); }
+
+/* Grip handle */
+.settings-panel::before {
+  content: ''; display: block;
+  width: 38px; height: 4px; border-radius: 999px;
+  background: var(--color-border);
+  margin: 0.4rem auto 0.9rem;
+}
+
+.settings-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 1.1rem;
   font-family: var(--font-liturgy);
-  font-size: 1.05rem;
-  line-height: 1.7;
+  font-variant: small-caps;
+  font-size: 1.1rem; font-weight: 600;
+  color: var(--color-heading);
+  letter-spacing: 0.04em;
+}
+#settings-close-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--color-muted); padding: 0.25rem; display: flex;
 }
 
-.out-of-range-title {
-  font-weight: 600;
-  font-size: 1.2rem;
+.settings-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.85rem 0; border-bottom: 1px solid var(--color-border);
+  gap: 1rem;
+}
+.settings-row:last-child { border-bottom: none; }
+
+.settings-label { font-family: var(--font-ui); font-size: 0.9rem; color: var(--color-text); }
+.settings-sublabel { font-family: var(--font-ui); font-size: 0.72rem; color: var(--color-muted); margin-top: 2px; }
+
+.settings-row select, .settings-row button {
+  font-family: var(--font-ui); font-size: 0.85rem;
+  background: rgba(0,0,0,0.05); border: 1px solid var(--color-border);
+  border-radius: 7px; padding: 0.3rem 0.65rem;
+  color: var(--color-text); cursor: pointer;
+}
+[data-theme="dark"] .settings-row select,
+[data-theme="dark"] .settings-row button {
+  background: rgba(255,255,255,0.07);
+}
+/* Mini segmented control inside settings */
+.settings-mini-seg {
+  display: flex; gap: 3px; padding: 3px;
+  background: rgba(0,0,0,0.06); border: 1px solid var(--color-border);
+  border-radius: 10px; flex-shrink: 0;
+}
+[data-theme="dark"] .settings-mini-seg { background: rgba(255,255,255,0.06); }
+.settings-mini-seg button {
+  background: transparent; border: none; cursor: pointer;
+  font-family: var(--font-ui); font-size: 0.78rem; font-weight: 500;
+  color: var(--color-muted); padding: 0.3rem 0.65rem; border-radius: 7px;
+}
+.settings-mini-seg button.is-active {
+  background: var(--color-nav-bg); color: var(--color-nav-text);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+
+/* ── Main content ───────────────────────────────────────────────────────────── */
+
+#nav-spacer { display: block; }
+
+#main {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 5rem;
+}
+
+/* ── Day header ─────────────────────────────────────────────────────────────── */
+
+#day-brand {
+  display: none;
+  font-family: var(--font-ui); font-size: 0.6rem;
+  font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--color-muted); margin-bottom: 0.3rem;
+}
+@media (max-width: 520px) { #day-brand { display: block; } }
+
+#day-header {
+  padding: 1rem 0 0.75rem;
   margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
 }
 
-.out-of-range-note {
-  font-style: italic;
+#day-office-name {
+  font-family: var(--font-ui);
+  font-size: 0.7rem; font-weight: 600;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--color-accent);
+  margin-bottom: 0.4rem;
+}
+
+#day-title {
+  font-family: var(--font-liturgy);
+  font-size: 1.75rem; font-weight: 600; line-height: 1.2;
+  margin-bottom: 0.4rem;
+}
+
+#day-subtitle {
+  font-family: var(--font-liturgy);
+  font-size: 1.05rem; font-style: italic;
+  color: var(--color-text);
+  margin-bottom: 0.45rem;
+}
+
+#day-meta {
+  display: flex; align-items: center; gap: 0.6rem 0.9rem;
+  flex-wrap: wrap; font-size: 0.78rem;
+}
+
+/* Meta: season item */
+.meta-item { display: flex; align-items: center; gap: 0.35rem; color: var(--color-muted); white-space: nowrap; }
+.meta-item--season { font-weight: 500; color: var(--color-text); }
+.meta-lbl {
+  font-family: var(--font-ui); font-size: 0.6rem;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-muted); opacity: 0.8;
+}
+.meta-val { font-family: var(--font-ui); font-size: 0.78rem; color: var(--color-text); font-weight: 500; }
+.meta-sep { color: var(--color-border); }
+
+/* Colour chip */
+.colour-chip {
+  display: inline-block; width: 13px; height: 13px;
+  border-radius: 3px; border: 1px solid rgba(0,0,0,0.18);
+  flex-shrink: 0; vertical-align: middle; padding: 0;
+}
+.colour-chip-toggle { cursor: pointer; transition: transform 0.15s; }
+.colour-chip-toggle:hover { transform: scale(1.25); }
+.colour-cycle-hint { font-size: 0.7em; opacity: 0.55; }
+.colour-name { font-size: 0.78rem; color: var(--color-muted); font-family: var(--font-ui); }
+
+/* ── View toggle (book mode) ────────────────────────────────────────────────── */
+
+/* View toggle — hidden; View is now in Settings sheet */
+#view-toggle-row { display: none; }
+
+/* Book mode */
+body.book-mode .alt-tabs          { display: none !important; }
+body.book-mode .alt-panel         { display: block !important; }
+body.book-mode .alt-panel-hidden  { display: block !important; }
+body.book-mode .alt-panel + .alt-panel::before {
+  content: "or";
+  display: flex; align-items: center;
+  font-family: var(--font-liturgy); font-style: italic; font-size: 0.98rem;
+  color: var(--color-rubric); letter-spacing: 0.04em;
+  margin: 0.85rem 0;
+  gap: 0.75rem;
+}
+body.book-mode .alt-panel + .alt-panel::before,
+body.book-mode .alt-panel + .alt-panel {
+  padding-top: 0;
+}
+/* "or" with subtle rules either side */
+body.book-mode .alt-panel + .alt-panel::before {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.75rem;
+}
+body.book-mode .alt-panel + .alt-panel::before {
+  /* fallback text already "or" — add pseudo rules via box-shadow not possible here.
+     Keep as simple italic "or" left-indented */
+  display: block;
+  margin-left: var(--indent);
+}
+
+/* ── Form header ────────────────────────────────────────────────────────────── */
+
+.form-header {
+  margin-bottom: 1.5rem; padding-bottom: 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.form-title {
+  font-family: var(--font-liturgy); font-size: 1.08rem; font-weight: 600;
+  color: var(--color-text); margin-bottom: 0.2rem;
+}
+.form-subtitle {
+  font-family: var(--font-liturgy); font-size: 0.9rem; font-style: italic;
   color: var(--color-muted);
-  margin-top: 0.5rem;
 }
 
-.out-of-range-msg a {
-  color: var(--color-link);
-  margin-top: 1.25rem;
-  display: inline-block;
+/* ── Section headings ───────────────────────────────────────────────────────── */
+
+.office-section-title {
+  font-family: var(--font-ui);
+  font-size: 0.76rem; font-weight: 700;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--color-heading);
+  margin: 2.5rem 0 1rem;
+  padding-top: 1rem;
+  border-top: 1.5px solid var(--color-accent);
 }
 
-/* ── Desktop layout ────────────────────────────────────────────────────────── */
+.office-subsection-title {
+  font-family: var(--font-liturgy);
+  font-size: 1.14rem; font-weight: 600; letter-spacing: 0.005em;
+  color: var(--color-heading);
+  margin: 1.6rem 0 0.55rem;
+}
+
+/* ── Liturgical segments ────────────────────────────────────────────────────── */
+
+.liturgy { font-family: var(--font-liturgy); }
+
+.seg-leader {
+  font-family: var(--font-liturgy);
+  font-size: 1.15rem; line-height: var(--line-height);
+  margin: 0.75rem 0 0.25rem var(--indent);
+  white-space: pre-wrap;
+}
+.seg-response {
+  font-family: var(--font-liturgy);
+  font-size: 1.15rem; font-weight: 600; line-height: var(--line-height);
+  margin: 0.2rem 0 0.75rem var(--indent);
+  white-space: pre-wrap;
+}
+/* Tighten versicle→response */
+.seg-leader + .seg-response { margin-top: 0.2rem; }
+.seg-response + .seg-leader { margin-top: 1rem; }
+
+.seg-rubric {
+  font-family: var(--font-ui);
+  font-size: 0.875rem; font-style: italic;
+  color: var(--color-rubric);
+  margin: 0.65em 0;
+  white-space: pre-wrap;
+}
+
+/* ── Psalm text ─────────────────────────────────────────────────────────────── */
+
+.psalm-heading {
+  font-family: var(--font-ui);
+  font-size: 0.76rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--color-muted); margin: 1.5rem 0 0.5rem;
+}
+.psalm-title {
+  font-family: var(--font-liturgy); font-size: 0.9rem; font-style: italic;
+  color: var(--color-muted); margin: 0 0 0.7rem var(--indent);
+}
+.psalm-set-divider {
+  font-family: var(--font-ui); font-size: 0.75rem; font-style: italic;
+  color: var(--color-muted); text-align: center; margin: 1rem 0;
+}
+
+.verse {
+  display: grid; grid-template-columns: 1.75rem 1fr; gap: 0 0.25rem;
+  margin: 0.4em 0 0.4em var(--indent);
+  font-family: var(--font-liturgy); font-size: 1.12rem; line-height: var(--line-height);
+}
+.verse-num {
+  font-size: 0.68em; color: var(--color-brass-ink); text-align: right;
+  padding-top: 0.24em; font-family: var(--font-ui);
+  user-select: none; font-weight: 600;
+}
+.verse-text { white-space: pre-wrap; }
+.midpoint { color: var(--color-brass-ink); font-style: normal; }
+.midpoint-group { white-space: nowrap; }
+
+.psalm-gloria {
+  font-family: var(--font-liturgy);
+  margin-top: 0.5rem; padding-top: 0.25rem;
+  border-top: 1px solid rgba(0,0,0,0.1);
+}
+[data-theme="dark"] .psalm-gloria { border-top-color: rgba(255,255,255,0.1); }
+
+/* ── Scripture reading ──────────────────────────────────────────────────────── */
+
+.reading-heading {
+  font-family: var(--font-ui);
+  font-size: 0.76rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--color-muted); margin: 1.5rem 0 0.5rem;
+}
+.scripture-verse {
+  display: grid; grid-template-columns: 1.75rem 1fr; gap: 0 0.25rem;
+  margin: 0.4em 0 0.4em var(--indent);
+  font-family: var(--font-liturgy); font-size: 1.12rem; line-height: var(--line-height);
+}
+.scripture-attr {
+  font-family: var(--font-ui); font-size: 0.75rem; color: var(--color-muted);
+  font-style: italic; margin-top: 2rem; padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border); text-align: center;
+}
+.scripture-fallback-note {
+  font-family: var(--font-ui); font-size: 0.78rem; font-style: italic;
+  color: var(--color-muted); margin-top: 0.4rem;
+}
+
+/* ── Collect ────────────────────────────────────────────────────────────────── */
+
+.collect-text {
+  font-family: var(--font-liturgy); font-size: 1.12rem;
+  white-space: pre-wrap; margin: 0.5rem 0 0.5rem var(--indent);
+  line-height: var(--line-height);
+}
+
+/* ── Observance card ────────────────────────────────────────────────────────── */
+
+.observance-card {
+  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+  background: rgba(0,0,0,0.03); border: 1px solid var(--color-border);
+  border-radius: 6px; padding: 0.6rem 0.9rem; margin-bottom: 1.25rem;
+  font-family: var(--font-ui); font-size: 0.8rem;
+}
+[data-theme="dark"] .observance-card { background: rgba(255,255,255,0.04); }
+.observance-card-label {
+  color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.7rem;
+}
+.observance-card-name { color: var(--color-text); font-weight: 500; flex: 1; }
+.observance-card-link { color: var(--color-accent); text-decoration: none; white-space: nowrap; }
+.observance-card-link:hover { text-decoration: underline; }
+@media (max-width: 520px) {
+  .observance-card { flex-wrap: wrap; }
+  .observance-card-label { order: 1; flex: 0 0 auto; }
+  .observance-card-link  { order: 2; margin-left: auto; flex: 0 0 auto; }
+  .observance-card-name  { order: 3; flex: 0 0 100%; margin-top: 0.1rem; font-size: 0.85rem; }
+}
+.obs-readings.obs-hidden { display: none; }
+
+/* ── Alternatives ───────────────────────────────────────────────────────────── */
+
+.alt-source {
+  font-family: var(--font-liturgy); font-size: 0.92rem;
+  font-style: italic; color: var(--color-rubric);
+  margin: 0.2rem 0 0.4rem;
+}
+.alt-block { margin: 0.75rem 0; }
+.alt-tabs { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.65rem; }
+.alt-tab {
+  font-family: var(--font-ui); font-size: 0.76rem; font-weight: 500;
+  letter-spacing: 0.03em; color: var(--color-muted);
+  background: none; border: 1px solid var(--color-border);
+  border-radius: 999px; padding: 0.3rem 0.75rem; cursor: pointer;
+  transition: color 0.1s, border-color 0.1s, background 0.1s;
+  text-transform: none;
+}
+.alt-tab:hover { color: var(--color-text); border-color: var(--color-muted); }
+.alt-tab.alt-tab-active {
+  color: var(--color-heading); border-color: var(--color-brass);
+  background: color-mix(in oklab, var(--color-brass) 10%, var(--color-bg));
+  font-weight: 600;
+}
+.alt-panel-hidden { display: none; }
+
+/* ── Day notes ──────────────────────────────────────────────────────────────── */
+
+.day-note {
+  font-family: var(--font-liturgy); font-size: 0.95rem;
+  font-style: italic; color: var(--color-muted); margin: 0.4rem 0;
+}
+.day-note a { color: var(--color-link); text-decoration: underline; font-style: normal; }
+
+.day-note--antiphon {
+  font-style: normal; color: var(--color-text);
+  border-left: 3px solid var(--color-accent);
+  padding-left: 0.75rem; margin: 0.75rem 0;
+}
+.note-antiphon-label {
+  display: block; font-family: var(--font-ui); font-size: 0.72rem;
+  font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--color-accent); margin-bottom: 0.2rem;
+}
+.note-antiphon-body {
+  font-family: var(--font-liturgy); font-size: 1rem;
+  font-style: italic; line-height: var(--line-height);
+}
+.day-note--info {
+  font-size: 0.85rem; font-style: normal; font-family: var(--font-ui);
+  color: var(--color-muted);
+}
+.day-note--info strong { font-weight: 500; color: var(--color-text); }
+
+.note-expand-btn {
+  background: none; border: none; font-family: inherit; font-size: inherit;
+  color: var(--color-accent); cursor: pointer; padding: 0;
+  text-decoration: underline; font-style: normal;
+}
+
+/* ── Office & Observance controls in day header ────────────────────────────── */
+
+#day-office-controls { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.7rem; }
+
+.day-ctrl-group { display: flex; flex-direction: column; gap: 0.38rem; }
+
+.day-ctrl-cap {
+  font-family: var(--font-ui);
+  font-size: 0.6rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--color-muted);
+}
+.day-ctrl-obs-mark { color: var(--color-brass); font-size: 0.6em; vertical-align: middle; }
+
+.day-ctrl-seg {
+  display: flex; gap: 4px; padding: 4px;
+  background: rgba(0,0,0,0.05); border: 1px solid var(--color-border);
+  border-radius: 12px;
+}
+[data-theme="dark"] .day-ctrl-seg { background: rgba(255,255,255,0.05); }
+
+.day-ctrl-btn {
+  flex: 1; text-align: center; padding: 0.55rem 0.5rem; border-radius: 8px;
+  font-family: var(--font-ui); font-size: 0.82rem; font-weight: 500; letter-spacing: 0.01em;
+  color: var(--color-muted); text-decoration: none; display: block;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.day-ctrl-btn:hover { color: var(--color-text); }
+.day-ctrl-btn.is-active {
+  background: var(--color-nav-bg); color: var(--color-nav-text);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.day-ctrl-sub { display: block; font-size: 0.6rem; opacity: 0.72; margin-top: 2px; }
+
+/* Observance seg: brass outline style (distinct category from time-of-day) */
+.day-ctrl-seg--obs { background: transparent; border-color: color-mix(in oklab, var(--color-brass) 40%, var(--color-border)); }
+.day-ctrl-seg--obs .day-ctrl-btn.is-active {
+  background: color-mix(in oklab, var(--color-brass) 15%, var(--color-bg));
+  color: var(--color-heading);
+  box-shadow: inset 0 0 0 1.5px var(--color-brass);
+}
+/* Hide the redundant observance card in office-content when controls are in header */
+.observance-card { display: none; }
+
+.loading {
+  color: var(--color-muted); font-style: italic; font-size: 0.9rem;
+  margin: 2rem 0; text-align: center;
+}
+.error-msg {
+  font-family: var(--font-ui); font-size: 0.9rem; color: var(--color-rubric);
+  border: 1px solid var(--color-rubric); border-radius: 6px;
+  padding: 0.75rem 1rem; margin: 1rem 0;
+}
+.out-of-range-msg {
+  padding: 2rem 0 1rem; font-family: var(--font-liturgy);
+  font-size: 1.05rem; line-height: 1.7;
+}
+.out-of-range-title { font-weight: 600; font-size: 1.2rem; margin-bottom: 0.75rem; }
+.out-of-range-note  { font-style: italic; color: var(--color-muted); margin-top: 0.5rem; }
+.out-of-range-msg a { color: var(--color-link); margin-top: 1.25rem; display: inline-block; }
+
+/* ── Evaluation banner ──────────────────────────────────────────────────────── */
+
+.eval-banner {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem;
+  padding: 0.55rem 0.75rem; margin-bottom: 1.5rem;
+  background: var(--color-surface); border-left: 2px solid var(--color-accent);
+  font-family: var(--font-ui); font-size: 0.78rem; font-style: italic; color: var(--color-muted);
+}
+.eval-banner-dismiss {
+  background: none; border: none; cursor: pointer; color: var(--color-muted);
+  font-size: 1.1rem; line-height: 1; padding: 0; flex-shrink: 0; opacity: 0.6;
+}
+.eval-banner-dismiss:hover { opacity: 1; }
+
+/* ── Desktop layout ─────────────────────────────────────────────────────────── */
 
 @media (min-width: 820px) {
   :root { --content-max: 54rem; }
-
-  #nav { box-shadow: 0 2px 0 var(--color-accent); }
-
-  /* Suppress the column-layout accent stripe */
-  #nav::after { display: none; }
-
-  #main { padding-left: 1.25rem; padding-right: 1.25rem; }
-
   #day-title { font-size: 2rem; }
 }
 
-/* ── Print ─────────────────────────────────────────────────────────────────── */
+/* ── Print ──────────────────────────────────────────────────────────────────── */
 
 @media print {
-  #nav           { display: none; position: static; }
-  #main          { max-width: 100%; padding: 1rem; }
-  .office-section-title { page-break-before: auto; }
-  .seg-rubric    { color: #555; }
-  /* Reveal all alternative panels so the full text prints */
+  #nav { display: none; position: static; }
+  #main { max-width: 100%; padding: 1rem; }
+  .seg-rubric { color: #7A3030; }
   .alt-panel-hidden { display: block !important; }
-  .alt-tabs      { display: none; }
-  /* Canticle/option source lines run inline with no extra top margin */
-  .alt-source    { margin-top: 0; }
-  /* Hide interactive chrome */
-  .date-nav, .obs-nav-btn, .eval-banner, .font-size-btn, #theme-toggle { display: none; }
+  .alt-tabs { display: none; }
+  .alt-source { margin-top: 0; }
+  .date-nav, .obs-nav-btn, .eval-banner, #theme-toggle { display: none; }
 }

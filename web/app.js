@@ -843,8 +843,6 @@ async function render(dateStr, officeType, translation) {
   // Update nav date immediately (even for out-of-range dates, so the user
   // sees the date they navigated to, not the previous page's date).
   document.getElementById('nav-date').textContent = fmtNavDate(dateStr);
-  const todayLinkEarly = document.getElementById('nav-today');
-  if (todayLinkEarly) todayLinkEarly.classList.toggle('nav-today-visible', dateStr !== todayStr());
 
   // Bounds enforcement before attempting to fetch the day file.
   const boundsMax = offsetDate(bounds.christmas_ii, 6);
@@ -1293,11 +1291,6 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     history.pushState({}, '', location.pathname);
     handleHashChange();
-  });
-
-  document.getElementById('nav-today').addEventListener('click', e => {
-    e.preventDefault();
-    location.hash = hashFor(todayStr(), defaultOffice());
   });
 
   // Settings sheet
