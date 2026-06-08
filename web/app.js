@@ -1377,7 +1377,10 @@ document.addEventListener('DOMContentLoaded', () => {
   picker.addEventListener('click', () => { try { picker.showPicker(); } catch (_) {} });
   picker.addEventListener('change', e => {
     if (e.target.value) location.hash = hashFor(e.target.value, state.office);
+    picker.blur();
   });
+  // Dismiss without selecting (Escape / tap-outside) — remove focus ring immediately.
+  picker.addEventListener('cancel', () => { picker.blur(); });
 
   document.getElementById('day-meta').addEventListener('click', e => {
     const chip = e.target.closest('.colour-chip-toggle');
