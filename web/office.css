@@ -754,6 +754,23 @@ body.book-mode .alt-panel + .alt-panel::before {
 }
 .eval-banner-dismiss:hover { opacity: 1; }
 
+/* ── Stale-date banner ──────────────────────────────────────────────────────── */
+
+.stale-banner {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  padding: 0.5rem 0.75rem; margin-bottom: 1.5rem;
+  background: var(--color-surface); border-left: 2px solid var(--color-brass);
+  font-family: var(--font-ui); font-size: 0.8rem; color: var(--color-muted);
+}
+.stale-sep { opacity: 0.45; }
+.stale-today { color: var(--color-link); text-decoration: none; white-space: nowrap; }
+.stale-today:hover { text-decoration: underline; }
+.stale-close {
+  background: none; border: none; cursor: pointer; color: var(--color-muted);
+  font-size: 1.1rem; line-height: 1; padding: 0; margin-left: auto; flex-shrink: 0; opacity: 0.6;
+}
+.stale-close:hover { opacity: 1; }
+
 /* ── Desktop layout ─────────────────────────────────────────────────────────── */
 
 @media (min-width: 820px) {

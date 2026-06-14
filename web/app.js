@@ -1364,6 +1364,41 @@ function switchTranslation(newTranslation) {
   fillScripture(root, newTranslation);
 }
 
+// ── Stale-date banner ─────────────────────────────────────────────────────────
+
+function showStaleBanner(date) {
+  if (sessionStorage.getItem('pwc-stale-banner-dismissed-' + date)) return;
+  let banner = document.getElementById('stale-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'stale-banner';
+    banner.className = 'stale-banner';
+    const contentEl = document.getElementById('office-content');
+    contentEl.parentNode.insertBefore(banner, contentEl);
+  }
+  banner.innerHTML = `<span>Viewing ${esc(fmtFullDate(date))}</span>`
+    + ` <span class="stale-sep" aria-hidden="true">·</span> `
+    + `<a class="stale-today" href="#">Jump to today →</a>`
+    + `<button class="stale-close" aria-label="Dismiss">×</button>`;
+  banner.hidden = false;
+  banner.querySelector('.stale-today').addEventListener('click', e => {
+    e.preventDefault();
+    sessionStorage.setItem('pwc-stale-banner-dismissed-' + date, '1');
+    hideStaleBanner();
+    history.pushState({}, '', location.pathname);
+    handleHashChange();
+  });
+  banner.querySelector('.stale-close').addEventListener('click', () => {
+    sessionStorage.setItem('pwc-stale-banner-dismissed-' + date, '1');
+    hideStaleBanner();
+  });
+}
+
+function hideStaleBanner() {
+  const banner = document.getElementById('stale-banner');
+  if (banner) banner.hidden = true;
+}
+
 // ── Evaluation banner ─────────────────────────────────────────────────────────
 
 function initEvalBanner() {
@@ -1393,6 +1428,11 @@ function handleHashChange() {
     state.date = todayStr();
     state.office = defaultOffice();
     state.observance = 'primary';
+  }
+  if (parsed && parsed.date < todayStr()) {
+    showStaleBanner(parsed.date);
+  } else {
+    hideStaleBanner();
   }
   render(state.date, state.office, state.translation);
 }
