@@ -1,5 +1,5 @@
 {
-  "extracted_at": "2026-06-14T16:07:18Z",
+  "extracted_at": "2026-06-14T23:01:59Z",
   "tool_versions": {
     "pdftotext": "pdftotext version 26.04.0"
   },
@@ -17,7 +17,7 @@
       "entries": 150
     },
     "data/fats/saints.json": {
-      "sha256": "1329d0aa5a47a44a57488c936fcd4f3afa9237755df25dc44d14f04fd553a00b",
+      "sha256": "a5eb72082be21e57c45e48e11fe73012525107813d43be837807e5c9d20d2092",
       "entries": 173
     },
     "data/lectionary": {
