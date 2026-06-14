@@ -1,5 +1,5 @@
 {
-  "extracted_at": "2026-06-14T16:03:54Z",
+  "extracted_at": "2026-06-14T16:07:18Z",
   "tool_versions": {
     "pdftotext": "pdftotext version 26.04.0"
   },
@@ -9,7 +9,7 @@
       "entries": 31
     },
     "data/collects.json": {
-      "sha256": "4ce9991f07ddb1e5279839bfc7ef402f89c6472d6718bd019bb0df65d2d71d7e",
+      "sha256": "49a5bd0fb0a28f6eb160134c677f55772c114b161bb716e3f95a24bb3f6807ac",
       "entries": 118
     },
     "data/psalter.json": {

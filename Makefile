@@ -90,9 +90,13 @@ serve-dist: check-dist
 test-tools:
 	pytest tools/tests/ -v
 
+# Scan extracted JSON files for PDF extraction artifacts (missing spaces, etc.).
+check-text:
+	python3 tools/check_text_quality.py
+
 # Validate extracted lectionary data against the ACC HTML source.
 # Requires network access; run manually before a data re-extraction.
-validate:
+validate: check-text
 	python3 tools/validate_lectionary.py
 
 # Run E2E tests locally against web/ (default — no bandwidth cost).

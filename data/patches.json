@@ -81,6 +81,15 @@
     "new": "Almighty God,\nyou sent your Son Jesus Christ\nto be the light of the world.\nFree us from all that darkens and ensnares us,\nand bring us to eternal light and joy;\nthrough the power of him\nwho is alive and reigns with you and the Holy Spirit,\none God, now and for ever."
   },
   {
+    "id": "patch-011",
+    "description": "Restore missing space on p.432 Common of a Martyr: 'servantN' → 'servant N'",
+    "target": "collects.json",
+    "path": ["432", "text"],
+    "op": "replace",
+    "old": "Almighty God,\nwho gave your servantN courage\nto confess Jesus Christ\nand to die for this faith,\nmay we always be ready\nto give a reason for the hope that is in us,\nand to suffer gladly for his sake;\nthrough Jesus Christ our Lord,\nwho lives and reigns with you and the Holy Spirit,\none God, now and for ever.",
+    "new": "Almighty God,\nwho gave your servant N courage\nto confess Jesus Christ\nand to die for this faith,\nmay we always be ready\nto give a reason for the hope that is in us,\nand to suffer gladly for his sake;\nthrough Jesus Christ our Lord,\nwho lives and reigns with you and the Holy Spirit,\none God, now and for ever."
+  },
+  {
     "id": "patch-010",
     "description": "Restore word spaces on p.396 (pdfplumber 26.04.0 concatenates words for this page)",
     "target": "collects.json",
