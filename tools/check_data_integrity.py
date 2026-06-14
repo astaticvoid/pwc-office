@@ -11,6 +11,7 @@ preventing accidentally deploying monkey-patched data files.
 
 import hashlib
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -33,6 +34,30 @@ def lectionary_composite_hash(lect_dir: Path) -> str:
     return h.hexdigest()
 
 
+def check_pdftotext_version(manifest: dict) -> None:
+    expected = manifest.get("tool_versions", {}).get("pdftotext")
+    if not expected:
+        return
+    try:
+        result = subprocess.run(
+            ["pdftotext", "-v"], capture_output=True, text=True
+        )
+        actual = (result.stdout + result.stderr).splitlines()[0].strip()
+    except FileNotFoundError:
+        print("VERSION WARN pdftotext not found (manifest recorded " + expected + ")")
+        print("             → Install pdftotext to enable version tracking.")
+        return
+    if actual == expected:
+        print(f"VERSION OK   {actual} (matches manifest)")
+    else:
+        print(f"VERSION WARN {actual} (manifest recorded {expected})")
+        print(
+            "             → Version changed since last extraction. Run make extract then\n"
+            "               make check-text to catch any new garbled-text regressions\n"
+            "               before deploying."
+        )
+
+
 def main():
     if not MANIFEST_PATH.exists():
         print(
@@ -43,6 +68,7 @@ def main():
         sys.exit(1)
 
     manifest = json.loads(MANIFEST_PATH.read_bytes())
+    check_pdftotext_version(manifest)
     tracked = manifest.get("files", {})
 
     drift = False
