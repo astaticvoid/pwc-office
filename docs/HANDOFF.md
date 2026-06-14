@@ -6,6 +6,35 @@ Active handoff between Cowork (planning) and Claude Code (implementation). Cowor
 
 ---
 
+## Completed this session (2026-06-13 batch 2)
+
+All "Ready for Code (batch 2)" items implemented and committed.
+
+**Implemented:**
+- Bug 6b: gloria/doxology rendered once at the end of each individual set panel (Set 1, Set 2) in `psalmHtml()`, mirroring the batch 1 "All" panel fix — `psalmPlaceholder()` per psalm, `gloriaHtml(shared)` appended once per set.
+- ARIA on psalm tabs: `role="tablist"` on `.alt-tabs`, `role="tab"` + `aria-selected` + `aria-controls` + `id` on each tab button, `role="tabpanel"` + `aria-labelledby` on each panel — applied in both `psalm_sets` and plain multi-psalm branches of `psalmHtml()`.
+- ARIA on collect tabs: same treatment in both `isSingleAlt` and `hasDaily && hasSeasonal` branches of `collectToggleHtml()`. `idBase = 'pwc-alt-collect'` used for stable panel/tab IDs. ArrowLeft/ArrowRight keyboard nav already handled globally by `activateTab()`.
+- Stale-date banner: `showStaleBanner(date)` / `hideStaleBanner()` added; called from `handleHashChange()` when `parsed.date < todayStr()`. Banner injects before `#office-content`, shows formatted date + "Jump to today →" link + ✕ close. Dismissal stored in `sessionStorage` key `pwc-stale-banner-dismissed-<date>`.
+- Today button: `<button id="nav-today">Today</button>` added to nav top row (between date nav and settings). Wired to same today-reset logic as brand click / `t` key. CSS in `office.css` matches existing nav pill style.
+- MP/EP selector labels: removed `<span class="day-ctrl-sub">` time-of-day annotations and "Office · by time of day" caption. Buttons now read "Morning Prayer" / "Evening Prayer" only. `day-ctrl-sub` class is now dead CSS (safe to clean up separately).
+
+**Commits (in order):**
+1. `fix(psalm): extend doxology fix to individual set panels`
+2. `fix(a11y): ARIA tab roles on psalm and collect tab systems`
+3. `fix(ui): stale-date banner when loading a past dated URL`
+4. `fix(ui): add visible Today button to nav`
+5. `fix(ui): MP/EP selector labels — office name only`
+
+**Surprises / things Cowork should know:**
+
+1. **`day-ctrl-sub` CSS class** (`.day-ctrl-sub { display: block; font-size: 0.6rem; ... }` in `office.css`) is now unused — the only elements that used it were the "Said in the morning" / "Said from ~5 pm" sub-labels that were removed. Safe to delete in a cleanup pass.
+
+2. **Stale banner shows on any navigation to a past date**, not just on initial page load. Per the HANDOFF spec example, the check runs in `handleHashChange()` on every hash change. The `sessionStorage` dismissal means it only annoys once per date per session. If Cowork wants it truly "load-only", we'd need a `firstLoad` flag — consider speccing that.
+
+3. **ARIA IDs for collect tabs** are stable (`pwc-alt-collect-tab-0` etc.) because `stateKey` is hardcoded `'pwc-alt-collect'`. Psalm tab IDs are dynamic (built from psalm citation list) and will change when the lectionary changes — this is correct since each day's psalms get unique IDs.
+
+---
+
 ## Completed this session (2026-06-13)
 
 All "Ready for Code" items implemented and committed. Summary for Cowork:
@@ -25,6 +54,8 @@ All "Ready for Code" items implemented and committed. Summary for Cowork:
 
 **Surprises / things Cowork should know:**
 
+0. **`data/patches.json` was broken and has been cleared (Cowork fix, 2026-06-13).** The 14 BUG-18 entries Code added had `old` = uppercase text, but `_TEXT_PATCHES` in `extract_offices.py` already lowercases those responses during extraction — so `validate_patches.py` failed all 14 and `make extract` was broken. The fix: emptied `patches.json` to `[]`. BUG-18 is correctly handled by `_TEXT_PATCHES` in the extractor and does not need a patch entry. See CLAUDE.md "Manual data corrections" for the canonical map of where every correction lives.
+
 1. **Golden files are gitignored.** `e2e/testdata/` is gitignored because golden snapshot files contain rendered liturgical text derived from copyrighted source data. The flow is: run `make extract` locally, then `make test-full` once to generate goldens, then subsequent runs catch regressions. CI can't run these without the data files.
 
 2. **`data/patches.json` is now committed** (added `!data/patches.json` to `.gitignore`). The file contains only short text snippets used for verification. The 14 BUG-18 patches have `old` values = what `extract_offices.py` would produce (uppercase), `new` = the corrected lowercase. Validate will fail on the currently-patched local data; it's designed to run after a fresh extraction.
@@ -39,6 +70,55 @@ All "Ready for Code" items implemented and committed. Summary for Cowork:
 
 ---
 
+## Ready for Code (batch 2)
+
+### Bug 6b: Gloria after each psalm in individual set panels
+
+Code fixed the "All" panel but individual set panels (Set 1, Set 2) still call `psalmWithGloria()` per psalm. If a set contains more than one psalm, the gloria appears after each. The fix mirrors what was done for the "All" panel — swap to `psalmPlaceholder()` per psalm and append `gloriaHtml(shared)` once at the end of each set's HTML.
+
+**Where:** The per-set HTML loop inside `psalmHtml()` in `web/app.js` (look for the loop that builds the set panel content — distinct from the `allHtml` loop that was already fixed).
+
+**Test:** Load any weekday office that has multiple psalms in a single set, switch to "Set 1" — gloria should appear once at the end.
+
+**Commit message:** `fix(psalm): extend doxology fix to individual set panels`
+
+---
+
+### ARIA on psalm and collect tabs
+
+Code added ARIA to `renderAlternatives()` but the inline tab builders in `psalmHtml()` and `collectToggleHtml()` were not touched. These tab systems need the same treatment: `role="tablist"` on the container, `role="tab"` / `aria-selected` on each button, `role="tabpanel"` / `aria-labelledby` on each panel, ArrowLeft/ArrowRight keyboard nav.
+
+**Where:** `psalmHtml()` builds the psalm set tabs (All / Set 1 / Set 2 / Psalm 1 / Psalm 2). `collectToggleHtml()` builds the collect tabs (Collect of the Day / Seasonal I / Seasonal II or Collect of the Day / Seasonal). The `activateTab()` helper added for ARIA in `renderAlternatives()` can likely be reused or extracted to a shared utility.
+
+**Test:** `make test-web` — add a Playwright a11y test that checks `role="tab"` attributes are present on psalm and collect tab buttons.
+
+**Commit message:** `fix(a11y): ARIA tab roles on psalm and collect tab systems`
+
+---
+
+### Stale-date banner + visible Today button
+
+Already fully specced below (see "Day selection" under "Needs Cowork design first" — that label is stale; the spec is complete). Moving here so Code can implement it.
+
+**Summary of spec (full detail below):**
+- When hash date < today on page load: show dismissible single-line banner `"Viewing [date] · Jump to today →"`
+- Dismiss remembers via `sessionStorage` key `pwc-stale-banner-dismissed-<date>`
+- Add a visible "Today" text button in the nav alongside the calendar icon — always visible, calls the today-reset logic (same as brand click / `t` key)
+
+**Commit order:**
+1. `fix(ui): stale-date banner when loading a past dated URL`
+2. `fix(ui): add visible Today button to nav`
+
+---
+
+### MP/EP label copy (one-line fix)
+
+The MP/EP selector should read "Morning Prayer" and "Evening Prayer" only — no time-of-day annotation. Find and remove any clock-time or time mapping from the toggle label in `app.js`.
+
+**Commit message:** `fix(ui): MP/EP selector labels — office name only`
+
+---
+
 ## Immediate: git housekeeping (do this first)
 
 ```bash
@@ -49,9 +129,10 @@ git commit -m "chore: move design docs to docs/, track CLAUDE.md, gitignore rede
 
 ---
 
-## Ready for Code
+## Previously completed (all ✅)
 
 ### ✅ Source fetch + extract pipeline (P1)
+
 
 **Goal**: a developer can go from a clean clone to a running app with two commands: `make fetch-sources` then `make extract`. Currently both phases require manual steps and separate tool invocations.
 
@@ -486,15 +567,7 @@ All RCL-related code (data fetching, UI rendering, settings option) is wrapped i
 
 ## Needs Cowork design first
 
-### MP/EP label wording (quick fix)
-
-The Morning Prayer / Evening Prayer selector should display only "Morning Prayer" and "Evening Prayer" — not any clock time or time-of-day mapping (e.g. "Morning Prayer (6am–noon)"). The label describes the *office*, not the time of day. One-line copy change in `app.js`.
-
-**Commit message:** `fix(ui): MP/EP selector labels — office name only, no time mapping`
-
----
-
-### Day selection and URL design (P2)
+### Day selection spec (reference — moved to batch 2)
 
 **Current state**: Routing is already hash-based — `#/YYYY-MM-DD/mp|ep`. No hash → today + auto-selected office. Date picker and arrow keys update the hash. Nav brand click + `t` key both strip the hash to return to today. This is the right architecture. No routing refactor needed.
 
@@ -656,8 +729,8 @@ Coverage ends late December 2026 (Year B). Year A begins Advent 2026. Waiting on
 
 BAS pp. 660+ not extracted. Three late-October dates reference Collect 668 which is hardcoded. Other dates referencing Occasional Prayers get nothing or the wrong collect.
 
-**Source:** `sources/BAS.pdf` is present. Unblocked — needs extraction work.
-**To do:** Write `tools/extract_occasional_prayers.py` (or extend `extract_collects.py`) for BAS pp. 660+. Replace hardcoded Collect 668.
+**Source:** `sources/BAS.pdf` is present once `make fetch-sources` is run. This is **unblocked** — needs extraction work only (no external dependencies).
+**To do:** Write `tools/extract_occasional_prayers.py` (or extend `extract_collects.py`) for BAS pp. 660+. Replace hardcoded Collect 668. Move to "Ready for Code" batch once a spec is written.
 
 ### ACC licence inquiry
 
