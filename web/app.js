@@ -1492,6 +1492,7 @@ function initEvalBanner() {
 
 function handleHashChange() {
   const parsed = parseHash(location.hash);
+  const prevDate = state.date;
   if (parsed) {
     state.date = parsed.date;
     state.office = parsed.office;
@@ -1505,6 +1506,11 @@ function handleHashChange() {
   if (parsed && parsed.date < todayStr()) {
     showStaleBanner(parsed.date);
   } else {
+    // Navigating to today or future — clear any sessionStorage dismissal for the
+    // previous stale date so the banner resets on the next visit to that date.
+    if (prevDate && prevDate < todayStr()) {
+      sessionStorage.removeItem('pwc-stale-banner-dismissed-' + prevDate);
+    }
     hideStaleBanner();
   }
   render(state.date, state.office, state.translation);

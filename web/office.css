@@ -784,6 +784,8 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
   background: var(--color-surface); border-left: 2px solid var(--color-brass);
   font-family: var(--font-ui); font-size: 0.8rem; color: var(--color-muted);
 }
+/* display:flex above would override the UA-stylesheet [hidden]{display:none} — make it explicit */
+.stale-banner[hidden] { display: none; }
 .stale-sep { opacity: 0.45; }
 .stale-today { color: var(--color-link); text-decoration: none; white-space: nowrap; }
 .stale-today:hover { text-decoration: underline; }
