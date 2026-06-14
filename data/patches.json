@@ -1,0 +1,142 @@
+[
+  {
+    "id": "patch-001",
+    "description": "Correct Wednesday MP litany response capitalisation (1 of 8)",
+    "reason": "Extraction pipeline normalises case; ACC typographic convention uses lowercase for congregation responses in the Wednesday litany",
+    "target": "offices.json",
+    "path": ["ordinary-wednesday-mp", "litany", 2, "text"],
+    "op": "replace",
+    "old": "Holy one, accomplish your purposes in us.",
+    "new": "holy one, accomplish your purposes in us."
+  },
+  {
+    "id": "patch-002",
+    "description": "Correct Wednesday MP litany response capitalisation (2 of 8)",
+    "reason": "Same as patch-001",
+    "target": "offices.json",
+    "path": ["ordinary-wednesday-mp", "litany", 4, "text"],
+    "op": "replace",
+    "old": "Holy one, accomplish your purposes in us.",
+    "new": "holy one, accomplish your purposes in us."
+  },
+  {
+    "id": "patch-003",
+    "description": "Correct Wednesday MP litany response capitalisation (3 of 8)",
+    "reason": "Same as patch-001",
+    "target": "offices.json",
+    "path": ["ordinary-wednesday-mp", "litany", 6, "text"],
+    "op": "replace",
+    "old": "Holy one, accomplish your purposes in us.",
+    "new": "holy one, accomplish your purposes in us."
+  },
+  {
+    "id": "patch-004",
+    "description": "Correct Wednesday MP litany response capitalisation (4 of 8)",
+    "reason": "Same as patch-001",
+    "target": "offices.json",
+    "path": ["ordinary-wednesday-mp", "litany", 8, "text"],
+    "op": "replace",
+    "old": "Holy one, accomplish your purposes in us.",
+    "new": "holy one, accomplish your purposes in us."
+  },
+  {
+    "id": "patch-005",
+    "description": "Correct Wednesday MP litany response capitalisation (5 of 8)",
+    "reason": "Same as patch-001",
+    "target": "offices.json",
+    "path": ["ordinary-wednesday-mp", "litany", 10, "text"],
+    "op": "replace",
+    "old": "Holy one, accomplish your purposes in us.",
+    "new": "holy one, accomplish your purposes in us."
+  },
+  {
+    "id": "patch-006",
+    "description": "Correct Wednesday MP litany response capitalisation (6 of 8)",
+    "reason": "Same as patch-001",
+    "target": "offices.json",
+    "path": ["ordinary-wednesday-mp", "litany", 12, "text"],
+    "op": "replace",
+    "old": "Holy one, accomplish your purposes in us.",
+    "new": "holy one, accomplish your purposes in us."
+  },
+  {
+    "id": "patch-007",
+    "description": "Correct Wednesday MP litany response capitalisation (7 of 8)",
+    "reason": "Same as patch-001",
+    "target": "offices.json",
+    "path": ["ordinary-wednesday-mp", "litany", 14, "text"],
+    "op": "replace",
+    "old": "Holy one, accomplish your purposes in us.",
+    "new": "holy one, accomplish your purposes in us."
+  },
+  {
+    "id": "patch-008",
+    "description": "Correct Wednesday MP litany response capitalisation (8 of 8)",
+    "reason": "Same as patch-001",
+    "target": "offices.json",
+    "path": ["ordinary-wednesday-mp", "litany", 16, "text"],
+    "op": "replace",
+    "old": "Holy one, accomplish your purposes in us.",
+    "new": "holy one, accomplish your purposes in us."
+  },
+  {
+    "id": "patch-009",
+    "description": "Correct Wednesday EP litany response capitalisation (1 of 6)",
+    "reason": "Same ACC typographic convention — lowercase congregation responses in the Wednesday EP litany",
+    "target": "offices.json",
+    "path": ["ordinary-wednesday-ep", "litany", 2, "text"],
+    "op": "replace",
+    "old": "To declare the mystery of Christ.",
+    "new": "to declare the mystery of Christ."
+  },
+  {
+    "id": "patch-010",
+    "description": "Correct Wednesday EP litany response capitalisation (2 of 6)",
+    "reason": "Same as patch-009",
+    "target": "offices.json",
+    "path": ["ordinary-wednesday-ep", "litany", 4, "text"],
+    "op": "replace",
+    "old": "Behold and tend the vine you have planted.",
+    "new": "behold and tend the vine you have planted."
+  },
+  {
+    "id": "patch-011",
+    "description": "Correct Wednesday EP litany response capitalisation (3 of 6)",
+    "reason": "Same as patch-009",
+    "target": "offices.json",
+    "path": ["ordinary-wednesday-ep", "litany", 6, "text"],
+    "op": "replace",
+    "old": "And your ministers be clothed with salvation.",
+    "new": "and your ministers be clothed with salvation."
+  },
+  {
+    "id": "patch-012",
+    "description": "Correct Wednesday EP litany response capitalisation (4 of 6)",
+    "reason": "Same as patch-009",
+    "target": "offices.json",
+    "path": ["ordinary-wednesday-ep", "litany", 8, "text"],
+    "op": "replace",
+    "old": "In the strength of your name.",
+    "new": "in the strength of your name."
+  },
+  {
+    "id": "patch-013",
+    "description": "Correct Wednesday EP litany response capitalisation (5 of 6)",
+    "reason": "Same as patch-009",
+    "target": "offices.json",
+    "path": ["ordinary-wednesday-ep", "litany", 10, "text"],
+    "op": "replace",
+    "old": "And forget not the poor forever.",
+    "new": "and forget not the poor forever."
+  },
+  {
+    "id": "patch-014",
+    "description": "Correct Wednesday EP litany response capitalisation (6 of 6)",
+    "reason": "Same as patch-009",
+    "target": "offices.json",
+    "path": ["ordinary-wednesday-ep", "litany", 12, "text"],
+    "op": "replace",
+    "old": "As we have put our hope in you.",
+    "new": "as we have put our hope in you."
+  }
+]

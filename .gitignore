@@ -15,10 +15,12 @@ sources/
 
 # All data/ content is copyrighted or derived from copyrighted sources — not for distribution.
 # Exception: KJV translation is public domain and committed.
+# Exception: patches.json is the developer correction layer — short text snippets, committed.
 data/*
 !data/translations/
 data/translations/*
 !data/translations/kjv/
+!data/patches.json
 
 boneyard/data/
 
