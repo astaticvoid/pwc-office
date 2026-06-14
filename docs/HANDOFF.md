@@ -4,7 +4,7 @@ _Updated: 2026-06-14_
 
 ---
 
-## Ready for Cowork review (batch 6)
+## Ready for Cowork review (batch 6 + mobile fix)
 
 Build serving at **http://localhost:8081**. `make check-integrity` passes. `make check-text` reports zero findings.
 
@@ -33,6 +33,10 @@ Build serving at **http://localhost:8081**. `make check-integrity` passes. `make
 **5. FATS text quality — zero findings**
 - Run `make check-text` → `No text quality issues found.`
 - The five FATS artifacts (Chad "among among", Maurice "midVictorian", Visitation "these these", Boniface "who who", Reformation "NinetyFive") are all fixed in `extract_fats.py` via `_clean_text()`
+
+**6. Mobile layout — no duplicate app name (narrow viewport)**
+- At ~400px viewport width, the content area should NOT show "PRAY WITHOUT CEASING" above "Morning Prayer"
+- The nav brand remains visible at all widths; `#day-brand` in the content area is now permanently suppressed
 
 ---
 
