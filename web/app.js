@@ -88,6 +88,7 @@ const _cache = {
   collects: null, // Promise<object>
   bounds:   null, // Promise<object>
   psalter:  null, // Promise<object>  — full psalter keyed by psalm number string
+  fats:     null, // Promise<object>  — For All The Saints saints.json (optional, may be absent)
   months:   {},   // 'YYYY-MM' → Promise<object>  — monthly lectionary dicts
   books:    {},   // 'kjv/Numbers' → Promise<object>
 };
@@ -153,6 +154,22 @@ function lookupCollect(collects, ref) {
   if (!ref) return null;
   const page = collectPageNum(ref);
   return page ? (collects[page] || null) : null;
+}
+
+// ── For All The Saints (FATS) lookup ─────────────────────────────────────────
+
+// Known name mismatches between lectionary and FATS keys. Add entries as discovered.
+const FATS_ALIASES = {};
+
+/** Find a FATS entry by saint name using case-insensitive substring matching. */
+function lookupFatsEntry(fats, name) {
+  if (!fats || !name) return null;
+  const needle = (FATS_ALIASES[name] || name).toLowerCase();
+  const key = Object.keys(fats).find(k => {
+    const kl = k.toLowerCase();
+    return kl === needle || kl.includes(needle) || needle.includes(kl);
+  });
+  return key ? fats[key] : null;
 }
 
 // ── Season computation ────────────────────────────────────────────────────────
@@ -861,7 +878,7 @@ function collectHtml(collects, ref) {
 
 // Renders the collect section as a toggle between the daily collect and
 // the seasonal alternatives, as the rubric directs: "either…or".
-function collectToggleHtml(collects, collectRef, seasonalSegs, shared) {
+function collectToggleHtml(collects, collectRef, seasonalSegs, shared, fatsEntry) {
   // Separate the general "Additional intercessions…" rubric (display above toggle)
   // from the actual seasonal collect content.
   let splitAt = 0;
@@ -870,17 +887,21 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared) {
   const generalRubrics = seasonalSegs.slice(0, splitAt);
   const seasonalContent = seasonalSegs.slice(splitAt);
 
-  const hasDaily    = !!collectRef;
-  const hasSeasonal = seasonalContent.some(s => s.type !== 'rubric');
+  const hasDaily      = !!collectRef;
+  const basResolvable = hasDaily && !!lookupCollect(collects, collectRef);
+  const hasSeasonal   = seasonalContent.some(s => s.type !== 'rubric');
 
   // Detect Occasional Prayer alternative in the collect ref (e.g. "344 or 8, 677 (The King)")
   const occPage = hasDaily ? collectSecondaryPage(collectRef) : null;
   const occCollect = (occPage && collects[occPage]) || null;
 
+  // FATS collect: shown as fallback when BAS collect is absent or unresolvable.
+  const fatsCollect = (!hasDaily || !basResolvable) ? (fatsEntry && fatsEntry.collect) || null : null;
+
   let html = '';
   if (generalRubrics.length) html += `<div class="liturgy">${renderSegments(generalRubrics, shared)}</div>`;
 
-  if (!hasDaily && !hasSeasonal) return html;
+  if (!hasDaily && !hasSeasonal && !fatsCollect) return html;
 
   const stateKey = 'pwc-alt-collect';
   const idBase   = 'pwc-alt-collect';
@@ -902,6 +923,11 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared) {
     return `<p class="alt-source">${esc(occCollect.name)}</p><p class="collect-text">${esc(occCollect.text)}</p>`;
   }
 
+  function fatsPanelHtml() {
+    const label = fatsEntry && fatsEntry.collect ? (fatsEntry.date || 'For All The Saints') : '';
+    return `<p class="alt-source">${esc(label)}</p><p class="collect-text">${esc(fatsCollect)}</p>`;
+  }
+
   // Ordinary time: seasonal_collects is a single alternatives block (Group I / Group II).
   // Render as 3 flat tabs (+ optional Occasional Prayer tab) instead of nesting.
   const isSingleAlt = seasonalContent.length === 1 && seasonalContent[0].type === 'alternatives';
@@ -911,6 +937,7 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared) {
     const altGroups = seasonalContent[0].groups || [];
     const entries = [];
     if (hasDaily) entries.push(['Collect of the Day', collectHtml(collects, collectRef)]);
+    if (fatsCollect && !hasDaily) entries.push(['Collect of the Day', fatsPanelHtml()]);
     altGroups.forEach(g => {
       const cleanSegs = g.segments.filter(s =>
         !(s.type === 'rubric' && (SC_ALT_EITHER.test(s.text) || SC_FOOTER.test(s.text)))
@@ -940,6 +967,19 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared) {
       ]);
     } else {
       html += `<h3 class="office-subsection-title">Collect of the Day</h3>${collectHtml(collects, collectRef)}`;
+    }
+  } else if (fatsCollect) {
+    // No BAS collect entry — fall back to FATS collect
+    if (hasSeasonal) {
+      const periodMarker = seasonalContent.find(s => s.type === 'rubric');
+      const displaySeasonal = seasonalContent.filter(s => s.type !== 'rubric');
+      const seasonalTitle = periodMarker ? `<p class="alt-source">${esc(periodMarker.text)}</p>` : '';
+      html += tabBlock([
+        ['Collect of the Day', fatsPanelHtml()],
+        ['Seasonal Collect', seasonalTitle + `<div class="liturgy">${renderSegments(displaySeasonal, shared)}</div>`],
+      ]);
+    } else {
+      html += `<h3 class="office-subsection-title">Collect of the Day</h3>${fatsPanelHtml()}`;
     }
   } else {
     html += `<h3 class="office-subsection-title">Seasonal Collect</h3><div class="liturgy">${renderSegments(seasonalContent, shared)}</div>`;
@@ -1021,6 +1061,10 @@ async function render(dateStr, officeType, translation) {
     return;
   }
   const [offices, collects, day] = result;
+
+  // FATS data is optional — absent in dev until extract_fats.py has been run.
+  const fats = await fetchOnce('fats', `${DATA}/fats/saints.json`).catch(() => null);
+  const fatsEntry = lookupFatsEntry(fats, day.name);
   const shared = offices._shared || {};
 
   // Sync date picker. Min = 12 months ago (rolling window matches lectionary coverage).
@@ -1206,6 +1250,15 @@ async function render(dateStr, officeType, translation) {
 
   let html = renderObservanceCard(officeData, activeObs);
 
+  // ── FATS biographical notice ───────────────────────────────────────────────
+  if (fatsEntry && fatsEntry.bio) {
+    const bioParas = fatsEntry.bio.split(/\n\n+/).map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
+    html += `<details class="fats-bio">
+      <summary class="fats-bio-toggle">About ${esc(day.name)}</summary>
+      <div class="fats-bio-body">${bioParas}</div>
+    </details>`;
+  }
+
   // ── Form title / subtitle ──────────────────────────────────────────────────
   // Suppress on ordinary-time: "Evening Prayer For Saturday" is redundant with
   // the day-office-name header. Show only for seasonal forms whose titles carry
@@ -1262,7 +1315,7 @@ async function render(dateStr, officeType, translation) {
   }
 
   // ── Prayers ────────────────────────────────────────────────────────────────
-  if (form && (form.intercessions || form.litany || form.lords_prayer_intro || (form.seasonal_collects && form.seasonal_collects.length) || officeData.collect)) {
+  if (form && (form.intercessions || form.litany || form.lords_prayer_intro || (form.seasonal_collects && form.seasonal_collects.length) || officeData.collect || (fatsEntry && fatsEntry.collect))) {
     html += `<h2 class="office-section-title">The Prayers of the Community</h2>`;
     // Day-specific intercession prompts guide the free-prayer period before the formal litany.
     if (form.intercessions && form.intercessions.length)
@@ -1275,7 +1328,7 @@ async function render(dateStr, officeType, translation) {
       html += renderSubsection('The Litany', form.litany, shared);
     }
     html += `<h3 class="office-subsection-title">The Collect</h3>`;
-    html += `<div id="prayers-collect">${collectToggleHtml(collects, activeOfficeData.collect, seasonalSegs, shared)}</div>`;
+    html += `<div id="prayers-collect">${collectToggleHtml(collects, activeOfficeData.collect, seasonalSegs, shared, fatsEntry)}</div>`;
     if (form.lords_prayer_intro && form.lords_prayer_intro.length) {
       html += `<h3 class="office-subsection-title">The Lord's Prayer</h3>`;
       html += `<div class="liturgy">${renderSegments(form.lords_prayer_intro, shared)}</div>`;

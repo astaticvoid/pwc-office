@@ -17,6 +17,7 @@ const CACHE_FIRST = [
   '/data/collects.json',
   '/data/season_bounds.json',
   '/data/psalter.json',
+  '/data/fats/saints.json',
 ];
 
 const PRECACHE = [...NETWORK_FIRST, ...CACHE_FIRST];
