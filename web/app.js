@@ -788,6 +788,38 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared) {
 
   if (!hasDaily && !hasSeasonal) return html;
 
+  // Ordinary time: seasonal_collects is a single alternatives block (Group I / Group II).
+  // Render as 3 flat tabs instead of nesting a toggle inside a single "Seasonal" tab.
+  const isSingleAlt = seasonalContent.length === 1 && seasonalContent[0].type === 'alternatives';
+  const SC_ALT_EITHER = /^Either the Collect/i;
+
+  if (isSingleAlt) {
+    const altGroups = seasonalContent[0].groups || [];
+    const stateKey = 'pwc-alt-collect';
+    const savedIdx = parseInt(localStorage.getItem(stateKey) || '0');
+    const totalTabs = hasDaily ? altGroups.length + 1 : altGroups.length;
+    const activeIdx = Math.min(Math.max(0, savedIdx), totalTabs - 1);
+    const tab = (label, i) =>
+      `<button class="alt-tab${i === activeIdx ? ' alt-tab-active' : ''}" data-idx="${i}" data-key="${esc(stateKey)}">${esc(label)}</button>`;
+    const panel = (content, i) =>
+      `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" data-idx="${i}">${content}</div>`;
+
+    let tabsHtml = hasDaily ? tab('Collect of the Day', 0) : '';
+    altGroups.forEach((g, i) => { tabsHtml += tab('Seasonal ' + g.label, hasDaily ? i + 1 : i); });
+
+    let panelsHtml = hasDaily ? panel(collectHtml(collects, collectRef), 0) : '';
+    altGroups.forEach((g, i) => {
+      const panelIdx = hasDaily ? i + 1 : i;
+      const cleanSegs = g.segments.filter(s =>
+        !(s.type === 'rubric' && (SC_ALT_EITHER.test(s.text) || SC_FOOTER.test(s.text)))
+      );
+      panelsHtml += panel(`<div class="liturgy">${renderSegments(cleanSegs, shared)}</div>`, panelIdx);
+    });
+
+    html += `<div class="alt-block"><div class="alt-tabs">${tabsHtml}</div>${panelsHtml}</div>`;
+    return html;
+  }
+
   if (hasDaily && hasSeasonal) {
     const stateKey = 'pwc-alt-collect';
     const activeIdx = parseInt(localStorage.getItem(stateKey) || '0') === 1 ? 1 : 0;
