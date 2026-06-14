@@ -732,25 +732,29 @@ function psalmHtml(officeData, shared) {
     html += `<h3 class="psalm-heading">${officeLabel}Psalm${allFlat.length > 1 ? 's' : ''}: ${esc(label)}</h3>`;
     html += `<p class="seg-rubric">A Psalm from the appointed lectionary is said or sung.</p>`;
     const stateKey = 'pwc-psalmset-' + allFlat.map(p => typeof p === 'object' ? p.citation : p).join('-');
+    const idBase = stateKey.replace(/[^a-zA-Z0-9-]/g, '_');
     const saved = parseInt(localStorage.getItem(stateKey) || '0');
     const active = Math.min(Math.max(0, saved), psalmSets.length); // 0 = All
-    const tabsHtml = [`<button class="alt-tab${active === 0 ? ' alt-tab-active' : ''}" data-idx="0" data-key="${esc(stateKey)}">All</button>`]
-      .concat(psalmSets.map((set, si) => {
-        const lbl = setLabels[si];
-        return `<button class="alt-tab${si + 1 === active ? ' alt-tab-active' : ''}" data-idx="${si + 1}" data-key="${esc(stateKey)}">${esc(lbl)}</button>`;
-      })).join('');
+    const tabsHtml = [
+      `<button class="alt-tab${active === 0 ? ' alt-tab-active' : ''}" role="tab" aria-selected="${active === 0}" aria-controls="${idBase}-panel-0" id="${idBase}-tab-0" data-idx="0" data-key="${esc(stateKey)}">All</button>`
+    ].concat(psalmSets.map((set, si) => {
+      const lbl = setLabels[si];
+      const i = si + 1;
+      return `<button class="alt-tab${i === active ? ' alt-tab-active' : ''}" role="tab" aria-selected="${i === active}" aria-controls="${idBase}-panel-${i}" id="${idBase}-tab-${i}" data-idx="${i}" data-key="${esc(stateKey)}">${esc(lbl)}</button>`;
+    })).join('');
     // Panel 0: all psalms in sequence
     let allHtml = '';
     allFlat.forEach(p => { allHtml += psalmPlaceholder(p); });
     allHtml += gloriaHtml(shared);
-    html += `<div class="alt-block"><div class="alt-tabs">${tabsHtml}</div>`;
-    html += `<div class="alt-panel${active !== 0 ? ' alt-panel-hidden' : ''}" data-idx="0">${allHtml}</div>`;
+    html += `<div class="alt-block"><div class="alt-tabs" role="tablist">${tabsHtml}</div>`;
+    html += `<div class="alt-panel${active !== 0 ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-0" aria-labelledby="${idBase}-tab-0" data-idx="0">${allHtml}</div>`;
     // Panels 1…N: individual sets
     psalmSets.forEach((set, si) => {
+      const i = si + 1;
       let setHtml = '';
       set.forEach(p => { setHtml += psalmPlaceholder(p); });
       setHtml += gloriaHtml(shared);
-      html += `<div class="alt-panel${si + 1 !== active ? ' alt-panel-hidden' : ''}" data-idx="${si + 1}">${setHtml}</div>`;
+      html += `<div class="alt-panel${i !== active ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-${i}" aria-labelledby="${idBase}-tab-${i}" data-idx="${i}">${setHtml}</div>`;
     });
     html += `</div>`;
   } else if (psalms.length) {
@@ -762,23 +766,27 @@ function psalmHtml(officeData, shared) {
     } else {
       // Multiple appointed psalms — all said in sequence; tabs let you focus on one.
       const stateKey = 'pwc-psalm-' + psalms.map(p => typeof p === 'object' ? p.citation : p).join('-');
+      const idBase = stateKey.replace(/[^a-zA-Z0-9-]/g, '_');
       const saved = parseInt(localStorage.getItem(stateKey) || '0');
       const active = Math.min(Math.max(0, saved), psalms.length); // 0 = All
-      const tabsHtml = [`<button class="alt-tab${active === 0 ? ' alt-tab-active' : ''}" data-idx="0" data-key="${esc(stateKey)}">All</button>`]
-        .concat(psalms.map((p, i) => {
-          const c = typeof p === 'object' ? p.citation : p;
-          return `<button class="alt-tab${i + 1 === active ? ' alt-tab-active' : ''}" data-idx="${i + 1}" data-key="${esc(stateKey)}">Psalm ${esc(c)}</button>`;
-        })).join('');
+      const tabsHtml = [
+        `<button class="alt-tab${active === 0 ? ' alt-tab-active' : ''}" role="tab" aria-selected="${active === 0}" aria-controls="${idBase}-panel-0" id="${idBase}-tab-0" data-idx="0" data-key="${esc(stateKey)}">All</button>`
+      ].concat(psalms.map((p, i) => {
+        const c = typeof p === 'object' ? p.citation : p;
+        const tabIdx = i + 1;
+        return `<button class="alt-tab${tabIdx === active ? ' alt-tab-active' : ''}" role="tab" aria-selected="${tabIdx === active}" aria-controls="${idBase}-panel-${tabIdx}" id="${idBase}-tab-${tabIdx}" data-idx="${tabIdx}" data-key="${esc(stateKey)}">Psalm ${esc(c)}</button>`;
+      })).join('');
       html += `<p class="seg-rubric">The following Psalms from the appointed lectionary are said or sung.</p>`;
-      html += `<div class="alt-block"><div class="alt-tabs">${tabsHtml}</div>`;
+      html += `<div class="alt-block"><div class="alt-tabs" role="tablist">${tabsHtml}</div>`;
       // Panel 0: all psalms in sequence
       let allHtml = '';
       psalms.forEach(p => { allHtml += psalmPlaceholder(p); });
       allHtml += gloriaHtml(shared);
-      html += `<div class="alt-panel${active !== 0 ? ' alt-panel-hidden' : ''}" data-idx="0">${allHtml}</div>`;
+      html += `<div class="alt-panel${active !== 0 ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-0" aria-labelledby="${idBase}-tab-0" data-idx="0">${allHtml}</div>`;
       // Panels 1…N: individual psalms
       psalms.forEach((p, i) => {
-        html += `<div class="alt-panel${i + 1 !== active ? ' alt-panel-hidden' : ''}" data-idx="${i + 1}">`;
+        const tabIdx = i + 1;
+        html += `<div class="alt-panel${tabIdx !== active ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-${tabIdx}" aria-labelledby="${idBase}-tab-${tabIdx}" data-idx="${tabIdx}">`;
         html += psalmWithGloria(p, shared);
         html += `</div>`;
       });
@@ -865,13 +873,14 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared) {
   if (isSingleAlt) {
     const altGroups = seasonalContent[0].groups || [];
     const stateKey = 'pwc-alt-collect';
+    const idBase = 'pwc-alt-collect';
     const savedIdx = parseInt(localStorage.getItem(stateKey) || '0');
     const totalTabs = hasDaily ? altGroups.length + 1 : altGroups.length;
     const activeIdx = Math.min(Math.max(0, savedIdx), totalTabs - 1);
     const tab = (label, i) =>
-      `<button class="alt-tab${i === activeIdx ? ' alt-tab-active' : ''}" data-idx="${i}" data-key="${esc(stateKey)}">${esc(label)}</button>`;
+      `<button class="alt-tab${i === activeIdx ? ' alt-tab-active' : ''}" role="tab" aria-selected="${i === activeIdx}" aria-controls="${idBase}-panel-${i}" id="${idBase}-tab-${i}" data-idx="${i}" data-key="${esc(stateKey)}">${esc(label)}</button>`;
     const panel = (content, i) =>
-      `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" data-idx="${i}">${content}</div>`;
+      `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-${i}" aria-labelledby="${idBase}-tab-${i}" data-idx="${i}">${content}</div>`;
 
     let tabsHtml = hasDaily ? tab('Collect of the Day', 0) : '';
     altGroups.forEach((g, i) => { tabsHtml += tab('Seasonal ' + g.label, hasDaily ? i + 1 : i); });
@@ -885,24 +894,25 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared) {
       panelsHtml += panel(`<div class="liturgy">${renderSegments(cleanSegs, shared)}</div>`, panelIdx);
     });
 
-    html += `<div class="alt-block"><div class="alt-tabs">${tabsHtml}</div>${panelsHtml}</div>`;
+    html += `<div class="alt-block"><div class="alt-tabs" role="tablist">${tabsHtml}</div>${panelsHtml}</div>`;
     return html;
   }
 
   if (hasDaily && hasSeasonal) {
     const stateKey = 'pwc-alt-collect';
+    const idBase = 'pwc-alt-collect';
     const activeIdx = parseInt(localStorage.getItem(stateKey) || '0') === 1 ? 1 : 0;
     const tab = (label, i) =>
-      `<button class="alt-tab${i === activeIdx ? ' alt-tab-active' : ''}" data-idx="${i}" data-key="${esc(stateKey)}">${esc(label)}</button>`;
+      `<button class="alt-tab${i === activeIdx ? ' alt-tab-active' : ''}" role="tab" aria-selected="${i === activeIdx}" aria-controls="${idBase}-panel-${i}" id="${idBase}-tab-${i}" data-idx="${i}" data-key="${esc(stateKey)}">${esc(label)}</button>`;
     const panel = (content, i) =>
-      `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" data-idx="${i}">${content}</div>`;
+      `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-${i}" aria-labelledby="${idBase}-tab-${i}" data-idx="${i}">${content}</div>`;
     // Strip period-marker rubrics from the panel content; use the first one as a title.
     const periodMarker = seasonalContent.find(s => s.type === 'rubric');
     const displaySeasonal = seasonalContent.filter(s => s.type !== 'rubric');
     const seasonalTitle = periodMarker
       ? `<p class="alt-source">${esc(periodMarker.text)}</p>`
       : '';
-    html += `<div class="alt-block"><div class="alt-tabs">${tab('Collect of the Day', 0)}${tab('Seasonal Collect', 1)}</div>`
+    html += `<div class="alt-block"><div class="alt-tabs" role="tablist">${tab('Collect of the Day', 0)}${tab('Seasonal Collect', 1)}</div>`
           + panel(collectHtml(collects, collectRef), 0)
           + panel(seasonalTitle + `<div class="liturgy">${renderSegments(displaySeasonal, shared)}</div>`, 1)
           + `</div>`;
