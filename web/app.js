@@ -387,10 +387,12 @@ function renderAlternatives(seg, shared, contextKey) {
       }).join('\x1f');
   const savedIdx  = parseInt(localStorage.getItem(stateKey) || '0');
   const activeIdx = Math.min(Math.max(0, savedIdx), seg.groups.length - 1);
+  const idBase = stateKey.replace(/[^a-zA-Z0-9-]/g, '_');
   const tabsHtml = seg.groups.map((g, i) => {
     const label = g.label || '';
     const displayLabel = label.length > 22 ? label.slice(0, 21) + '…' : label;
-    return `<button class="alt-tab${i === activeIdx ? ' alt-tab-active' : ''}" data-idx="${i}" data-key="${esc(stateKey)}" title="${esc(label)}">${esc(displayLabel)}</button>`;
+    const isActive = i === activeIdx;
+    return `<button class="alt-tab${isActive ? ' alt-tab-active' : ''}" role="tab" aria-selected="${isActive}" aria-controls="${idBase}-panel-${i}" id="${idBase}-tab-${i}" data-idx="${i}" data-key="${esc(stateKey)}" title="${esc(label)}">${esc(displayLabel)}</button>`;
   }).join('');
   const panelsHtml = seg.groups.map((g, i) => {
     let sourceHtml = '';
@@ -399,9 +401,9 @@ function renderAlternatives(seg, shared, contextKey) {
       if (!citation) console.warn('CANTICLE_SOURCE missing entry for:', g.label);
       sourceHtml = `<p class="alt-source">${esc(g.label)}${citation ? ` — ${esc(citation)}` : ''}</p>`;
     }
-    return `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" data-idx="${i}">${sourceHtml}${renderSegments(g.segments, shared)}</div>`;
+    return `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-${i}" aria-labelledby="${idBase}-tab-${i}" data-idx="${i}">${sourceHtml}${renderSegments(g.segments, shared)}</div>`;
   }).join('');
-  return `<div class="alt-block"><div class="alt-tabs">${tabsHtml}</div>${panelsHtml}</div>`;
+  return `<div class="alt-block"><div class="alt-tabs" role="tablist">${tabsHtml}</div>${panelsHtml}</div>`;
 }
 
 // Rubrics that are section-navigation cues in the printed book but are either
@@ -1323,6 +1325,25 @@ function initScrollBehaviour() {
   new ResizeObserver(syncNavPad).observe(nav);
 }
 
+function activateTab(tab, idx) {
+  const stateKey = tab.dataset.key;
+  localStorage.setItem(stateKey, String(idx));
+  // Update every alt-block sharing this key so linked blocks (e.g. doxology
+  // after each psalm) stay in sync.
+  const seen = new Set();
+  document.querySelectorAll(`#office-content .alt-tab[data-key="${CSS.escape(stateKey)}"]`).forEach(t => {
+    const b = t.closest('.alt-block');
+    if (!b) return;
+    const isActive = parseInt(t.dataset.idx) === idx;
+    t.classList.toggle('alt-tab-active', isActive);
+    t.setAttribute('aria-selected', String(isActive));
+    if (!seen.has(b)) {
+      seen.add(b);
+      b.querySelectorAll(':scope > .alt-panel').forEach((p, i) => p.classList.toggle('alt-panel-hidden', i !== idx));
+    }
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initFontSize();
@@ -1436,21 +1457,25 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('office-content').addEventListener('click', e => {
     const tab = e.target.closest('.alt-tab');
     if (!tab) return;
-    const idx = parseInt(tab.dataset.idx);
-    const stateKey = tab.dataset.key;
-    localStorage.setItem(stateKey, String(idx));
-    // Update every alt-block sharing this key so linked blocks (e.g. doxology
-    // after each psalm) stay in sync.
-    const seen = new Set();
-    document.querySelectorAll(`#office-content .alt-tab[data-key="${CSS.escape(stateKey)}"]`).forEach(t => {
-      const b = t.closest('.alt-block');
-      if (!b) return;
-      t.classList.toggle('alt-tab-active', parseInt(t.dataset.idx) === idx);
-      if (!seen.has(b)) {
-        seen.add(b);
-        b.querySelectorAll(':scope > .alt-panel').forEach((p, i) => p.classList.toggle('alt-panel-hidden', i !== idx));
-      }
-    });
+    activateTab(tab, parseInt(tab.dataset.idx));
+  });
+
+  // Arrow key navigation within a tablist (ARIA keyboard pattern).
+  document.getElementById('office-content').addEventListener('keydown', e => {
+    const tab = e.target.closest('.alt-tab');
+    if (!tab) return;
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    e.stopPropagation();
+    const tablist = tab.closest('.alt-tabs');
+    if (!tablist) return;
+    const tabs = Array.from(tablist.querySelectorAll('.alt-tab'));
+    const cur = tabs.indexOf(tab);
+    const next = e.key === 'ArrowRight'
+      ? (cur + 1) % tabs.length
+      : (cur - 1 + tabs.length) % tabs.length;
+    activateTab(tabs[next], parseInt(tabs[next].dataset.idx));
+    tabs[next].focus();
   });
 
   document.addEventListener('keydown', e => {
