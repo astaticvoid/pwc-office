@@ -136,6 +136,19 @@ function collectPageNum(ref) {
   return m ? m[0] : null;
 }
 
+// Extracts the Occasional Prayer page number from refs like:
+//   "344 or 8, 677 (The King)"     → "677"  (prayer-number,page format)
+//   "378 or 17, 680 (Labour Day)"  → "680"
+//   "365 or 413 or FAS 211"        → "413"  (bare page before another or/FAS)
+// Returns null when no secondary page is present.
+function collectSecondaryPage(ref) {
+  const s = ref.replace(/\([^)]*\)/g, ''); // strip (Com: ...) and similar asides
+  let m = /\bor\s+\d+,\s+(\d+)/.exec(s);
+  if (m) return m[1];
+  m = /\bor\s+(\d{3,})\b/.exec(s);
+  return m ? m[1] : null;
+}
+
 function lookupCollect(collects, ref) {
   if (!ref) return null;
   const page = collectPageNum(ref);
@@ -860,64 +873,74 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared) {
   const hasDaily    = !!collectRef;
   const hasSeasonal = seasonalContent.some(s => s.type !== 'rubric');
 
+  // Detect Occasional Prayer alternative in the collect ref (e.g. "344 or 8, 677 (The King)")
+  const occPage = hasDaily ? collectSecondaryPage(collectRef) : null;
+  const occCollect = (occPage && collects[occPage]) || null;
+
   let html = '';
   if (generalRubrics.length) html += `<div class="liturgy">${renderSegments(generalRubrics, shared)}</div>`;
 
   if (!hasDaily && !hasSeasonal) return html;
 
+  const stateKey = 'pwc-alt-collect';
+  const idBase   = 'pwc-alt-collect';
+  const savedIdx = parseInt(localStorage.getItem(stateKey) || '0');
+
+  // Helper: builds one tab-block from arrays of [label, htmlContent] pairs.
+  function tabBlock(entries) {
+    const activeIdx = Math.min(Math.max(0, savedIdx), entries.length - 1);
+    const tabs = entries.map(([label], i) =>
+      `<button class="alt-tab${i === activeIdx ? ' alt-tab-active' : ''}" role="tab" aria-selected="${i === activeIdx}" aria-controls="${idBase}-panel-${i}" id="${idBase}-tab-${i}" data-idx="${i}" data-key="${esc(stateKey)}">${esc(label)}</button>`
+    ).join('');
+    const panels = entries.map(([, content], i) =>
+      `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-${i}" aria-labelledby="${idBase}-tab-${i}" data-idx="${i}">${content}</div>`
+    ).join('');
+    return `<div class="alt-block"><div class="alt-tabs" role="tablist">${tabs}</div>${panels}</div>`;
+  }
+
+  function occPanelHtml() {
+    return `<p class="alt-source">${esc(occCollect.name)}</p><p class="collect-text">${esc(occCollect.text)}</p>`;
+  }
+
   // Ordinary time: seasonal_collects is a single alternatives block (Group I / Group II).
-  // Render as 3 flat tabs instead of nesting a toggle inside a single "Seasonal" tab.
+  // Render as 3 flat tabs (+ optional Occasional Prayer tab) instead of nesting.
   const isSingleAlt = seasonalContent.length === 1 && seasonalContent[0].type === 'alternatives';
   const SC_ALT_EITHER = /^Either the Collect/i;
 
   if (isSingleAlt) {
     const altGroups = seasonalContent[0].groups || [];
-    const stateKey = 'pwc-alt-collect';
-    const idBase = 'pwc-alt-collect';
-    const savedIdx = parseInt(localStorage.getItem(stateKey) || '0');
-    const totalTabs = hasDaily ? altGroups.length + 1 : altGroups.length;
-    const activeIdx = Math.min(Math.max(0, savedIdx), totalTabs - 1);
-    const tab = (label, i) =>
-      `<button class="alt-tab${i === activeIdx ? ' alt-tab-active' : ''}" role="tab" aria-selected="${i === activeIdx}" aria-controls="${idBase}-panel-${i}" id="${idBase}-tab-${i}" data-idx="${i}" data-key="${esc(stateKey)}">${esc(label)}</button>`;
-    const panel = (content, i) =>
-      `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-${i}" aria-labelledby="${idBase}-tab-${i}" data-idx="${i}">${content}</div>`;
-
-    let tabsHtml = hasDaily ? tab('Collect of the Day', 0) : '';
-    altGroups.forEach((g, i) => { tabsHtml += tab('Seasonal ' + g.label, hasDaily ? i + 1 : i); });
-
-    let panelsHtml = hasDaily ? panel(collectHtml(collects, collectRef), 0) : '';
-    altGroups.forEach((g, i) => {
-      const panelIdx = hasDaily ? i + 1 : i;
+    const entries = [];
+    if (hasDaily) entries.push(['Collect of the Day', collectHtml(collects, collectRef)]);
+    altGroups.forEach(g => {
       const cleanSegs = g.segments.filter(s =>
         !(s.type === 'rubric' && (SC_ALT_EITHER.test(s.text) || SC_FOOTER.test(s.text)))
       );
-      panelsHtml += panel(`<div class="liturgy">${renderSegments(cleanSegs, shared)}</div>`, panelIdx);
+      entries.push(['Seasonal ' + g.label, `<div class="liturgy">${renderSegments(cleanSegs, shared)}</div>`]);
     });
-
-    html += `<div class="alt-block"><div class="alt-tabs" role="tablist">${tabsHtml}</div>${panelsHtml}</div>`;
+    if (occCollect) entries.push([occCollect.name, occPanelHtml()]);
+    html += tabBlock(entries);
     return html;
   }
 
   if (hasDaily && hasSeasonal) {
-    const stateKey = 'pwc-alt-collect';
-    const idBase = 'pwc-alt-collect';
-    const activeIdx = parseInt(localStorage.getItem(stateKey) || '0') === 1 ? 1 : 0;
-    const tab = (label, i) =>
-      `<button class="alt-tab${i === activeIdx ? ' alt-tab-active' : ''}" role="tab" aria-selected="${i === activeIdx}" aria-controls="${idBase}-panel-${i}" id="${idBase}-tab-${i}" data-idx="${i}" data-key="${esc(stateKey)}">${esc(label)}</button>`;
-    const panel = (content, i) =>
-      `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-${i}" aria-labelledby="${idBase}-tab-${i}" data-idx="${i}">${content}</div>`;
-    // Strip period-marker rubrics from the panel content; use the first one as a title.
     const periodMarker = seasonalContent.find(s => s.type === 'rubric');
     const displaySeasonal = seasonalContent.filter(s => s.type !== 'rubric');
-    const seasonalTitle = periodMarker
-      ? `<p class="alt-source">${esc(periodMarker.text)}</p>`
-      : '';
-    html += `<div class="alt-block"><div class="alt-tabs" role="tablist">${tab('Collect of the Day', 0)}${tab('Seasonal Collect', 1)}</div>`
-          + panel(collectHtml(collects, collectRef), 0)
-          + panel(seasonalTitle + `<div class="liturgy">${renderSegments(displaySeasonal, shared)}</div>`, 1)
-          + `</div>`;
+    const seasonalTitle = periodMarker ? `<p class="alt-source">${esc(periodMarker.text)}</p>` : '';
+    const entries = [
+      ['Collect of the Day', collectHtml(collects, collectRef)],
+      ['Seasonal Collect', seasonalTitle + `<div class="liturgy">${renderSegments(displaySeasonal, shared)}</div>`],
+    ];
+    if (occCollect) entries.push([occCollect.name, occPanelHtml()]);
+    html += tabBlock(entries);
   } else if (hasDaily) {
-    html += `<h3 class="office-subsection-title">Collect of the Day</h3>${collectHtml(collects, collectRef)}`;
+    if (occCollect) {
+      html += tabBlock([
+        ['Collect of the Day', collectHtml(collects, collectRef)],
+        [occCollect.name, occPanelHtml()],
+      ]);
+    } else {
+      html += `<h3 class="office-subsection-title">Collect of the Day</h3>${collectHtml(collects, collectRef)}`;
+    }
   } else {
     html += `<h3 class="office-subsection-title">Seasonal Collect</h3><div class="liturgy">${renderSegments(seasonalContent, shared)}</div>`;
   }
