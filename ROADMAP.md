@@ -97,8 +97,8 @@ The web app should show the current BCP year (A/B/C) in the day metadata so user
 
 ### 2.2 Missing liturgical content
 
-**Extract Occasional Prayers from BAS** (BUGS.md BUG-04)  
-Add an `extract_occasional_prayers.py` (or extend `extract_collects.py`) to extract BAS pp. 660+. Replace the hardcoded Collect 668 with a properly extracted entry.
+✅ **Extract Occasional Prayers from BAS** (BUGS.md BUG-04, 2026-06-14)  
+Extended `extract_collects.py` to parse BAS pp.676-683. p.677 (For the Sovereign) and p.680 (Labour Day) now in `collects.json`. **Remaining:** app UI needs to parse the secondary "or N, PAGE" collect-ref format to display the alternative; currently `collectPageNum()` returns the first number only (the primary collect).
 
 ✅ **Distinctive note rendering by type** (BUGS.md BUG-07, fixed 2026-06-07)  
 - `o_antiphon`: liturgical block with Latin title, accent border, italic body

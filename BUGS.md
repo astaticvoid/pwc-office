@@ -20,9 +20,8 @@ _Files:_ `tools/convert_lectionary.py:detect_bounds`
 ### P1 — Incorrect content shown to user
 
 **BUG-04: Collect 668 hardcoded; other Occasional Prayers not extracted**  
-Occasional Prayers (BAS pp. 660+) are not extracted. The app hardcodes collect 668 for late-October dates that reference it. Any other date referencing an Occasional Prayer will silently show nothing or display the wrong collect.  
-_Fix:_ Extract Occasional Prayers section from BAS PDF; add to `collects.json`.  
-_Blocker:_ Requires the BAS PDF.  
+~~Occasional Prayers (BAS pp. 660+) are not extracted.~~ Extraction added for BAS pp.676-683 (2026-06-14): `_extract_occasional_prayers()` now parses all 33 numbered prayers and stores the lectionary-referenced ones under their page keys (`_OCC_PAGE_ALIASES`). p.677 (For the Sovereign) and p.680 (For Industry and Commerce/Labour Day) are now in `collects.json`. The hardcoded p.668 entry remains (its dates are outside the rolling window). **Remaining:** the app's `collectPageNum()` only extracts the first number from the collect ref string, so p.677/p.680 are never looked up directly by the current app (the primary collect renders; the Occasional Prayer alternative is in the data but not yet displayed). A future app enhancement would need to parse the secondary "or N, PAGE" format and look up the alternate collect.  
+_Fix:_ ✅ Data extracted. App UI change is future work.  
 _Files:_ `tools/extract_collects.py`, `data/collects.json`
 
 **BUG-05: Cross-reference and garbled notes not fully suppressed**  

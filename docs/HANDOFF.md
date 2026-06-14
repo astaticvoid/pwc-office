@@ -1,8 +1,35 @@
 # PWC — Handoff
 
-_Updated: 2026-06-13_
+_Updated: 2026-06-14_
 
 Active handoff between Cowork (planning) and Claude Code (implementation). Cowork writes specs here; Claude Code implements and marks done.
+
+---
+
+## Completed this session (2026-06-14 batch 3)
+
+All "Ready for Code (batch 3)" items implemented and committed.
+
+**Implemented:**
+
+- **Scraper retirement**: `tools/scrape_lectionary.py` moved to `boneyard/scrape_lectionary.py` (gitignored, local reference only). `tools/.daily_cache/` deleted. `make fetch-sources` now calls only `fetch_sources.py`. Error message in `convert_lectionary.py` updated to "Add a bas_short_YYYY.csv file to sources/". BUG-06 in `BUGS.md` and Phase 2.1 in `ROADMAP.md` reframed from "waiting on ACC to publish" to "add CSV to sources/ and run make extract". `CLAUDE.md` pipeline updated. `sources/bas_short_2026.csv` committed (`!sources/bas_short_*.csv` added to `.gitignore` using `sources/*` pattern, not `sources/`).
+
+- **Occasional Prayers extraction**: `extract_collects.py` extended with `_extract_occasional_prayers()`. Reads BAS pp.676-683 (the actual prayer content pages; p.675 is the TOC), parses all 33 numbered prayers using `_OCC_HEADER` regex, stores lectionary-referenced ones under their BAS page keys via `_OCC_PAGE_ALIASES`. After extraction, `collects.json` now contains: p.677 = "For the Queen" (For the Sovereign / Victoria Day), p.680 = "For Industry and Commerce" (Labour Day). `section_from_page()` updated to return "Occasional Prayers" for pages beyond the Common Propers range. Six new spot checks pass.
+
+**Commits (in order):**
+1. `chore: retire scrape_lectionary.py (replaced by direct CSV workflow)`
+2. `chore: commit lectionary CSV; unignore sources/bas_short_*.csv`
+3. `feat(collects): extract Occasional Prayers section (BAS pp. 660+)`
+
+**Surprises / things Cowork should know:**
+
+1. **`.gitignore` pattern change**: The existing `.gitignore` had `sources/` (directory rule), which blocks git re-include rules entirely. Changed to `sources/*` (glob rule) to allow `!sources/bas_short_*.csv` to work. The effect is identical — all sources content is ignored except the named CSVs — but Cowork should know this changed so future gitignore additions for `sources/` are written as `sources/filename` not `sources/filename/`.
+
+2. **App cannot currently display p.677/p.680 as alternatives**: The app's `collectPageNum()` extracts the FIRST number from a collect ref string. For a ref like `"344 or 8, 677 (The King)"`, it returns `"344"` and shows the regular Easter collect — the Occasional Prayer is never looked up. The data is now in `collects.json` but the UI change to show it as an alternative requires a separate app fix (parse the "or N, PAGE" secondary format). This is different from the p.668 case, where the collect ref is just `"668"` alone (so `collectPageNum` returns `"668"` correctly). Cowork should spec the UI enhancement separately.
+
+3. **BAS p.677 contains prayer 8 "For the Queen"** — the original BAS text still uses "Queen Elizabeth" rather than "The King". The `_OCC_PAGE_ALIASES` comment and extract say "For the Sovereign" as context, but the extracted text preserves the literal BAS wording. If a future correction is needed (updating to "The King"), it should go in `data/patches.json`.
+
+4. **The hardcoded p.668 entry remains**: Its dates (late October) were in 2017–2021 which are now outside the 12-month rolling window. It does no harm; left as-is per HANDOFF guidance.
 
 ---
 
@@ -32,6 +59,85 @@ All "Ready for Code (batch 2)" items implemented and committed.
 2. **Stale banner shows on any navigation to a past date**, not just on initial page load. Per the HANDOFF spec example, the check runs in `handleHashChange()` on every hash change. The `sessionStorage` dismissal means it only annoys once per date per session. If Cowork wants it truly "load-only", we'd need a `firstLoad` flag — consider speccing that.
 
 3. **ARIA IDs for collect tabs** are stable (`pwc-alt-collect-tab-0` etc.) because `stateKey` is hardcoded `'pwc-alt-collect'`. Psalm tab IDs are dynamic (built from psalm citation list) and will change when the lectionary changes — this is correct since each day's psalms get unique IDs.
+
+---
+
+## Ready for Code (batch 3)
+
+### Scraper retirement + CSV commit (P1)
+
+**Background**: `tools/scrape_lectionary.py` was built to scrape `lectionary.anglican.ca` and download historical CSVs. PWC is developed at ACC's request; the CSV is provided directly. The scraper is dead weight. The model going forward: one CSV per liturgical year lives in `sources/`, committed to the repo. When ACC publishes a new year, add the CSV and run `make extract`.
+
+**Changes:**
+
+1. **Boneyard `tools/scrape_lectionary.py`** — move to `boneyard/scrape_lectionary.py`. Do not delete outright (historical reference value).
+
+2. **Delete `tools/.daily_cache/`** — the scraper's HTML cache directory. It's gitignored but the directory is present locally. Remove it: `rm -rf tools/.daily_cache/`.
+
+3. **Commit the CSV** — add to `.gitignore`:
+   ```
+   !sources/bas_short_*.csv
+   ```
+   Then `git add sources/bas_short_2026.csv`.
+
+4. **Update `make fetch-sources`** — remove the `scrape_lectionary.py` call:
+   ```makefile
+   fetch-sources:
+       python3 tools/fetch_sources.py
+   ```
+
+5. **Update `convert_lectionary.py`** — the error message on line ~690 currently says `"Run: python3 tools/scrape_lectionary.py"`. Replace with: `"Add a bas_short_YYYY.csv file to sources/ and re-run."`.
+
+6. **Update `BUGS.md` BUG-06** — reframe from "waiting on ACC to publish" to: "When ACC provides a Year A CSV, add it to `sources/` and run `make extract`."
+
+7. **Update `ROADMAP.md` Phase 2.1** — same reframe.
+
+8. **Update `CLAUDE.md` tools list** — remove `scrape_lectionary.py` from the pipeline description (already done by Cowork for the `extract` pipeline; check `fetch-sources` description too).
+
+**Commit order:**
+1. `chore: retire scrape_lectionary.py (replaced by direct CSV workflow)`
+2. `chore: commit lectionary CSV; unignore sources/bas_short_*.csv`
+
+---
+
+### Occasional Prayers extraction — civic collects (BUG-04, P1)
+
+**Background**: `extract_collects.py` scans BAS pages 262–447 (Proper of the Church Year through Common Propers). BAS pp. 660+ contain "Occasional Prayers and Thanksgivings" — a separate section with civic and special-occasion collects. These are not extracted except for a single hardcoded entry (p.668, Feast of Dedication).
+
+**What's actually missing in the current rolling window** (verified by Cowork):
+
+| Page | Occasion | Dates it appears |
+|------|----------|-----------------|
+| 677 | For the Sovereign (The King) | Victoria Day, King's Birthday, Nativity of Our Lady, others |
+| 680 | Labour Day | Labour Day |
+
+These appear as **secondary alternatives** in the collect field (e.g. `"340 or Coll 8, 677 (The King)"`). The primary collect (p.340) renders; p.677 is silently absent. The hardcoded p.668 entry is now outside the rolling window and can remain as-is.
+
+**Approach**: Extend `extract_collects.py` to also scan a second page range covering the Occasional Prayers section.
+
+**Code must inspect `sources/BAS.pdf` first** to determine:
+- The exact book-page range for "Occasional Prayers and Thanksgivings" (expected ~pp. 660–690)
+- The heading structure (same as the main section, or different?)
+- Which specific pages contain p.677 and p.680 entries
+
+Then extend the extractor:
+
+```python
+# Add a second pass after the main scan
+OCCASIONAL_FIRST_PAGE = 660   # verify against PDF
+OCCASIONAL_LAST_PAGE  = 695   # verify against PDF
+
+# Run the same per-page extraction logic over this range
+# Entries go into the same `collects` dict, keyed by book page number
+```
+
+The existing `_find_collect_body()` and `section_from_page()` helpers should work unchanged; just update `section_from_page()` to return `"Occasional Prayers"` for pages in this range.
+
+**Remove the hardcoded p.668 entry** once the page scan covers it (the scan will produce the same text automatically).
+
+**Test**: After extraction, `collects.json` should contain entries for keys `"677"` and `"680"`. Load `2025-05-19` (Victoria Day) and `2025-09-01` (Labour Day) in the app — the Occasional Prayer collect should appear as an alternative in the collect section.
+
+**Commit message:** `feat(collects): extract Occasional Prayers section (BAS pp. 660+)`
 
 ---
 
