@@ -1129,10 +1129,11 @@ async function render(dateStr, officeType, translation) {
       + `</span>`
       + `</span>`
     : '';
+  const seasonLabel = season === 'OrdinaryTime' ? 'Ordinary Time' : season;
   document.getElementById('day-meta').innerHTML =
     `<span class="meta-item meta-item--season">`
     + `<span class="meta-lbl">Season</span>`
-    + `<span class="meta-val">${esc(season)}</span>`
+    + `<span class="meta-val">${esc(seasonLabel)}</span>`
     + `</span>`
     + `<span class="meta-sep">·</span>`
     + `<span class="meta-item">${esc(formatRank(day.rank))}</span>`
