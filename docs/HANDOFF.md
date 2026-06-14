@@ -6,6 +6,39 @@ Active handoff between Cowork (planning) and Claude Code (implementation). Cowor
 
 ---
 
+## Completed this session (2026-06-13)
+
+All "Ready for Code" items implemented and committed. Summary for Cowork:
+
+**Implemented:**
+- `tools/fetch_sources.py` + `make fetch-sources` / `make extract` pipeline targets (P1)
+- Rolling 12-month lectionary window in `convert_lectionary.py --window` + date picker `min` update + `full_test.go` date range computed dynamically (P2)
+- Bug 6: gloria/doxology rendered once after full psalm set in "All" panel, not after each psalm (P2)
+- Bug 7: 3-tab collect layout for ordinary time (Collect of the Day / Seasonal I / Seasonal II); rubric bleed stripped (P2)
+- LLM test removal: deleted `e2e/llm_test.go`, stripped `evalOffice`/`reportEval` calls from smoke and seasonal tests (P2)
+- Golden snapshot tests: `e2e/golden_test.go` (build tag `e2e_full`) + `make update-golden` target; golden files gitignored (copyrighted content) (P2)
+- ARIA tab roles + keyboard navigation: `role="tablist"`, `role="tab"`, `role="tabpanel"`, `aria-selected`, `aria-controls`, ArrowLeft/ArrowRight nav in `renderAlternatives()` and `activateTab()` (P2)
+- `tools/normalize_offices.py`: normalizes repeated blocks into `_shared` (P3)
+- Patch system: `tools/validate_patches.py` + `tools/apply_patches.py` + `data/patches.json` with 14 BUG-18 entries (P3)
+- JSDoc on all priority function clusters in `web/app.js` (P3)
+- `CONTRIBUTING.md`: dev setup, pipeline, test tiers, deploy, copyright notes (P3)
+
+**Surprises / things Cowork should know:**
+
+1. **Golden files are gitignored.** `e2e/testdata/` is gitignored because golden snapshot files contain rendered liturgical text derived from copyrighted source data. The flow is: run `make extract` locally, then `make test-full` once to generate goldens, then subsequent runs catch regressions. CI can't run these without the data files.
+
+2. **`data/patches.json` is now committed** (added `!data/patches.json` to `.gitignore`). The file contains only short text snippets used for verification. The 14 BUG-18 patches have `old` values = what `extract_offices.py` would produce (uppercase), `new` = the corrected lowercase. Validate will fail on the currently-patched local data; it's designed to run after a fresh extraction.
+
+3. **Psalm "All" panel**: Bug 6 fix only touches the `allHtml` loop in both `psalmSets` and plain `psalms` branches. Individual set panels (e.g. Set 1, Set 2) still call `psalmWithGloria` since a set can contain 1–2 psalms; if a set has multiple psalms, it would still show gloria after each. Cowork may want to extend the fix to individual set panels too.
+
+4. **ARIA tabs scope**: The spec said "one function change in `renderAlternatives()`". ARIA attributes were added there; the inline tab builders in `psalmHtml()` and `collectToggleHtml()` do NOT yet have ARIA. Keyboard nav works for the alternatives tab system (doxology, canticle, reading response, etc.) but not for psalm or collect tabs.
+
+5. **3-tab collect**: The `stateKey` `'pwc-alt-collect'` now accepts values 0/1/2 for ordinary time (was 0/1). Users with the old `1` stored may see "Seasonal I" selected on first load; harmless, just worth knowing.
+
+6. **`make fetch-sources`** currently has no test coverage — it downloads from external URLs which can't be tested offline. Consider a `--dry-run` flag or mock test if CI coverage matters.
+
+---
+
 ## Immediate: git housekeeping (do this first)
 
 ```bash
@@ -18,7 +51,7 @@ git commit -m "chore: move design docs to docs/, track CLAUDE.md, gitignore rede
 
 ## Ready for Code
 
-### Source fetch + extract pipeline (P1)
+### ✅ Source fetch + extract pipeline (P1)
 
 **Goal**: a developer can go from a clean clone to a running app with two commands: `make fetch-sources` then `make extract`. Currently both phases require manual steps and separate tool invocations.
 
@@ -79,7 +112,7 @@ make deploy BUCKET=... CF_DISTRIBUTION_ID=...
 
 ---
 
-### Trim lectionary coverage to a rolling window (P2)
+### ✅ Trim lectionary coverage to a rolling window (P2)
 
 **What:** The current data pipeline generates `data/lectionary/YYYY-MM.json` files going back to 2016 (~120 monthly files). Nobody looks up a daily office from 2017. All those files are included in `dist/` and could be cached by the service worker, bloating the build for no user benefit.
 
@@ -111,7 +144,7 @@ make deploy BUCKET=... CF_DISTRIBUTION_ID=...
 
 ---
 
-### Bug 6: Gloria/doxology after full psalm set, not after each psalm (P2)
+### ✅ Bug 6: Gloria/doxology after full psalm set, not after each psalm (P2)
 
 **What:** `psalmWithGloria()` is called once per psalm, so when multiple psalms are displayed in the "all psalms" panel, each psalm gets its own gloria rubric and doxology alternatives block. Liturgically the doxology is said once at the end of the complete psalm set.
 
@@ -151,7 +184,7 @@ Individual psalm panels (single-psalm tabs) keep `psalmWithGloria` unchanged —
 
 ---
 
-### Bug 7: Collect tabs — 3 not 2; strip rubric bleed (P2)
+### ✅ Bug 7: Collect tabs — 3 not 2; strip rubric bleed (P2)
 
 **What:** Ordinary time office forms have two seasonal collect alternatives (I and II) stored as an `alternatives` segment in `seasonal_collects`. Currently `collectToggleHtml()` wraps both inside a single "Seasonal Collect" tab, producing 2 outer tabs with a nested I/II toggle inside. Should be 3 flat tabs: "Collect of the Day", "Seasonal I", "Seasonal II".
 
@@ -201,7 +234,7 @@ All other cases (non-alternatives seasonal content) keep the existing 2-tab logi
 
 ---
 
-### LLM test removal (P2)
+### ✅ LLM test removal (P2)
 
 **What:** `e2e/llm_test.go` calls the `claude` CLI via `exec.Command` to evaluate rendered offices. This creates a hard runtime dependency on Claude Code being installed and authenticated. Replace LLM evaluation with deterministic golden-file snapshot tests.
 
@@ -226,7 +259,7 @@ All other cases (non-alternatives seasonal content) keep the existing 2-tab logi
 
 ---
 
-### ARIA tab roles (UX-15, P2)
+### ✅ ARIA tab roles (UX-15, P2)
 
 Full spec in `UX_AUDIT.md`. One function change in `web/app.js`.
 
@@ -240,7 +273,7 @@ Full spec in `UX_AUDIT.md`. One function change in `web/app.js`.
 
 ---
 
-### Data model normalization (P3)
+### ✅ Data model normalization (P3)
 
 **What:** `data/offices.json` stores redundant copies of four shared blocks across 30 forms. Normalize them into `_shared` to reduce file size ~15–20% and eliminate copy-paste drift risk.
 
@@ -266,7 +299,7 @@ Full spec in `UX_AUDIT.md`. One function change in `web/app.js`.
 
 ---
 
-### Patch system (P3)
+### ✅ Patch system (P3)
 
 **What:** A mechanism to store text corrections as versioned patches rather than editing extracted JSON directly. Prevents corrections from being silently lost on re-extraction.
 
@@ -302,7 +335,7 @@ Full spec in `UX_AUDIT.md`. One function change in `web/app.js`.
 
 ---
 
-### JSDoc annotation for app.js (P3)
+### ✅ JSDoc annotation for app.js (P3)
 
 `web/app.js` is ~1400 lines of dense vanilla JS with section banners but no inline documentation. Add JSDoc to the major exported function clusters to make future maintenance tractable.
 
@@ -318,7 +351,7 @@ No behaviour changes. One commit.
 
 ---
 
-### CONTRIBUTING.md (P3)
+### ✅ CONTRIBUTING.md (P3)
 
 Write a developer contribution guide at the repo root. Cover:
 - Dev environment setup (`make serve`, data symlink, `.env` requirements)
