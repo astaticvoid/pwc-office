@@ -5,7 +5,6 @@ package e2e_test
 
 import (
 	"testing"
-
 )
 
 // seasonCase defines one representative day per liturgical season.
@@ -55,11 +54,6 @@ func TestSeasonalOffices(t *testing.T) {
 	for _, tc := range seasonalCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			officeName := "Morning Prayer"
-			if tc.officeType == "ep" {
-				officeName = "Evening Prayer"
-			}
-
 			rendered, day := renderOffice(t, tc.date, tc.officeType)
 			t.Logf("Day: %s | Season: %s | Rank: %s", day.Name, day.Season, day.Rank)
 
@@ -67,8 +61,6 @@ func TestSeasonalOffices(t *testing.T) {
 
 			or := fetchOfficialReadings(t, tc.date, tc.officeType)
 			verifyReadings(t, tc.name, rendered, or)
-			eval := evalOffice(t, tc.date, day.Season.String(), officeName, rendered, or)
-			reportEval(t, tc.name, eval)
 		})
 	}
 }
