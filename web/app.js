@@ -652,11 +652,13 @@ function expandCitationForDisplay(rawCitation) {
 }
 
 function psalmWithGloria(citation, shared) {
-  const gloriaRubric = `<p class="seg-rubric">At the end of the Psalm one of the following may be said or sung.</p>`;
-  const gloria = shared && shared.doxology
-    ? gloriaRubric + `<div class="psalm-gloria">${renderAlternatives(shared.doxology, shared, 'doxology')}</div>`
-    : '';
-  return psalmPlaceholder(citation) + gloria;
+  return psalmPlaceholder(citation) + gloriaHtml(shared);
+}
+
+function gloriaHtml(shared) {
+  if (!shared || !shared.doxology) return '';
+  return `<p class="seg-rubric">At the end of the Psalm one of the following may be said or sung.</p>`
+       + `<div class="psalm-gloria">${renderAlternatives(shared.doxology, shared, 'doxology')}</div>`;
 }
 
 function psalmHtml(officeData, shared) {
@@ -684,7 +686,8 @@ function psalmHtml(officeData, shared) {
       })).join('');
     // Panel 0: all psalms in sequence
     let allHtml = '';
-    allFlat.forEach(p => { allHtml += psalmWithGloria(p, shared); });
+    allFlat.forEach(p => { allHtml += psalmPlaceholder(p); });
+    allHtml += gloriaHtml(shared);
     html += `<div class="alt-block"><div class="alt-tabs">${tabsHtml}</div>`;
     html += `<div class="alt-panel${active !== 0 ? ' alt-panel-hidden' : ''}" data-idx="0">${allHtml}</div>`;
     // Panels 1…N: individual sets
@@ -714,7 +717,8 @@ function psalmHtml(officeData, shared) {
       html += `<div class="alt-block"><div class="alt-tabs">${tabsHtml}</div>`;
       // Panel 0: all psalms in sequence
       let allHtml = '';
-      psalms.forEach(p => { allHtml += psalmWithGloria(p, shared); });
+      psalms.forEach(p => { allHtml += psalmPlaceholder(p); });
+      allHtml += gloriaHtml(shared);
       html += `<div class="alt-panel${active !== 0 ? ' alt-panel-hidden' : ''}" data-idx="0">${allHtml}</div>`;
       // Panels 1…N: individual psalms
       psalms.forEach((p, i) => {
