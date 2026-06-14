@@ -719,8 +719,6 @@ body.book-mode .alt-panel + .alt-panel::before {
   background: var(--color-nav-bg); color: var(--color-nav-text);
   box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
-.day-ctrl-sub { display: block; font-size: 0.6rem; opacity: 0.72; margin-top: 2px; }
-
 /* Observance seg: brass outline style (distinct category from time-of-day) */
 .day-ctrl-seg--obs { background: transparent; border-color: color-mix(in oklab, var(--color-brass) 40%, var(--color-border)); }
 .day-ctrl-seg--obs .day-ctrl-btn.is-active {
