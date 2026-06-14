@@ -1077,12 +1077,9 @@ async function render(dateStr, officeType, translation) {
   const ctrlEl = document.getElementById('day-office-controls');
   if (ctrlEl) {
     let ctrlHtml = `<div class="day-ctrl-group">
-      <div class="day-ctrl-cap">Office \u00b7 by time of day</div>
       <div class="day-ctrl-seg">
-        <a href="${hashFor(dateStr, 'mp')}" class="day-ctrl-btn${officeType === 'mp' ? ' is-active' : ''}">
-          Morning<span class="day-ctrl-sub">Said in the morning</span></a>
-        <a href="${hashFor(dateStr, 'ep')}" class="day-ctrl-btn${officeType === 'ep' ? ' is-active' : ''}">
-          Evening<span class="day-ctrl-sub">Said from ~5\u202fpm</span></a>
+        <a href="${hashFor(dateStr, 'mp')}" class="day-ctrl-btn${officeType === 'mp' ? ' is-active' : ''}">Morning Prayer</a>
+        <a href="${hashFor(dateStr, 'ep')}" class="day-ctrl-btn${officeType === 'ep' ? ' is-active' : ''}">Evening Prayer</a>
       </div></div>`;
     if (officeData.alternate) {
       const altLabel = officeData.alternate.label || 'Alternate';
