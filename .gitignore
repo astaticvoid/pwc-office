@@ -11,7 +11,8 @@ __pycache__/
 *.pyo
 
 # Source documents — copyrighted, obtain separately
-sources/
+sources/*
+!sources/bas_short_*.csv
 
 # All data/ content is copyrighted or derived from copyrighted sources — not for distribution.
 # Exception: KJV translation is public domain and committed.
