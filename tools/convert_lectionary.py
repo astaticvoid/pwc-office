@@ -24,6 +24,7 @@ Run from the repo root:
 
 import argparse
 import csv
+import datetime
 import html
 import json
 import re
@@ -673,6 +674,8 @@ def main():
                     help="CSV files to process (default: sources/bas_short_*.csv)")
     ap.add_argument("--accept", action="store_true",
                     help="Update tools/manifest.json with current output hashes")
+    ap.add_argument("--window", type=int, default=None, metavar="N",
+                    help="Keep only monthly files within N months of today (default: keep all)")
     args = ap.parse_args()
 
     root = Path(__file__).parent.parent
@@ -771,6 +774,23 @@ def main():
     for entry in entries:
         month_key = entry["date"][:7]  # "YYYY-MM"
         months.setdefault(month_key, {})[entry["date"]] = entry
+
+    # Apply rolling window: keep only months within N months of today.
+    if args.window is not None:
+        today = datetime.date.today()
+        window_start = today - datetime.timedelta(days=args.window * 31)
+        window_end = today + datetime.timedelta(days=args.window * 31)
+        window_start_key = window_start.strftime("%Y-%m")
+        window_end_key = window_end.strftime("%Y-%m")
+        months = {k: v for k, v in months.items()
+                  if window_start_key <= k <= window_end_key}
+        # Remove existing files outside the window.
+        if lect_dir.exists():
+            for existing in sorted(lect_dir.glob("*.json")):
+                mk = existing.stem  # "YYYY-MM"
+                if mk < window_start_key or mk > window_end_key:
+                    existing.unlink()
+                    print(f"  removed {existing.name} (outside window)")
 
     lect_dir.mkdir(parents=True, exist_ok=True)
     with open(bounds_path, "w", encoding="utf-8") as f:

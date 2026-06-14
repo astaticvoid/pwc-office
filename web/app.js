@@ -878,9 +878,14 @@ async function render(dateStr, officeType, translation) {
   const [offices, collects, day] = result;
   const shared = offices._shared || {};
 
-  // Sync date picker.
+  // Sync date picker. Min = 12 months ago (rolling window matches lectionary coverage).
   const picker = document.getElementById('nav-date-picker');
-  if (picker) { picker.min = bounds.advent_i; picker.max = boundsMax; picker.value = dateStr; }
+  if (picker) {
+    const today = new Date();
+    const twelveMonthsAgo = new Date(today.getFullYear() - 1, today.getMonth(), 1);
+    const pickerMin = `${twelveMonthsAgo.getFullYear()}-${String(twelveMonthsAgo.getMonth()+1).padStart(2,'0')}-01`;
+    picker.min = pickerMin; picker.max = boundsMax; picker.value = dateStr;
+  }
 
   const d = new Date(dateStr + 'T00:00:00Z');
   const weekday = d.getUTCDay();

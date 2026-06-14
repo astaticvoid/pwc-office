@@ -14,9 +14,10 @@ import (
 )
 
 func TestFullLectionaryYear(t *testing.T) {
-	// Walk every day in 2026 — a full BAS lectionary year.
-	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	end := time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)
+	// Walk the rolling 12-month window around today (mirrors lectionary coverage).
+	now := time.Now().UTC()
+	start := time.Date(now.Year()-1, now.Month(), 1, 0, 0, 0, 0, time.UTC)
+	end := start.AddDate(2, 0, 0)
 
 	for d := start; d.Before(end); d = d.AddDate(0, 0, 1) {
 		d := d
