@@ -2,7 +2,243 @@
 
 _Updated: 2026-06-14_
 
+---
+
+## Ready for Cowork review (batch 5)
+
+Build serving at **http://localhost:8081**. `make check-integrity` passes.
+
+### What to spot-check
+
+**Garbled collects — the four previously-broken pages:**
+
+| Date | URL | Expected text |
+|------|-----|---------------|
+| 2026-02-15 (7th Sun after Epiphany) | http://localhost:8081/#/2026-02-15/mp | "your Son revealed in signs and miracles" |
+| 2026-02-22 (8th Sun after Epiphany) | http://localhost:8081/#/2026-02-22/mp | "grant us the Spirit to think and do always" |
+| 2026-11-15 (Proper 33) | http://localhost:8081/#/2026-11-15/mp | "to be the light of the world" |
+| 2026-10-04 (Rogation Days / Harvest) | Visit any Rogation/Harvest date | "Creator of the fruitful earth" |
+
+Load each date → open the Collect section → verify text is readable (no merged words like "AlmightyGod,").
+
+**Integrity guard:**
+- Run `make check-integrity` — should pass with all OK lines.
+- Run `make deploy BUCKET=... CF_DISTRIBUTION_ID=...` — the deploy gate will call `check-integrity` first, then fail loudly if any data drift is detected.
+
+**Text quality checker:**
+- Run `make check-text` → should report 5 findings (all in `data/fats/saints.json`, residual FATS extraction artifacts — noted below, not blocking deploy).
+
+**Common of a Martyr fix (p.432):**
+- Check http://localhost:8081/#/2026-11-01/mp (All Saints Day, uses Proper 31 collect, not martyr) — any saint's day that uses Common of a Martyr should show "servant N courage" with a space before N.
+
+### Known remaining findings from `make check-text`
+
+5 findings in `data/fats/saints.json` — FATS extraction artifacts, not in scope for batch 5:
+- `Chad` collect: "among among" (duplicate word)
+- `Frederick Denison Maurice` bio: "midVictorian" (missing space, should be "mid-Victorian")
+- `The Visit of the Blessed Virgin Mary to Elizabeth` bio: "these these" (duplicate word)
+- `Boniface` bio: "who who" (duplicate word)
+- `Saints of the Reformation Era` bio: "NinetyFive" (merged, should be "Ninety-Five")
+
+These are real issues but require fixes in `tools/extract_fats.py`. Not blocking deploy.
+
+---
+
 Active handoff between Cowork (planning) and Claude Code (implementation). Cowork writes specs here; Claude Code implements and marks done.
+
+---
+
+## Extract audit (2026-06-14)
+
+Baseline: S3 prod (`pwc-office-85464`), deployed 2026-06-07. Current: freshly extracted data/.
+
+**Verdict: ⛔ NOT SAFE TO DEPLOY — garbled collects regression (see below).**
+
+### Blocking: garbled text in `collects.json` — 4 pages
+
+pdftotext 26.04.0 strips word spaces for these specific BAS pages. They are NOT in the extractor's txt-fallback list so they regressed since the June 7 deploy:
+
+| Page | Feast | Symptom |
+|------|-------|---------|
+| p.356 | Seventh Sunday after Epiphany * | `AlmightyGod,\nyourSonrevealed…` |
+| p.358 | Eighth Sunday after Epiphany * | `AlmightyGod,\ngrantustheSpirit…` |
+| p.392 | Proper 33 (Nov 13–19) | `…JesusChrist\ntobethelightoftheworld…` |
+| p.396 | Rogation Days / Harvest Thanksgiving | `Creatorofthefruitfulearth,…` |
+
+**Fix options:**
+- A: Add `[356, 358, 392, 396]` to the txt-fallback list in `extract_collects.py` (needs investigation of why the fallback works for other pages)
+- B: Add 4 entries to `data/patches.json` with the correct text (available from prod — all verified against BAS PDF)
+
+### Expected changes (all explained by post-June-7 commits)
+
+- **offices.json** (31 forms): `normalize_offices.py` (commit `d80be4b`, 2026-06-13) added 3 new `_shared` keys — `reading_response_seasonal`, `reading_response_ordinary`, `lords_prayer_ordinary`. Content unchanged, just moved from inline to shared references.
+- **collects.json**: Patches 003–006 (Canada Day / Saint Peter / Saint Thomas), plus Occasional Prayers extraction (pp.677, 680) — both expected from batch 3/4.
+- **lectionary**: 103 pre-window files (2016–2025-05) removed. Of the 19 current-window files, 18 are identical to prod; `2026-06.json` has 2 dates where a Corpus Christi alternate EP psalm citation was normalised from `'6-7'` (relative) to `'110:6-7'` (fully qualified) — a correct improvement.
+
+### Minor / cosmetic
+
+- **psalter.json psalm 118**: One verse refrain has `" The mercy…"` (extra leading space) vs prod `"The mercy…"`. pdftotext rendering artifact; not semantically meaningful. Recommend adding to `psalter_corrections.py`.
+- **season_bounds.json**: Trailing newline difference only.
+
+### Pipeline fixes made this session
+
+- `validate_lectionary.py` line 237: added `if html_entry is None:` guard — `parse_day_html()` can return None when the ACC HTML page parses to nothing; previously crashed with `AttributeError`.
+
+Full report: `tools/extract_audit_report.txt`
+
+---
+
+## Ready for Code (batch 5)
+
+### 1. Fix garbled collects — **BLOCKING DEPLOY** (P0)
+
+The extract audit (above) found 4 BAS pages where `pdftotext` 26.04.0 strips inter-word spaces. These pages are not in the txt-fallback list in `extract_collects.py` and regressed since the June 7 deploy.
+
+| Page | Feast |
+|------|-------|
+| 356  | Seventh Sunday after Epiphany |
+| 358  | Eighth Sunday after Epiphany |
+| 392  | Proper 33 (Nov 13–19) |
+| 396  | Rogation Days / Harvest Thanksgiving |
+
+**Fix (option A — preferred):** Add `[356, 358, 392, 396]` to the txt-fallback page list in `extract_collects.py`. Re-run `make extract`. Verify the four pages now produce readable text with spaces.
+
+**Fix (option B — fallback):** If the txt-fallback mechanism doesn't cover `extract_collects.py` pages (only `extract_offices.py` may use it), add 4 `patches.json` entries with the correct text taken verbatim from the current prod `collects.json` (accessible via `aws s3 cp s3://$BUCKET/data/collects.json /tmp/prod_collects.json` or the local backup from the audit session).
+
+Run `make extract` after fixing, re-run audit (`diff data/collects.json.bak data/collects.json`), confirm garbled text is gone before proceeding to deploy.
+
+**Commit message:** `fix(collects): restore word spacing for garbled BAS pages (356, 358, 392, 396)`
+
+---
+
+### 2. Extraction manifest + data integrity guard (P2)
+
+**Problem:** An agent session might edit `data/*.json` directly ("monkey patching") instead of going through the proper correction pipeline (extractors or `patches.json`). That fix looks correct in the app but is silently overwritten the next time `make extract` runs, destroying the dev session's work. The manifest must detect this.
+
+**Design:** The manifest records hashes of what the extractor last produced. The integrity check compares current `data/` hashes to the manifest. If they diverge and `make extract` wasn't just run, something modified data files outside the pipeline — that's the alert.
+
+**New script: `tools/update_extract_manifest.py`**
+
+Run at the very end of `make extract` (after `apply_patches.py` — must reflect the final patched state). Writes `tools/extract_manifest.json`:
+
+```json
+{
+  "extracted_at": "2026-06-14T18:32:00Z",
+  "tool_versions": {
+    "pdftotext": "26.04.0"
+  },
+  "files": {
+    "data/offices.json":      { "sha256": "...", "entries": 31 },
+    "data/collects.json":     { "sha256": "...", "entries": 127 },
+    "data/psalter.json":      { "sha256": "...", "entries": 150 },
+    "data/fats/saints.json":  { "sha256": "...", "entries": 173 },
+    "data/lectionary":        { "sha256": "...", "months": 25 }
+  }
+}
+```
+
+For `data/lectionary`, compute a composite hash from sorted filenames + their individual hashes.
+
+**New script: `tools/check_data_integrity.py`**
+
+Reads `tools/extract_manifest.json`, computes current hashes for each listed file, and compares:
+
+```
+OK   data/offices.json (abc123...)
+OK   data/collects.json (def456...)
+DRIFT data/psalter.json
+      expected: ghi789...
+      actual:   zzz999...
+      → File was modified outside the extraction pipeline.
+      → Migrate the change to extract_psalter.py or patches.json, then re-run make extract.
+```
+
+Exit 0 if all match. Exit 1 if any diverge. Include a clear remediation message.
+
+**Wire into deploy gate:**
+```makefile
+check-integrity:
+	python3 tools/check_data_integrity.py
+
+deploy: check-integrity build
+	# ... existing deploy steps
+```
+
+This makes it impossible to accidentally deploy monkey-patched data — `make deploy` fails loudly with a specific file and instructions.
+
+`tools/extract_manifest.json` must be committed to git (un-ignore it). `git log -- tools/extract_manifest.json` then gives a complete history of every extraction run; `git diff tools/extract_manifest.json` shows which files changed by hash/count.
+
+**Local versioned extractions (separate concern)**
+
+The manifest tells you *that* `collects.json` changed but not *which collects* or *how*. For full content diff and rollback, initialise a local git repo inside `data/`:
+
+```bash
+# First time only — after make extract succeeds
+git init data/
+git -C data/ add -A
+git -C data/ commit -m "initial extraction"
+```
+
+Then wire into `make extract` (end of target, after manifest update):
+```makefile
+	git -C data/ add -A && git -C data/ commit -m "extraction $(shell date +%Y-%m-%d)" || true
+```
+
+`|| true` prevents the target failing if data/ has no changes. The `data/.git/` directory is local only — `data/` is already gitignored so it never gets pushed. Use `git -C data/ log` for history, `git -C data/ diff HEAD~1` for the exact text diff between the last two extractions.
+
+The two mechanisms serve distinct purposes:
+- **Local data git** — full content diff between extraction runs; rollback to previous extraction
+- **Integrity guard (manifest)** — deploy gate: was data/ touched outside the pipeline?
+
+**Commit messages:**
+1. `chore(tools): add extract manifest and data integrity guard`
+2. `chore(tools): init local git repo in data/ for extraction versioning` (run manually, not a code commit)
+
+---
+
+### 3. Text quality checker (P2)
+
+**Goal:** Catch PDF extraction artifacts (missing spaces, merged words, duplicate words) with a fast rule-based scan — no LLM needed.
+
+**New script: `tools/check_text_quality.py`**
+
+Scans all text fields in `data/offices.json`, `data/collects.json`, `data/psalter.json`, `data/fats/saints.json`. Reports flagged issues with file, key path, and the suspicious snippet.
+
+**Checks to implement:**
+
+| Check | Pattern | Example |
+|-------|---------|---------|
+| Missing space (merged lines) | `[a-z][A-Z]` mid-word | `AlmightyGod` → catches `yG` |
+| Duplicate adjacent word | `\b(\w{3,})\s+\1\b` (case-insensitive) | `the the` |
+| Probable merged token | `\b\w{30,}\b` | `almightygodwhohastgiven` |
+| Hanging hyphen | `\w-\s*\n` in raw text | `ever-\ngiven` |
+
+Exclude false-positive patterns specific to liturgical text:
+- All-caps tokens (rubric labels like `MINISTER`, `PEOPLE`) — skip
+- Known hyphenated liturgical words: `ever-living`, `ever-blessed`, `well-beloved`, etc. — add a small allowlist
+- Scripture citation patterns like `John 3:16` — skip
+
+**Output format:**
+```
+data/collects.json [392][text]: missing_space near "JesusChristto" (offset 42)
+data/collects.json [356][text]: missing_space near "yourSonrevealed" (offset 18)
+```
+
+Exit 0 always (warnings only — don't block the pipeline). Optionally accept `--strict` flag to exit 1 on any finding.
+
+**Makefile targets:**
+```makefile
+check-text:
+	python3 tools/check_text_quality.py
+
+validate: check-text validate-lectionary
+```
+
+Wire `check-text` into `make validate` so it runs alongside the lectionary check.
+
+**Test:** After fixing the garbled collects (batch 5 item 1), run `make check-text` — the 4 previously-garbled pages should produce zero findings. If any other pages have issues, investigate and fix.
+
+**Commit message:** `chore(tools): add text quality checker for PDF extraction artifacts`
 
 ---
 
