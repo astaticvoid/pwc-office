@@ -63,6 +63,22 @@ NAME_FIXES = {
         'Founders, Benefactors and Missionaries of the Anglican Church of Canada',
 }
 
+# Post-extraction text fixups: merged tokens from PDF hyphen stripping
+_TEXT_FIXES = [
+    ('midVictorian', 'mid-Victorian'),
+    ('NinetyFive', 'Ninety-Five'),
+]
+_DUP_WORD_RE = re.compile(r'\b(\w{3,})\s+\1\b', re.IGNORECASE)
+
+
+def _clean_text(text: str) -> str:
+    """Fix known PDF extraction artifacts: merged tokens and duplicate adjacent words."""
+    for old, new in _TEXT_FIXES:
+        text = text.replace(old, new)
+    text = _DUP_WORD_RE.sub(r'\1', text)
+    return text
+
+
 # Printer artifact patterns in appendix pages
 PRINTER_LINE_RE = re.compile(
     r'\.prn$'
@@ -262,7 +278,7 @@ def _extract_bio_body(lines: list[str]) -> str:
             result.append(s)
     text = '\n'.join(result)
     text = re.sub(r'\n{3,}', '\n\n', text)
-    return text.strip()
+    return _clean_text(text.strip())
 
 
 def parse_propers(page: str) -> dict:
@@ -273,7 +289,7 @@ def parse_propers(page: str) -> dict:
 
     # Collect: between "Collect" heading and "Readings" heading
     m = re.search(r'Collect\s*\n\s*\n(.+?)(?=\n\s*Readings)', page, re.DOTALL)
-    collect = m.group(1).strip() if m else ''
+    collect = _clean_text(m.group(1).strip()) if m else ''
 
     # Readings section: up to "Prayer over the Gifts"
     m = re.search(r'Readings\s*\n(.+?)(?=\n\s*Prayer over the Gifts)', page, re.DOTALL)
