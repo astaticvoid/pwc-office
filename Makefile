@@ -17,6 +17,8 @@ extract:
 	python3 tools/normalize_offices.py
 	python3 tools/extract_psalter.py
 	python3 tools/extract_collects.py
+	python3 tools/validate_patches.py
+	python3 tools/apply_patches.py
 	python3 tools/convert_lectionary.py --accept --window 12
 	python3 tools/validate_lectionary.py
 
