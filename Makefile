@@ -60,6 +60,7 @@ update-golden:
 build:
 	rm -rf dist
 	cp -rL web/. dist/
+	rm -rf dist/data/.git
 	@HASH=$$(python3 -c "import hashlib,sys; h=hashlib.sha256(); \
 	  [h.update(open(f,'rb').read()) for f in sys.argv[1:]]; \
 	  print(h.hexdigest()[:8])" \
