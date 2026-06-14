@@ -33,6 +33,24 @@ ROOT = Path(__file__).parent.parent
 FIRST_PAGE = 262   # book page where Proper of the Church Year begins
 LAST_PAGE  = 447   # last page of Common Propers
 
+# ── Occasional Prayers page range ─────────────────────────────────────────────
+# BAS pp.675-683: "Occasional Prayers and Thanksgivings" section.
+# p.675 is a TOC; pp.676-683 contain the numbered prayers (1-33).
+OCCASIONAL_FIRST_PAGE = 676
+OCCASIONAL_LAST_PAGE  = 683
+
+# Map from BAS page reference → prayer number within the section.
+# The lectionary cites these as "Coll N, PAGE" (e.g. "8, 677 (The King)").
+# Multiple prayers appear on a single page, so we use explicit mappings rather
+# than a per-page heuristic.
+_OCC_PAGE_ALIASES = {
+    "677": "8",   # prayer 8 "For the Queen/Sovereign" appears on BAS p.677
+    "680": "17",  # prayer 17 "For Industry and Commerce" begins BAS p.680
+}
+
+# Matches numbered prayer headers: "8 For the Queen", "32 A General Intercession"
+_OCC_HEADER = re.compile(r'^(\d+) ([A-Z][^\n]+)', re.MULTILINE)
+
 # ── Terminator patterns ───────────────────────────────────────────────────────
 _TERMINATORS = re.compile(
     r'\n(?:Readings|Prayer over the Gifts|Preface of|Prayer after Communion'
@@ -289,7 +307,9 @@ def section_from_page(page: int) -> str:
         return "Special Observances"
     if page <= 431:
         return "Saints' Days and Other Holy Days"
-    return "Common Propers"
+    if page <= 447:
+        return "Common Propers"
+    return "Occasional Prayers"
 
 
 def season_from_name(name: str) -> str:
@@ -333,6 +353,55 @@ def date_from_name(name: str) -> str:
     # Exclude dates that are the upper bound of a "between X and Y Month" range.
     m = re.search(rf'(?<! and )\b(\d{{1,2}} (?:{_MONTHS}))\b', name)
     return m.group(1) if m else ""
+
+
+# ── Occasional Prayers extraction ─────────────────────────────────────────────
+
+def _extract_occasional_prayers(pdf, collects: dict) -> None:
+    """
+    Parse BAS pp.676-683 (Occasional Prayers section) and add selected entries
+    to the collects dict under their BAS page-reference keys.
+
+    The section contains 33 numbered prayers.  Multiple prayers appear on each
+    page, so a simple per-page heuristic cannot reliably assign the right prayer
+    to a given page key.  Instead, all prayers are extracted and then stored
+    under the explicit page aliases in _OCC_PAGE_ALIASES.
+    """
+    total = len(pdf.pages)
+    all_text = ""
+    for idx in range(OCCASIONAL_FIRST_PAGE - 1, min(OCCASIONAL_LAST_PAGE, total)):
+        page_text = pdf.pages[idx].extract_text() or ""
+        all_text += page_text + "\n"
+
+    headers = list(_OCC_HEADER.finditer(all_text))
+
+    entries: dict[str, dict] = {}
+    for i, m in enumerate(headers):
+        num = m.group(1)
+        if not (1 <= int(num) <= 33):
+            continue  # Skip page-footer numbers (676-683) that match the pattern
+        name = m.group(2).strip()
+        body_start = m.end()
+        # Advance to the next valid prayer header to bound this prayer's text.
+        next_valid = next(
+            (h for h in headers[i + 1:] if 1 <= int(h.group(1)) <= 33),
+            None,
+        )
+        body_end = next_valid.start() if next_valid else len(all_text)
+        text = _clean(all_text[body_start:body_end])
+        if text:
+            entries[num] = {
+                "name": name,
+                "section": "Occasional Prayers",
+                "text": text,
+            }
+
+    for page, num in _OCC_PAGE_ALIASES.items():
+        if num in entries:
+            collects[page] = entries[num]
+            print(f"  occ p.{page}  prayer #{num} {entries[num]['name']!r}")
+        else:
+            print(f"  WARNING: occ prayer #{num} not found (needed for p.{page})")
 
 
 # ── Main extraction loop ──────────────────────────────────────────────────────
@@ -406,6 +475,10 @@ def run():
             elif re.search(r'\bCollect\b', text):
                 failures.append(book_page)
 
+        # ── Occasional Prayers section (pp.676-683) ───────────────────────────
+        print("\nExtracting Occasional Prayers (pp.676-683)...")
+        _extract_occasional_prayers(pdf, collects)
+
     # ── Supplemental collects outside the main extraction range ──────────────
     # These are from Occasional Services / other BAS sections not covered by
     # the page scan above. Add manually after verifying against the PDF.
@@ -453,6 +526,13 @@ def run():
         ("360", "proper", 10),                        # "Proper 10"
         ("407", "date",   "14 May"),
         ("432", "section","Common Propers"),
+        # Occasional Prayers (pp.676-683)
+        ("677", "name",   "For the Queen"),
+        ("677", "text",   "fountain of all goodness"),
+        ("677", "section","Occasional Prayers"),
+        ("680", "name",   "For Industry and Commerce"),
+        ("680", "text",   "dignified our labour"),
+        ("680", "section","Occasional Prayers"),
     ]
     print("\nSpot checks:")
     ok = True
