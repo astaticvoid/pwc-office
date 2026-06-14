@@ -1,10 +1,23 @@
 -include .env
 export
 
-.PHONY: test test-smoke test-seasonal test-full test-tools build check-dist serve serve-dist deploy test-web validate
+.PHONY: test test-smoke test-seasonal test-full test-tools build check-dist serve serve-dist deploy test-web validate fetch-sources extract
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
+
+# Download all source files. Everything is publicly available — no manual steps.
+fetch-sources:
+	python3 tools/fetch_sources.py
+	python3 tools/scrape_lectionary.py
+
+# Run the full extraction pipeline after sources are present.
+extract:
+	python3 tools/extract_offices.py
+	python3 tools/extract_psalter.py
+	python3 tools/extract_collects.py
+	python3 tools/convert_lectionary.py --accept
+	python3 tools/validate_lectionary.py
 
 # Unit tests — no API key needed, always fast.
 test:
