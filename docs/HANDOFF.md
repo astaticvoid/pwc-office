@@ -4,6 +4,139 @@ _Updated: 2026-06-14_
 
 ---
 
+## Ready for Cowork review (batch 6)
+
+Build serving at **http://localhost:8081**. `make check-integrity` passes. `make check-text` reports zero findings.
+
+### What to spot-check
+
+**1. Nav header — "Today" button removed**
+- Load http://localhost:8081 — the nav should show: `[PWC logo] [← 📅 →] [⚙]` with no "Today" text button
+- The brand link ("Pray Without Ceasing") still navigates to today when clicked
+- The `t` keyboard shortcut still works
+
+**2. Stale-date banner — dismisses when navigating to today**
+- Visit http://localhost:8081/#/2026-02-15/mp — banner should appear: "Viewing Sunday, 15 February 2026"
+- Click the brand link (or press `t`) to return to today — banner should disappear
+- Root cause was CSS `display: flex` overriding the HTML `hidden` attribute; fixed with `.stale-banner[hidden] { display: none }`
+- Also: navigating to today now clears the sessionStorage dismissal key so the banner resets on the next visit to that stale date
+
+**3. Season label — "Ordinary Time" with space**
+- Visit any weekday in Ordinary Time (e.g., http://localhost:8081/#/2026-06-14/mp)
+- The day header metadata should read: `Season · Ordinary Time` (not "OrdinaryTime")
+- The `data-season` HTML attribute remains `OrdinaryTime` (for CSS theming) — only the display label changed
+
+**4. Integrity guard — pdftotext version check**
+- Run `make check-integrity` — should show `VERSION OK   pdftotext version 26.04.0 (matches manifest)` before the file OK lines
+- On version mismatch it prints `VERSION WARN` with remediation steps (exit 0 — warning only)
+
+**5. FATS text quality — zero findings**
+- Run `make check-text` → `No text quality issues found.`
+- The five FATS artifacts (Chad "among among", Maurice "midVictorian", Visitation "these these", Boniface "who who", Reformation "NinetyFive") are all fixed in `extract_fats.py` via `_clean_text()`
+
+---
+
+## Ready for Code (batch 6)
+
+This batch clears all known issues before the next larger design change (rubrics redesign / FATS minor feast readings). Five commits; `make check-text` should report zero findings when done.
+
+### 1. Bug: "Today" text in nav header (P1)
+
+The "Today" text label appears in the nav header alongside the calendar icon — a regression. In the minimal nav redesign these should be one element, not two. Inspect `app.js` nav rendering: either the Today button was re-added as a text label alongside the existing calendar icon, or the calendar icon was meant to serve today-navigation and the text button is redundant. Remove the spurious text instance; keep whichever element is the intended today-navigation control.
+
+**Commit message:** `fix(ui): remove duplicate "Today" text from nav header`
+
+---
+
+### 2. Bug: Stale-date banner doesn't dismiss on navigate-to-today (P1)
+
+Confirmed live: banner reads "Viewing Sunday, 15 February 2026" while the page shows today's office. `hideStaleBanner()` is not being called on navigation away from the stale date. Fix: in `handleHashChange()`, call `hideStaleBanner()` whenever `parsed.date >= todayStr()`. Also clear the sessionStorage dismissal key on navigate-away so it resets cleanly for future visits to that date.
+
+**Commit message:** `fix(ui): hide stale-date banner when navigating to today or future`
+
+---
+
+### 3. Bug: "OrdinaryTime" missing space (P2)
+
+Season metadata renders as `OrdinaryTime` — should be `Ordinary Time`. Find where the season value is rendered in the day header and add the space. Check whether this is a data issue (the season string in the JSON) or a display issue (the label in `app.js`). If it's in the data, fix in the appropriate extractor or season bounds file; if it's in the display layer, fix the label mapping in `app.js`.
+
+**Commit message:** `fix(ui): render "Ordinary Time" with space in season label`
+
+---
+
+### 4. pdftotext version check in integrity guard (P2)
+
+Add to `check_data_integrity.py`: compare installed `pdftotext` version (from `pdftotext -v 2>&1`) against `tool_versions.pdftotext` in the manifest. Print `VERSION OK` or `VERSION WARN` with remediation message. Exit 0 on version mismatch (warning only). Full spec in the batch 5 "Ready for Code" section below.
+
+**Commit message:** `chore(tools): warn on pdftotext version change in integrity check`
+
+---
+
+### 5. Fix FATS extraction quality findings (P2)
+
+Five findings from `make check-text` in `data/fats/saints.json` — fix in `tools/extract_fats.py`, then re-run `make extract` to update the data and manifest:
+
+| Saint | Finding | Fix |
+|-------|---------|-----|
+| Chad | "among among" (duplicate word) | Fix extraction parsing — likely a repeated line |
+| Frederick Denison Maurice | "midVictorian" (missing space) | Should be "mid-Victorian" — add to NAME_FIXES or post-process |
+| The Visitation | "these these" (duplicate word) | Fix repeated line in extraction |
+| Boniface | "who who" (duplicate word) | Fix repeated line in extraction |
+| Saints of the Reformation Era | "NinetyFive" (merged token) | Should be "Ninety-Five" — add text fix |
+
+After fixing `extract_fats.py`, run `make extract`. Then run `make check-text` — should report zero findings. Commit the extractor fix and the updated manifest separately.
+
+**Commit messages:**
+1. `fix(tools): fix FATS extraction artifacts (duplicate words, merged tokens)`
+2. `chore(data): re-extract after FATS extraction fixes`
+
+---
+
+## Design: Rubric visibility (Cowork — needs planning before Code)
+
+**Synod feedback:** Too much text. Rubrics in Office mode largely duplicate the section headings and interrupt the flow. The intercessions block in particular is a wall of red text. Book mode is the right place for full rubric fidelity — Office mode should be streamlined.
+
+### Rubric taxonomy
+
+Rubrics in the BAS Daily Office fall into three categories with different treatment per mode:
+
+| Type | Example | Office mode | Book mode |
+|------|---------|-------------|-----------|
+| **Navigation** — tells reader what comes next | "Morning Prayer continues with the Lord's Prayer" | **Suppress** — section order is already visible | Show |
+| **Participatory** — who says what, posture | "Said by all", "All stand/kneel" | **Keep** — genuinely needed | Show |
+| **Optional** — invites something | "You may offer intercessions…", "Here may follow a homily" | **Condense** to one italic line | Show in full |
+
+### Intercessions/Thanksgivings specifically
+
+Currently a wall of rubric text before open prayer. In Office mode, condense the entire preamble to:
+
+> *Offer intercessions, petitions, and thanksgivings, silently or aloud.*
+
+In Book mode, show the full BAS rubric text as printed.
+
+### Implementation approach
+
+Do **not** change `offices.json` data — classify at render time in `app.js`. Pattern-match against known navigation rubric phrases:
+
+- Starts with `"Morning Prayer continues"` / `"Evening Prayer continues"` → suppress in Office mode
+- Starts with `"Here follow"` / `"Here may follow"` → condense
+- Starts with `"You may"` → condense  
+- Starts with `"Said by all"` / `"All stand"` / `"All kneel"` → keep always
+
+The intercessions block gets a special render path: detect the intercessions section by its form key and substitute the condensed line when not in book mode.
+
+### What Code needs from Cowork first
+
+Before speccing this for Code, Cowork should:
+1. Browse the Office mode on a typical weekday and list every rubric that appears
+2. Classify each as navigation / participatory / optional
+3. Confirm the condensed intercessions text ("Offer intercessions, petitions, and thanksgivings, silently or aloud.")
+4. Decide whether "Here may follow a homily" stays (it's a useful reminder) or goes
+
+This audit is Cowork work. Once done, a concrete Code spec can be written.
+
+---
+
 ## Ready for Cowork review (batch 5)
 
 Build serving at **http://localhost:8081**. `make check-integrity` passes.
@@ -193,6 +326,31 @@ The two mechanisms serve distinct purposes:
 **Commit messages:**
 1. `chore(tools): add extract manifest and data integrity guard`
 2. `chore(tools): init local git repo in data/ for extraction versioning` (run manually, not a code commit)
+
+---
+
+### 2b. PDF tool version check in integrity guard (P2)
+
+The manifest already records `tool_versions.pdftotext` (batch 5). Extend `check_data_integrity.py` to also compare the currently-installed `pdftotext` version against the manifest at the top of its output:
+
+```
+VERSION OK   pdftotext 26.04.0 (matches manifest)
+```
+
+or, on mismatch:
+
+```
+VERSION WARN pdftotext 26.05.0 (manifest recorded 26.04.0)
+             → Version changed since last extraction. Run make extract then
+               make check-text to catch any new garbled-text regressions
+               before deploying.
+```
+
+Get the installed version via `pdftotext -v 2>&1` (pdftotext writes version to stderr). Parse the version string from the output. Exit 0 on version mismatch (warning only — intentional upgrades are valid); exit 1 only on data hash drift as before.
+
+This closes the silent-regression gap: the exact scenario that caused the batch 5 garbling (pdftotext upgraded, extraction not re-run) will now produce a visible warning at every `make check-integrity` and `make deploy`.
+
+**Commit message:** `chore(tools): warn on pdftotext version change in integrity check`
 
 ---
 
