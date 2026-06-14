@@ -1,8 +1,22 @@
 # PWC — Project Roadmap
 
-_Last updated: 2026-06-07_
+_Last updated: 2026-06-13_
 
 This roadmap organises work into four phases with a rough priority ordering within each. Items are linked to BUGS.md where a known defect is involved.
+
+---
+
+## Phase 0 — Redesign ✅ Complete (2026-06-10)
+
+The full nav/UX redesign was implemented and reviewed at Synod on 10 June 2026:
+- Nav redesign: minimal two-row chrome, settings bottom sheet (gear icon), MP/EP row
+- Book mode: flat read-through view, all alternatives shown sequentially with "or" dividers
+- Observance as content card (removed from nav)
+- Seasonal accent colours (per `data-season` attribute)
+- UX-03, 07, 08, 10, 11, 12, 13, 14, 16 all fixed
+- Post-review tweaks: nav icon polish, Today button replaced by calendar icon, Trinity Sunday season fix
+
+See `docs/HANDOFF.md` for what comes next.
 
 ---
 
@@ -41,18 +55,28 @@ Systematically check all `notes` fields in the current lectionary JSON:
 **Collect coverage audit**  
 Run through all `collect` field values in the lectionary JSON and verify each resolves to an entry in `collects.json`. Flag any that don't. At minimum, document the gaps.
 
-### 1.3 Code hygiene
+### 1.3 Data model hygiene
+
+**Data normalization** — write `tools/normalize_offices.py` to deduplicate `reading_response`, `lords_prayer_intro`, and seasonal EP `opening_responses` into `_shared`. No app change required (existing shared-ref mechanism handles it). Spec in `docs/HANDOFF.md`.
+
+**Patch system** — `data/patches.json` + `tools/apply_patches.py` + `tools/validate_patches.py`. Makes text corrections versioned and re-extraction-safe. Convert BUG-18 litany fix into first patch entry. Spec in `docs/HANDOFF.md`.
+
+### 1.4 Code hygiene
 
 ✅ **Remove `boneyard/`** (BUGS.md BUG-16, removed 2026-06-06)
 
 ✅ **Add startup CANTICLE_SOURCE completeness check** (BUGS.md BUG-17, fixed 2026-06-06)  
 `renderAlternatives()` emits `console.warn` when a named canticle label has no entry in `CANTICLE_SOURCE`.
 
-**JSDoc / module annotation**  
-`app.js` is ~61 KB of dense vanilla JS. Add JSDoc comments to the major function clusters and section headers to make maintenance tractable.
+**Source fetch + extract pipeline** — `make fetch-sources` downloads all sources automatically (all PDFs + CSVs are publicly available from anglican.ca and commontexts.org). `make extract` runs the full pipeline. Spec in `docs/HANDOFF.md`.
 
-**CONTRIBUTING.md**  
-Document: how to set up the dev environment, how to re-extract data (pipeline order), how to run all test tiers, how to deploy, and the copyright constraints.
+**Trim lectionary to rolling window** — drop historical data beyond 12 months. Nobody uses 2016–2023 offices; trimming reduces `dist/` size and service worker cache. Spec in `docs/HANDOFF.md`.
+
+**ARIA tab roles** (UX-15) — `renderAlternatives()` in `app.js`. Spec in `docs/HANDOFF.md`.
+
+**JSDoc / module annotation** — JSDoc on major `app.js` function clusters. Spec in `docs/HANDOFF.md`.
+
+**CONTRIBUTING.md** — developer guide: setup, data pipeline, test tiers, deploy, copyright constraints. Spec in `docs/HANDOFF.md`.
 
 ---
 
@@ -117,7 +141,9 @@ Draft and send inquiry to Anglican Church of Canada about reproducing BAS/PWC li
 
 ## Phase 3 — Alternate Lectionaries
 
-See DESIGN.md §8 for the architectural requirements.
+See `docs/DESIGN.md` §8 for the architectural requirements.
+
+**Scope**: RCL daily readings only. BCP 1979 and BCP 2019 are explicitly out of scope.
 
 ### 3.1 Data model refactoring
 
@@ -126,23 +152,38 @@ See DESIGN.md §8 for the architectural requirements.
 - Abstract `detect_bounds()` behind a source-agnostic interface
 - Update app `fetchDay()` to accept `lectionaryId`
 
-### 3.2 RCL support (highest priority)
+### 3.2 RCL Daily Readings
 
-The Revised Common Lectionary is freely available and used by most Anglican, Lutheran, Methodist, and Presbyterian churches. Implementation path:
-1. Find or build a machine-readable RCL data source
-2. Write `convert_rcl.py` to produce the same monthly JSON format
-3. Add `rcl/` namespace in data
-4. Wire into app as a third lectionary option (alongside BAS Morning / BAS Evening)
+**Background**: General Synod 2023 authorized the "Revised Common Lectionary Daily Readings" (Consultation on Common Texts, 2005) as an alternative to the BAS daily office lectionary for use in the Anglican Church of Canada. This is the standard universal CCT publication — no Canadian variant exists.
 
-### 3.3 BCP 1979 / BCP 2019
+**Data source**: The RCL daily data is copyright © 2005 CCT, administered by Augsburg Fortress (1517 Media). It is not available in open machine-readable form; the ACC site and dailylectio.net both display it under permission. The Synod is currently examining distribution rights for the official ACC app. In the interim, data is for private evaluation only and must be gitignored (consistent with all other copyrighted content in this project).
 
-ECUSA (BCP 1979) and ACNA (BCP 2019) have structured lectionary data. Both use the same JSON schema target. Implementation is independent of RCL; can be parallelized once the data-path refactoring is complete.
+**Data acquisition**: Write `tools/extract_rcl_daily.py` to parse RTF/DOC files downloaded directly from `commontexts.org/publications/` — the canonical CCT source. No web scraping needed; CCT publishes the 2005 Daily Readings as free RTF downloads for all three years, plus a 2024 Expanded edition (Year A only as of 2026-06). Output goes to `data/rcl-daily/YYYY-MM.json`, gitignored. Script is checked in like all other extractors. Full spec in `docs/HANDOFF.md`.
 
-### 3.4 UI
+**Feature gate**: All RCL daily code is behind a `FEATURE_RCL_DAILY` flag (const in `app.js`, default `false`). Setting it `false` removes all RCL UI and data-fetching with zero residual effect. This allows the feature to be enabled for evaluation and disabled cleanly if distribution rights do not resolve.
 
-- Lectionary selector in nav (or settings drawer): BAS / RCL / BCP 1979 / BCP 2019
-- Store selection in `localStorage`
-- Season bounds are lectionary-specific; load the correct `season_bounds.json` per selection
+**Data model** (daily, per month file):
+```json
+[
+  {
+    "date": "2026-06-13",
+    "week_label": "Proper 6 – Preparation 3",
+    "track1": { "psalm": "Psalm 116:1-2, 12-19", "ot": "Genesis 24:10-52", "nt": "Mark 7:1-13" },
+    "track2": { "psalm": "Psalm 100", "ot": "Exodus 6:28—7:13", "nt": "Mark 7:1-13" }
+  }
+]
+```
+
+**Daily Office mapping**: For MP — psalm + OT reading. For EP — (same) psalm + NT reading. Track selection (1 = semicontinuous, 2 = complementary) stored in `localStorage`.
+
+**Full spec** in `docs/HANDOFF.md`.
+
+### 3.3 UI
+
+- Lectionary selector in settings drawer: BAS / RCL
+- Track selector (for RCL): Semicontinuous / Complementary
+- Season bounds: BAS bounds remain in force for seasonal colouring; RCL uses same Christian year so no separate bounds file needed
+- Store selections in `localStorage`
 
 ---
 
@@ -166,6 +207,45 @@ Generate machine-readable daily office readings for calendar integration. Could 
 ### 4.4 Go CLI parity
 
 Ensure the CLI renders all features available in the web app, including seasonal collect toggle, alternate observance, and optional lessons. Currently the CLI shares the data layer but may not render all alternatives.
+
+---
+
+## Phase 5 — Native Apps (iOS & Android)
+
+PWC is being developed as an official Anglican Church of Canada distributed app. Distribution via the App Store and Google Play requires native (or hybrid-native) packaging. This is a large project; design decisions and technical choices need to be made before implementation begins.
+
+### 5.1 Technical approach (decision required)
+
+Three viable paths:
+
+**Capacitor (recommended starting point)** — wraps the existing web SPA in a native shell with access to native APIs. Fastest path given the existing vanilla JS app. Capacitor is maintained by Ionic and widely used for exactly this pattern. The web app runs unchanged; native features (push notifications, offline storage, app icons) are layered on top.
+
+**React Native / Flutter** — full rewrite of the frontend in a cross-platform framework. Produces better native UI fidelity but requires rewriting `app.js` (~1400 lines) in a new paradigm. Only justified if significant native UI is required or Capacitor proves inadequate.
+
+**Progressive Web App (PWA) + App Store submission** — iOS now allows PWAs in the App Store via WKWebView wrappers. The service worker and offline support already in place make PWC a strong PWA candidate. Lowest effort but limited access to native APIs.
+
+### 5.2 Scope
+
+- Offline-first: all data pre-bundled or aggressively cached (lectionary, offices, psalter)
+- Push notifications: optional daily reminder at configurable time
+- App Store (Apple) and Google Play distribution
+- Distribution managed by/through the Anglican Church of Canada
+
+### 5.3 Prerequisites before native work begins
+
+- ACC licence resolved (Phase 2.6) — needed to distribute data
+- Year A lectionary complete (Phase 2.1) — app should launch with full coverage
+- RCL daily rights resolved (Phase 3) — should be in-app at launch if possible
+- CONTRIBUTING.md and architecture docs complete — native work may involve new contributors
+- Bug 6 and Bug 7 fixes committed — no known regressions before a public release
+
+### 5.4 Milestones (to be detailed in HANDOFF.md when work begins)
+
+1. Technical spike: Capacitor proof-of-concept with existing web app
+2. Evaluate result (offline behaviour, performance, native feel)
+3. If adequate: add native features (notifications, icon, splash screen)
+4. App Store and Google Play submissions
+5. ACC distribution agreement and listing
 
 ---
 
