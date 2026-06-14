@@ -748,7 +748,8 @@ function psalmHtml(officeData, shared) {
     // Panels 1…N: individual sets
     psalmSets.forEach((set, si) => {
       let setHtml = '';
-      set.forEach(p => { setHtml += psalmWithGloria(p, shared); });
+      set.forEach(p => { setHtml += psalmPlaceholder(p); });
+      setHtml += gloriaHtml(shared);
       html += `<div class="alt-panel${si + 1 !== active ? ' alt-panel-hidden' : ''}" data-idx="${si + 1}">${setHtml}</div>`;
     });
     html += `</div>`;
