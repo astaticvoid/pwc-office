@@ -373,13 +373,7 @@ body {
 
 /* ── Day header ─────────────────────────────────────────────────────────────── */
 
-#day-brand {
-  display: none;
-  font-family: var(--font-ui); font-size: 0.6rem;
-  font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--color-muted); margin-bottom: 0.3rem;
-}
-@media (max-width: 520px) { #day-brand { display: block; } }
+#day-brand { display: none; }
 
 #day-header {
   padding: 1rem 0 0.75rem;
