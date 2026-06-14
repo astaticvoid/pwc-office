@@ -52,5 +52,41 @@
     "op": "replace",
     "old": "3 July",
     "new": "1 July"
+  },
+  {
+    "id": "patch-007",
+    "description": "Restore word spaces on p.356 (pdfplumber 26.04.0 concatenates words for this page)",
+    "target": "collects.json",
+    "path": ["356", "text"],
+    "op": "replace",
+    "old": "AlmightyGod,\nyourSonrevealedinsignsandmiracles\nthewonderofyoursavinglove.\nRenewyourpeoplewithyourheavenlygrace,\nandinallourweakness\nsustainusbyyourmightypower;\nthroughJesusChristourLord,\nwhoisaliveandreignswithyouandtheHolySpirit,\noneGod,nowandforever.",
+    "new": "Almighty God,\nyour Son revealed in signs and miracles\nthe wonder of your saving love.\nRenew your people with your heavenly grace,\nand in all our weakness\nsustain us by your mighty power;\nthrough Jesus Christ our Lord,\nwho is alive and reigns with you and the Holy Spirit,\none God, now and for ever."
+  },
+  {
+    "id": "patch-008",
+    "description": "Restore word spaces on p.358 (pdfplumber 26.04.0 concatenates words for this page)",
+    "target": "collects.json",
+    "path": ["358", "text"],
+    "op": "replace",
+    "old": "AlmightyGod,\ngrantustheSpirittothinkanddoalways\nthosethingsthatareright,\nthatwewhocandonothinggoodwithoutyou,\nmayliveaccordingtoyourholywill;\nthroughJesusChristourLord,\nwholivesandreignswithyouandtheHolySpirit,\noneGod,nowandforever.",
+    "new": "Almighty God,\ngrant us the Spirit to think and do always\nthose things that are right,\nthat we who can do nothing good without you,\nmay live according to your holy will;\nthrough Jesus Christ our Lord,\nwho lives and reigns with you and the Holy Spirit,\none God, now and for ever."
+  },
+  {
+    "id": "patch-009",
+    "description": "Remove spurious blank lines on p.392 caused by running page-number and section-header stripping across a page break",
+    "target": "collects.json",
+    "path": ["392", "text"],
+    "op": "replace",
+    "old": "Almighty God,\nyou sent your Son Jesus Christ\n\n\n\nto be the light of the world.\nFree us from all that darkens and ensnares us,\nand bring us to eternal light and joy;\nthrough the power of him\nwho is alive and reigns with you and the Holy Spirit,\none God, now and for ever.",
+    "new": "Almighty God,\nyou sent your Son Jesus Christ\nto be the light of the world.\nFree us from all that darkens and ensnares us,\nand bring us to eternal light and joy;\nthrough the power of him\nwho is alive and reigns with you and the Holy Spirit,\none God, now and for ever."
+  },
+  {
+    "id": "patch-010",
+    "description": "Restore word spaces on p.396 (pdfplumber 26.04.0 concatenates words for this page)",
+    "target": "collects.json",
+    "path": ["396", "text"],
+    "op": "replace",
+    "old": "Creatorofthefruitfulearth,\nyoumadeusstewardsofallthings.\nGiveusgratefulheartsforallyourgoodness,\nandsteadfastwillstouseyourbountywell,\nthatthewholehumanfamily,\ntodayandingenerationstocome,\nmaywithusgivethanksfortherichesofyourcreation.\nWeaskthisinthenameofJesusChristtheLord.",
+    "new": "Creator of the fruitful earth,\nyou made us stewards of all things.\nGive us grateful hearts for all your goodness,\nand steadfast wills to use your bounty well,\nthat the whole human family,\ntoday and in generations to come,\nmay with us give thanks for the riches of your creation.\nWe ask this in the name of Jesus Christ the Lord."
   }
 ]

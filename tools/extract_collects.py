@@ -51,6 +51,11 @@ _OCC_PAGE_ALIASES = {
 # Matches numbered prayer headers: "8 For the Queen", "32 A General Intercession"
 _OCC_HEADER = re.compile(r'^(\d+) ([A-Z][^\n]+)', re.MULTILINE)
 
+# ── Pages where pdfplumber garbles text; always use pdftotext fallback ────────
+# These pages have font-encoding issues that pdfplumber cannot recover from.
+# pdftotext produces clean text for them, so we bypass the garbling check.
+_TXT_FALLBACK_PAGES = {356, 358, 392, 396}
+
 # ── Terminator patterns ───────────────────────────────────────────────────────
 _TERMINATORS = re.compile(
     r'\n(?:Readings|Prayer over the Gifts|Preface of|Prayer after Communion'
@@ -446,13 +451,13 @@ def run():
             # ── Extract collect text ──────────────────────────────────────
             collect_text = ""
 
-            if is_garbled(text):
+            if is_garbled(text) or book_page in _TXT_FALLBACK_PAGES:
                 # Fall back to BAS.txt for clean text.
                 collect_text = extract_collect_from_txt(bas_txt, current_name)
                 if collect_text:
                     txt_fallbacks.append(book_page)
                 else:
-                    # Last resort: still try PDF text
+                    # Last resort: still try PDF text (may be garbled).
                     collect_text = extract_collect(text, overflow_pdf)
             else:
                 collect_text = extract_collect(text, overflow_pdf)
@@ -526,6 +531,8 @@ def run():
         ("360", "proper", 10),                        # "Proper 10"
         ("407", "date",   "14 May"),
         ("432", "section","Common Propers"),
+        # p.392: txt fallback catches garbling; patches 007/008/010 fix remaining 3 pages
+        ("392", "text",   "to be the light of the world"),
         # Occasional Prayers (pp.676-683)
         ("677", "name",   "For the Queen"),
         ("677", "text",   "fountain of all goodness"),
