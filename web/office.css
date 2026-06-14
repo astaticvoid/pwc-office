@@ -229,6 +229,14 @@ body {
 .obs-nav-btn:hover { opacity: 1; background: rgba(255,255,255,0.08); }
 .obs-nav-btn.nav-active { opacity: 1; background: rgba(255,255,255,0.12); }
 
+/* Today button */
+#nav-today {
+  background: none; border: none; cursor: pointer; padding: 0.2rem 0.5rem;
+  font-family: var(--font-ui); font-size: 0.8rem; color: var(--color-nav-text);
+  border-radius: 6px; flex-shrink: 0; opacity: 0.82; transition: background 0.15s, opacity 0.15s;
+}
+@media (hover: hover) { #nav-today:hover { background: rgba(255,255,255,0.18); opacity: 1; } }
+
 /* Settings button — matches #nav-date-wrapper pill style */
 #nav-settings-btn {
   flex: 0; width: 34px; height: 34px; border-radius: 9px;

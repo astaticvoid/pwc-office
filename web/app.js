@@ -1479,6 +1479,11 @@ document.addEventListener('DOMContentLoaded', () => {
     handleHashChange();
   });
 
+  document.getElementById('nav-today').addEventListener('click', () => {
+    history.pushState({}, '', location.pathname);
+    handleHashChange();
+  });
+
   // Settings sheet
   const settingsSheet = document.getElementById('settings-sheet');
   const settingsBtn = document.getElementById('nav-settings-btn');
