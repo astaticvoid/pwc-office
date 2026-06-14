@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: test test-smoke test-seasonal test-full test-tools build check-dist serve serve-dist deploy test-web validate fetch-sources extract update-golden
+.PHONY: test test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text serve serve-dist deploy test-web validate fetch-sources extract update-golden
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -20,6 +20,8 @@ extract:
 	python3 tools/apply_patches.py
 	python3 tools/convert_lectionary.py --accept --window 12
 	python3 tools/validate_lectionary.py
+	python3 tools/update_extract_manifest.py
+	git -C data/ add -A && git -C data/ commit -m "extraction $(shell date +%Y-%m-%d)" || true
 
 # Unit tests — no API key needed, always fast.
 test:
@@ -97,9 +99,13 @@ validate:
 test-web:
 	npx playwright test
 
+# Verify data/ files match the last extraction — exits 1 if any file was edited directly.
+check-integrity:
+	python3 tools/check_data_integrity.py
+
 # Deploy — sync dist/ to S3 (requires AWS_PROFILE or ambient credentials).
 # Set BUCKET in environment or pass: make deploy BUCKET=my-bucket-name
-deploy: check-dist
+deploy: check-integrity check-dist
 	# sw.js must be no-cache so browsers always revalidate after a deploy.
 	# Sync everything except sw.js, then upload sw.js with explicit header.
 	aws s3 sync dist/ s3://$(BUCKET)/ --delete --exclude "sw.js"

@@ -1,0 +1,28 @@
+{
+  "extracted_at": "2026-06-14T16:03:54Z",
+  "tool_versions": {
+    "pdftotext": "pdftotext version 26.04.0"
+  },
+  "files": {
+    "data/offices.json": {
+      "sha256": "3b5acdac30956aa37a87e44e9843a290890e676297926dc21874a0ce6b547bea",
+      "entries": 31
+    },
+    "data/collects.json": {
+      "sha256": "4ce9991f07ddb1e5279839bfc7ef402f89c6472d6718bd019bb0df65d2d71d7e",
+      "entries": 118
+    },
+    "data/psalter.json": {
+      "sha256": "fefbb20d10ec049239727bf1e557ded2654088873759bfb42042bd76685e957e",
+      "entries": 150
+    },
+    "data/fats/saints.json": {
+      "sha256": "1329d0aa5a47a44a57488c936fcd4f3afa9237755df25dc44d14f04fd553a00b",
+      "entries": 173
+    },
+    "data/lectionary": {
+      "sha256": "af8450a115fb5d57725c2d169d8c7185edfc1c0ea394aa75b30955bc00d295a5",
+      "months": 19
+    }
+  }
+}
