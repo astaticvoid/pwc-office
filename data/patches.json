@@ -1,1 +1,56 @@
-[]
+[
+  {
+    "id": "patch-001",
+    "description": "Update sovereign collect name from Queen to Sovereign",
+    "target": "collects.json",
+    "path": ["677", "name"],
+    "op": "replace",
+    "old": "For the Queen",
+    "new": "For the Sovereign"
+  },
+  {
+    "id": "patch-002",
+    "description": "Update sovereign collect text from Queen Elizabeth to King Charles",
+    "target": "collects.json",
+    "path": ["677", "text"],
+    "op": "replace",
+    "old": "Almighty God, fountain of all goodness, bless our Sovereign\nLady, Queen Elizabeth, and all who are in authority under her;\nthat they may order all things in wisdom and equity,\nrighteousness and peace, to the honour of your name, and the\ngood of your Church and people; through Jesus Christ our Lord.",
+    "new": "Almighty God, fountain of all goodness, bless our Sovereign\nLord, King Charles, and all who are in authority under him;\nthat they may order all things in wisdom and equity,\nrighteousness and peace, to the honour of your name, and the\ngood of your Church and people; through Jesus Christ our Lord."
+  },
+  {
+    "id": "patch-003",
+    "description": "Correct p.412 feast name: extractor picked up Canada Day heading (bottom of page) instead of Saint Peter and Saint Paul (whose collect appears at top of same page)",
+    "target": "collects.json",
+    "path": ["412", "name"],
+    "op": "replace",
+    "old": "Canada Day 1 July",
+    "new": "Saint Peter and Saint Paul 29 June"
+  },
+  {
+    "id": "patch-004",
+    "description": "Correct p.412 feast date to match Saint Peter and Saint Paul",
+    "target": "collects.json",
+    "path": ["412", "date"],
+    "op": "replace",
+    "old": "1 July",
+    "new": "29 June"
+  },
+  {
+    "id": "patch-005",
+    "description": "Correct p.413 feast name: extractor picked up Saint Thomas heading (bottom of page) instead of Canada Day (whose collect appears at top of same page)",
+    "target": "collects.json",
+    "path": ["413", "name"],
+    "op": "replace",
+    "old": "Saint Thomas 3 July",
+    "new": "Canada Day 1 July"
+  },
+  {
+    "id": "patch-006",
+    "description": "Correct p.413 feast date to match Canada Day",
+    "target": "collects.json",
+    "path": ["413", "date"],
+    "op": "replace",
+    "old": "3 July",
+    "new": "1 July"
+  }
+]
