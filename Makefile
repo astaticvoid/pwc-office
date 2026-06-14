@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: test test-smoke test-seasonal test-full test-tools build check-dist serve serve-dist deploy test-web validate fetch-sources extract
+.PHONY: test test-smoke test-seasonal test-full test-tools build check-dist serve serve-dist deploy test-web validate fetch-sources extract update-golden
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -44,6 +44,10 @@ test-seasonal:
 # Full — structural check of every day in the lectionary year. No API key needed.
 test-full:
 	go test -tags e2e_full -timeout 5m ./e2e/...
+
+# Regenerate golden snapshot files after an intentional rendering change.
+update-golden:
+	go test ./e2e/... -tags e2e_full -run TestGolden -update
 
 # Assemble dist/ for static deployment (S3, etc.).
 # Copies web/ source + dereferences the data/ symlink into one deployable folder.

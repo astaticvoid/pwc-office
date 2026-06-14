@@ -45,6 +45,9 @@ node_modules/
 playwright-report/
 test-results/
 
+# Golden snapshot files — derived from copyrighted liturgical content, not for distribution
+e2e/testdata/
+
 # Scraper caches — local state, not committed
 tools/.scrape_cache.json
 tools/.daily_cache/
