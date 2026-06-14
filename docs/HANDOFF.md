@@ -6,6 +6,47 @@ Active handoff between Cowork (planning) and Claude Code (implementation). Cowor
 
 ---
 
+## Completed this session (2026-06-14 batch 4)
+
+All four "Ready for Code (batch 4)" items implemented and committed.
+
+**Implemented:**
+
+- **Civic collect corrections** (`data/patches.json`): Six patches added.
+  - p.677 name updated "For the Queen" → "For the Sovereign"; text updated to King Charles / "him".
+  - p.412 mislabeled "Canada Day 1 July" → "Saint Peter and Saint Paul 29 June"; date fixed.
+  - p.413 mislabeled "Saint Thomas 3 July" → "Canada Day 1 July"; date fixed.
+  (Root cause: `_feast_name_from_page()` in `extract_collects.py` reads the NEXT entry's heading from the bottom of the preceding page. Canada Day's collect is on BAS p.413, correctly extracted text-wise, just mis-labeled.)
+
+- **Secondary collect UI** (`web/app.js`): Added `collectSecondaryPage()` to parse Occasional Prayer page numbers from refs like `"344 or 8, 677 (The King)"` → `"677"`. Refactored `collectToggleHtml()` to use an internal `tabBlock([[label, html], …])` helper. Both the regular and seasonal-alt branches now show the Occasional Prayer as an extra tab.
+
+- **Dead CSS** (`web/office.css`): Removed unused `.day-ctrl-sub` rule (line 722).
+
+- **FATS extractor** (`tools/extract_fats.py`): New script. Runs `pdftotext` on `sources/For-All-The-Saints.pdf`, parses 173 saints (main section pp.37–385 + Appendix pp.388–392). Output: `data/fats/saints.json` (already covered by `data/*` gitignore; no gitignore change needed). Handles: garbage printer headers (Appendix pages), names wrapping across date lines (Annunciation, Visitation, Founders/Benefactors), multi-line rank descriptions (Hannah Grier Coome, Charles Henry Brent), entries with no repeated date in header (Jan Hus). Three NAME_FIXES entries for PDF layout artifacts.
+
+- **FATS app integration** (`web/app.js`, `web/office.css`, `web/sw.js`):
+  - Phase 1: `lookupFatsEntry(fats, name)` does case-insensitive substring match with `FATS_ALIASES` override dict. If a FATS entry exists for `day.name`, a collapsible `<details>` bio block appears below the observance card. `data/fats/saints.json` added to service worker CACHE_FIRST list.
+  - Phase 2: `collectToggleHtml()` now accepts a `fatsEntry` parameter. If the BAS collect ref is absent or the page isn't in `collects.json`, and a FATS collect exists, it's shown as the Collect of the Day (fallback). Applies to Appendix saints not in BAS.
+
+**Commits (in order):**
+1. `fix(collects): update sovereign collect to King Charles and correct Canada Day/saints page labeling` (17461be)
+2. `feat(collect): display occasional prayer as additional collect tab` (84ad20a)
+3. `chore(css): remove unused day-ctrl-sub class` (c9a81e7)
+4. `tools: add extract_fats.py (biographical notices and propers for feast days)` (a5844cd)
+5. `feat(fats): show bio notice and FATS collect fallback for feast days` (ad9bd47)
+
+**Surprises / things Cowork should know:**
+
+1. **Canada Day collect is on BAS p.413, not in Occasional Prayers**: The HANDOFF hypothesised Canada Day collect was "almost certainly in the Occasional Prayers section (BAS pp.660+)". Investigation showed it's in the saints range at p.413 (correctly extracted text, just mislabeled). Confirmed by FATS p.211 which has identical text. Corrected via patches.json, not extractor fix.
+
+2. **`data/fats/` already covered by gitignore**: `data/*` in `.gitignore` already covers `data/fats/`. No separate entry was needed or added. Commit 2 from the spec ("data: gitignore data/fats/") was a no-op and skipped.
+
+3. **FATS name lookup may need aliases**: The lectionary uses names like "Florence Li Tim-Oi, Priest, 1992" while FATS keys them as "Florence Li Tim-Oi". The substring match handles this case (lectionary name includes FATS name). The empty `FATS_ALIASES` dict in `app.js` is the extension point for cases where substring match fails — populate after testing against actual lectionary entries.
+
+4. **Commits 3+4 from spec combined**: The FATS bio display (Phase 1) and collect fallback (Phase 2) share the same FATS fetch infrastructure in `render()`. Splitting them would have left an orphaned `fatsEntry` variable between commits. Combined as one commit with both phases described in the message.
+
+---
+
 ## Completed this session (2026-06-14 batch 3)
 
 All "Ready for Code (batch 3)" items implemented and committed.
@@ -59,6 +100,166 @@ All "Ready for Code (batch 2)" items implemented and committed.
 2. **Stale banner shows on any navigation to a past date**, not just on initial page load. Per the HANDOFF spec example, the check runs in `handleHashChange()` on every hash change. The `sessionStorage` dismissal means it only annoys once per date per session. If Cowork wants it truly "load-only", we'd need a `firstLoad` flag — consider speccing that.
 
 3. **ARIA IDs for collect tabs** are stable (`pwc-alt-collect-tab-0` etc.) because `stateKey` is hardcoded `'pwc-alt-collect'`. Psalm tab IDs are dynamic (built from psalm citation list) and will change when the lectionary changes — this is correct since each day's psalms get unique IDs.
+
+---
+
+## Ready for Code (batch 4)
+
+### Civic collect corrections (P1)
+
+**1. Update "For the Queen" to "For the King" (patches.json)**
+
+p.677 in `collects.json` still contains the original BAS wording naming Queen Elizabeth. Add two `patches.json` entries:
+
+```json
+[
+  {
+    "id": "patch-001",
+    "description": "Update sovereign collect name from Queen to King",
+    "target": "collects.json",
+    "path": ["677", "name"],
+    "op": "replace",
+    "old": "For the Queen",
+    "new": "For the Sovereign"
+  },
+  {
+    "id": "patch-002",
+    "description": "Update sovereign collect text from Queen Elizabeth to King Charles",
+    "target": "collects.json",
+    "path": ["677", "text"],
+    "op": "replace",
+    "old": "Almighty God, fountain of all goodness, bless our Sovereign\nLady, Queen Elizabeth, and all who are in authority under her;",
+    "new": "Almighty God, fountain of all goodness, bless our Sovereign\nLord, King Charles, and all who are in authority under him;"
+  }
+]
+```
+
+Verify the exact `old` text by running `python3 tools/validate_patches.py` after adding — it will tell you if the string doesn't match. Add `apply_patches.py` to the `make extract` pipeline if it isn't already wired for `collects.json` (it may currently only handle `offices.json`).
+
+**Commit message:** `fix(collects): update sovereign collect to King Charles (patches.json)`
+
+---
+
+**2. Canada Day collect reference audit**
+
+The lectionary CSV references `Coll 413` for Canada Day (July 1) but:
+- `collects.json` p.413 = Saint Thomas (3 July) — wrong saint entirely
+- `collects.json` p.412 = labeled "Canada Day 1 July" but text is Peter & Paul collect — extraction bug
+- The actual Canada Day collect is almost certainly in the Occasional Prayers section (BAS pp. 660+), not in the saints' range
+
+**Code must inspect `sources/BAS.pdf`** around pp. 660–695 to find the Canada Day collect. If found there, add it to `_extract_occasional_prayers()` in `extract_collects.py` with its correct page key.
+
+Also inspect what is actually on BAS pp. 411–413 to determine if the extraction labeled those entries correctly. The text starting "Almighty God, your blessed apostles Peter and Paul" should be on the Peter & Paul page (June 29, around p.408–410), not p.412.
+
+If p.412 is confirmed as a mis-extracted entry, add a `patches.json` correction once the right text is identified.
+
+**Commit message:** `fix(collects): correct Canada Day collect reference and extraction`
+
+---
+
+### Secondary collect UI fix (P1)
+
+Code noted in batch 3: `collectPageNum()` only extracts the first number from a collect ref string. For refs like `"344 or 8, 677 (The King)"` it returns `344` — the Occasional Prayer alternative is never displayed.
+
+**Current format patterns in collect refs (all must be parsed):**
+- `"387"` — single page, already works
+- `"340 (Com: 435 or FAS 171) or Coll 8, 677 (The King)"` — primary + occasional alternative
+- `"377 or Coll 17, 680 (Labour Day)"` — primary + occasional alternative
+- `"365 or Coll 413 or FAS 211 (Canada Day)"` — primary + two alternatives (FAS handled separately)
+- `"426 or FAS 319"` — primary + FATS reference (FAS handled by FATS feature)
+
+**Fix:** Extend the collect rendering to detect and display the Occasional Prayer alternative as an additional tab option (alongside Collect of the Day / Seasonal I / Seasonal II). The occasional prayer is the page after `Coll N,` in the ref string.
+
+Parse secondary collect page from refs matching `Coll\s*\d+,\s*(\d+)` or `or\s+\d+,\s+(\d+)\s+\(`.
+
+If an Occasional Prayer page is found AND that key exists in `collects.json`, add a fourth tab to the collect toggle with the occasion name as the label (from `collects[page].name`). If the key is missing from `collects.json`, silently omit the tab (graceful degradation).
+
+**Test dates:**
+- `2025-05-19` (Dunstan / Victoria Day) — should show "Collect of the Day" + optional "For the Sovereign" tab
+- `2025-09-01` (Labour Day) — should show "Collect of the Day" + "For Industry and Commerce"
+- `2025-07-01` (Canada Day) — only shows primary collect until Canada Day collect is fixed
+
+**Commit message:** `feat(collect): display occasional prayer as additional collect tab`
+
+---
+
+### Dead CSS cleanup (P3)
+
+The `day-ctrl-sub` CSS class (noted in batch 2 completion) is now unused — the time-of-day sublabels were removed. Find and delete the rule from `office.css`. Also check for any other rules referencing `.day-ctrl-sub` and remove them.
+
+**Commit message:** `chore(css): remove unused day-ctrl-sub class`
+
+---
+
+### For All The Saints extractor + app integration (P2)
+
+**Source:** `sources/For-All-The-Saints.pdf` — 399-page ACC supplement (gitignored). Contains propers for every BAS calendar feast day plus an Appendix of recent additions. Available via `make fetch-sources`.
+
+**What Code must do first — inspect the PDF:**
+
+```bash
+pdftotext sources/For-All-The-Saints.pdf - | head -200
+```
+
+Then sample a few entries to understand the exact heading and section structure before writing the parser. Expected pattern per entry (verify against actual text):
+
+```
+[SAINT NAME]
+[Date], [Rank]
+
+[Biographical notice — prose paragraphs]
+
+Sentence
+[scripture sentence]
+
+Collect
+[collect text]
+
+Psalm [citation] with refrain [optional refrain]
+[lesson citations...]
+
+Prayer over the Gifts / Preface / Prayer after Communion
+[skip these — Daily Office doesn't use them]
+```
+
+**Extractor: `tools/extract_fats.py`** (new file)
+
+Output: `data/fats/saints.json` (gitignored — add `data/fats/` to `.gitignore`)
+
+Schema:
+```json
+{
+  "John Horden": {
+    "date": "January 12",
+    "rank": "commemoration",
+    "bio": "John Horden was born...",
+    "sentence": "Isaiah 49.6",
+    "collect": "Almighty God...",
+    "psalm": "96",
+    "readings": ["Isaiah 49.1-9", "Matthew 28.16-20"]
+  }
+}
+```
+
+Key by the canonical saint name as it appears in FATS (e.g. `"John Horden"`). The app will fuzzy-match against lectionary observance names.
+
+**Matching logic:** Lectionary `observance` field uses same names as FATS but may differ in punctuation/abbreviation. Use case-insensitive substring match as primary lookup; maintain a `FATS_ALIASES` dict in `app.js` for known mismatches found during testing.
+
+**App integration (two phases):**
+
+Phase 1 — biographical notice in observance card:
+- In `render()`, after loading `officeData`, if `day.observance` has a FATS entry: fetch `data/fats/saints.json` lazily (cached like other data files), look up by name, display the biographical notice beneath the observance name in the observance card section
+- Service worker: add `data/fats/saints.json` to the cache manifest
+
+Phase 2 — fallback collect and readings:
+- If the day's `collect` field is empty or unresolvable AND a FATS collect exists, use the FATS collect
+- This primarily benefits Appendix saints added after BAS was published who have no BAS collect entry
+
+**Commit order:**
+1. `tools: add extract_fats.py (biographical notices and propers for feast days)`
+2. `data: gitignore data/fats/`
+3. `feat(fats): display biographical notice in observance card for feast days`
+4. `feat(fats): use FATS collect as fallback for saints not in BAS lectionary`
 
 ---
 
@@ -785,41 +986,9 @@ Any bugs found go in `BUGS.md`; confirmed text corrections become entries in `da
 
 ---
 
-### For All The Saints — feast day enrichment (P3)
+### For All The Saints — feast day enrichment
 
-**Source**: `sources/For-All-The-Saints.pdf` — 399-page ACC supplement (© 2007 ACC, gitignored). Contains propers for every BAS calendar feast day plus appendix of recent additions.
-
-**What it provides per feast day** (consistent structure throughout the document):
-- Rank and canonical date
-- Biographical notice (narrative, 2–5 paragraphs)
-- Sentence (scripture sentence)
-- Collect
-- Readings: Psalm (with refrain), OT, NT/epistle (Holy Days), Gospel
-- Eucharistic material (Prayer over Gifts, Preface, Prayer after Communion — not needed for Daily Office)
-
-**What PWC needs from FATS:**
-1. **Biographical notices** — display in the observance card for feast days (currently the card just shows the name from the lectionary)
-2. **Collect and readings** for saints whose propers aren't in the BAS lectionary CSV (primarily the Appendix saints added after the BAS was published)
-
-**Extractor** (`tools/extract_fats.py` → `data/fats/saints.json`, gitignored):
-- Parse PDF text with `pdftotext` piped through Python
-- Each entry starts with a saint name line followed by a date line and rank line
-- Split on these header patterns to identify entry boundaries
-- Within each entry: extract the biographical block (everything before "Sentence"), the Collect block, the Readings block (Psalm, then citations)
-- Output keyed by normalized feast name: `{"John Horden": {"date": "January 12", "rank": "commemoration", "bio": "...", "collect": "...", "psalm": "98", "readings": ["Isaiah 49.1–9", "Matthew 28.16–20"]}}`
-
-**Matching to lectionary**: The observance name in `data/lectionary/YYYY-MM.json` uses the same names as FATS but may differ in punctuation or brevity. Use case-insensitive substring matching as the primary lookup; fall back to a manually maintained alias dict for known mismatches.
-
-**App integration:**
-- In `render()`, after loading `officeData`, if the day has an observance with a FATS entry: fetch `data/fats/saints.json` lazily (cached), look up the entry, display bio notice in the observance card
-- If the day's `collect` field is empty and a FATS collect exists, use the FATS collect
-- Service worker: add `data/fats/saints.json` to the cache manifest
-
-**Commit order:**
-1. `tools: add extract_fats.py (biographical notices and collect/readings for feast days)`
-2. `data: gitignore data/fats/`
-3. `feat(fats): display biographical notice in observance card for feast days`
-4. `feat(fats): use FATS collect and readings for saints not in BAS lectionary`
+Moved to "Ready for Code (batch 4)" above — fully specced.
 
 ---
 
@@ -827,19 +996,10 @@ Any bugs found go in `BUGS.md`; confirmed text corrections become entries in `da
 
 ### Year A lectionary (BUG-06, P1)
 
-Coverage ends late December 2026 (Year B). Year A begins Advent 2026. Waiting on ACC to publish Year A CSV.
+Coverage ends late December 2026 (Year B). Year A begins Advent 2026. When ACC provides the Year A CSV, add it to `sources/` as `bas_short_YYYY.csv` and run `make extract`.
 
-**When unblocked:** Run full pipeline (`scrape_lectionary.py` → `convert_lectionary.py` → `validate_lectionary.py`). Update `season_bounds.json`. Extend date picker `max` in app.
+### ACC distribution
 
-### Occasional Prayers extraction (BUG-04, P1)
-
-BAS pp. 660+ not extracted. Three late-October dates reference Collect 668 which is hardcoded. Other dates referencing Occasional Prayers get nothing or the wrong collect.
-
-**Source:** `sources/BAS.pdf` is present once `make fetch-sources` is run. This is **unblocked** — needs extraction work only (no external dependencies).
-**To do:** Write `tools/extract_occasional_prayers.py` (or extend `extract_collects.py`) for BAS pp. 660+. Replace hardcoded Collect 668. Move to "Ready for Code" batch once a spec is written.
-
-### ACC licence inquiry
-
-Contact Anglican Church of Canada about reproducing BAS/PWC liturgical text in an open-source worship app. Unblocks committing `data/` files publicly and publishing under MIT or Apache 2.0.
+PWC is developed at ACC's request; Dustin is in active conversation with ACC about licensing/funding. Development continues unblocked; data files remain gitignored per copyright until distribution is resolved.
 
 **Action:** Dustin drafts and sends email to ACC licensing contact.
