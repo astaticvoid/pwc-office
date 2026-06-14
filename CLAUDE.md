@@ -80,12 +80,31 @@ Single-file architecture: `web/app.js` (~1400 lines) handles routing, lectionary
 
 ### Python tools (`tools/`)
 
-One-time data pipeline scripts. Run in order:
+One-time data pipeline scripts. Run via `make extract` (or in order):
 1. `extract_offices.py` → `data/offices.json`
-2. `extract_psalter.py` → `data/psalter.json`
-3. `extract_collects.py` → `data/collects.json`
-4. `scrape_lectionary.py` + `convert_lectionary.py` → `data/lectionary/`
-5. `validate_lectionary.py` — quality check
+2. `normalize_offices.py` → deduplicates shared blocks into `_shared`
+3. `extract_psalter.py` → `data/psalter.json`
+4. `extract_collects.py` → `data/collects.json`
+5. `validate_patches.py` + `apply_patches.py` → applies `data/patches.json` post-extraction corrections
+6. `convert_lectionary.py` → `data/lectionary/` (reads `sources/bas_short_*.csv`)
+7. `validate_lectionary.py` — quality check
+
+### Manual data corrections — where they live
+
+**Never edit `data/*.json` files directly.** All corrections are baked into the extractors and survive re-extraction. Re-extraction will overwrite any direct edits.
+
+| Correction type | File | Mechanism |
+|----------------|------|-----------|
+| Offices: mis-capitalised responses (BUG-18) | `tools/extract_offices.py` | `_TEXT_PATCHES` list → `_apply_text_patches()` runs at end of extraction |
+| Lectionary: wrong lesson citations | `tools/convert_lectionary.py` | `LESSON_FIXES` dict (keyed by date + office) |
+| Lectionary: wrong day names | `tools/convert_lectionary.py` | `NAME_FIXES` dict |
+| Lectionary: wrong ranks | `tools/convert_lectionary.py` | `RANK_FIXES` dict |
+| Lectionary: wrong colours | `tools/convert_lectionary.py` | `COLOUR_FIXES` dict |
+| Lectionary: garbled notes | `tools/convert_lectionary.py` | `CLEAR_NOTES` dict |
+| Lectionary: note type classification | `tools/convert_lectionary.py` | `NOTE_TYPES` dict |
+| Future offices.json corrections | `data/patches.json` | Add patch entry; `apply_patches.py` applies after extraction |
+
+`data/patches.json` is currently empty — all known corrections are in the extractors above. Add entries there only for corrections that cannot be expressed in the extraction logic (e.g. wording changes that require editorial judgment rather than a parsing fix).
 
 ### Redesign work (`redesign/`)
 

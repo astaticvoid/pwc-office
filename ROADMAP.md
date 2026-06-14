@@ -85,9 +85,9 @@ Run through all `collect` field values in the lectionary JSON and verify each re
 ### 2.1 Lectionary coverage
 
 **Year A extraction** (BUGS.md BUG-06)  
-When ACC publishes Year A CSVs (expected Advent 2026), run the full pipeline:
-- `scrape_lectionary.py` to download
-- `convert_lectionary.py` to convert — expect to add new correction dict entries
+When ACC provides the Year A CSV, run the full pipeline:
+- Add `bas_short_YYYY.csv` to `sources/` and run `make extract`
+- `convert_lectionary.py` converts it — expect to add new correction dict entries
 - `validate_lectionary.py` to cross-check
 - Update `season_bounds.json` with Year A bounds
 - Extend date picker `max` in the web app

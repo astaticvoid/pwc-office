@@ -9,7 +9,6 @@ PORT_DIST ?= 8081
 # Download all source files. Everything is publicly available — no manual steps.
 fetch-sources:
 	python3 tools/fetch_sources.py
-	python3 tools/scrape_lectionary.py
 
 # Run the full extraction pipeline after sources are present.
 extract:

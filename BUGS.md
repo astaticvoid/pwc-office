@@ -32,9 +32,9 @@ _Files:_ `tools/convert_lectionary.py:CLEAR_NOTES`, `tools/convert_lectionary.py
 
 **BUG-06: Year A lectionary not available**  
 Coverage ends at late December 2026. Navigation is blocked at the boundary with a "Readings not yet available / Year A in preparation" message, and the next-arrow is disabled. Year A (Advent 2026+) is not yet extracted.  
-_Fix:_ Extract/convert Year A CSV when ACC publishes it.  
-_Blocker:_ Waiting on ACC to publish Year A CSV.  
-_Files:_ `web/app.js:render`, `tools/scrape_lectionary.py`
+_Fix:_ When ACC provides a Year A CSV, add it to `sources/` and run `make extract`.  
+_Blocker:_ Waiting on ACC to provide Year A CSV.  
+_Files:_ `web/app.js:render`, `tools/convert_lectionary.py`
 
 ---
 

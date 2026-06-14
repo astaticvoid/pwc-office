@@ -4,8 +4,8 @@ Convert sources/bas_short_*.csv → data/lectionary/YYYY-MM.json
 
 Reads all bas_short_YYYY.csv files found in sources/ (or those given via
 --csv), merges rows by date (later file wins on overlap), and writes one
-JSON file per YYYY-MM. Use scrape_lectionary.py to download new/updated CSVs
-before running this tool.
+JSON file per YYYY-MM. Place bas_short_YYYY.csv files in sources/ before
+running this tool. When ACC provides a new year's CSV, add it there.
 
 CSV columns (0-indexed):
   0: date (YYYY-MM-DD)
@@ -687,7 +687,7 @@ def main():
     else:
         csv_paths = sorted(root.glob("sources/bas_short_*.csv"))
     if not csv_paths:
-        sys.exit("No CSV files found. Run: python3 tools/scrape_lectionary.py")
+        sys.exit("No CSV files found. Add a bas_short_YYYY.csv file to sources/ and re-run.")
 
     # Merge rows from all CSVs by date; sort by year so later files win on overlap.
     rows_by_date: dict[str, list] = {}
