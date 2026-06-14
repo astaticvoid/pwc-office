@@ -92,6 +92,7 @@ const _cache = {
   books:    {},   // 'kjv/Numbers' → Promise<object>
 };
 
+/** Fetch JSON at `url` once; all callers share the same in-flight or resolved promise. */
 async function fetchOnce(key, url) {
   if (!_cache[key]) _cache[key] = fetch(url).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
   return _cache[key];
@@ -106,6 +107,7 @@ function fetchPsalm(num) {
     });
 }
 
+/** Load a Bible book JSON file; keyed by translation + filename so each file is only fetched once. */
 function fetchBook(translation, filename) {
   const k = `${translation}/${filename}`;
   if (!_cache.books[k]) _cache.books[k] = fetch(`${DATA}/translations/${translation}/${filename}.json`)
@@ -113,6 +115,7 @@ function fetchBook(translation, filename) {
   return _cache.books[k];
 }
 
+/** Fetch the lectionary entry for `dateStr` (YYYY-MM-DD) from the monthly JSON file. */
 function fetchDay(dateStr) {
   const monthKey = dateStr.slice(0, 7); // 'YYYY-MM'
   if (!_cache.months[monthKey])
@@ -143,9 +146,14 @@ function lookupCollect(collects, ref) {
 
 function parseDate(s) { return s ? new Date(s + 'T00:00:00Z') : null; }
 
-// seasonOf: broad liturgical season for theming (data-season attribute, colours).
-// Passiontide begins at the 5th Sunday in Lent (if present), else at Palm Sunday.
-// Pentecost season begins at Pentecost Sunday (not Ascension — see officeFormSeason).
+/**
+ * Broad liturgical season for theming (data-season attribute, colours).
+ * Passiontide begins at the 5th Sunday in Lent (if present), else at Palm Sunday.
+ * Pentecost season begins at Pentecost Sunday (not Ascension — see officeFormSeason).
+ * @param {string} dateStr - YYYY-MM-DD
+ * @param {object} bounds - season_bounds.json object
+ * @returns {string} Season name
+ */
 function seasonOf(dateStr, bounds) {
   const d = parseDate(dateStr);
   const passionStart = parseDate(bounds.passiontide || bounds.palm_sunday);
@@ -163,13 +171,13 @@ function seasonOf(dateStr, bounds) {
   return 'OrdinaryTime';
 }
 
-// officeFormSeason: returns the season key used to look up the office form.
-// Follows PWOC form subtitle boundaries exactly:
-//   Epiphany form: Baptism of the Lord through Presentation (Feb 2)
-//   Passiontide form: 5th Sunday in Lent through Holy Saturday
-//   Easter form: Easter Day through day before Ascension
-//   Pentecost form: Ascension through Trinity Sunday (inclusive)
-//   Ordinary forms: everything else within the year
+/**
+ * Season key used to look up the office form in offices.json.
+ * Follows PWC form subtitle boundaries exactly (differs from seasonOf in Pentecost/Epiphany handling).
+ * @param {string} dateStr - YYYY-MM-DD
+ * @param {object} bounds - season_bounds.json object
+ * @returns {string} Form season key (e.g. 'OrdinaryTime', 'Lent', 'Easter')
+ */
 function officeFormSeason(dateStr, bounds) {
   const d = parseDate(dateStr);
   const passionStart      = parseDate(bounds.passiontide || bounds.palm_sunday);
@@ -247,7 +255,13 @@ function filterSeasonalCollects(segs, weekIdx) {
   }
 }
 
-// Returns the offices.json key for the given form season, office type, and weekday.
+/**
+ * offices.json lookup key for the given form season, office type, and weekday.
+ * @param {string} season - from officeFormSeason()
+ * @param {string} officeType - 'mp' | 'ep'
+ * @param {number} weekday - 0 (Sun) … 6 (Sat)
+ * @returns {string} e.g. 'ordinary-wednesday-mp', 'lent-ep'
+ */
 function formKey(season, officeType, weekday) {
   let s = season.toLowerCase();
   if (s === 'ordinarytime') {
@@ -371,6 +385,14 @@ const CANTICLE_SOURCE = {
   'Song of the Word of the Lord':   'Isaiah 55:6–11',
 };
 
+/**
+ * Render an alternatives block as a tab strip + panels.
+ * Persists the active tab to localStorage under a key derived from contextKey or segment fingerprint.
+ * @param {object} seg - alternatives segment ({type:'alternatives', groups:[{label, segments}]})
+ * @param {object} shared - offices._shared (for nested shared references)
+ * @param {string} [contextKey] - semantic name for the shared key (e.g. 'doxology')
+ * @returns {string} HTML string
+ */
 function renderAlternatives(seg, shared, contextKey) {
   if (!seg.groups || !seg.groups.length) return '';
   // Use the shared block's semantic name when available; otherwise fingerprint
@@ -426,6 +448,12 @@ function formatLiturgicalText(text) {
   return lines.map(l => esc(l)).join('<br>');
 }
 
+/**
+ * Render an array of office segments (leader/response/rubric/alternatives/shared) to HTML.
+ * @param {Array} segs - segment array from offices.json
+ * @param {object} shared - offices._shared (passed through to renderAlternatives)
+ * @returns {string} HTML string
+ */
 function renderSegments(segs, shared) {
   if (!segs || !segs.length) return '';
   return segs.map(seg => {
@@ -517,6 +545,12 @@ const ABBREV_TO_FILE = {
   'Bar':'Baruch','1 Macc':'1 Maccabees','2 Macc':'2 Maccabees','2 Esd':'2 Esdras',
 };
 
+/**
+ * Parse a Scripture citation string into {abbrev, file, rest} for verse lookup.
+ * Strips " or …" alternates; resolves abbreviated book names via ABBREV_TO_FILE.
+ * @param {string} rawCitation - e.g. "Gen 1:1-10" or "1 Kgs 2:1-5 or Ps 22"
+ * @returns {{abbrev:string, file:string, rest:string}|null} null if unrecognized
+ */
 function parseCitation(rawCitation) {
   let citation = rawCitation;
   const orIdx = citation.indexOf(' or ');
@@ -541,6 +575,12 @@ function parseCitation(rawCitation) {
   return { abbrev, file, rest };
 }
 
+/**
+ * Parse a chapter:verse range string (e.g. "1:1-10, 2:3—3:5") into an array of range objects.
+ * Handles em-dash cross-chapter ranges and comma-delimited multi-ranges.
+ * @param {string} s - verse range string after the book abbreviation
+ * @returns {Array<{startCh, startV, endCh, endV}>}
+ */
 function parseRanges(s) {
   s = s.replace(/—/g, '§');
   const parts = s.split('§');
@@ -598,6 +638,12 @@ function consumeLeadingRef(s) {
   return comma >= 0 ? s.slice(comma + 1).trim() : '';
 }
 
+/**
+ * Extract verse objects for a single range from a loaded book JSON.
+ * @param {object} book - book JSON keyed by chapter → verse → text
+ * @param {{startCh, startV, endCh, endV}} range - from parseRanges()
+ * @returns {Array<{v:number, text:string}>}
+ */
 function extractVerses(book, range) {
   const lines = [];
   for (let ch = range.startCh; ch <= range.endCh; ch++) {
@@ -663,6 +709,13 @@ function gloriaHtml(shared) {
        + `<div class="psalm-gloria">${renderAlternatives(shared.doxology, shared, 'doxology')}</div>`;
 }
 
+/**
+ * Render the psalm section: heading, rubric, and tab panels (All + individual).
+ * Handles both psalm_sets (alternative groups) and plain psalms (sequential + multi-tab).
+ * @param {object} officeData - morning|evening office object from lectionary JSON
+ * @param {object} shared - offices._shared
+ * @returns {string} HTML string
+ */
 function psalmHtml(officeData, shared) {
   const psalms = officeData.psalms || [];
   const psalmSets = officeData.psalm_sets;
@@ -734,6 +787,13 @@ function psalmHtml(officeData, shared) {
   return html;
 }
 
+/**
+ * Render a single Scripture lesson: heading, loading placeholder, and post-reading response.
+ * @param {string|object} lesson - citation string or {citation, optional}
+ * @param {object} shared - offices._shared
+ * @param {object} form - office form (for reading_response segments)
+ * @returns {string} HTML string
+ */
 function lessonHtml(lesson, shared, form) {
   const rawCitation = typeof lesson === 'object' ? lesson.citation : lesson;
   const optional = typeof lesson === 'object' && lesson.optional;
@@ -751,7 +811,13 @@ function lessonHtml(lesson, shared, form) {
     + responseHtml;
 }
 
-// Psalms → lesson 1 → responsory → lesson 2 → canticle (PWC ordering).
+/**
+ * Render the full Proclamation of the Word section: psalms → lesson 1 → responsory → lesson 2 → canticle.
+ * @param {object} officeData - morning|evening office object
+ * @param {object} form - office form from offices.json
+ * @param {object} shared - offices._shared
+ * @returns {string} HTML string
+ */
 function proclamationHtml(officeData, form, shared) {
   const lessons = (officeData.lessons || []);
   let html = psalmHtml(officeData, shared);
@@ -865,6 +931,13 @@ function fmtFullDate(dateStr) {
 
 // ── Main render ───────────────────────────────────────────────────────────────
 
+/**
+ * Top-level render: fetch all data, assemble the full office HTML, and inject it into #office-content.
+ * Orchestrates fetchOnce, fetchDay, season resolution, form lookup, and all section renderers.
+ * @param {string} dateStr - YYYY-MM-DD
+ * @param {string} officeType - 'mp' | 'ep'
+ * @param {string} translation - 'kjv' | 'nrsvue'
+ */
 async function render(dateStr, officeType, translation) {
   const contentEl = document.getElementById('office-content');
   contentEl.innerHTML = '<p class="loading">Loading…</p>';
