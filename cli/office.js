@@ -55,7 +55,8 @@ out += `Season: ${fSeason} | Form: ${key}\n`;
 if (lectionaryDay) out += `Day: ${lectionaryDay.name}\n`;
 
 out += section('Opening Responses', form.opening_responses);
-if (officeData?.psalms?.length) out += `\n## Psalm\n${JSON.stringify(officeData.psalms)}\n`;
+const psalms = officeData?.psalms ?? officeData?.psalm_sets?.[0];
+if (psalms) out += `\n## Psalm\n${(Array.isArray(psalms[0]) ? psalms[0] : psalms).map(p => typeof p === 'object' ? p.citation : p).join(', ')}\n`;
 if (officeData?.lessons?.[0]) out += `\n## Lesson 1\n${strip(lessonHtml(officeData.lessons[0], shared, form))}\n`;
 out += section('Responsory', form.responsory);
 if (officeData?.lessons?.[1]) out += `\n## Lesson 2\n${strip(lessonHtml(officeData.lessons[1], shared, form))}\n`;
