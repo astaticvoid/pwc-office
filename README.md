@@ -36,22 +36,22 @@ make deploy BUCKET=my-bucket CF_DISTRIBUTION_ID=XXXXX  # sync to S3 + invalidate
 ```
 
 Requires the AWS CLI and ambient credentials (`AWS_PROFILE` or environment
-variables). `CF_DISTRIBUTION_ID` can be omitted if not using CloudFront.
+variables).
 
 ## Testing
 
 ```sh
-make test         # Go unit tests (data parsing, season logic)
+make test         # Vitest unit tests + Python pytest (fast, no network)
 make test-web     # Playwright E2E suite against web/
-make test-full    # structural check of every day × MP+EP in the lectionary year
+make test-full    # structural check of every day × MP+EP in the lectionary year (~25s)
 ```
 
-The smoke and seasonal suites use the `claude` CLI to evaluate rendered output
-against liturgical criteria:
+The smoke and seasonal suites check rendered output against citations fetched
+from `lectionary.anglican.ca` (skipped, not failed, if the site is unreachable):
 
 ```sh
-make test-smoke    # 4 representative days, LLM-evaluated
-make test-seasonal # one MP+EP per liturgical season, LLM-evaluated
+make test-smoke    # 4 representative days: Easter, Lent, a feast day
+make test-seasonal # 26 cases: one MP+EP per liturgical form
 ```
 
 ## Data pipeline
@@ -59,49 +59,32 @@ make test-seasonal # one MP+EP per liturgical season, LLM-evaluated
 All data files are gitignored — they contain copyrighted ACC/BAS content
 and are generated locally from source PDFs and the ACC lectionary.
 
-### Liturgical text (one-time setup)
+### One-time setup
 
 Requires `pdfplumber` and `pdftotext` (poppler):
 
 ```sh
 pip install pdfplumber
 brew install poppler   # macOS
-
-python3 tools/extract_offices.py    # → data/offices.json
-python3 tools/extract_psalter.py    # → data/psalter.json
-python3 tools/extract_collects.py   # → data/collects.json
 ```
 
-Source PDFs go in `sources/` (gitignored).
-
-### Lectionary (annual update)
-
-The ACC publishes an annual CSV covering the current liturgical year
-(`bas_short_YYYY.csv`). Historical years are scraped from the ACC daily
-lectionary portal.
+Source PDFs go in `sources/` (gitignored). Run `make fetch-sources` to
+download publicly available source files, then `make extract` to run the
+full pipeline:
 
 ```sh
-# Download current year's CSV from lectionary.anglican.ca and convert
-python3 tools/scrape_lectionary.py
-python3 tools/convert_lectionary.py   # → data/lectionary/YYYY-MM.json
-
-# Scrape historical HTML (slow — ~1 req/sec)
-python3 tools/scrape_daily.py --start 2016-11-27 --end 2025-11-29
-python3 tools/scrape_daily.py --re-parse  # reparse cache after parser changes
-python3 tools/scrape_daily.py --audit     # quality check
-
-# Validate HTML-scraped data against CSV
-python3 tools/validate_lectionary.py
+make fetch-sources   # download ACC source files
+make extract         # → data/offices.json, psalter.json, collects.json,
+                     #   season_bounds.json, data/lectionary/
 ```
 
 ### Scripture
 
-KJV is embedded in the Go binary (public domain, committed to the repo).
-NRSVUE requires a Bible API key:
+NRSVUE is fetched on demand from API.Bible (lazy, cached by the service worker).
+KJV can be downloaded and converted for offline use:
 
 ```sh
-# Set in .env (gitignored)
-BIBLE_API_KEY=your_key_here
+BIBLE_API_KEY=your_key_here   # set in .env (gitignored)
 ```
 
 ## Architecture
@@ -109,25 +92,29 @@ BIBLE_API_KEY=your_key_here
 ```
 web/          Pure client-side SPA — HTML/CSS/vanilla JS, no build step
   app.js      Routing, lectionary, office rendering, psalm/scripture fetching
+  render.js   Shared rendering functions (imported by app.js and Node CLI)
   office.css  Styling and seasonal theming
   sw.js       Service worker — cache-first, offline support
 
-tools/        Python data pipeline (extraction, scraping, validation)
+cli/          Node CLI tools (ES modules, no build step)
+  book.js     Book-mode plain-text renderer — node cli/book.js FORM [DATE]
+  office.js   Debug HTML-strip renderer — node cli/office.js [mp|ep] [DATE]
+
+tools/        Python data pipeline (extraction, validation, testing)
+  test_full.js      Structural check: all dates × MP+EP
+  test_eval.js      Citation check vs lectionary.anglican.ca (smoke + seasonal)
+
 data/         Generated JSON — gitignored (copyrighted content)
   offices.json        All 31 office forms
   psalter.json        Full psalter with verse numbers and midpoint markers
   collects.json       Collects indexed by date
   season_bounds.json  Liturgical season boundaries for current year
   lectionary/         Monthly JSON — YYYY-MM.json
-
-*.go          Go CLI (dev tool) and data-integrity test suite
-cmd/          CLI entrypoint
-e2e/          Playwright and LLM-evaluated test suites
 ```
 
 ## Status
 
-- Lectionary data: 2016–2026 (Year B complete; Year A pending Advent 2026)
+- Lectionary data: 2025–2026 (Year B complete; Year A pending Advent 2026)
 - All 31 office forms rendering correctly
 - ACC licence inquiry pending (required before open-sourcing `data/`)
 
