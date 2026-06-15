@@ -50,7 +50,7 @@ test-seasonal:
 
 # Full — structural check of every day in the lectionary year. No API key needed.
 test-full:
-	go test -tags e2e_full -timeout 5m ./e2e/...
+	node tools/test_full.js
 
 # Regenerate golden snapshot files after an intentional rendering change.
 update-golden:
