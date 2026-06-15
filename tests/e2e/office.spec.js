@@ -443,6 +443,31 @@ test.describe('Observance toggle', () => {
   });
 });
 
+// ── BUG-19 regression ─────────────────────────────────────────────────────────
+
+test.describe('Reading response renders after lesson', () => {
+  for (const [label, date, office] of [
+    ['seasonal (Lent)', '2026-02-25', 'mp'],
+    ['ordinary-time', '2026-06-17', 'mp'],
+  ]) {
+    test(label, async ({ page }) => {
+      await page.goto(`/#/${date}/${office}`);
+      // Wait for scripture to load (replaces placeholder)
+      await page.waitForSelector('.scripture-placeholder:not(:has(.loading))', { timeout: 10000 });
+      // Reading response tab strip must exist after the lesson
+      const tabs = page.locator('.alt-tabs').first();
+      await expect(tabs).toBeVisible();
+      // Must have 3 options (I / II / III)
+      await expect(page.locator('.alt-tab')).toHaveCount(3);
+    });
+  }
+});
+
+test("Lord's Prayer present in ordinary-time office", async ({ page }) => {
+  await page.goto('/#/2026-06-17/mp');
+  await expect(page.locator('.office-subsection-title', { hasText: "The Lord's Prayer" })).toBeVisible();
+});
+
 // ── Season theming (JS/Go parity) ────────────────────────────────────────────
 // These boundary dates must agree with TestFormSeasonOf in season_test.go.
 // A failure here means seasonOf() or officeFormSeason() in app.js has drifted
