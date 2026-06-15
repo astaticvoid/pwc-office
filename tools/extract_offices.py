@@ -512,10 +512,11 @@ def _group_alternatives(segs: list[dict], office="", section="") -> list[dict]:
             _dbg(f"    BLOCK-SEP → flush, start unnamed groups: {repr(text[:60])}", office=office, section=section)
             _flush_groups()
             _flush_pending()
-            # Canticle doxology intros are structural separators but also carry
-            # liturgical text — emit them as plain rubrics before the group block.
-            if _CANTICLE_DOXOLOGY_INTRO.match(text):
-                result.append(seg)
+            # Block-sep rubrics carry liturgical text (e.g. "One of the following may be
+            # said or sung." before the opening doxology; "After the Canticle…" before the
+            # post-canticle doxology). Emit all of them as plain rubric segments so they
+            # appear in the rendered output before the alternatives block they introduce.
+            result.append(seg)
             groups = []
             unnamed_n[0] = 0
             continue

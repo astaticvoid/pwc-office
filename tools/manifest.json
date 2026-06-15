@@ -14,7 +14,7 @@
   "data/lectionary/2026-10.json": "8ab6222fbde5ba8602a1aed8c8f807ba1be5c01724d3d6108f6ff0408ecabf85",
   "data/lectionary/2026-11.json": "ba1f4cbe9f73a230f7cf089d771093ffa74d65b1bbe4c2d1152852fcd1f3867d",
   "data/lectionary/2026-12.json": "e920d88371a3735314b4d1cf13eb44f2ef952489bfb87496cb0c22191a66e75f",
-  "data/offices.json": "57e933744d61332ae2b13f886a70ce2f24a630a47eb611377cdd282fdcd68175",
+  "data/offices.json": "c15444c49c76e29c19765804b356f92f190f742b11c84b2efaa46ef34bd4f65c",
   "data/psalter.json": "fefbb20d10ec049239727bf1e557ded2654088873759bfb42042bd76685e957e",
   "data/season_bounds.json": "0f76ec8d40a5e10059ab6171d817b91b12e1adbb141a9d40add6d40afb31033c"
 }
