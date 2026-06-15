@@ -3,6 +3,10 @@
 BUG-19 was caused by normalize_offices.py converting lords_prayer_intro
 from an array to a shared ref dict, silently breaking .length checks.
 This test catches that class of regression immediately.
+
+BUG-14: opening_responses is intentionally normalized to a shared ref for 7
+seasonal EP forms — the test allows either an inline array or a valid shared ref.
+lords_prayer_intro and dismissal must always be inline arrays.
 """
 import json, pytest
 from pathlib import Path
@@ -13,13 +17,21 @@ with open(DATA) as f:
     offices = json.load(f)
 
 forms = [(k, v) for k, v in offices.items() if not k.startswith('_')]
+shared = offices.get('_shared', {})
 
 @pytest.mark.parametrize('name,form', forms)
 def test_required_sections_are_arrays(name, form):
-    for field in ('opening_responses', 'lords_prayer_intro', 'dismissal'):
+    # lords_prayer_intro and dismissal must always be inline arrays (BUG-19 guard)
+    for field in ('lords_prayer_intro', 'dismissal'):
         assert isinstance(form.get(field), list), \
             f'{name}.{field} must be a list, got {type(form.get(field)).__name__}'
         assert len(form[field]) > 0, f'{name}.{field} is empty'
+    # opening_responses may be an inline array OR a valid shared ref (BUG-14)
+    or_ = form.get('opening_responses')
+    is_inline = isinstance(or_, list) and len(or_) > 0
+    is_shared_ref = isinstance(or_, dict) and or_.get('type') == 'shared' and or_.get('key') in shared
+    assert is_inline or is_shared_ref, \
+        f'{name}.opening_responses must be a list or valid shared ref, got {type(or_).__name__}'
 
 @pytest.mark.parametrize('name,form', forms)
 def test_reading_response_present(name, form):

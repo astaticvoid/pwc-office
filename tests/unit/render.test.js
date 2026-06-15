@@ -43,10 +43,16 @@ describe('officeFormSeason', () => {
 
 describe('all forms have required sections as arrays', () => {
   test.each(forms)('%s', (name, form) => {
-    for (const field of ['opening_responses', 'lords_prayer_intro', 'dismissal']) {
+    // lords_prayer_intro and dismissal must always be inline arrays (BUG-19 guard)
+    for (const field of ['lords_prayer_intro', 'dismissal']) {
       expect(Array.isArray(form[field]), `${name}.${field} must be array`).toBe(true);
       expect(form[field].length, `${name}.${field} must be non-empty`).toBeGreaterThan(0);
     }
+    // opening_responses may be an inline array OR a valid shared ref (BUG-14: EP seasonal forms)
+    const or = form.opening_responses;
+    const isInlineArray = Array.isArray(or) && or.length > 0;
+    const isSharedRef = or?.type === 'shared' && shared[or.key] != null;
+    expect(isInlineArray || isSharedRef, `${name}.opening_responses must be array or valid shared ref`).toBe(true);
     expect(form.reading_response, `${name} missing reading_response`).toBeTruthy();
   });
 });
