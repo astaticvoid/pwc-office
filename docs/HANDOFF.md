@@ -210,6 +210,96 @@ Batch 13 only builds the tool and the first golden file. The diff output from `m
 
 ---
 
+## Batch 14 — Drop Go; port tests to Node
+
+Go is now a fork. `internal/office/office.go` is a separate Markdown renderer that has diverged from `web/render.js` + `cli/book.js`. Two renderers means bugs live in the gap. Go tests are broken. Drop Go entirely; port coverage to Node + existing Playwright/Vitest.
+
+**What exists in Go and what it maps to:**
+
+| Go test | Coverage | Port to |
+|---------|----------|---------|
+| `golden_test.go` | Snapshot diff | Already replaced by `make check-book` |
+| `full_test.go` | All dates × MP+EP structural check | `tools/test_full.js` |
+| `smoke_test.go` | 4 key dates: structural + reading citation check vs lectionary.anglican.ca | `tools/test_eval.js --smoke` |
+| `seasonal_test.go` | 28 seasonal cases: structural + reading citation check | `tools/test_eval.js --seasonal` |
+| `season_test.go` / `forms_test.go` | Season/form unit logic | Already covered by Playwright `data-season` checks in `tests/e2e/office.spec.js` — no new tests needed |
+
+Note: despite the Makefile comment, `verifyReadings()` does NOT call an LLM. It string-matches citations fetched from `lectionary.anglican.ca` against renderer output. `ANTHROPIC_API_KEY` comment in Makefile is stale — remove it.
+
+---
+
+### Commit 1 — `tools/test_full.js`
+
+Port `e2e/full_test.go`. Walks all lectionary JSON files in `data/lectionary/`, runs `node cli/book.js <form> <date>` for each date (MP and EP), checks required sections are present in stdout.
+
+Required sections to check (plain text, not Markdown):
+- `The Gathering of the Community`
+- `The Proclamation of the Word`
+- `The Psalm`
+- `The Prayers of the Community`
+- `The Lord's Prayer`
+- `The Sending Forth of the Community`
+
+Exit 0 if all pass, exit 1 with a summary of failures.
+
+Wire into Makefile:
+```makefile
+test-full:
+	node tools/test_full.js
+```
+
+---
+
+### Commit 2 — `tools/test_eval.js`
+
+Port `e2e/smoke_test.go` + `e2e/seasonal_test.go` + `e2e/lectionary_fetch_test.go`.
+
+Fetches `https://lectionary.anglican.ca/?date=YYYY-MM-DD`, parses the `id='lectionary_MP'` / `id='lectionary_EP'` elements for psalm and reading citations, checks they appear in `cli/book.js` output. Skip (not fail) if the site is unreachable.
+
+Smoke cases (4):
+- Easter MP/EP: `2026-04-05`
+- Lent MP: `2026-03-08` — also assert "alleluia" absent
+- Feast day MP: `2026-05-15` (Saint Matthias)
+
+Seasonal cases: copy `seasonalCases` array from `e2e/seasonal_test.go` verbatim (28 cases, dates already verified).
+
+Usage:
+```
+node tools/test_eval.js --smoke      # 4 cases, fast
+node tools/test_eval.js --seasonal   # 28 cases
+```
+
+Wire into Makefile:
+```makefile
+test-smoke:
+	node tools/test_eval.js --smoke
+
+test-seasonal:
+	node tools/test_eval.js --seasonal
+```
+
+---
+
+### Commit 3 — Delete Go; update Makefile
+
+Delete:
+- All `*.go` files in repo root, `internal/`, `cmd/`, `e2e/`, `tools/diag_citations.go`
+- `go.mod`, `go.sum`
+
+Update `Makefile`:
+- `test` target: remove `go test ./...` — becomes just `npm test` + `make test-tools`
+- Remove `update-golden` target (replaced by `make check-book`)
+- Remove stale `ANTHROPIC_API_KEY` comment from `test-smoke` / `test-seasonal`
+- Update `.PHONY` line to remove `update-golden`
+
+Update `CLAUDE.md`:
+- Remove Go package table
+- Remove `go test -run TestName ./...` from Commands section
+- Update architecture section: CLI is now `cli/book.js` and `cli/office.js` (Node); no Go
+- Remove `kjv_embed.go` reference (KJV is out of scope for this contemporary prayer app)
+
+---
+
 ## Batch 12 — BUG-02 season bounds hardening
 
 One commit. No app change — Python tooling only.
