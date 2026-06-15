@@ -39,3 +39,16 @@ def test_reading_response_present(name, form):
     assert rr is not None, f'{name} missing reading_response'
     # After BUG-19 fix, may be a shared ref dict OR inline alternatives — both ok
     # What's NOT ok is None
+
+@pytest.mark.parametrize('name,form', forms)
+def test_opening_responses_resolves(name, form):
+    or_val = form.get('opening_responses')
+    if isinstance(or_val, dict):
+        assert or_val.get('type') == 'shared', f'{name}.opening_responses has unexpected dict type'
+        key = or_val.get('key')
+        assert key in shared, f'{name}.opening_responses refs missing shared key: {key}'
+        assert isinstance(shared[key], list) and len(shared[key]) > 0, \
+            f'{name}.opening_responses shared[{key!r}] is empty or not a list'
+    else:
+        assert isinstance(or_val, list) and len(or_val) > 0, \
+            f'{name}.opening_responses must be non-empty list, got {type(or_val).__name__}'
