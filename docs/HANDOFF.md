@@ -6,9 +6,9 @@ Active handoff between Cowork (planning) and Claude Code (implementation). Cowor
 
 ---
 
-## Ready for Cowork review — Batches 7 + 8 (2026-06-14)
+## Ready for Cowork review — Batches 7 + 8 + 9 (2026-06-14)
 
-Serving at **http://localhost:8081** (cache: `pwc-bacd9557`).
+Serving at **http://localhost:8081** (cache: `pwc-7740deb7`).
 
 ### What to spot-check
 
@@ -32,6 +32,18 @@ Serving at **http://localhost:8081** (cache: `pwc-bacd9557`).
 - Node CLI: `node cli/office.js ep 2026-02-25` should print Lent EP in plain text
 - `make test` passes (vitest 48 + pytest 113 + Go)
 
+**Batch 9 — Rubrics redesign**
+
+- `http://localhost:8081/#/2026-06-17/mp` (ordinary-time, Wednesday)
+  - ✓ "The Responsory is said or sung." rubric is suppressed
+  - ✓ "The Litany is said or sung." rubric is suppressed
+  - ✓ Intercessions block replaced with single italic line: "Offer intercessions, petitions, and thanksgivings, silently or aloud."
+- `http://localhost:8081/#/2026-06-17/ep` (ordinary-time, Wednesday EP)
+  - ✓ Same intercessions condensing visible
+- `http://localhost:8081/#/2025-12-03/mp` (Advent MP)
+  - ✓ "Morning Prayer may conclude with the following Sentence." suppressed
+  - ✓ "The Responsory is said or sung." suppressed
+
 ---
 
 ## Code work queue
@@ -42,7 +54,7 @@ Do in this order. Do not skip ahead.
 |-------|------|--------|
 | **7** | BUG-19 critical fix — reading response + Lord's Prayer + Go CLI | Done |
 | **8** | JS render module + Node CLI + Vitest | Done |
-| **9** | Rubrics redesign | Ready for Code |
+| **9** | Rubrics redesign | Done |
 
 ---
 
