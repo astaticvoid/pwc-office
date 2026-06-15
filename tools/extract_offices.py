@@ -995,6 +995,10 @@ def extract_office(pdf, start: int, end: int, office_key: str = "") -> dict:
             _dbg(f"  HEADING {raw_disp} → section {key!r}", office=office_key)
             _flush()
             current_key = key  # may be None (major section label → ignored)
+            # Preserve the phos_hilaron heading text as a "label" segment so
+            # renderers can emit it as a titled section rather than bare hymn text.
+            if key == "phos_hilaron" and text:
+                current_segs.append({"type": "label", "text": text})
             continue
 
         if current_key is not None:

@@ -121,7 +121,11 @@ function textFlatSegs(segs, shared, opts = {}) {
       proc(resolved);
       return;
     }
-    if (seg.type === 'rubric') {
+    if (seg.type === 'label') {
+      // Plain titled heading — no parentheses, emitted as its own block.
+      const text = (seg.text || '').trim();
+      if (text) { flush(); blocks.push(text); }
+    } else if (seg.type === 'rubric') {
       const text = textRubric(seg, opts);
       if (text) { flush(); blocks.push(text); }
       // skipped rubric: do NOT flush — keeps adjacent leader/response together
@@ -205,8 +209,6 @@ if (officeType === 'ep' && shared.doxology) {
 }
 
 // Phos Hilaron / Thanksgiving for Light
-// DATA GAP: section heading ("The Evening Hymn: "O Gladsome Light, O Grace"")
-// is not present in phos_hilaron data — only the hymn text segments exist.
 const phosSegs = form.phos_hilaron || form.thanksgiving_for_light;
 if (phosSegs) {
   B.push(textFlatSegs(phosSegs, shared));
