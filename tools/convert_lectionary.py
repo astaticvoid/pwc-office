@@ -419,9 +419,39 @@ def parse_name_meta(raw: str):
 
 # ── Season boundaries ──────────────────────────────────────────────────────────
 
+# Expected lowercase substrings in CSV name field for each season boundary.
+# If ACC changes wording, detect_bounds() will warn rather than silently accept.
+CANONICAL_BOUNDS_PHRASES = {
+    "advent_i":       ["first sunday of advent"],
+    "christmas":      ["birth of the lord"],
+    "epiphany":       ["baptism of the lord"],
+    "presentation":   ["presentation of the lord", "presentation of our lord"],
+    "ash_wednesday":  ["ash wednesday"],
+    "passiontide":    ["fifth sunday in lent"],
+    "palm_sunday":    ["palm sunday"],
+    "easter":         ["easter day", "sunday of the resurrection"],
+    "ascension":      ["ascension of the lord"],
+    "pentecost":      ["day of pentecost"],
+    "trinity_sunday": ["trinity sunday"],
+    "all_saints":     ["all saints"],
+}
+
+
+def _bounds_match(desc, phrases):
+    """Check exact (== or startswith) then fuzzy (in). Returns ('exact'|'fuzzy'|None, phrase|None)."""
+    for phrase in phrases:
+        if desc == phrase or desc.startswith(phrase):
+            return 'exact', phrase
+    for phrase in phrases:
+        if phrase in desc:
+            return 'fuzzy', phrase
+    return None, None
+
+
 def detect_bounds(rows) -> dict:
     bounds = {}
     advent_count = 0
+    christmas_count = 0
     for row in rows:
         if len(row) < 2:
             continue
@@ -429,38 +459,51 @@ def detect_bounds(rows) -> dict:
         if not re.match(r"\d{4}-\d{2}-\d{2}", date_str):
             continue
         desc = first_line(clean(row[1])).lower()
-        if "first sunday of advent" in desc:
+
+        # advent_i / advent_ii: same phrase appears twice in a multi-year CSV
+        phrases = CANONICAL_BOUNDS_PHRASES["advent_i"]
+        match_type, _ = _bounds_match(desc, phrases)
+        if match_type:
+            if match_type == 'fuzzy':
+                print(f"WARNING: detect_bounds: 'advent_i' matched via fuzzy substring; "
+                      f"expected one of {phrases!r}, got {desc!r}", file=sys.stderr)
             advent_count += 1
             if advent_count == 1:
                 bounds["advent_i"] = date_str
             elif advent_count == 2:
                 bounds["advent_ii"] = date_str
-        elif "christmas" not in bounds and "birth of the lord" in desc:
-            bounds["christmas"] = date_str
-        elif "christmas_ii" not in bounds and "birth of the lord" in desc and "christmas" in bounds:
-            bounds["christmas_ii"] = date_str
-        elif "epiphany" not in bounds and "baptism of the lord" in desc:
-            bounds["epiphany"] = date_str
-        elif "presentation" not in bounds and "presentation of" in desc:
-            bounds["presentation"] = date_str
-        elif "ash_wednesday" not in bounds and "ash wednesday" in desc:
-            bounds["ash_wednesday"] = date_str
-        elif "passiontide" not in bounds and "fifth sunday in lent" in desc:
-            bounds["passiontide"] = date_str
-        elif "palm_sunday" not in bounds and "palm sunday" in desc:
-            bounds["palm_sunday"] = date_str
-        elif "easter" not in bounds and (
-            "easter day" in desc or "sunday of the resurrection" in desc
-        ):
-            bounds["easter"] = date_str
-        elif "ascension" not in bounds and "ascension of the lord" in desc:
-            bounds["ascension"] = date_str
-        elif "pentecost" not in bounds and "day of pentecost" in desc:
-            bounds["pentecost"] = date_str
-        elif "trinity_sunday" not in bounds and "trinity sunday" in desc:
-            bounds["trinity_sunday"] = date_str
-        elif "all_saints" not in bounds and "all saints" in desc:
-            bounds["all_saints"] = date_str
+            continue
+
+        # christmas / christmas_ii: same phrase appears twice in a multi-year CSV
+        phrases = CANONICAL_BOUNDS_PHRASES["christmas"]
+        match_type, _ = _bounds_match(desc, phrases)
+        if match_type:
+            if match_type == 'fuzzy':
+                print(f"WARNING: detect_bounds: 'christmas' matched via fuzzy substring; "
+                      f"expected one of {phrases!r}, got {desc!r}", file=sys.stderr)
+            christmas_count += 1
+            if christmas_count == 1:
+                bounds["christmas"] = date_str
+            elif christmas_count == 2:
+                bounds["christmas_ii"] = date_str
+            continue
+
+        # All remaining single-occurrence bounds
+        for key, phrases in CANONICAL_BOUNDS_PHRASES.items():
+            if key in ("advent_i", "christmas"):
+                continue
+            if key in bounds:
+                continue
+            match_type, _ = _bounds_match(desc, phrases)
+            if match_type == 'exact':
+                bounds[key] = date_str
+                break
+            elif match_type == 'fuzzy':
+                print(f"WARNING: detect_bounds: '{key}' matched via fuzzy substring; "
+                      f"expected one of {phrases!r}, got {desc!r}", file=sys.stderr)
+                bounds[key] = date_str
+                break
+
     return bounds
 
 
