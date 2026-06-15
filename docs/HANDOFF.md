@@ -6,6 +6,317 @@ Active handoff between Cowork (planning) and Claude Code (implementation). Cowor
 
 ---
 
+## Ready for Cowork review — Batch 11 (2026-06-14)
+
+Serving at **http://localhost:8081** (cache: `pwc-c46c42f1`).
+
+### What to spot-check
+
+**BUG-23 — Seasonal EP opening responses restored**
+
+- `http://localhost:8081/#/2025-12-03/ep` (Advent EP) — "Introductory Responses" subsection must appear under "The Gathering of the Community"
+- `http://localhost:8081/#/2026-02-25/ep` (Lent EP) — same, Introductory Responses visible
+- `http://localhost:8081/#/2026-05-20/ep` (Pentecost EP) — same
+- `node cli/office.js ep 2025-12-03` — "## Opening Responses" section present in CLI output
+
+**BUG-24 — CLI feast-day morning psalms**
+
+- `node cli/office.js mp 2026-06-11` (Saint Barnabas — a feast with `psalm_sets`) — "## Psalm" line shows psalm citations, not "[object Object]" or empty
+
+**Tests**
+
+- `make test` — should pass: 108 Vitest + 143 pytest + Go
+- New Vitest describe `all forms: shared-ref fields render non-empty HTML` — 62 tests covering `opening_responses` and `reading_response` for all 31 forms
+- New pytest `test_opening_responses_resolves` — 31 parametrized cases, all passing
+
+---
+
+## Batch 11 — BUG-23 + BUG-24 hot-fix — Done
+
+**BUG-23 (P0):** All 7 seasonal EP forms (`advent-ep` through `pentecost-ep`) silently drop Opening Responses. BUG-14 moved `opening_responses` to a shared ref dict; `app.js` line ~919 checks `.length` on it → undefined → section skipped. Same failure mode as BUG-19.
+
+### Commit 1: Fix shared-ref resolution for `opening_responses` — `web/app.js` + `cli/office.js`
+
+**`web/app.js`** — find the opening_responses block (~line 919):
+
+```js
+// Before:
+if (form.opening_responses && form.opening_responses.length)
+  html += renderSubsection('Introductory Responses', form.opening_responses, shared);
+
+// After:
+let openingResponses = form.opening_responses;
+if (openingResponses?.type === 'shared' && shared)
+  openingResponses = shared[openingResponses.key];
+if (openingResponses && openingResponses.length)
+  html += renderSubsection('Introductory Responses', openingResponses, shared);
+```
+
+**`cli/office.js`** — update the `section()` helper to resolve shared refs:
+
+```js
+// Before:
+function section(title, segs) {
+  if (!segs || !segs.length) return '';
+  return `\n## ${title}\n\n${strip(renderSegments(segs, shared))}\n`;
+}
+
+// After:
+function section(title, segs) {
+  if (segs?.type === 'shared' && shared) segs = shared[segs.key];
+  if (!segs || !segs.length) return '';
+  return `\n## ${title}\n\n${strip(renderSegments(segs, shared))}\n`;
+}
+```
+
+**Commit message:** `fix(ui): resolve shared ref for opening_responses in seasonal EP — BUG-23`
+
+---
+
+### Commit 2: Fix CLI psalm_sets fallback — `cli/office.js` (BUG-24)
+
+Feast days store morning psalms as `psalm_sets` (array of arrays) not `psalms`. Update the psalm rendering line:
+
+```js
+// Before:
+if (officeData?.psalms) out += `\n## Psalm\n${officeData.psalms.join(', ')}\n`;
+
+// After:
+const psalms = officeData?.psalms ?? officeData?.psalm_sets?.[0];
+if (psalms) out += `\n## Psalm\n${(Array.isArray(psalms[0]) ? psalms[0] : psalms).map(p => typeof p === 'object' ? p.citation : p).join(', ')}\n`;
+```
+
+**Commit message:** `fix(cli): fall back to psalm_sets[0] for feast-day morning psalms — BUG-24`
+
+---
+
+### Commit 3: Add render-level Vitest test — `tests/unit/render.test.js`
+
+The existing form-completeness test accepted shared refs as valid data without verifying the rendering code handles them. Add a render-level test for every field that can be a shared ref:
+
+```js
+describe('all forms: shared-ref fields render non-empty HTML', () => {
+  test.each(forms)('%s opening_responses', (name, form) => {
+    let or = form.opening_responses;
+    if (or?.type === 'shared') or = shared[or.key];
+    const html = renderSubsection('Introductory Responses', or, shared);
+    expect(html, `${name} opening_responses rendered empty`).toBeTruthy();
+  });
+
+  test.each(forms)('%s reading_response', (name, form) => {
+    // lessonHtml already tested elsewhere but confirm shared ref resolves
+    let rr = form.reading_response;
+    if (rr?.type === 'shared') rr = shared[rr.key];
+    expect(Array.isArray(rr) ? rr.length : rr?.groups?.length,
+      `${name} reading_response resolves to empty`).toBeGreaterThan(0);
+  });
+});
+```
+
+**Rule going forward:** any field that can hold a shared ref needs a render-level test, not just a data-structure check.
+
+**Commit message:** `test(unit): render-level tests for shared-ref fields — catches BUG-23 class`
+
+---
+
+### Commit 4: Add regression test to `tools/tests/test_form_completeness.py`
+
+Add a test that catches shared refs that fail to resolve:
+
+```python
+@pytest.mark.parametrize('name,form', forms)
+def test_opening_responses_resolves(name, form):
+    or_val = form.get('opening_responses')
+    if isinstance(or_val, dict):
+        assert or_val.get('type') == 'shared', f'{name}.opening_responses has unexpected dict type'
+        key = or_val.get('key')
+        assert key in shared, f'{name}.opening_responses refs missing shared key: {key}'
+        assert isinstance(shared[key], list) and len(shared[key]) > 0, \
+            f'{name}.opening_responses shared[{key!r}] is empty or not a list'
+    else:
+        assert isinstance(or_val, list) and len(or_val) > 0, \
+            f'{name}.opening_responses must be non-empty list, got {type(or_val).__name__}'
+```
+
+Also add `shared` to the module-level setup:
+```python
+shared = offices.get('_shared', {})
+```
+
+**Commit message:** `test(tools): assert opening_responses resolves — catches BUG-23 class`
+
+---
+
+## Ready for Cowork review — Batch 10 + BUG-21 + BUG-14 (2026-06-14)
+
+Serving at **http://localhost:8081** (cache: `pwc-4d284323`).
+
+### What to spot-check
+
+**Batch 10 — SW hot-fix**
+
+- `http://localhost:8081/sw.js` — confirm `skipWaiting` is gone and `'/'` is not in the SHELL array
+- `http://localhost:8081/` — app loads normally; no JS errors in console
+- Check that the SW registers (DevTools → Application → Service Workers): status should be "activated and running" after page load
+- On a second visit (no `?reset`), confirm the app still loads (not a blank page)
+
+**BUG-21 — CLI field names fixed**
+
+- `node cli/office.js mp 2026-06-17` — should show `## Psalm` and `## Lesson 1` / `## Lesson 2` sections with reading heading ("The Reading: …") and reading response (I / II / III tabs)
+- `node cli/office.js ep 2026-06-17` — same structure for EP
+
+**BUG-14 — EP opening_responses deduplicated**
+
+- `make check-integrity` passes (already confirmed)
+- `node cli/office.js ep 2025-12-03` (Advent EP) — confirm office renders; opening responses shown
+- In offices.json `_shared`, confirm key `opening_responses_ep_seasonal` now exists with the 7 identical EP forms sharing it; advent-ep through pentecost-ep all reference it; allsaints-ep still has its own inline array
+
+---
+
+## Batch 10 — SW hot-fix (P0, deploy broken) — Done
+
+**Deploy is currently broken.** Users who had the site open before the June 14 deploy see a blank "Loading…" page. Only `?reset` recovers them. Future deploys will reproduce this unless fixed.
+
+### Root cause
+
+`self.skipWaiting()` in `sw.js` causes the new SW to activate immediately, bypassing the normal wait-for-tabs-close lifecycle. During its `install` event, the new SW runs `addAll([..., '/', ...])` — fetching and caching `index.html` from the CloudFront edge. CloudFront invalidation takes 30–60+ seconds to propagate; during that window, the edge may still serve the **old** `index.html` (without `type="module"`). The new SW caches this stale HTML.
+
+Once cached:
+1. `clients.claim()` fires → `controllerchange` → `location.reload()`
+2. Reload: new SW serves `'/'` from its cache → **old index.html** (no `type="module"`)
+3. Old index.html loads `app.js` as a classic script
+4. New `app.js` has `import { … } from './render.js'` at line 3 → `SyntaxError` in classic-script context
+5. JS execution halts before the `controllerchange` listener is registered
+6. Page stays in the initial "Loading…" DOM state forever
+7. Refreshing makes it worse: SW keeps serving the stale cached `index.html`
+
+### Fix (2 commits)
+
+#### Commit 1: Remove `skipWaiting`, remove `'/'` from precache — `web/sw.js`
+
+Replace entire `sw.js` with:
+
+```js
+'use strict';
+
+const CACHE = 'pwc-v1'; // make build stamps this with a content hash
+
+// Shell files cached on install. index.html ('/')  is intentionally excluded —
+// it must always be fetched from the network so a stale CF edge never poisons
+// the SW cache with an old HTML structure (e.g. missing type="module").
+const SHELL = [
+  '/app.js',
+  '/render.js',
+  '/office.css',
+  '/manifest.json',
+  '/data/offices.json',
+  '/data/collects.json',
+  '/data/season_bounds.json',
+  '/data/psalter.json',
+  '/data/fats/saints.json',
+];
+
+self.addEventListener('install', evt => {
+  evt.waitUntil(
+    caches.open(CACHE).then(cache => cache.addAll(SHELL))
+  );
+  // No self.skipWaiting() — new SW waits until all tabs running the old SW
+  // are closed. This prevents the stale-HTML / module-import race on deploy.
+});
+
+self.addEventListener('activate', evt => {
+  evt.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', evt => {
+  if (evt.request.method !== 'GET') return;
+  const url = new URL(evt.request.url);
+  if (url.origin !== location.origin) return;
+
+  // Never intercept index.html — let the browser fetch it fresh every time.
+  if (url.pathname === '/' || url.pathname === '/index.html') return;
+
+  // Everything else: network-first with cache fallback (offline support).
+  evt.respondWith(networkFirst(evt.request));
+});
+
+async function networkFirst(request) {
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(CACHE);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch {
+    const cached = await caches.match(request);
+    return cached ?? new Response('Offline', { status: 503 });
+  }
+}
+```
+
+**Commit message:** `fix(sw): remove skipWaiting and '/' from precache — prevents blank page on deploy`
+
+---
+
+#### Commit 2: Remove `controllerchange` → reload hack from `app.js`
+
+In `web/app.js`, find the SW registration block (around line 1349):
+
+```js
+// Before:
+if ('serviceWorker' in navigator && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+  navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+// After:
+if ('serviceWorker' in navigator && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+```
+
+The `controllerchange` reload was compensating for `skipWaiting`. Without `skipWaiting`, the new SW never takes over a live page mid-session, so the reload is both unnecessary and harmful (could cause reload loops if `controllerchange` fires at other times).
+
+**Commit message:** `fix(ui): remove controllerchange reload — was compensating for skipWaiting`
+
+---
+
+### How to reproduce the old bug (for verification)
+
+Before fixing, to confirm the bug:
+1. Temporarily add `// location.hostname !== 'localhost' &&` to disable the localhost SW guard
+2. `make build && make serve-dist` → visit `localhost:8081`, confirm SW registers
+3. Make any trivial change (e.g. add a comment to `app.js`), rebuild → new cache hash
+4. Refresh `localhost:8081` without doing `?reset` → blank "Loading…" page
+5. Revert the localhost guard change
+
+After fixing, steps 3–4 should show the old (working) version rather than blank page. Users see last-known-good content until they close all tabs and reopen.
+
+### Post-deploy recovery for stuck users
+
+Stuck users need `?reset`. The escape hatch (`/?reset`) already exists and works. No changes needed. Update help text or add a visible link in the error state if desired.
+
+---
+
+## Code work queue
+
+Do in this order. Do not skip ahead.
+
+| Batch | What | Status |
+|-------|------|--------|
+| **11** | BUG-23 + BUG-24 — seasonal EP opening responses + CLI psalm_sets | **Ready for Code** |
+| **10** | SW hot-fix — blank page on deploy | Done |
+| **7** | BUG-19 critical fix — reading response + Lord's Prayer + Go CLI | Done |
+| **8** | JS render module + Node CLI + Vitest | Done |
+| **9** | Rubrics redesign | Done |
+
+---
+
 ## Ready for Cowork review — Batches 7 + 8 + 9 (2026-06-14)
 
 Serving at **http://localhost:8081** (cache: `pwc-7740deb7`).
