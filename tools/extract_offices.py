@@ -896,6 +896,32 @@ def _dedup_shared(offices: dict) -> dict:
     return result
 
 
+def _fix_shared_affirmation(offices: dict) -> dict:
+    """
+    Correct two known issues in _shared.affirmation that can't be caught by
+    the per-office text-patch mechanism (shared blocks are deduplicated before
+    _apply_text_patches runs, so the segment no longer lives in any office section):
+
+    1. The Apostles' Creed group label is stripped of its article by _alt_label.
+       Restore 'The Apostles' Creed'.
+    2. 'he ascended into heaven' is missing a comma (BAS p.189).
+       Add the comma so the line reads 'he ascended into heaven,'.
+    """
+    import copy
+    offices = copy.deepcopy(offices)
+    affirmation = offices.get('_shared', {}).get('affirmation', {})
+    for group in affirmation.get('groups', []):
+        if group.get('label', '').startswith('Apostles'):
+            group['label'] = 'The Apostles’ Creed'
+        for seg in group.get('segments', []):
+            if seg.get('type') == 'response' and 'he ascended into heaven\n' in seg['text']:
+                seg['text'] = seg['text'].replace(
+                    'he ascended into heaven\n',
+                    'he ascended into heaven,\n',
+                )
+    return offices
+
+
 # ── Main extraction ───────────────────────────────────────────────────────────
 
 def extract_office(pdf, start: int, end: int, office_key: str = "") -> dict:
@@ -1062,6 +1088,7 @@ def run():
                         _dbg(f"  RESULT {sk}: alternatives {glabels}", office=key)
 
     offices = _dedup_shared(offices)
+    offices = _fix_shared_affirmation(offices)
     offices = _add_reading_responses(offices)
     offices = _apply_text_patches(offices)
     n_shared = len(offices.get('_shared', {}))
