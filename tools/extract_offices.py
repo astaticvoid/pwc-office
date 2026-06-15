@@ -486,10 +486,15 @@ def _group_alternatives(segs: list[dict], office="", section="") -> list[dict]:
 
         # Canticle intro: '"Name A," "Name B," … may be said or sung.\nName A (citation)'
         if typ == 'rubric' and _CANTICLE_INTRO.match(text):
-            last_line = text.strip().split('\n')[-1]
+            lines = text.strip().split('\n')
+            # The intro spans multiple PDF lines — join with space for a single rubric.
+            intro_part = ' '.join(l.strip() for l in lines[:-1] if l.strip())
+            last_line = lines[-1]
             _dbg(f"    CANTICLE-INTRO → flush, start named group {repr(_alt_label(last_line))}: {repr(text[:60])}", office=office, section=section)
             _flush_groups()
             _flush_pending()
+            if intro_part:
+                result.append({'type': 'rubric', 'text': intro_part})
             groups = []
             unnamed_n[0] = 0
             _new_group(_alt_label(last_line))
