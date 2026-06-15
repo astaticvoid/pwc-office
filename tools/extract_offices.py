@@ -503,10 +503,15 @@ def _group_alternatives(segs: list[dict], office="", section="") -> list[dict]:
         # General intro with embedded first label:
         # 'One of the following Affirmations … may be said or sung.\nLabel'
         if typ == 'rubric' and _GENERAL_INTRO.search(text) and not _BLOCK_SEP_ONLY.search(text):
-            last_line = text.strip().split('\n')[-1]
+            lines = text.strip().split('\n')
+            # Join intro lines with space; they're PDF line-break artefacts.
+            intro_part = ' '.join(l.strip() for l in lines[:-1] if l.strip())
+            last_line = lines[-1]
             _dbg(f"    GENERAL-INTRO → flush, start named group {repr(_alt_label(last_line))}: {repr(text[:60])}", office=office, section=section)
             _flush_groups()
             _flush_pending()
+            if intro_part:
+                result.append({'type': 'rubric', 'text': intro_part})
             groups = []
             unnamed_n[0] = 0
             _new_group(_alt_label(last_line))
