@@ -6,6 +6,222 @@ Active handoff between Cowork (planning) and Claude Code (implementation). Cowor
 
 ---
 
+## Batch 13 — Book-mode renderer + golden-file diff tool
+
+**Goal**: TDD for data quality. `make check-book FORM=ordinary-sunday-ep` renders the office as clean plain text, diffs against a PDF-sourced golden file, and exits 1 on any discrepancy. This replaces manual visual diffing against the PDF.
+
+The current `cli/office.js` is not suitable: it is missing Phos Hilaron, Affirmation of Faith, Collect, and Psalms are citation-only. Scripture shows "Loading…". The `IIIIII` artifacts are Roman-numeral tab-button labels ("I"+"II"+"III") from `renderAlternatives` bleeding through `strip()`.
+
+---
+
+### Commit 1 — `cli/book.js` — clean book-mode text renderer
+
+New file. Uses the same data layer as `cli/office.js` but produces clean, complete plain text suitable for diffing against the PDF. No HTML, no markdown markers, no artifacts.
+
+#### Output format (canonical)
+
+Section headings: plain text line, followed by a blank line.
+Subsection headings: plain text line, followed by a blank line.
+Rubrics: plain text line in parentheses: `(Rubric text.)`, followed by a blank line.
+Leader lines: plain text.
+Response lines: plain text.
+Alternatives separated by a blank line containing only `or`.
+Psalm text: inline from `data/psalter.json`, one verse per line with midpoint `*`.
+Scripture: single placeholder line `[Reading: Citation]` (fetching not in scope).
+Blank line between each segment group.
+
+Example output excerpt:
+
+```
+The Gathering of the Community
+
+Introductory Responses
+
+O Lord, I call to you; come to me quickly;
+hear my voice when I cry to you.
+Let my prayer be set forth in your sight as incense,
+the lifting up of my hands as the evening sacrifice.
+
+or
+
+O God, make speed to save us.
+O Lord, make haste to help us.
+In your resurrection, O Christ,
+let heaven and earth rejoice. Alleluia.
+
+or
+
+O God, be not far from us.
+Come quickly to help us, O God.
+Christ has triumphed over death:
+O come let us worship.
+
+(One of the following may be said or sung.)
+
+Glory to God, Source of all being, eternal Word, and Holy Spirit:
+as it was in the beginning, is now, and will be for ever. Amen.
+
+or
+
+Glory to the holy and undivided Trinity, one God:
+as it was in the beginning, is now, and will be for ever. Amen.
+
+or
+
+Glory to the Father, and to the Son, and to the Holy Spirit:
+as it was in the beginning, is now, and will be for ever. Amen.
+
+The Evening Hymn: "O Gladsome Light, O Grace"
+
+O gladsome Light, O grace of God the Father's face,
+the eternal splendour wearing; celestial, holy, blest,
+our Saviour Jesus Christ, joyful in your appearing.
+As day fades into night, we see the evening light,
+our hymn of praise outpouring, Father of might unknown,
+Christ, your incarnate Son, and Holy Spirit adoring.
+To you of right belongs all praise of holy songs,
+O Son of God, life-giver; you, therefore, O Most High,
+the world will glorify, and shall exalt for ever.
+```
+
+#### Sections to render (EP, in order)
+
+1. **Gathering of the Community** — heading
+   - Opening responses (from `form.opening_responses`, resolve shared refs)
+   - Opening doxology alternatives (from data — currently missing, see data gap below)
+   - Phos Hilaron / Thanksgiving for Light (`form.phos_hilaron` or `form.thanksgiving_for_light`) — render its heading from the data (the `label` or first rubric that names the hymn)
+2. **Proclamation of the Word** — heading
+   - Psalm heading + rubric + psalm text from `data/psalter.json` + post-psalm doxology
+   - Lesson 1: `[Reading: Citation]` placeholder + reading response
+   - Responsory
+   - Lesson 2 (if present): same pattern
+   - Canticle + post-canticle doxology
+3. **Affirmation of Faith** — heading
+   - `form.affirmation` content (Apostles' Creed + Hear O Israel)
+4. **Prayers of the Community** — heading
+   - Intercessions rubric (condensed: one rubric line)
+   - Litany
+   - Collect section (daily collect + seasonal + occasional if present)
+5. **Sending Forth of the Community** — heading
+   - Lord's Prayer (with intro)
+   - Dismissal
+
+For MP, render instead: invitatory, psalm, lessons, responsory, canticle, affirmation, prayers, dismissal (same pattern, no phos hilaron).
+
+#### Implementation notes
+
+- Do NOT use `renderSegments` / `renderAlternatives` from `render.js` — those produce HTML with tab UI. Write a new `textSegments(segs, shared)` function directly in `cli/book.js`.
+- `textSegments` walks segments: `leader`/`response` → plain text lines; `rubric` → `(text)` parenthesised line; `alternatives` → recurse each group's segments, join groups with `\nor\n`; `shared` → resolve from `offices._shared` and recurse.
+- Psalm rendering: load `data/psalter.json`, look up each psalm number, render verse text with midpoint `*`. Join multiple psalms with a blank line.
+- Heading for Phos Hilaron: the `ordinary-sunday-ep` form has `phos_hilaron` as an array that begins with a `rubric` segment whose text is the hymn title (e.g., `"O Gladsome Light"`) — or a `label` field on the alternatives group. Inspect the actual data and use whatever is there. If the heading string isn't in the data, it must be added to the data (extraction fix — note in commit message as a data gap to fix in Batch 14).
+
+---
+
+### Commit 2 — `tests/fixtures/book/ordinary-sunday-ep.txt` — golden file ✅ Done 2026-06-14
+
+`tests/fixtures/book/ordinary-sunday-ep.txt` written from BAS PDF (pp. 138–144). Format:
+
+- Page headers/footers removed
+- Scripture as `[Reading: Sirach 46:11-20]` / `[Reading: Luke 12:41-48]` (2026-06-14 lectionary)
+- Rubrics in `(parentheses)`
+- Alternatives separated by `or` on its own line
+- PDF wording preserved exactly — e.g. `(After the Psalm one of the following may be said or sung.)`
+- PDF capitalisation preserved — response lines after semicolons start lowercase
+
+**Data gaps found while writing the golden file** (these are what `make check-book` will flag; fixes are Batch 14):
+
+| # | Gap | Location in golden file |
+|---|-----|------------------------|
+| 1 | `(One of the following may be said or sung.)` rubric before the opening doxology alternatives is not in `_shared.doxology` data | After versicle alternatives, before doxology |
+| 2 | `The Evening Hymn: "O Gladsome Light, O Grace"` section heading not in `phos_hilaron` data (only the text segments exist) | After doxology alternatives |
+| 3 | `Alleluia.` after each doxology alternative in EP opening context not in data | Lines 34, 40, 46 of golden file |
+| 4 | Post-psalm doxology rubric wording — needs to match `(After the Psalm one of the following may be said or sung.)` | After Psalm 34 |
+| 5 | Post-canticle doxology rubric wording — needs to match `(After the Canticle one of the following may be said or sung.)` | After canticle alternatives |
+
+The golden file is the ground truth. If `cli/book.js` disagrees, the renderer (or data) is wrong — not the golden file.
+
+---
+
+### Commit 3 — `tools/compare_book.py` + `make check-book`
+
+```python
+# tools/compare_book.py
+# Usage: python3 tools/compare_book.py FORM [DATE]
+# FORM: e.g. ordinary-sunday-ep
+# DATE: YYYY-MM-DD (defaults to today)
+# Runs cli/book.js, diffs against tests/fixtures/book/FORM.txt
+# Exits 0 if identical (after normalisation), 1 with unified diff if not.
+```
+
+Normalisation before diff:
+- Strip leading/trailing whitespace per line
+- Collapse 3+ consecutive blank lines to 2
+- Normalise curly quotes to straight quotes (`'` → `'`, `"` → `"`)
+- Lowercase comparison only for the diff display (not for the file output itself)
+
+The date for `ordinary-sunday-ep` is any Sunday in ordinary time — use `2026-06-14`.
+
+Wire into `Makefile`:
+```makefile
+check-book:
+	python3 tools/compare_book.py $(FORM) $(DATE)
+```
+
+Add `make check-book FORM=ordinary-sunday-ep` to `make test` or at minimum document it.
+
+---
+
+### What this batch does NOT fix
+
+Batch 13 only builds the tool and the first golden file. The diff output from `make check-book FORM=ordinary-sunday-ep` will enumerate all remaining issues (missing sections, wrong rubric text, capitalisation, artifacts). Those become the Batch 14 work list.
+
+---
+
+## Batch 12 — BUG-02 season bounds hardening
+
+One commit. No app change — Python tooling only.
+
+### Context
+
+`detect_bounds()` in `tools/convert_lectionary.py` uses `in` substring matching to find liturgical season boundaries in ACC CSV rows (e.g., `"first sunday of advent" in desc`). If ACC changes wording in a future CSV export, bounds silently fail to set. The existing assertion catches a completely missing key, but not a subtle wording shift.
+
+### Commit 1: Canonical expected-wording list in `detect_bounds()`
+
+Replace the ad-hoc `in` checks with a `CANONICAL_BOUNDS` dict. For each bound key, define the exact lowercase substring(s) expected to appear in the CSV name field. Match exactly first; if only a fuzzy match is found, record the bound but emit a `sys.stderr` warning so future re-extractions surface the change.
+
+**`tools/convert_lectionary.py`** — at module level, add:
+
+```python
+# Expected lowercase substrings in CSV name field for each season boundary.
+# If ACC changes wording, detect_bounds() will warn rather than silently accept.
+CANONICAL_BOUNDS_PHRASES = {
+    "advent_i":      ["first sunday of advent"],
+    "christmas":     ["birth of the lord"],
+    "epiphany":      ["baptism of the lord"],
+    "presentation":  ["presentation of the lord", "presentation of our lord"],
+    "ash_wednesday": ["ash wednesday"],
+    "passiontide":   ["fifth sunday in lent"],
+    "palm_sunday":   ["palm sunday"],
+    "easter":        ["easter day", "sunday of the resurrection"],
+    "ascension":     ["ascension of the lord"],
+    "pentecost":     ["day of pentecost"],
+    "trinity_sunday":["trinity sunday"],
+    "all_saints":    ["all saints"],
+}
+```
+
+Rewrite `detect_bounds()` to use this dict. Logic per row:
+1. `desc = first_line(clean(row[1])).lower()`
+2. For each key not yet in `bounds`, check if any canonical phrase is an exact `==` match to `desc`, or `desc.startswith(phrase)`. If yes → set bound, move on.
+3. If no exact match, fall back to `in` check. If that matches → set bound AND `print(f"WARNING: detect_bounds: '{key}' matched via fuzzy substring; expected one of {phrases!r}, got {desc!r}", file=sys.stderr)`.
+4. Advent counter logic (two occurrences for `advent_i` / `advent_ii`) preserved.
+
+Keep the existing `_REQUIRED_BOUNDS` assertion after the function — it's still the hard stop.
+
+Add a pytest test in `tools/tests/` that constructs synthetic rows with exact canonical strings and asserts all 12 keys are found without warnings. Add a second test with a slightly-off wording string and asserts the key is found AND a warning was emitted (capture `sys.stderr`).
+
+---
+
 ## Ready for Cowork review — Batch 11 (2026-06-14)
 
 Serving at **http://localhost:8081** (cache: `pwc-c46c42f1`).
