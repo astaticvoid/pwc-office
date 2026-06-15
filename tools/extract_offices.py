@@ -429,7 +429,9 @@ _ROMAN = ['I', 'II', 'III', 'IV', 'V']
 def _alt_label(text: str) -> str:
     """Extract short display label from 'Name (citation)' or 'Name' string."""
     name = re.sub(r'\s*\([^)]*\)\s*$', '', text).strip()
-    name = re.sub(r'^(?:The |A |An )', '', name).strip()
+    # Strip "The " and "An " articles that don't belong in canonical short names,
+    # but preserve "A " so canticle names like "A Song of the Lamb" keep their article.
+    name = re.sub(r'^(?:The |An )', '', name).strip()
     return name or text.strip()
 
 

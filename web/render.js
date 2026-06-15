@@ -59,6 +59,8 @@ export const CANTICLE_SOURCE = {
   'Song of the Blessed':            'Matthew 5:3–10',
   'Song of the Bride':              'Revelation 19:1–2, 5, 7, 9a',
   'Song of the Covenant':           'Jeremiah 31:10–14',
+  'A Song of the Heavenly City':    'Revelation 21:22–26; 22:1, 2b, d, 3b, 4',
+  'A Song of the Lamb':             'Revelation 19:1b, 2a, 5b, 6b, 7, 9b',
   'Song of the Heavenly City':      'Revelation 21:22–22:5',
   'Song of the Holy City':          'Revelation 21:2–4, 22–27',
   'Song of the Justified':          'Romans 8:29–32, 34–35, 37–39',
