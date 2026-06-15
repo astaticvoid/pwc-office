@@ -25,7 +25,7 @@ const [year, month] = dateStr.split('-');
 let lectionaryDay = null;
 try {
   const lect = load(`data/lectionary/${year}-${month}.json`);
-  lectionaryDay = lect.find(d => d.date === dateStr) || null;
+  lectionaryDay = lect[dateStr] || null;
 } catch {}
 
 const fSeason = officeFormSeason(dateStr, bounds);
@@ -54,10 +54,10 @@ out += `Season: ${fSeason} | Form: ${key}\n`;
 if (lectionaryDay) out += `Day: ${lectionaryDay.name}\n`;
 
 out += section('Opening Responses', form.opening_responses);
-if (officeData?.psalm) out += `\n## Psalm\n${JSON.stringify(officeData.psalm)}\n`;
-if (officeData?.lesson1) out += `\n## Lesson 1\n${officeData.lesson1}\n`;
+if (officeData?.psalms?.length) out += `\n## Psalm\n${JSON.stringify(officeData.psalms)}\n`;
+if (officeData?.lessons?.[0]) out += `\n## Lesson 1\n${strip(lessonHtml(officeData.lessons[0], shared, form))}\n`;
 out += section('Responsory', form.responsory);
-if (officeData?.lesson2) out += `\n## Lesson 2\n${officeData.lesson2}\n`;
+if (officeData?.lessons?.[1]) out += `\n## Lesson 2\n${strip(lessonHtml(officeData.lessons[1], shared, form))}\n`;
 out += section('Canticle', form.canticle);
 out += section('Intercessions', form.intercessions);
 out += section('Litany', form.litany);
