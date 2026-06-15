@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Normalize shared office blocks in data/offices.json.
 
-Four blocks are identical across many forms and belong in `_shared`:
+Three blocks are identical across many forms and belong in `_shared`:
   - reading_response_seasonal   (all seasonal forms)
   - reading_response_ordinary   (all ordinary-time forms)
-  - lords_prayer_ordinary       (all ordinary-time forms)
   - opening_responses_ep_seasonal (most seasonal EP forms, except Advent)
 
 Each repeated block is replaced with a {"type": "shared", "key": "..."} reference.
@@ -63,23 +62,6 @@ def normalize(data, dry_run=False):
                     changed += 1
         else:
             print(f'  WARNING: {rr_key} not identical across all matching forms — skipping')
-
-    # ── lords_prayer_ordinary ─────────────────────────────────────────────────
-    ordinary_forms = {k: v for k, v in forms.items() if 'ordinary' in k and 'lords_prayer_intro' in v}
-    if ordinary_forms:
-        vals = list(ordinary_forms.values())
-        canonical = vals[0]['lords_prayer_intro']
-        if all(blocks_equal(f['lords_prayer_intro'], canonical) for f in vals):
-            key = 'lords_prayer_ordinary'
-            if key not in shared:
-                shared[key] = canonical
-                print(f'  + shared.{key} ({len(ordinary_forms)} forms)')
-            for k in ordinary_forms:
-                if not isinstance(data[k].get('lords_prayer_intro'), dict) or data[k]['lords_prayer_intro'].get('type') != 'shared':
-                    data[k]['lords_prayer_intro'] = {'type': 'shared', 'key': key}
-                    changed += 1
-        else:
-            print('  WARNING: lords_prayer_intro not identical across ordinary forms — skipping')
 
     # ── opening_responses_ep_seasonal (all seasonal EP except Advent) ─────────
     ep_seasonal_forms = {
