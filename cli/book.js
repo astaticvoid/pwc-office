@@ -83,12 +83,14 @@ function textAlternatives(groups, shared, opts = {}) {
     .map(g => {
       const groupText = textFlatSegs(g.segments, shared, opts);
       if (!groupText) return '';
+      let body = groupText;
+      if (opts.alleluia) body += '\nAlleluia.';
       if (opts.showLabel && g.label && !SHORT_LABEL_RE.test(g.label)) {
         const cite = CANTICLE_SOURCE[g.label];
         const header = cite ? `${g.label} — ${cite}` : g.label;
-        return `${header}\n\n${groupText}`;
+        return `${header}\n\n${body}`;
       }
-      return groupText;
+      return body;
     })
     .filter(Boolean)
     .join('\n\nor\n\n');
@@ -190,7 +192,17 @@ const B = []; // output blocks, joined by \n\n
 // ── The Gathering of the Community ───────────────────────────────────────────
 B.push('The Gathering of the Community');
 B.push('Introductory Responses');
-B.push(textFlatSegs(form.opening_responses, shared));
+// EP opening doxology: append Alleluia after each alternative (BAS EP Sunday rubric).
+// Render pre-doxology segs first, then doxology separately with alleluia flag.
+if (officeType === 'ep' && shared.doxology) {
+  const preDoxa = (form.opening_responses || []).filter(
+    s => !(s.type === 'shared' && s.key === 'doxology')
+  );
+  B.push(textFlatSegs(preDoxa, shared));
+  B.push(textAlternatives(shared.doxology.groups, shared, { alleluia: true }));
+} else {
+  B.push(textFlatSegs(form.opening_responses, shared));
+}
 
 // Phos Hilaron / Thanksgiving for Light
 // DATA GAP: section heading ("The Evening Hymn: "O Gladsome Light, O Grace"")
