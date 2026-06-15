@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: test test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text serve serve-dist deploy test-web validate fetch-sources extract update-golden
+.PHONY: test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text serve serve-dist deploy test-web validate fetch-sources extract update-golden
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -24,8 +24,11 @@ extract:
 	git -C data/ add -A && git -C data/ commit -m "extraction $(shell date +%Y-%m-%d)" || true
 
 # Unit tests — no API key needed, always fast.
-test:
+test: test-unit test-tools
 	go test ./...
+
+test-unit:
+	npm test
 
 # Smoke — 4 LLM evaluations run sequentially; stops at first failure.
 # Output saved to /tmp/smoke_out.txt; summary printed at end.
@@ -70,7 +73,7 @@ build:
 	echo "dist/ ready (cache: pwc-$$HASH, $$(find dist -type f | wc -l | tr -d ' ') files)"
 
 # Verify dist/ has everything the app needs before deploying.
-check-dist: build
+check-dist: build test-unit
 	@python3 tools/check_dist.py
 
 # Serve web/ directly for local development (http://localhost:$(PORT)/).
