@@ -6,6 +6,39 @@ Active handoff between Cowork (planning) and Claude Code (implementation). Cowor
 
 ---
 
+## Ready for Cowork review — Batch 14 (2026-06-15)
+
+Serving at **http://localhost:8081** (cache: `pwc-95240ba1`).
+
+This batch is tooling-only — no web UI or data changes. Spot-check via terminal:
+
+### `make test-full`
+
+Should run ~1100 structural checks (550 dates × MP+EP) in ~25 seconds and print:
+
+```
+Checking 1100 offices (550 dates × 2)...
+All 1100 checks passed.
+```
+
+### `make test-smoke`
+
+Should run 4 smoke cases (Easter MP/EP, Lent MP, Feast Day MP). Each prints structural pass. Citation checks may print `SKIP citation check` if lectionary.anglican.ca doesn't have data for 2026 dates yet — that is expected and is a skip, not a failure. Should exit 0.
+
+### `make test-seasonal`
+
+Same as above — 26 cases. Should exit 0.
+
+### `make test`
+
+Should run Vitest (108) + pytest — no Go tests any more. Should pass.
+
+### Go is gone
+
+`go.mod`, `go.sum`, and all `*.go` files deleted. `go test` is no longer in `make test`. No other functional changes.
+
+---
+
 ## Ready for Cowork review — Batch 13 (2026-06-15)
 
 Serving at **http://localhost:8081** (cache: `pwc-95240ba1`).
@@ -297,6 +330,42 @@ Update `CLAUDE.md`:
 - Remove `go test -run TestName ./...` from Commands section
 - Update architecture section: CLI is now `cli/book.js` and `cli/office.js` (Node); no Go
 - Remove `kjv_embed.go` reference (KJV is out of scope for this contemporary prayer app)
+
+---
+
+## Batch 15 — Data quality fixes from `make check-book` diff
+
+Run `make check-book FORM=ordinary-sunday-ep DATE=2026-06-14`. The diff output is the work list. Fix each discrepancy — either in the renderer (`cli/book.js`) or in the source data (via `tools/extract_offices.py` `_TEXT_PATCHES`, or `data/patches.json` if wording-only). Re-run until diff is clean.
+
+Known gaps from golden file authoring (Batch 13 Commit 2 notes):
+
+| # | Gap | Fix location |
+|---|-----|-------------|
+| 1 | `(One of the following may be said or sung.)` rubric before opening doxology missing from data | Add as rubric segment to `_shared.doxology` in `extract_offices.py`, re-extract |
+| 2 | `The Evening Hymn: "O Gladsome Light, O Grace"` heading missing from `phos_hilaron` | Add `label` or leading rubric to phos hilaron data in extractor; if wording-only, use `_TEXT_PATCHES` |
+| 3 | `Alleluia.` after each EP opening doxology alternative not in data | EP-context only — either add to `_shared.doxology` as EP variant or emit in renderer when rendering EP opening responses |
+| 4 | Post-psalm doxology rubric wording | Inspect data; if missing, add rubric segment to psalm doxology in extractor |
+| 5 | Post-canticle doxology rubric wording | Same pattern |
+
+**Approach**: Run diff first. Fix only what the diff flags — don't speculate. One commit per logical fix. Re-run `make check-book` after each commit. Stop when diff exits 0.
+
+**Constraint**: Never edit `data/*.json` directly. All fixes go through `tools/extract_offices.py` (`_TEXT_PATCHES` list) or `data/patches.json`. Re-extract after any extractor change.
+
+---
+
+## Follow-up investigation — Extraction pipeline portability
+
+**Question**: Can the full extraction pipeline (`make extract`) be made self-contained and portable — runnable by any contributor without manual PDF acquisition or system-specific Python setup?
+
+**Current state**: Requires Homebrew Python 3, manual PDF downloads, possibly system deps. `make fetch-sources` exists but may not cover everything. PDFs are copyrighted and can't be committed.
+
+**Investigate**:
+- What does `make fetch-sources` actually download? Is it sufficient for a clean run?
+- What Python packages are required? Can a `requirements.txt` or `pyproject.toml` make this reproducible?
+- Are there any macOS-specific assumptions (path, encoding, `sed -i ''`)?
+- Could a `Dockerfile` or `devcontainer.json` wrap the pipeline for portability without committing copyrighted sources?
+
+Output of investigation: a short write-up in this HANDOFF or a new `docs/EXTRACTION.md` listing blockers and recommended approach.
 
 ---
 
