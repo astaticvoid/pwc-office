@@ -210,9 +210,7 @@ for (const psalm of psalms) {
   B.push(renderPsalm(psalm));
 }
 if (psalms.length && shared.doxology) {
-  // Post-psalm doxology.
-  // DATA GAP: rubric "(After the Psalm one of the following may be said or sung.)"
-  // is not in shared.doxology — omitted here; will appear in diff.
+  B.push('(After the Psalm one of the following may be said or sung.)');
   B.push(textAlternatives(shared.doxology.groups, shared, {}));
 }
 
