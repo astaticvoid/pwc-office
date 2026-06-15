@@ -4,7 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Pray Without Ceasing (PWC)** — a Daily Office web app and Go CLI for Anglican liturgy. The web SPA is the primary product; the CLI shares the same data layer. Data is extracted from PDFs (ACC/BAS) via Python scripts and committed as JSON.
+**Pray Without Ceasing (PWC)** — a Daily Office web app and Node CLI for Anglican liturgy. The web SPA is the primary product; the CLI shares the same data layer. Data is extracted from PDFs (ACC/BAS) via Python scripts and committed as JSON.
+
+## Delivery workflow
+
+After each commit: `git push`. Do not batch pushes — GitHub is the running record of progress.
+
+After all commits in a batch are pushed:
+1. `make check-integrity` — must pass before build
+2. `make build && make serve-dist` — serves dist/ on :8081 in the background (`make serve-dist &`)
+3. Write a "Ready for Cowork review" section at the top of `docs/HANDOFF.md` listing what to spot-check and at which URLs
+4. Stop. Do not run `make deploy`. Cowork reviews the running :8081 instance and approves deploy.
+
+Cowork will browse to `http://localhost:8081` via browser tools, verify key dates, and trigger `make deploy` only after approving.
 
 ## Commands
 
@@ -13,23 +25,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 make serve                        # http://localhost:8080
 
 # Testing
-make test                         # Go unit tests (fast, no API key)
-make test-full                    # Structural check every day in lectionary
-make test-smoke                   # 4 days + LLM evaluation (needs ANTHROPIC_API_KEY)
-make test-seasonal                # One MP+EP per season + LLM evaluation
+make test                         # Vitest unit tests + Python pytest (fast, no API key)
+make test-full                    # Structural check every day in lectionary (node)
+make test-smoke                   # 4 cases: structural + citation check vs lectionary.anglican.ca
+make test-seasonal                # 26 cases: one MP+EP per liturgical form
 make test-web                     # Playwright E2E suite (tests/e2e/office.spec.js)
 make test-tools                   # Python pytest for tools/ (needs pytest: brew install pytest)
 make validate                     # Validate lectionary JSON against ACC HTML (network)
-
-# Single Go test
-go test -run TestName ./...
 
 # Build & verify before deploy
 make build                        # Assembles dist/, stamps service worker cache hash
 make check-dist                   # Runs build + tools/check_dist.py validation
 make serve-dist                   # Serves dist/ on :8081 (required for E2E pre-deploy)
 
-# Deploy (needs AWS creds + BUCKET + CF_DISTRIBUTION_ID)
+# Deploy (needs AWS creds + BUCKET + CF_DISTRIBUTION_ID) — Cowork approval required first
 make deploy BUCKET=... CF_DISTRIBUTION_ID=...
 ```
 
@@ -38,7 +47,6 @@ Always use `python3` from Homebrew, not macOS system python (3.9, too old).
 ### Required environment variables (`.env`, gitignored)
 
 ```
-ANTHROPIC_API_KEY=   # needed for test-smoke and test-seasonal
 BIBLE_API_KEY=       # API.Bible key for NRSVUE Scripture fetching
 ```
 
@@ -49,23 +57,18 @@ BIBLE_API_KEY=       # API.Bible key for NRSVUE Scripture fetching
 ```
 PDFs / HTML  →  Python tools/  →  data/*.json + data/lectionary/YYYY-MM.json
                                         ↓
-                          web/app.js  (SPA)   +   cmd/dailyoffice/main.go  (CLI)
+                          web/app.js  (SPA)   +   cli/book.js + cli/office.js  (Node CLI)
                           (fetches JSON at runtime)    (loads JSON from disk)
 ```
 
-Copyrighted ACC/BAS content in `data/` is gitignored; only KJV (public domain) is committed. The `web/data` entry is a symlink to `../data` — `make build` dereferences it via `cp -rL`.
+Copyrighted ACC/BAS content in `data/` is gitignored. The `web/data` entry is a symlink to `../data` — `make build` dereferences it via `cp -rL`.
 
-### Go packages
+### Node CLI (`cli/`)
 
-| Path | Role |
+| File | Role |
 |------|------|
-| `*.go` (root) | Core types: `Day`, `Season`, `Form`, `Psalter`, `Collects`, `Bible` interface. Loaded by both CLI and e2e tests. |
-| `internal/office/` | `office.Render()` — assembles a complete office as Markdown from a Day + data sources |
-| `cmd/dailyoffice/` | CLI entry point: flag parsing, date resolution, calls `office.Render()` |
-| `e2e/` | LLM-evaluated tests (build tags: `e2e_smoke`, `e2e_seasonal`, `e2e_full`) |
-| `tests/e2e/` | Playwright browser tests (`office.spec.js`) — run via `make test-web` |
-
-No external Go dependencies — stdlib only.
+| `cli/book.js` | Book-mode plain-text renderer. `node cli/book.js FORM [DATE]`. Output suitable for diffing against PDF golden files. Used by `make check-book` and all Node test harnesses. |
+| `cli/office.js` | Debug renderer. `node cli/office.js [mp\|ep] [DATE]`. Strips HTML from `render.js` output; useful for quick inspection. |
 
 ### Web SPA (`web/`)
 
@@ -73,7 +76,7 @@ Single-file architecture: `web/app.js` (~1400 lines) handles routing, lectionary
 
 - **Form selection**: Season + weekday → one of 31 office forms from `data/offices.json`
 - **Psalms**: Loaded from `data/psalter.json` with verse numbers and midpoint markers
-- **Scripture**: KJV embedded in Go binary (`kjv_embed.go`); NRSVUE fetched from API.Bible (lazy, cached)
+- **Scripture**: NRSVUE fetched from API.Bible (lazy, cached)
 - **Lectionary**: Monthly JSON files (`data/lectionary/YYYY-MM.json`) fetched lazily and cached by service worker
 - **Offline**: Service worker (`sw.js`) caches shell + all data files; cache key is SHA256-stamped at build time
 - **Stuck SW escape hatch**: visit `/?reset` to unregister the service worker and clear caches
@@ -88,6 +91,13 @@ One-time data pipeline scripts. Run via `make extract` (or in order):
 5. `validate_patches.py` + `apply_patches.py` → applies `data/patches.json` post-extraction corrections
 6. `convert_lectionary.py` → `data/lectionary/` (reads `sources/bas_short_*.csv`)
 7. `validate_lectionary.py` — quality check
+8. `update_extract_manifest.py` → `tools/extract_manifest.json` (SHA-256 + entry counts; committed to git — tracks extraction history without committing copyrighted data)
+
+**Data integrity guard** (`make check-integrity`): `check_data_integrity.py` — compares current `data/*.json` hashes against `tools/extract_manifest.json`. Exits 1 if any file was modified outside the pipeline (i.e. monkey-patched directly). Wired into `make deploy` as a gate — deploy fails if data drift is detected. This is the primary protection against agent sessions editing `data/` directly instead of going through extractors or `patches.json`.
+
+**Local extraction versioning**: `data/` has its own local git repo (never pushed — `data/` is gitignored). `make extract` commits after each run. `git -C data/ diff HEAD~1` shows exact text diff between last two extractions; `git -C data/ log` gives full history. Complements the integrity guard: the guard catches monkey patches; the local git gives content diff and rollback.
+
+**Text quality check** (`make check-text`): `check_text_quality.py` — rule-based scan for PDF extraction artifacts (missing spaces, duplicate words, merged tokens). Run after `make extract` to catch issues before deploy.
 
 ### Manual data corrections — where they live
 
@@ -104,7 +114,7 @@ One-time data pipeline scripts. Run via `make extract` (or in order):
 | Lectionary: note type classification | `tools/convert_lectionary.py` | `NOTE_TYPES` dict |
 | Future offices.json corrections | `data/patches.json` | Add patch entry; `apply_patches.py` applies after extraction |
 
-`data/patches.json` is currently empty — all known corrections are in the extractors above. Add entries there only for corrections that cannot be expressed in the extraction logic (e.g. wording changes that require editorial judgment rather than a parsing fix).
+`data/patches.json` currently has 6 active entries (sovereign collect text, Canada Day / Saint Peter / Saint Paul page mislabeling). Add entries there only for corrections that cannot be expressed in the extraction logic (e.g. wording changes that require editorial judgment rather than a parsing fix).
 
 ### Redesign work (`redesign/`)
 

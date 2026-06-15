@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text check-book serve serve-dist deploy test-web validate fetch-sources extract update-golden
+.PHONY: test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text check-book serve serve-dist deploy test-web validate fetch-sources extract
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -25,7 +25,6 @@ extract:
 
 # Unit tests — no API key needed, always fast.
 test: test-unit test-tools
-	go test ./...
 
 test-unit:
 	npm test
@@ -43,10 +42,6 @@ test-seasonal:
 # Full — structural check of every day in the lectionary year. No API key needed.
 test-full:
 	node tools/test_full.js
-
-# Regenerate golden snapshot files after an intentional rendering change.
-update-golden:
-	go test ./e2e/... -tags e2e_full -run TestGolden -update
 
 # Assemble dist/ for static deployment (S3, etc.).
 # Copies web/ source + dereferences the data/ symlink into one deployable folder.
