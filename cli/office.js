@@ -45,6 +45,7 @@ const officeData = lectionaryDay ? lectionaryDay[officeType === 'mp' ? 'morning'
 // Minimal text render (HTML tags stripped for readability)
 function strip(html) { return html.replace(/<[^>]+>/g, '').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'); }
 function section(title, segs) {
+  if (segs?.type === 'shared' && shared) segs = shared[segs.key];
   if (!segs || !segs.length) return '';
   return `\n## ${title}\n\n${strip(renderSegments(segs, shared))}\n`;
 }

@@ -916,8 +916,11 @@ async function render(dateStr, officeType, translation) {
   // ── Gathering ──────────────────────────────────────────────────────────────
   if (form && (form.opening_responses || form.thanksgiving_for_light || form.phos_hilaron || form.invitatory)) {
     html += `<h2 class="office-section-title">The Gathering of the Community</h2>`;
-    if (form.opening_responses && form.opening_responses.length)
-      html += renderSubsection('Introductory Responses', form.opening_responses, shared);
+    let openingResponses = form.opening_responses;
+    if (openingResponses?.type === 'shared' && shared)
+      openingResponses = shared[openingResponses.key];
+    if (openingResponses && openingResponses.length)
+      html += renderSubsection('Introductory Responses', openingResponses, shared);
     if (form.thanksgiving_for_light && form.thanksgiving_for_light.length)
       html += renderSubsection('Thanksgiving', form.thanksgiving_for_light, shared);
     // Ordinary-time EP: evening hymn reference (Phos Hilaron).
