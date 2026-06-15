@@ -67,7 +67,7 @@ build:
 	@HASH=$$(python3 -c "import hashlib,sys; h=hashlib.sha256(); \
 	  [h.update(open(f,'rb').read()) for f in sys.argv[1:]]; \
 	  print(h.hexdigest()[:8])" \
-	  dist/index.html dist/app.js dist/office.css dist/manifest.json \
+	  dist/index.html dist/app.js dist/render.js dist/office.css dist/manifest.json \
 	  dist/data/offices.json dist/data/collects.json dist/data/season_bounds.json); \
 	sed -i '' "s/pwc-v1/pwc-$$HASH/" dist/sw.js; \
 	echo "dist/ ready (cache: pwc-$$HASH, $$(find dist -type f | wc -l | tr -d ' ') files)"

@@ -6,6 +6,7 @@ const CACHE = 'pwc-v1';
 // Network-first: always try the network, fall back to cache if offline.
 const NETWORK_FIRST = [
   '/app.js',
+  '/render.js',
   '/office.css',
   '/manifest.json',
 ];
