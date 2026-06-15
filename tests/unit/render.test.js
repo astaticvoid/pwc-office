@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
-  formKey, officeFormSeason, renderSegments, lessonHtml, filterSeasonalCollects
+  formKey, officeFormSeason, renderSegments, renderSubsection, lessonHtml, filterSeasonalCollects
 } from '../../web/render.js';
 
 const offices = JSON.parse(readFileSync(join(import.meta.dirname, '../../data/offices.json'), 'utf8'));
@@ -95,5 +95,23 @@ describe('lessonHtml', () => {
     const form = offices['ordinary-wednesday-mp'];
     const lpHtml = renderSegments(form.lords_prayer_intro, shared);
     expect(lpHtml).toContain('Our Father in heaven');
+  });
+});
+
+// ── Shared-ref render coverage ────────────────────────────────────────────────
+
+describe('all forms: shared-ref fields render non-empty HTML', () => {
+  test.each(forms)('%s opening_responses', (name, form) => {
+    let or = form.opening_responses;
+    if (or?.type === 'shared') or = shared[or.key];
+    const html = renderSubsection('Introductory Responses', or, shared);
+    expect(html, `${name} opening_responses rendered empty`).toBeTruthy();
+  });
+
+  test.each(forms)('%s reading_response', (name, form) => {
+    let rr = form.reading_response;
+    if (rr?.type === 'shared') rr = shared[rr.key];
+    expect(Array.isArray(rr) ? rr.length : rr?.groups?.length,
+      `${name} reading_response resolves to empty`).toBeGreaterThan(0);
   });
 });
