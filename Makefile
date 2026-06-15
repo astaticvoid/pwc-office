@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text serve serve-dist deploy test-web validate fetch-sources extract update-golden
+.PHONY: test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text check-book serve serve-dist deploy test-web validate fetch-sources extract update-golden
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -93,6 +93,10 @@ serve-dist: check-dist
 # Unit tests for Python extraction tools (requires pytest: brew install pytest).
 test-tools:
 	pytest tools/tests/ -v
+
+# Diff book-mode renderer output against golden file. Usage: make check-book FORM=ordinary-sunday-ep [DATE=2026-06-14]
+check-book:
+	python3 tools/compare_book.py $(FORM) $(DATE)
 
 # Scan extracted JSON files for PDF extraction artifacts (missing spaces, etc.).
 check-text:
