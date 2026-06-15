@@ -73,7 +73,7 @@ export const CANTICLE_SOURCE = {
 
 // Rubrics that are section-navigation cues in the printed book but are either
 // rendered as explicit headings or added programmatically as inter-section transitions.
-export const SKIP_RUBRICS = /^(Affirmation of Faith|[Tt]he Lord'?s Prayer)\.?\s*$|continues with/i;
+export const SKIP_RUBRICS = /^(Affirmation of Faith|[Tt]he Lord'?s Prayer)\.?\s*$|continues with|may conclude with|^The (Responsory|Litany) is said or sung\./i;
 
 // Exported so app.js can use them in collectToggleHtml without re-declaration.
 export const SC_HEADER = /^Additional\s+intercessions/i;
