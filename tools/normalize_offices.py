@@ -4,7 +4,8 @@
 Three blocks are identical across many forms and belong in `_shared`:
   - reading_response_seasonal   (all seasonal forms)
   - reading_response_ordinary   (all ordinary-time forms)
-  - opening_responses_ep_seasonal (most seasonal EP forms, except Advent)
+  - opening_responses_ep_seasonal (7 seasonal EP forms, advent through pentecost;
+                                   AllSaints EP has different opening responses)
 
 Each repeated block is replaced with a {"type": "shared", "key": "..."} reference.
 The app already handles shared references via lookupShared() — no app change needed.
@@ -63,10 +64,10 @@ def normalize(data, dry_run=False):
         else:
             print(f'  WARNING: {rr_key} not identical across all matching forms — skipping')
 
-    # ── opening_responses_ep_seasonal (all seasonal EP except Advent) ─────────
+    # ── opening_responses_ep_seasonal (all seasonal EP except AllSaints) ────────
     ep_seasonal_forms = {
         k: v for k, v in forms.items()
-        if k.endswith('-ep') and 'ordinary' not in k and 'advent' not in k
+        if k.endswith('-ep') and 'ordinary' not in k and 'allsaints' not in k
         and 'opening_responses' in v
     }
     if ep_seasonal_forms:
