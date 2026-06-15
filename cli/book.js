@@ -128,7 +128,8 @@ function textFlatSegs(segs, shared, opts = {}) {
       if (text) { flush(); blocks.push(text); }
     } else {
       // leader or response: accumulate into current paragraph
-      const text = (seg.text || '').trimEnd();
+      let text = (seg.text || '').trimEnd();
+      if (opts.joinLines) text = text.replace(/\n/g, ' ');
       if (text) para.push(text);
     }
   }
@@ -244,7 +245,7 @@ B.push(textFlatSegs(form.litany, shared));
 
 B.push('The Collect');
 B.push(`[Collect of the Day: ${dateStr}]`);
-B.push(textFlatSegs(form.seasonal_collects, shared, { skipCollectRubric: true }));
+B.push(textFlatSegs(form.seasonal_collects, shared, { skipCollectRubric: true, joinLines: true }));
 
 // ── The Sending Forth of the Community ───────────────────────────────────────
 B.push('The Sending Forth of the Community');
