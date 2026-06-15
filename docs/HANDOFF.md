@@ -1,8 +1,41 @@
 # PWC — Handoff
 
-_Updated: 2026-06-14_
+_Updated: 2026-06-15_
 
 Active handoff between Cowork (planning) and Claude Code (implementation). Cowork writes specs here; Code implements in order.
+
+---
+
+## Ready for Cowork review — Batch 13 (2026-06-15)
+
+Serving at **http://localhost:8081** (cache: `pwc-95240ba1`).
+
+This batch is CLI-only — no web UI changes. Spot-check via terminal:
+
+### `node cli/book.js ordinary-sunday-ep 2026-06-14`
+
+Should print clean plain text of Evening Prayer in order:
+- "The Gathering of the Community" → Introductory Responses (3 versicle alternatives) → doxology alternatives → Phos Hilaron hymn text (no heading — data gap)
+- "The Proclamation of the Word" → Psalm 34 text (with `*` midpoints, verse numbers stripped) → doxology → [Reading: Sirach 46:11-20] → reading response → The Responsory → [Reading: Luke 12:41-48] → reading response → canticle (3 alternatives with labels+citations) → post-canticle doxology
+- "Affirmation of Faith" → Apostles' Creed / Hear O Israel alternatives
+- "The Prayers of the Community" → condensed intercessions rubric → litany → [Collect of the Day: 2026-06-14] → two collect alternatives
+- "The Sending Forth of the Community" → Lord's Prayer → Dismissal
+
+### `make check-book FORM=ordinary-sunday-ep DATE=2026-06-14`
+
+Should exit 1 with a unified diff showing exactly the known data gaps (Batch 14 work list):
+- Missing rubric "(One of the following may be said or sung.)" before opening doxology
+- Missing "Alleluia." after each opening doxology alternative
+- Missing "The Evening Hymn: 'O Gladsome Light, O Grace'" section heading
+- Missing "(After the Psalm one of the following may be said or sung.)" rubric
+- Missing canticle intro rubric
+- "Song of the Lamb" / "Song of the Heavenly City" missing "A " prefix and wrong citations
+- Missing "(One of the following Affirmations of Faith may be said or sung.)" rubric
+- "Apostles' Creed" vs "The Apostles' Creed" label
+- "he ascended into heaven" missing trailing comma
+- Collect text has PDF line-break artifacts (multi-line vs single line)
+
+**Pre-existing Go test failures** (`make test`): two Go unit tests fail with `cannot unmarshal array into Go value of type lectionary.sharedBlock` — introduced in Batch 11 when `opening_responses_ep_seasonal` was added as an array to `_shared`. Not caused by Batch 13. Vitest (108) and pytest pass.
 
 ---
 
