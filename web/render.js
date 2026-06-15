@@ -79,6 +79,9 @@ export const SKIP_RUBRICS = /^(Affirmation of Faith|[Tt]he Lord'?s Prayer)\.?\s*
 export const SC_HEADER = /^Additional\s+intercessions/i;
 export const SC_FOOTER = /^the\s+Lord['']s\s+Prayer/i;
 
+const INTERCESSIONS_RE = /^(The community may offer|Additional intercessions)/;
+const INTERCESSIONS_CONDENSED = '<p class="seg-rubric"><em>Offer intercessions, petitions, and thanksgivings, silently or aloud.</em></p>';
+
 // Roman numerals and "Form X" labels don't need a repeated source heading inside the panel.
 const SHORT_LABEL_RE = /^(?:Form\s+)?(?:I{1,3}|IV|V|VI{0,3}|IX|X)$/i;
 
@@ -290,6 +293,7 @@ export function renderSegments(segs, shared) {
     let contextKey;
     if (seg.type === 'shared' && shared) { contextKey = seg.key; seg = shared[seg.key] || seg; }
     if (seg.type === 'alternatives') return renderAlternatives(seg, shared, contextKey);
+    if (seg.type === 'rubric' && INTERCESSIONS_RE.test(seg.text || '')) return INTERCESSIONS_CONDENSED;
     if (seg.type === 'rubric' && SKIP_RUBRICS.test(seg.text || '')) return '';
     const text = seg.text || '';
     if (seg.type === 'rubric')   return `<p class="seg-rubric">${esc(text)}</p>`;
