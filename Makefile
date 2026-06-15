@@ -30,23 +30,15 @@ test: test-unit test-tools
 test-unit:
 	npm test
 
-# Smoke — 4 LLM evaluations run sequentially; stops at first failure.
-# Output saved to /tmp/smoke_out.txt; summary printed at end.
+# Smoke — 4 cases: structural + reading citation check vs lectionary.anglican.ca.
+# Skips citation check if site is unreachable.
 test-smoke:
-	go test -tags e2e_smoke -v -failfast -timeout 10m ./e2e/... \
-	  > /tmp/smoke_out.txt 2>&1; \
-	  grep -E "^(=== RUN|--- (PASS|FAIL)|    seasonal_test|    smoke_test)" /tmp/smoke_out.txt || true; \
-	  grep "issue:" /tmp/smoke_out.txt || true; \
-	  tail -3 /tmp/smoke_out.txt
+	node tools/test_eval.js --smoke
 
-# Seasonal — one MP+EP per liturgical season, sequential with early exit on first failure.
-# Output saved to /tmp/seasonal_out.txt; summary printed at end.
+# Seasonal — 26 cases: one MP+EP per liturgical form + OrdinaryTime weekdays.
+# Skips citation check if site is unreachable.
 test-seasonal:
-	go test -tags e2e_seasonal -v -failfast -timeout 30m ./e2e/... \
-	  > /tmp/seasonal_out.txt 2>&1; \
-	  grep -E "^(=== RUN|--- (PASS|FAIL))" /tmp/seasonal_out.txt || true; \
-	  grep "issue:" /tmp/seasonal_out.txt || true; \
-	  tail -3 /tmp/seasonal_out.txt
+	node tools/test_eval.js --seasonal
 
 # Full — structural check of every day in the lectionary year. No API key needed.
 test-full:
