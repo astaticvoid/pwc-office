@@ -130,8 +130,20 @@ function textFlatSegs(segs, shared, opts = {}) {
       if (text) { flush(); blocks.push(text); }
       // skipped rubric: do NOT flush — keeps adjacent leader/response together
     } else if (seg.type === 'alternatives') {
-      const text = textAlternatives(seg.groups, shared, opts);
-      if (text) { flush(); blocks.push(text); }
+      // Short-label alternatives (I, II, III) following non-empty para: fold
+      // first group inline (no blank line) — matches BAS thanksgiving formatting
+      // where the berakah response continues the preceding prayer without a gap.
+      if (para.length > 0 && (seg.groups || []).every(g => SHORT_LABEL_RE.test(g.label || ''))) {
+        (seg.groups[0]?.segments || []).forEach(proc);
+        if (seg.groups.length > 1) {
+          flush();
+          const restText = textAlternatives(seg.groups.slice(1), shared, opts);
+          if (restText) blocks.push('or\n\n' + restText);
+        }
+      } else {
+        const text = textAlternatives(seg.groups, shared, opts);
+        if (text) { flush(); blocks.push(text); }
+      }
     } else {
       // leader or response: accumulate into current paragraph
       let text = (seg.text || '').trimEnd();
@@ -194,11 +206,16 @@ function renderLesson(lesson, form, shared) {
 const B = []; // output blocks, joined by \n\n
 
 // ── The Gathering of the Community ───────────────────────────────────────────
+// Seasonal forms have a subtitle (date range), ordinary forms do not.
+if (form.subtitle) B.push(form.subtitle);
 B.push('The Gathering of the Community');
 B.push('Introductory Responses');
-// EP opening doxology: append Alleluia after each alternative (BAS EP Sunday rubric).
-// Render pre-doxology segs first, then doxology separately with alleluia flag.
-if (officeType === 'ep' && shared.doxology) {
+// Opening doxology: present only on ordinary-time forms (opening_responses has a
+// shared doxology ref). Add Alleluia after each alternative (BAS rubric).
+const hasDoxRef = (form.opening_responses || []).some(
+  s => s.type === 'shared' && s.key === 'doxology'
+);
+if (hasDoxRef && shared.doxology) {
   const preDoxa = (form.opening_responses || []).filter(
     s => !(s.type === 'shared' && s.key === 'doxology')
   );
@@ -209,9 +226,11 @@ if (officeType === 'ep' && shared.doxology) {
 }
 
 // Phos Hilaron / Thanksgiving for Light
-const phosSegs = form.phos_hilaron || form.thanksgiving_for_light;
-if (phosSegs) {
-  B.push(textFlatSegs(phosSegs, shared));
+if (form.thanksgiving_for_light) {
+  B.push('Thanksgiving for Light');
+  B.push(textFlatSegs(form.thanksgiving_for_light, shared));
+} else if (form.phos_hilaron) {
+  B.push(textFlatSegs(form.phos_hilaron, shared));
 }
 
 // ── The Proclamation of the Word ─────────────────────────────────────────────
@@ -223,8 +242,15 @@ const psalms = officeData?.psalms || [];
 for (const psalm of psalms) {
   B.push(renderPsalm(psalm));
 }
+// Psalm doxology rubric: seasonal forms use "At the end of the Psalm"; ordinary
+// use "After the Psalm". Pentecost adds "(s)" for multiple psalms.
+const psalmDoxRubric = form.subtitle
+  ? (formName.includes('pentecost')
+      ? '(At the end of the Psalm(s) one of the following may be said or sung.)'
+      : '(At the end of the Psalm one of the following may be said or sung.)')
+  : '(After the Psalm one of the following may be said or sung.)';
 if (psalms.length && shared.doxology) {
-  B.push('(After the Psalm one of the following may be said or sung.)');
+  B.push(psalmDoxRubric);
   B.push(textAlternatives(shared.doxology.groups, shared, {}));
 }
 
