@@ -363,6 +363,136 @@ Update `CLAUDE.md`:
 
 ---
 
+## Batch 16 — Programmatic golden files for all 31 forms
+
+**Goal**: Replace the hand-copied `tests/fixtures/book/ordinary-sunday-ep.txt` with programmatically extracted golden files for all 31 forms. Golden files are generated from the source PDF (never committed — gitignored), so `make check-book` works for any form without manual transcription.
+
+---
+
+### Commit 1 — `tools/extract_form_text.py`
+
+New tool. Extracts the plain-text golden file for a given form directly from the PDF, using the existing `OFFICES` page-range table and `_page_styled_lines` classifier from `extract_offices.py`.
+
+**Usage**:
+```
+python3 tools/extract_form_text.py <form>
+# e.g. python3 tools/extract_form_text.py ordinary-sunday-ep
+# Writes tests/fixtures/book/<form>.txt
+```
+
+**Implementation**:
+
+Import `_page_styled_lines`, `_char_type`, and `OFFICES` from `extract_offices.py` (move them to `extract_lib.py` if not already there to avoid circular imports). Open `sources/pray-without-ceasing.pdf` with pdfplumber, walk only the pages for the given form.
+
+**Line-by-line rendering rules** (produce the same format as the hand-written golden file):
+
+| Classified type | Output |
+|----------------|--------|
+| `footer` | skip |
+| `heading` (major section) | strip via `_MAJOR_HDRS` regex; if a sub-section heading remains, emit as plain line + blank line |
+| `heading` (sub-section only) | emit as plain line + blank line |
+| `rubric` where text matches `^Or$` (case-insensitive) | emit as blank line + `or` + blank line (alternatives separator) |
+| `rubric` | emit as `(text)` + blank line |
+| `leader` | emit as plain line |
+| `response` | emit as plain line |
+| blank separator between content blocks | emit as blank line |
+
+**Special sections**:
+- **Psalm**: when the heading `The Psalm` is encountered, emit the heading, then emit the rubric, then look up the psalm number in the following text and render from `data/psalter.json` (same as `cli/book.js` — verse text with `*` midpoints, no verse numbers). This ensures the golden file matches the renderer's psalm format, not the PDF's.
+- **Scripture readings**: when a line matches a lectionary citation pattern (e.g. `Sirach 46:11-20`, `Luke 12:41-48`), emit as `[Reading: Citation]`. The script takes an optional `--date YYYY-MM-DD` argument to look up the actual citations from the lectionary JSON; defaults to `2026-06-14` for `ordinary-sunday-ep`, or the form's representative date from `SEASONAL_DATES` (see below).
+- **Collect**: emit as `[Collect of the Day: DATE]` placeholder.
+
+**`SEASONAL_DATES`** — default date per form (for lectionary lookup):
+```python
+SEASONAL_DATES = {
+    "advent-mp":             "2026-11-29",
+    "advent-ep":             "2026-11-29",
+    "christmas-mp":          "2025-12-28",
+    "christmas-ep":          "2025-12-28",
+    "epiphany-mp":           "2026-01-11",
+    "epiphany-ep":           "2026-01-11",
+    "lent-mp":               "2026-03-08",
+    "lent-ep":               "2026-03-08",
+    "passiontide-mp":        "2026-03-29",
+    "passiontide-ep":        "2026-03-29",
+    "easter-mp":             "2026-04-19",
+    "easter-ep":             "2026-04-19",
+    "pentecost-mp":          "2026-05-24",
+    "pentecost-ep":          "2026-05-24",
+    "allsaints-mp":          "2026-11-01",
+    "allsaints-ep":          "2026-11-01",
+    "ordinary-sunday-mp":    "2026-06-14",
+    "ordinary-sunday-ep":    "2026-06-14",
+    "ordinary-monday-mp":    "2026-06-15",
+    "ordinary-monday-ep":    "2026-06-15",
+    "ordinary-tuesday-mp":   "2026-06-16",
+    "ordinary-tuesday-ep":   "2026-06-16",
+    "ordinary-wednesday-mp": "2026-06-17",
+    "ordinary-wednesday-ep": "2026-06-17",
+    "ordinary-thursday-mp":  "2026-06-18",
+    "ordinary-thursday-ep":  "2026-06-18",
+    "ordinary-friday-mp":    "2026-06-19",
+    "ordinary-friday-ep":    "2026-06-19",
+    "ordinary-saturday-mp":  "2026-06-20",
+    "ordinary-saturday-ep":  "2026-06-20",
+}
+```
+
+---
+
+### Commit 2 — Gitignore golden files; remove committed file
+
+Add to `.gitignore`:
+```
+tests/fixtures/book/
+```
+
+Remove `tests/fixtures/book/ordinary-sunday-ep.txt` from git tracking:
+```
+git rm --cached tests/fixtures/book/ordinary-sunday-ep.txt
+```
+
+The file stays on disk (gitignored) but is no longer committed. BAS copyright is no longer in the repo.
+
+---
+
+### Commit 3 — Update `tools/compare_book.py` + `make check-book`
+
+Update `compare_book.py` to auto-generate the golden file if it doesn't exist:
+
+```python
+golden = Path(f"tests/fixtures/book/{form}.txt")
+if not golden.exists():
+    subprocess.run(
+        ["python3", "tools/extract_form_text.py", form, "--date", date],
+        check=True
+    )
+```
+
+Update `Makefile` — add a `generate-golden` target for bulk generation:
+```makefile
+generate-golden:
+	for form in $(shell python3 -c "from tools.extract_offices import OFFICES; print(' '.join(o[0] for o in OFFICES))"); do \
+		python3 tools/extract_form_text.py $$form; \
+	done
+```
+
+---
+
+### Commit 4 — Verify all 31 forms pass
+
+Run `make generate-golden` then `make check-book` for all 31 forms. Fix any normalisation mismatches between `extract_form_text.py` output and `cli/book.js` output — these are real bugs. One commit per fix, clearly labelled as renderer or extractor.
+
+The target: all 31 forms exit 0.
+
+---
+
+### What this batch does NOT do
+
+Does not change `offices.json`, the web app, or any rendering logic. All fixes in Commit 4 are normalisation issues in the new extraction tool or genuine bugs in the renderer — not in the data pipeline.
+
+---
+
 ## Batch 15 — Data quality fixes from `make check-book` diff
 
 Run `make check-book FORM=ordinary-sunday-ep DATE=2026-06-14`. The diff output is the work list. Fix each discrepancy — either in the renderer (`cli/book.js`) or in the source data (via `tools/extract_offices.py` `_TEXT_PATCHES`, or `data/patches.json` if wording-only). Re-run until diff is clean.
