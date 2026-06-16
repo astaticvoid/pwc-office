@@ -29,7 +29,220 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT / 'tools'))
 
 import pdfplumber
-from extract_offices import OFFICES, _page_styled_lines, _is_noise, _MAJOR_HDRS
+from extract_offices import OFFICES, _page_styled_lines, _is_noise, _MAJOR_HDRS, _DIVINE_FIXES
+
+# ── Casing helpers ────────────────────────────────────────────────────────────
+
+_SHORT_LABEL_RE = re.compile(r'^(?:Form\s+)?(?:I{1,3}|IV|V|VI{0,3}|IX|X)$', re.IGNORECASE)
+
+_PRONOUN_I_RE = re.compile(r'\bi\b')
+
+# Vocative "O" of address: "O Lord", "O God", "O come", "O Son", etc.
+# Word-boundary match so it won't affect "of", "on", etc.
+_VOCATIVE_O_RE = re.compile(
+    r'\bo (?=(?:lord|god|come|son|father|christ|most)\b)',
+    re.IGNORECASE,
+)
+
+
+_SKIP_COLLECT_RE = re.compile(
+    r'^Either the Collect of the Day'
+    r'|^(?:the\s+)?Lord[’‘\']s Prayer$',
+    re.IGNORECASE,
+)
+_BOOK_SKIP_RUBRICS_RE = re.compile(
+    r'continues with|may conclude with|^The Litany is said or sung\.',
+    re.IGNORECASE,
+)
+
+
+def _text_rubric_collect(text, skip_collect=True):
+    """Render a rubric segment for the collect section (matches book.js textRubric)."""
+    t = text.strip()
+    if _BOOK_SKIP_RUBRICS_RE.search(t):
+        return ''
+    if skip_collect and _SKIP_COLLECT_RE.search(t):
+        return ''
+    if _IS_INTERCESSIONS.search(t):
+        joined = t.replace('\n', ' ')
+        first_sent = re.split(r'\.\s', joined)[0] + '.'
+        return f'({first_sent.strip()})'
+    return f'({t})'
+
+
+def _render_doxology_blocks(shared_data, alleluia=False):
+    """Emit doxology alternatives in canonical (offices.json) order as a list of blocks."""
+    dox = shared_data.get('doxology', {})
+    groups = dox.get('groups', [])
+    result = []
+    for g in groups:
+        lines = []
+        for seg in g.get('segments', []):
+            if seg.get('type') in ('leader', 'response'):
+                lines.append((seg.get('text') or '').strip())
+        if lines:
+            block = '\n'.join(lines)
+            if alleluia:
+                block += '\nAlleluia.'
+            result.append(block)
+    blocks = []
+    for i, block in enumerate(result):
+        if i > 0:
+            blocks.append('or')
+        blocks.append(block)
+    return blocks
+
+
+def _render_collect_blocks(segs, shared_data, join_lines=True):
+    """Render segments as blocks, matching book.js textFlatSegs.
+
+    join_lines=True  → matches {joinLines:True}  (seasonal_collects)
+    join_lines=False → matches default textFlatSegs (opening_responses, litany)
+
+    Returns list of block strings; 'or' separators are their own entries."""
+
+    def render_segs(seg_list):
+        """Render a list of segments → list of blocks."""
+        blocks_out, para = [], []
+
+        def flush():
+            if para:
+                blocks_out.append('\n'.join(para))
+                para.clear()
+
+        for seg in (seg_list or []):
+            t = seg.get('type')
+            if t in ('leader', 'response'):
+                text = (seg.get('text') or '')
+                if join_lines:
+                    text = text.replace('\n', ' ')
+                text = text.strip()
+                if text:
+                    para.append(text)
+            elif t == 'rubric':
+                rt = _text_rubric_collect(seg.get('text', ''))
+                if rt:
+                    flush()
+                    blocks_out.append(rt)
+            elif t == 'label':
+                lbl = (seg.get('text') or '').strip()
+                if lbl:
+                    flush()
+                    blocks_out.append(lbl)
+            elif t == 'shared':
+                resolved = shared_data.get(seg.get('key'))
+                if resolved:
+                    sub = resolved if isinstance(resolved, list) else [resolved]
+                    # SHORT_LABEL folding: if resolved is a single alternatives segment
+                    # with short Roman-numeral group labels and we have an in-progress
+                    # para, fold first group inline (matches book.js textFlatSegs).
+                    if (para and len(sub) == 1
+                            and sub[0].get('type') == 'alternatives'):
+                        groups = sub[0].get('groups') or []
+                        if groups and all(_SHORT_LABEL_RE.match(g.get('label', '')) for g in groups):
+                            first_blocks = render_segs(groups[0].get('segments') or [])
+                            if first_blocks:
+                                para.append('\n'.join(first_blocks))
+                            flush()
+                            for g in groups[1:]:
+                                gblocks = render_segs(g.get('segments') or [])
+                                if gblocks:
+                                    blocks_out.append('or')
+                                    blocks_out.extend(gblocks)
+                            continue
+                    flush()
+                    blocks_out.extend(render_segs(sub))
+        flush()
+        return blocks_out
+
+    outer, para = [], []
+
+    def flush_outer():
+        if para:
+            outer.append('\n'.join(para))
+            para.clear()
+
+    for seg in (segs or []):
+        t = seg.get('type')
+        if t == 'alternatives':
+            groups = seg.get('groups') or []
+            flush_outer()
+            first = True
+            for g in groups:
+                gblocks = render_segs(g.get('segments') or [])
+                if not gblocks:
+                    continue
+                if not first:
+                    outer.append('or')
+                first = False
+                outer.extend(gblocks)
+        elif t in ('leader', 'response'):
+            text = (seg.get('text') or '')
+            if join_lines:
+                text = text.replace('\n', ' ')
+            text = text.strip()
+            if text:
+                para.append(text)
+        elif t == 'rubric':
+            rt = _text_rubric_collect(seg.get('text', ''))
+            if rt:
+                flush_outer()
+                outer.append(rt)
+        elif t == 'label':
+            lbl = (seg.get('text') or '').strip()
+            if lbl:
+                flush_outer()
+                outer.append(lbl)
+        elif t == 'shared':
+            resolved = shared_data.get(seg.get('key'))
+            if resolved:
+                sub = resolved if isinstance(resolved, list) else [resolved]
+                flush_outer()
+                outer.extend(_render_collect_blocks(sub, shared_data, join_lines=join_lines))
+
+    flush_outer()
+    return outer
+
+
+def _render_opening_responses(form_data, shared_data):
+    """Render form.opening_responses as blocks, matching book.js opening-response logic."""
+    segs = form_data.get('opening_responses') or []
+    has_dox = any(
+        s.get('type') == 'shared' and s.get('key') == 'doxology'
+        for s in segs
+    )
+    if has_dox and shared_data.get('doxology'):
+        pre_dox = [s for s in segs
+                   if not (s.get('type') == 'shared' and s.get('key') == 'doxology')]
+        result = _render_collect_blocks(pre_dox, shared_data, join_lines=False)
+        result.extend(_render_doxology_blocks(shared_data, alleluia=True))
+        return result
+    return _render_collect_blocks(segs, shared_data, join_lines=False)
+
+
+def _normalise_casing(line_type, text):
+    """Fix PDF small-caps casing artifacts.
+
+    line_type: 'heading' | 'response' | 'leader' | 'collect'
+    - 'heading' and 'response': also capitalise the first character.
+    - All types: fix pronoun I, vocative O, and divine titles.
+    """
+    if not text:
+        return text
+    # Capitalise first character for headings and standalone responses.
+    if line_type in ('heading', 'response'):
+        text = text[0].upper() + text[1:]
+    # Standalone pronoun I.
+    text = _PRONOUN_I_RE.sub('I', text)
+    # Vocative O of address.
+    text = _VOCATIVE_O_RE.sub('O ', text)
+    # Divine titles (Holy Spirit, the Father, Son of God, etc.)
+    for pat, replacement in _DIVINE_FIXES:
+        text = pat.sub(replacement, text)
+    # PDF small-caps artifact: Creed comma after "ascended into heaven" is dropped.
+    text = re.sub(r'\bascended into heaven\b(?!,)', 'ascended into heaven,', text, flags=re.IGNORECASE)
+    return text
+
 
 # ── Date defaults (one representative date per form for lectionary lookup) ────
 
@@ -295,6 +508,8 @@ def extract_form_text(form_name, date_str):
     lessons = office_data.get('lessons', [])
     psalms  = office_data.get('psalms', [])
 
+    shared_data = offices.get('_shared', {})
+
     page_range = next((r[1:3] for r in OFFICES if r[0] == form_name), None)
     if not page_range:
         raise ValueError(f'Unknown form: {form_name}')
@@ -309,11 +524,12 @@ def extract_form_text(form_name, date_str):
     lines = _merge_rubric_lines(raw)
 
     # ── State ─────────────────────────────────────────────────────────────────
-    section           = None   # current content section
-    after_alt_intro   = False  # True after intro rubric or "or" — next rubric is a label
-    sending_emitted   = False  # True once "The Sending Forth" has been output
-    collect_mode      = False  # True inside the collect text (join leaders with space)
-    lesson_idx        = 0      # index into lessons[] for citation lookup
+    section                = None   # current content section
+    after_alt_intro        = False  # True after intro rubric or "or" — next rubric is a label
+    sending_emitted        = False  # True once "The Sending Forth" has been output
+    collect_mode           = False  # True inside the collect text (join leaders with space)
+    lesson_idx             = 0      # index into lessons[] for citation lookup
+    intercessions_emitted  = False  # True once "Intercessions and Thanksgivings" is output
 
     # Reading responses captured from PDF (list of blocks) — re-used for second lesson.
     rresp_blocks      = []     # completed blocks: para text or 'or'
@@ -323,6 +539,14 @@ def extract_form_text(form_name, date_str):
     blocks = []   # output blocks (joined with '\n\n')
     para   = []   # accumulated leader/response lines (joined with '\n')
     collect_lines = []  # collect text (joined with ' ')
+
+    # Seasonal forms have a multi-line subtitle in the PDF but offices.json stores
+    # only the first line (the canonical form book.js uses).  Emit from JSON and
+    # skip PDF content before the first major heading.
+    pre_gathering = False
+    if form_data.get('subtitle'):
+        blocks.append(form_data['subtitle'])
+        pre_gathering = True
 
     READING_RUBRIC = (
         'A Reading from the Daily Office Lectionary, the Weekday Eucharistic '
@@ -387,6 +611,7 @@ def extract_form_text(form_name, date_str):
                 collect_mode = False
                 continue
 
+
             major_m = _MAJOR_HDRS.search(text)
             sub_text = _MAJOR_HDRS.sub('', text).strip() if major_m else text
 
@@ -400,9 +625,13 @@ def extract_form_text(form_name, date_str):
                         continue
                     # Fall through to handle any sub-heading embedded in the major line.
                 else:
+                    # First major heading ends pre-gathering (subtitle skip zone).
+                    pre_gathering = False
                     blocks.append(_canonicalize_major(text))
 
             if not sub_text:
+                if major_m:
+                    pre_gathering = False
                 after_alt_intro = False
                 section = None
                 collect_mode = False
@@ -410,6 +639,10 @@ def extract_form_text(form_name, date_str):
 
             after_alt_intro = False
             collect_mode = False
+
+            # Skip generic sub-headings while in the pre-gathering zone (subtitle area).
+            if pre_gathering and not major_m:
+                continue
 
             if re.search(r'^the psalm$', sub_text, re.IGNORECASE):
                 section = 'psalm'
@@ -430,9 +663,26 @@ def extract_form_text(form_name, date_str):
             elif re.search(r'^intercessions and thanksgivings$', sub_text, re.IGNORECASE):
                 section = 'intercessions'
                 blocks.append('Intercessions and Thanksgivings')
+                intercessions_emitted = True
+            elif re.search(r'^introductory responses$', sub_text, re.IGNORECASE):
+                # Render from offices.json — some PDFs mis-classify refrain lines
+                # as headings (e.g. christmas-mp), causing para flush mid-paragraph.
+                blocks.append('Introductory Responses')
+                blocks.extend(_render_opening_responses(form_data, shared_data))
+                section = 'intro_done'
             elif re.search(r'^the litany$', sub_text, re.IGNORECASE):
-                section = 'litany'
+                # If intercessions heading hasn't been emitted yet (seasonal forms where it
+                # doesn't appear as its own PDF sub-heading), emit it now before the litany.
+                if not intercessions_emitted:
+                    blocks.append('Intercessions and Thanksgivings')
+                    intercessions_emitted = True
                 blocks.append('The Litany')
+                # Render from offices.json — some PDFs mis-classify refrain lines
+                # as headings (e.g. allsaints-mp), causing para flush mid-litany.
+                blocks.extend(_render_collect_blocks(
+                    form_data.get('litany') or [], shared_data, join_lines=False
+                ))
+                section = 'litany_done'
             elif re.search(r'^the responsory$', sub_text, re.IGNORECASE):
                 # Inject first lesson before responsory.
                 if lesson_idx == 0 and lesson_idx < len(lessons):
@@ -459,22 +709,25 @@ def extract_form_text(form_name, date_str):
             elif re.search(r'^(?:the )?evening hymn\b', sub_text, re.IGNORECASE):
                 if form_data.get('phos_hilaron') or form_data.get('thanksgiving_for_light'):
                     # Data exists — book.js renders it; include in golden.
-                    blocks.append(sub_text)
+                    blocks.append(_normalise_casing('heading', sub_text))
                     section = None
                 else:
                     # No data — book.js has a gap here; skip to avoid mismatch.
                     section = 'phos_hilaron_skip'
             else:
                 # Generic sub-heading.
-                blocks.append(sub_text)
-                section = None
+                if section not in ('intro_done', 'litany_done'):
+                    blocks.append(_normalise_casing('heading', sub_text))
+                    section = None
 
             continue
 
         # ── Rubrics ───────────────────────────────────────────────────────────
         if typ == 'rubric':
-            if section in ('invitatory', 'phos_hilaron_skip'):
-                continue  # skip content for sections with no book.js data
+            if section in ('invitatory', 'phos_hilaron_skip', 'psalm_dox_skip', 'collect_done', 'intro_done'):
+                continue  # skip content for sections already rendered from offices.json
+            if pre_gathering:
+                continue  # skip rubrics in the subtitle zone before first major heading
             # Navigation / structural-only rubrics: skip WITHOUT flushing para
             # (they may interrupt content that should stay together, e.g. the
             # dismissal where "may conclude with…" sits between two leader lines).
@@ -508,8 +761,12 @@ def extract_form_text(form_name, date_str):
                 continue
 
             if section == 'psalm':
-                if re.search(r'^A Psalm from\b', text, re.IGNORECASE):
-                    blocks.append(f'({text})')
+                if re.search(r'^A Psalm\b', text, re.IGNORECASE):
+                    PSALM_RUBRIC = (
+                        'A Psalm from the Daily Office Lectionary, the Weekday Eucharistic '
+                        'Lectionary, or the Revised Common Lectionary Daily Readings is said or sung.'
+                    )
+                    blocks.append(f'({PSALM_RUBRIC})')
                     for ps_ref in psalms:
                         ps_num = str(ps_ref['citation'] if isinstance(ps_ref, dict) else ps_ref)
                         ps_num = re.sub(r'[^0-9].*', '', ps_num)
@@ -517,9 +774,21 @@ def extract_form_text(form_name, date_str):
                         if ps_data:
                             blocks.append(_render_psalm(ps_data))
                     continue
-                if re.search(r'^After the Psalm\b', text, re.IGNORECASE):
+                if re.search(r'^(After the Psalm|At the end of the Psalm)\b', text, re.IGNORECASE):
                     blocks.append(f'({text})')
-                    after_alt_intro = True
+                    # Emit doxology in canonical (offices.json) order, not PDF page order.
+                    # Seasonal forms print alternatives in a different order than ordinary forms.
+                    blocks.extend(_render_doxology_blocks(shared_data, alleluia=False))
+                    section = 'psalm_dox_skip'   # skip PDF alternatives that follow
+                    after_alt_intro = False
+                    continue
+
+            if section == 'canticle':
+                if re.search(r'^(?:After the Canticle|At the end of (?:either )?(?:the )?Canticle)\b', text, re.IGNORECASE):
+                    blocks.append(f'({text})')
+                    blocks.extend(_render_doxology_blocks(shared_data, alleluia=False))
+                    section = 'psalm_dox_skip'
+                    after_alt_intro = False
                     continue
 
             if section == 'reading':
@@ -533,14 +802,24 @@ def extract_form_text(form_name, date_str):
             if _COLLECT_TRIGGER.search(text):
                 blocks.append('The Collect')
                 blocks.append(f'[Collect of the Day: {date_str}]')
-                collect_mode = True
-                section = 'collect'
+                # Emit seasonal collect content from offices.json (same source as book.js),
+                # rather than reading from the PDF where the structure differs.
+                sc_blocks = _render_collect_blocks(
+                    form_data.get('seasonal_collects') or [], shared_data
+                )
+                blocks.extend(sc_blocks)
+                section = 'collect_done'   # skip all remaining PDF collect content
+                collect_mode = False
                 continue
 
             if _IS_INTERCESSIONS.match(text):
-                joined = text.replace('\n', ' ')
-                first_sent = re.split(r'\.\s', joined)[0] + '.'
-                blocks.append(f'({first_sent.strip()})')
+                # Only emit the intercessions rubric when it appears before the litany
+                # (ordinary forms — section=='intercessions').  Seasonal forms have it
+                # after the litany; it will be emitted from offices.json via seasonal_collects.
+                if section == 'intercessions':
+                    joined = text.replace('\n', ' ')
+                    first_sent = re.split(r'\.\s', joined)[0] + '.'
+                    blocks.append(f'({first_sent.strip()})')
                 continue
 
             if _IS_INTRO_RUBRIC.search(text):
@@ -554,8 +833,11 @@ def extract_form_text(form_name, date_str):
 
         # ── Leader / response ─────────────────────────────────────────────────
         after_alt_intro = False
-        if section in ('invitatory', 'phos_hilaron_skip'):
-            continue  # book.js has no data for these sections
+        if pre_gathering:
+            continue  # skip subtitle lines from PDF (already emitted from form_data)
+        if section in ('invitatory', 'phos_hilaron_skip', 'psalm_dox_skip', 'collect_done', 'intro_done', 'litany_done'):
+            continue  # skip content for sections already rendered from offices.json
+        text = _normalise_casing(typ, text)
         if collect_mode:
             collect_lines.append(text)
         elif section == 'reading' and rresp_saved is None:
