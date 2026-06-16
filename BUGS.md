@@ -1,6 +1,6 @@
 # PWC — Bug Tracker
 
-_Last updated: 2026-06-07 (11 bugs closed)_
+_Last updated: 2026-06-14 (23 bugs closed)_
 
 Severity scale: **P0** = data corruption / silent wrong output �� **P1** = incorrect content shown to user · **P2** = missing content / broken feature · **P3** = UX issue / cosmetic
 
@@ -8,64 +8,64 @@ Severity scale: **P0** = data corruption / silent wrong output �� **P1** = i
 
 ## Open
 
-### P0 — Silent wrong output / data integrity
-
-**BUG-02: Season bounds detection uses brittle keyword matching**  
-`convert_lectionary.py:detect_bounds()` scans CSV name strings for phrases like "fifth sunday in lent" and "baptism of the lord". If the ACC changes wording in a future CSV, bounds will be silently wrong. The missing-key assertion (added 2026-06-06) catches the failure loudly, but does not prevent it.  
-_Fix:_ Maintain a canonical expected-wording list per key; warn when fuzzy-matched rather than exact-matched.  
-_Files:_ `tools/convert_lectionary.py:detect_bounds`
-
----
-
 ### P1 — Incorrect content shown to user
 
-**BUG-04: Collect 668 hardcoded; other Occasional Prayers not extracted**  
-~~Occasional Prayers (BAS pp. 660+) are not extracted.~~ Extraction added for BAS pp.676-683 (2026-06-14): `_extract_occasional_prayers()` now parses all 33 numbered prayers and stores the lectionary-referenced ones under their page keys (`_OCC_PAGE_ALIASES`). p.677 (For the Sovereign) and p.680 (For Industry and Commerce/Labour Day) are now in `collects.json`. The hardcoded p.668 entry remains (its dates are outside the rolling window). **Remaining:** the app's `collectPageNum()` only extracts the first number from the collect ref string, so p.677/p.680 are never looked up directly by the current app (the primary collect renders; the Occasional Prayer alternative is in the data but not yet displayed). A future app enhancement would need to parse the secondary "or N, PAGE" format and look up the alternate collect.  
-_Fix:_ ✅ Data extracted. App UI change is future work.  
-_Files:_ `tools/extract_collects.py`, `data/collects.json`
-
-**BUG-05: Cross-reference and garbled notes not fully suppressed**  
-`SUPPRESS_NOTE_TYPES` covers all typed cross-refs (`ember_crossref`, `rogation_crossref`, `precedence_rule`, `reconciliation_propers`). One garbled parsing artifact (2026-06-03) requires a manual `CLEAR_NOTES` entry. Additional notes may exist in earlier years not yet audited.  
-_Fix:_ Complete the `NOTE_TYPES` audit for all dates 2016–2026; fix any garbled entries upstream in `convert_lectionary.py`.  
-_Files:_ `tools/convert_lectionary.py:CLEAR_NOTES`, `tools/convert_lectionary.py:NOTE_TYPES`
-
-**BUG-06: Year A lectionary not available**  
-Coverage ends at late December 2026. Navigation is blocked at the boundary with a "Readings not yet available / Year A in preparation" message, and the next-arrow is disabled. Year A (Advent 2026+) is not yet extracted.  
-_Fix:_ When ACC provides a Year A CSV, add it to `sources/` and run `make extract`.  
-_Blocker:_ Waiting on ACC to provide Year A CSV.  
+**BUG-06: 2027 BAS lectionary not yet available**  
+Coverage ends at late December 2026. Navigation shows "Readings not yet available" at the boundary; next-arrow disabled. Not a mobile beta blocker — will be added when ACC publishes the 2027 data.  
+_Fix:_ When ACC provides the next lectionary CSV, add to `sources/` and run `make extract`.  
 _Files:_ `web/app.js:render`, `tools/convert_lectionary.py`
 
 ---
 
-### P2 — Missing content / broken feature
-
-**BUG-09: No offline download UI**  
-The service worker pre-caches 3 upcoming months on idle, but there is no user-visible control to download a larger span. Users who want fully offline use for a retreat or travel have no way to pre-fetch ahead of time.  
-_Fix:_ Add settings panel with "Download for offline" action using `Cache.put()` with progress.  
-_Files:_ `web/app.js`, `web/sw.js`
-
-**BUG-13: No first-run preference wizard**  
-On first visit, users see NRSVUE by default with no prompt. KJV is available but undiscoverable from the settings sheet.  
-_Fix:_ One-time inline banner on first visit: choose translation + optionally theme.  
-_Files:_ `web/app.js`, `web/index.html`
-
----
-
-### P3 — UX / cosmetic
-
-**BUG-14: EP `opening_responses` duplicated in JSON across 7 seasonal offices**  
-All 7 seasonal EP offices (`advent-ep` through `pentecost-ep`) contain identical `opening_responses` data. This is cosmetic JSON bloat; functionally harmless.  
-_Fix:_ Extend `_dedup_shared()` to detect and deduplicate identical section-level arrays across offices.  
-_Files:_ `data/offices.json`, `tools/extract_offices.py:_dedup_shared`
-
-**BUG-15: Lectionary notes audit incomplete**  
-Some `notes` fields contain book cross-references ("see entry for…") that are meaningless in the app. `NOTE_TYPES` has been set for all 2026 dates but earlier years (2016–2025) have not been fully audited.  
-_Fix:_ Run audit script over all lectionary JSON; add `crossref` type for any remaining untyped cross-references.  
-_Files:_ `tools/convert_lectionary.py:NOTE_TYPES`, `web/app.js:SUPPRESS_NOTE_TYPES`
-
 ---
 
 ## Closed
+
+**BUG-02: Season bounds detection uses brittle keyword matching**  
+Fixed 2026-06-14. Added `CANONICAL_BOUNDS_PHRASES` dict; `detect_bounds()` now matches exactly first and emits a `sys.stderr` warning on fuzzy fallback. 4 new pytest tests added. 147 total tool tests passing.  
+_Commits:_ `tools/convert_lectionary.py`, `tools/tests/`
+
+**BUG-09: No offline download UI**  
+Closed 2026-06-14. Won't fix for Synod private beta — SW auto-caches upcoming months; manual download UI not needed at this stage.
+
+**BUG-04: Occasional Prayer alternate collect not displayed**  
+Closed 2026-06-14. Already fixed — `collectSecondaryPage()` and `collectToggleHtml()` in `app.js` already parse "or N, PAGE" refs and display the Occasional Prayer as an additional tab. Data (`collects.json`) and UI both implemented. Bug description was stale.
+
+**BUG-14: EP `opening_responses` duplicated in JSON across 7 seasonal offices**  
+Closed 2026-06-14. Fixed as part of BUG-23 — `_dedup_shared()` extended; all 7 seasonal EP forms now reference `_shared.opening_responses_ep_seasonal`.
+
+**BUG-15: Lectionary notes audit incomplete (pre-2025 years)**  
+Closed 2026-06-14. Won't fix — pre-2025 lectionary data removed from the app. Rolling window starts at 2025-06.
+
+**BUG-05: Cross-reference notes audit (pre-2025 years)**  
+Closed 2026-06-14. Won't fix — same reason as BUG-15. Pre-2025 data no longer exists.
+
+**BUG-13: No first-run preference wizard**  
+Closed 2026-06-14. Won't fix — not applicable. NRSVUE is the standard for this Synod private beta; no translation choice needed on first launch.
+
+**BUG-24: Node CLI silently drops Psalm on feast days with `psalm_sets`**  
+Fixed 2026-06-14. Feast-day morning psalms use `psalm_sets` (array of arrays); CLI now falls back to `psalm_sets?.[0]` when `psalms` is absent.  
+_Commits:_ `cli/office.js`
+
+**BUG-23: All 7 seasonal EP forms silently missing Opening Responses**  
+Fixed 2026-06-14. BUG-14's deduplication stored `opening_responses` as a shared ref dict; `app.js` `.length` check returned undefined → falsy → section skipped. Added shared-ref resolution in `app.js` and `cli/office.js`. Added render-level Vitest tests and pytest regression for all shared-ref fields. All 30 forms now pass correctness audit.  
+_Commits:_ `web/app.js`, `cli/office.js`, `tests/unit/render.test.js`, `tools/tests/test_form_completeness.py`
+
+**BUG-22: Service worker caches stale `index.html` on deploy → blank page**  
+Fixed 2026-06-14. Removed `self.skipWaiting()`; removed `'/'` from SHELL precache; SW never intercepts index.html; removed `controllerchange` reload from `app.js`.  
+_Commits:_ `web/sw.js`, `web/app.js`
+
+**BUG-14: EP `opening_responses` duplicated in JSON across 7 seasonal offices**  
+Fixed 2026-06-14. Extended `_dedup_shared()` to detect and deduplicate identical section-level arrays; all 7 seasonal EP forms now reference `_shared.opening_responses_ep_seasonal`.  
+_Commits:_ `tools/normalize_offices.py`, `data/offices.json`, `tools/extract_manifest.json`
+
+**BUG-21: Node CLI uses wrong lectionary field names**  
+Fixed 2026-06-14. Updated `cli/office.js` to use `psalms`/`lessons` arrays and call `lessonHtml()` per lesson.  
+_Commits:_ `cli/office.js`
+
+**BUG-19: `normalize_offices.py` breaks reading response (all forms) and Lord's Prayer (ordinary-time), and crashes Go CLI**  
+Fixed 2026-06-14. Removed lords_prayer_ordinary normalization block from `normalize_offices.py`; restored `lords_prayer_intro` as inline array in all ordinary-time forms (fixes Go CLI crash and Lord's Prayer rendering). Added shared-ref resolution in `lessonHtml()` / `render.js` before `renderAlternatives()` call (fixes reading response on all forms). Re-extracted data. Added pytest form completeness test and Playwright regression tests.  
+_Commits:_ `tools/normalize_offices.py`, `web/render.js`, `data/offices.json`, `tools/tests/test_form_completeness.py`, `tests/e2e/office.spec.js`
 
 **BUG-20: "Morning Prayer continues" shown in Evening Prayer**  
 Fixed 2026-06-07. `_shared.doxology` segments contained hardcoded "Morning Prayer continues with…" rubrics (PDF artifact). These showed 3× verbatim in EP. Broadened `SKIP_RUBRICS` from `continues with the Lit` to `continues with` so all such navigational rubrics from raw data are stripped. Transitions are emitted programmatically with the correct office name at app.js:1080 and 1096.  

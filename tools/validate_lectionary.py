@@ -227,6 +227,12 @@ def main():
         html_entry = parse_day_html(d, html_text)
         csv_entry = _load_csv_entry(d)
 
+        if html_entry is None:
+            print(f"  {date_str}: no HTML entry (parse failed)")
+            total_missing_html += 1
+            d += timedelta(days=1)
+            continue
+
         if csv_entry is None:
             if args.show_all:
                 print(f"  {date_str}: no CSV entry")

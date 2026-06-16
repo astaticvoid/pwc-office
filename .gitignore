@@ -54,3 +54,7 @@ e2e/testdata/
 # Scraper caches — local state, not committed
 tools/.scrape_cache.json
 tools/.daily_cache/
+
+# Generated audit artefacts — CLI run outputs and comparison reports
+audit/
+tools/extract_audit_report.txt

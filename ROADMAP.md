@@ -1,8 +1,29 @@
 # PWC — Project Roadmap
 
-_Last updated: 2026-06-13_
+_Last updated: 2026-06-14_
 
 This roadmap organises work into four phases with a rough priority ordering within each. Items are linked to BUGS.md where a known defect is involved.
+
+---
+
+## Active Milestones
+
+These are the delivery targets tracked every cycle. Status updated as work progresses.
+
+**Priority principle: cleanup and data integrity before new features.** The app is heading toward official ACC distribution — correctness errors erode trust, missing features are just a roadmap item.
+
+| # | Milestone | Status | Blocking |
+|---|-----------|--------|---------|
+| 1 | **Cleanup & data integrity** | ✅ Done. BUG-19, 22, 23, 24 fixed. 30/30 forms pass correctness audit. | — |
+| 1.5 | **JS render module + Node CLI + Vitest** | ✅ Done. `web/render.js` extracted; Node CLI working; 48 Vitest + render-level shared-ref tests. | — |
+| 2 | **Correctness audit** (30 office forms) | ✅ Done. All 30 forms pass automated CLI audit. Seasonal EP opening responses fixed. | — |
+| 3 | **FATS fully integrated** | 🟡 Phase 1 done (bio + collect fallback). Minor feast readings design pending. | Design decision |
+| 4 | **RCL Daily extractor** | 🟡 Spec complete. Lower priority than mobile; add when Synod CCT contact resolves. | Rights resolution |
+| 5 | **iOS / Android (Synod private beta)** | 🔴 Next. Capacitor proof-of-concept. ACC licence in progress — not a beta blocker. | Milestones 1–2 ✅ |
+
+**Current focus:** Mobile. Remaining data/UX cleanup runs in parallel with Capacitor work.
+
+_These milestones are referenced at every Cowork/Code delivery cycle review._
 
 ---
 
@@ -25,6 +46,10 @@ See `docs/HANDOFF.md` for what comes next.
 These are the highest-leverage changes: they close correctness gaps and reduce the ongoing maintenance burden.
 
 ### 1.1 Python extraction tooling
+
+**Extraction manifest versioning** — `tools/update_extract_manifest.py` records SHA-256 + entry counts in `tools/extract_manifest.json` (committed to git) after each `make extract`. Gives history of what changed between runs without committing copyrighted data. `make extract-diff` shows the diff at a glance. Spec in `docs/HANDOFF.md`.
+
+**Text quality checker** — `tools/check_text_quality.py` scans all extracted text fields for PDF artifact patterns: missing spaces (`[a-z][A-Z]` mid-word), duplicate words, merged 30+ char tokens. Run via `make check-text`, wired into `make validate`. Exits 0 (warnings only); `--strict` flag exits 1. Spec in `docs/HANDOFF.md`.
 
 ✅ **Add unit tests for extraction tools** (BUGS.md BUG-12, fixed 2026-06-07)  
 `tools/tests/` created with 53 pytest tests covering `parse_name_meta`, `parse_psalm_field`, `parse_lesson`, `detect_bounds`, `_char_type`, `_fix_casing`, `_group_alternatives`. `make test-tools` wired up.
@@ -123,15 +148,7 @@ Add a settings drawer with:
 - Per-translation download (KJV vs. NRSVUE)
 - Uses `Cache.put()` directly; shows progress
 
-### 2.5 First-run experience (BUGS.md BUG-13)
-
-One-time prompt on first visit (detected via `localStorage` flag):
-1. Choose translation (NRSVUE / KJV)
-2. Optionally set theme preference
-
-Keep it to 2 choices, no modal — an inline banner that dismisses and sets the prefs.
-
-### 2.6 ACC licence
+### 2.5 ACC licence
 
 Draft and send inquiry to Anglican Church of Canada about reproducing BAS/PWC liturgical text in an open-source Anglican worship app. This unblocks:
 - Committing `data/` publicly
@@ -233,11 +250,11 @@ Three viable paths:
 
 ### 5.3 Prerequisites before native work begins
 
-- ACC licence resolved (Phase 2.6) — needed to distribute data
-- Year A lectionary complete (Phase 2.1) — app should launch with full coverage
-- RCL daily rights resolved (Phase 3) — should be in-app at launch if possible
-- CONTRIBUTING.md and architecture docs complete — native work may involve new contributors
-- Bug 6 and Bug 7 fixes committed — no known regressions before a public release
+- ✅ No known P0 regressions (BUG-19, 22, 23 all fixed; 30/30 forms clean)
+- ✅ Render module extracted (`web/render.js`) — Capacitor can use web app directly
+- ACC licence — in progress; not a blocker for Synod private beta
+- 2027 BAS lectionary — will be added when ACC provides it; not blocking mobile
+- RCL daily — lower priority than mobile; add post-beta if rights resolve
 
 ### 5.4 Milestones (to be detailed in HANDOFF.md when work begins)
 
