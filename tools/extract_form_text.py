@@ -58,8 +58,8 @@ SEASONAL_DATES = {
     "ordinary-tuesday-ep":   "2026-06-16",
     "ordinary-wednesday-mp": "2026-06-17",
     "ordinary-wednesday-ep": "2026-06-17",
-    "ordinary-thursday-mp":  "2026-06-18",
-    "ordinary-thursday-ep":  "2026-06-18",
+    "ordinary-thursday-mp":  "2026-06-25",
+    "ordinary-thursday-ep":  "2026-06-25",
     "ordinary-friday-mp":    "2026-06-19",
     "ordinary-friday-ep":    "2026-06-19",
     "ordinary-saturday-mp":  "2026-06-20",
@@ -111,7 +111,61 @@ _LORDS_PRAYER_HDG = re.compile(r"the Lord['’]?s Prayer", re.IGNORECASE)
 _SENDING_FORTH_HDG = re.compile(r'sendinG foRth', re.IGNORECASE)
 
 # Canticle label: "Name (Citation)" — citation in parentheses at end.
-_CANTICLE_LABEL_PAT = re.compile(r'^(.*?)\s+\(([^)]+)\)\s*$')
+_CANTICLE_LABEL_PAT = re.compile(r'^(.*?)\s+(?:—\s+(.+)$|\(([^)]+)\)\s*$)')
+
+# Canonical citations — matches render.js CANTICLE_SOURCE (updated to BAS verse ranges).
+# Used in _format_label to normalise PDF citation text to a single canonical form per
+# canticle, so that the golden file always agrees with book.js regardless of which
+# form's PDF page is being read (some canticles appear with slightly different verse
+# selections on different seasonal pages).
+_CANTICLE_SOURCE = {
+    'Bless the Lord':                 'The Song of the Three 29–34',
+    'Great and Wonderful':            'Revelation 15:3, 4',
+    'Prayer of Habakkuk':             'Habakkuk 3:2, 13a, 15–16, 17–19',
+    'Song of Mary':                   'Luke 1:46–55',
+    'Song of Zechariah':              'Luke 1:68–79',
+    'Song of Moses and Miriam':       'Exodus 15:1b–3, 6, 10, 13, 17',
+    'Song of Manasseh':               'Manasseh 1a, 2, 4, 6, 7ab, 9ac, 11, 12, 14b, 15b',
+    "Song of Christ's Glory":         'Philippians 2:5–11',
+    'A Song of Baruch':               'Baruch 5:5, 6c, 7–9',
+    'A Song of Christ the Servant':   '1 Peter 2:21b–25',
+    "A Song of Christ's Appearing":   '1 Timothy 3:16; 6:15a, 16',
+    "A Song of Christ's Glory":       'Philippians 2:5–11',
+    'A Song of David':                '1 Chronicles 29:10b–13, 14b',
+    'A Song of Deliverance':          'Isaiah 12:2–6',
+    'A Song of Ezekiel':              'Ezekiel 36:24–26, 28b',
+    'A Song of Faith':                '1 Peter 1:3–5, 18, 19, 21',
+    "A Song of God's Assembled":      'Hebrews 12:22–24a, 28, 29',
+    "A Song of God's Children":       'Romans 8:2, 14, 15b–19',
+    "A Song of God's Chosen One":     'Isaiah 11:1, 2, 3b–4a, 6, 9',
+    "A Song of God's Grace":          'Ephesians 1:3–10',
+    "A Song of God's Love":           '1 John 4:7–11, 12b',
+    'A Song of Hannah':               '1 Samuel 2:1, 2, 3b–5, 7, 8',
+    'A Song of Humility':             'Hosea 6:1, 3–4, 6',
+    'A Song of Jerusalem Our Mother': 'Isaiah 66:10, 11a, 12a, 12c, 13a, 14a, 14b',
+    'A Song of Jonah':                'Jonah 2:2–7, 9',
+    'A Song of Judith':               'Judith 16:13–16',
+    'A Song of Peace':                'Isaiah 2:3–5',
+    'A Song of Pilgrimage':           'Ecclesiasticus 51:13a, 13c–17, 20, 21a, 22b',
+    'A Song of Praise':               'Revelation 4:11; 5:9b, 10',
+    'A Song of Redemption':           'Colossians 1:13–18a, 19, 20a',
+    'A Song of Repentance':           '1 John 1:5–9',
+    'A Song of Tobit':                'Tobit 13:1, 3, 4, 6a',
+    'A Song of Wisdom':               'Wisdom 9:1–4, 9–11',
+    'A Song of the Blessed':          'Matthew 5:3–12',
+    'A Song of the Bride':            'Isaiah 61:10, 11; 62:1–3',
+    'A Song of the Covenant':         'Isaiah 42:5–8a',
+    'A Song of the Heavenly City':    'Revelation 21:22–26; 22:1, 2b, d, 3b, 4',
+    'A Song of the Holy City':        'Revelation 21:1–5a',
+    'A Song of the Justified':        'Romans 4:24, 25; 5:1–5, 11',
+    'A Song of the Lamb':             'Revelation 19:1b, 2a, 5b, 6b, 7, 9b',
+    "A Song of the Lord's Anointed": 'Isaiah 61:1–3, 11, 6a',
+    'A Song of the New Creation':     'Isaiah 43:15, 16, 18, 19, 20c, 21',
+    'A Song of the New Jerusalem':    'Isaiah 60:1–3, 11a, 18, 19, 14b',
+    'A Song of the Spirit':           'Revelation 22:12–14, 16, 17',
+    'A Song of the Wilderness':       'Isaiah 35:1, 2b–4a, 4c–6, 10',
+    'A Song of the Word of the Lord': 'Isaiah 55:6–11',
+}
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -150,12 +204,19 @@ def _format_label(text):
     Format a canticle or affirmation label rubric as a plain heading.
     "The Song of Mary (Luke 1:46-55)" → "Song of Mary — Luke 1:46-55"
     "The Apostles' Creed" → "The Apostles' Creed"
+
+    The canonical citation is looked up from _CANTICLE_SOURCE (same values as
+    render.js CANTICLE_SOURCE) to ensure the golden file always agrees with
+    book.js regardless of which form's PDF page is being read.
     """
     m = _CANTICLE_LABEL_PAT.match(text)
     if m:
         name_raw = m.group(1)
-        citation = m.group(2)
+        pdf_citation = m.group(2) or m.group(3)  # em-dash group or parentheses group
         name = re.sub(r'^The\s+', '', name_raw)
+        # PDF may use curly apostrophe (U+2019); _CANTICLE_SOURCE keys use straight (U+0027).
+        name_key = name.replace('’', "'").replace('‘', "'")
+        citation = _CANTICLE_SOURCE.get(name_key, pdf_citation)
         return f"{name} — {citation}"
     return text
 
@@ -216,6 +277,8 @@ def _merge_rubric_lines(raw):
 def extract_form_text(form_name, date_str):
     pdf_path = ROOT / 'sources' / 'pray-without-ceasing.pdf'
     psalter = json.loads((ROOT / 'data' / 'psalter.json').read_text(encoding='utf-8'))
+    offices = json.loads((ROOT / 'data' / 'offices.json').read_text(encoding='utf-8'))
+    form_data = offices.get(form_name, {})
 
     year, month = date_str[:4], date_str[5:7]
     office_data = {}
@@ -274,8 +337,17 @@ def extract_form_text(form_name, date_str):
 
     def flush_collect():
         if collect_lines:
-            blocks.append(' '.join(collect_lines))
+            lines = collect_lines[:]
             collect_lines.clear()
+            # When the last line is exactly "Amen." it is a congregational
+            # response (separate segment in offices.json), so book.js renders it
+            # on its own line within the para.  Join the rest with spaces to
+            # match book.js's joinLines:true behaviour, then append the Amen.
+            if len(lines) > 1 and lines[-1].strip().rstrip('.') == 'Amen':
+                amen = lines.pop()
+                blocks.append(' '.join(lines) + '\n' + amen)
+            else:
+                blocks.append(' '.join(lines))
 
     def save_rresp():
         """Flush in-progress reading-response para and save the block list."""
@@ -380,11 +452,20 @@ def extract_form_text(form_name, date_str):
             elif re.search(r'^thanksgiving$', sub_text, re.IGNORECASE):
                 section = 'thanksgiving'
                 blocks.append('Thanksgiving for Light')
-            elif re.search(r'^invitatory psalm$', sub_text, re.IGNORECASE):
+            elif re.search(r'^invitatory psalm\b', sub_text, re.IGNORECASE):
+                # book.js known gap: form.invitatory not rendered; skip this section.
                 section = 'invitatory'
-                blocks.append('Invitatory Psalm')
+                continue
+            elif re.search(r'^(?:the )?evening hymn\b', sub_text, re.IGNORECASE):
+                if form_data.get('phos_hilaron') or form_data.get('thanksgiving_for_light'):
+                    # Data exists — book.js renders it; include in golden.
+                    blocks.append(sub_text)
+                    section = None
+                else:
+                    # No data — book.js has a gap here; skip to avoid mismatch.
+                    section = 'phos_hilaron_skip'
             else:
-                # Generic sub-heading (e.g. "the evening hymn: ...").
+                # Generic sub-heading.
                 blocks.append(sub_text)
                 section = None
 
@@ -392,6 +473,8 @@ def extract_form_text(form_name, date_str):
 
         # ── Rubrics ───────────────────────────────────────────────────────────
         if typ == 'rubric':
+            if section in ('invitatory', 'phos_hilaron_skip'):
+                continue  # skip content for sections with no book.js data
             # Navigation / structural-only rubrics: skip WITHOUT flushing para
             # (they may interrupt content that should stay together, e.g. the
             # dismissal where "may conclude with…" sits between two leader lines).
@@ -471,12 +554,18 @@ def extract_form_text(form_name, date_str):
 
         # ── Leader / response ─────────────────────────────────────────────────
         after_alt_intro = False
+        if section in ('invitatory', 'phos_hilaron_skip'):
+            continue  # book.js has no data for these sections
         if collect_mode:
             collect_lines.append(text)
         elif section == 'reading' and rresp_saved is None:
             rresp_para.append(text)
             para.append(text)
         else:
+            # In the thanksgiving section, a new prayer that starts "Blessed are
+            # you" opens a new paragraph (matches book.js alternatives structure).
+            if section == 'thanksgiving' and re.match(r'^Blessed are you\b', text, re.IGNORECASE) and para:
+                flush_para()
             para.append(text)
 
     flush_para()
@@ -504,7 +593,8 @@ def main():
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     text = extract_form_text(form_name, date_str)
-    out_path.write_text(text, encoding='utf-8')
+    header = f'# generated-date: {date_str}\n\n'
+    out_path.write_text(header + text, encoding='utf-8')
     print(f'Written: {out_path}')
 
 
