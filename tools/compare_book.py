@@ -73,8 +73,13 @@ def main():
 
     golden_path = REPO / 'tests' / 'fixtures' / 'book' / f'{form}.txt'
     if not golden_path.exists():
-        print(f'ERROR: golden file not found: {golden_path}', file=sys.stderr)
-        sys.exit(2)
+        result = subprocess.run(
+            ['python3', 'tools/extract_form_text.py', form, '--date', date_arg],
+            cwd=REPO,
+        )
+        if result.returncode != 0:
+            print(f'ERROR: extract_form_text.py failed for {form}', file=sys.stderr)
+            sys.exit(2)
 
     result = subprocess.run(
         ['node', 'cli/book.js', form, date_arg],
