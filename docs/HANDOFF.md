@@ -11,9 +11,9 @@ Active handoff between Cowork (planning) and Claude Code (implementation). Cowor
 **`make check-book` passes for all 31 BAS office forms.**
 
 ### What changed
-- `tools/extract_form_text.py`: Now renders `opening_responses` and `litany` from `offices.json` rather than the PDF. This fixes PDF styling artifacts where refrain lines were misclassified as headings (breaking paragraph continuity). Affected forms: allsaints-mp (litany refrains), christmas-mp (introductory response refrains), pentecost-mp/ep (canticle doxology rubric with "either Canticle" wording).
-- `tools/extract_manifest.json`: Updated to reflect offices.json corrections made in the prior session (Apostles' Creed label, comma after "ascended into heaven", removal of `reading_response_seasonal` from `_shared`).
-- `tests/fixtures/book/`: All 31 golden files committed (programmatic, date-stamped).
+- `tools/extract_form_text.py`: Added `_reclassify_headings()` — a post-merge step that re-types PDF heading lines ending with sentence punctuation as response lines, fixing page-break font artifacts in allsaints-mp (litany refrains) and christmas-mp (opening response refrains). Also fixed pentecost-mp/ep canticle doxology regex to match "At the end of either Canticle". The extractor stays PDF-only; no offices.json fallback.
+- `tools/extract_manifest.json`: Updated to reflect offices.json corrections from the prior session (Apostles' Creed label, comma after "ascended into heaven", removal of `reading_response_seasonal` from `_shared`).
+- `tests/fixtures/book/`: Golden files are gitignored (BAS copyright) — they live on disk locally but are not committed.
 
 ### What to spot-check at http://localhost:8081
 
