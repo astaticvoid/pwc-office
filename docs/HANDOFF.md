@@ -6,6 +6,36 @@ Active handoff between Cowork (planning) and Claude Code (implementation). Cowor
 
 ---
 
+## Ready for Cowork review — Batch 15 (2026-06-15)
+
+No web UI changes — data and renderer fixes only. Spot-check via terminal:
+
+### `make check-book FORM=ordinary-sunday-ep DATE=2026-06-14`
+
+Should exit **0** (PASS) — all 9 data-quality gaps from the Batch 13/14 diff are now closed.
+
+### `make test`
+
+Should pass: Vitest (108) + pytest. No Go.
+
+### What changed
+
+All 9 discrepancies between `cli/book.js` output and `tests/fixtures/book/ordinary-sunday-ep.txt` are fixed:
+
+| # | Issue | Fix |
+|---|-------|-----|
+| 1 | Collect text had PDF line-break artefacts (multi-line) | `cli/book.js`: `joinLines` option flattens to single line |
+| 2 | `(After the Psalm one of the following may be said or sung.)` missing | `cli/book.js`: emit directly before post-psalm doxology |
+| 3 | `Alleluia.` missing after each EP opening doxology alternative | `cli/book.js`: split EP opening_responses render; inject per alternative |
+| 4 | `(One of the following may be said or sung.)` missing before EP opening doxology | `extract_offices.py`: emit all `_BLOCK_SEP_ONLY` rubrics (was only canticle-doxology-intro ones) |
+| 5 | Canticle intro rubric missing (`"Song of Mary," "A Song of the Lamb,"…`) | `extract_offices.py`: emit intro text before `_CANTICLE_INTRO` named alternatives |
+| 6 | `(One of the following Affirmations of Faith may be said or sung.)` missing | `extract_offices.py`: emit intro text before `_GENERAL_INTRO` named alternatives |
+| 7 | `Apostles' Creed` → `The Apostles' Creed`; `he ascended into heaven` missing comma | `extract_offices.py`: new `_fix_shared_affirmation()` post-dedup step |
+| 8 | `Song of the Lamb` / `Song of the Heavenly City` missing `A ` prefix; wrong citations | `extract_offices.py`: stop stripping `A ` in `_alt_label`; add entries in `web/render.js` CANTICLE_SOURCE |
+| 9 | `The Evening Hymn: "O Gladsome Light, O Grace"` heading missing | `extract_offices.py`: store heading as `{type:"label"}` segment; `cli/book.js`: render label type as plain block |
+
+---
+
 ## Ready for Cowork review — Batch 14 (2026-06-15)
 
 Serving at **http://localhost:8081** (cache: `pwc-95240ba1`).
