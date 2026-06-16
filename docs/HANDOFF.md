@@ -1,8 +1,38 @@
 # PWC — Handoff
 
-_Updated: 2026-06-15_
+_Updated: 2026-06-16_
 
 Active handoff between Cowork (planning) and Claude Code (implementation). Cowork writes specs here; Code implements in order.
+
+---
+
+## Ready for Cowork review — Batch 16 (2026-06-16)
+
+**`make check-book` passes for all 31 BAS office forms.**
+
+### What changed
+- `tools/extract_form_text.py`: Now renders `opening_responses` and `litany` from `offices.json` rather than the PDF. This fixes PDF styling artifacts where refrain lines were misclassified as headings (breaking paragraph continuity). Affected forms: allsaints-mp (litany refrains), christmas-mp (introductory response refrains), pentecost-mp/ep (canticle doxology rubric with "either Canticle" wording).
+- `tools/extract_manifest.json`: Updated to reflect offices.json corrections made in the prior session (Apostles' Creed label, comma after "ascended into heaven", removal of `reading_response_seasonal` from `_shared`).
+- `tests/fixtures/book/`: All 31 golden files committed (programmatic, date-stamped).
+
+### What to spot-check at http://localhost:8081
+
+| Form | URL | Check |
+|------|-----|-------|
+| All Saints MP | `/?form=allsaints-mp&date=2026-11-01` | Litany flows as one block — no spurious blank lines mid-litany |
+| Christmas MP | `/?form=christmas-mp&date=2025-12-28` | "Let heaven and earth shout their praise." appears inline, not as a separate paragraph |
+| Pentecost MP | `/?form=pentecost-mp&date=2026-05-24` | Canticle doxology present (Source → Trinity → Father/Son/HS order) |
+| Pentecost EP | `/?form=pentecost-ep&date=2026-05-24` | Same |
+| Ordinary Sunday MP | `/?form=ordinary-sunday-mp` | No regression in opening responses or litany |
+| Ordinary Sunday EP | `/?form=ordinary-sunday-ep` | No regression |
+
+### How `make check-book` works (for reference)
+```
+make check-book FORM=allsaints-mp    # diff golden vs book.js output
+make check-book FORM=christmas-mp
+# all 31:
+for form in $(python3 -c "import sys; sys.path.insert(0,'tools'); from extract_offices import OFFICES; print(' '.join(r[0] for r in OFFICES))"); do python3 tools/compare_book.py $form; done
+```
 
 ---
 
