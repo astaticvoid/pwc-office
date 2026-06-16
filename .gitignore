@@ -50,6 +50,7 @@ test-results/
 
 # Golden snapshot files — derived from copyrighted liturgical content, not for distribution
 e2e/testdata/
+tests/fixtures/book/
 
 # Scraper caches — local state, not committed
 tools/.scrape_cache.json
