@@ -128,6 +128,8 @@ class TestGroupAlternatives:
         assert "Song of Mary" in labels
 
     def test_block_sep_starts_unnamed_groups(self):
+        # Block-sep rubrics are now emitted as a plain segment before the
+        # alternatives group (Batch 15 — fixes missing intro rubric in rendered output).
         segs = [
             seg("rubric", "One of the following may be said or sung."),
             seg("leader", "Glory be option A"),
@@ -135,8 +137,10 @@ class TestGroupAlternatives:
             seg("leader", "Glory be option B"),
         ]
         result = _group_alternatives(segs)
-        assert len(result) == 1
-        assert result[0]["type"] == "alternatives"
+        assert len(result) == 2
+        assert result[0]["type"] == "rubric"
+        assert result[0]["text"] == "One of the following may be said or sung."
+        assert result[1]["type"] == "alternatives"
 
     def test_canticle_doxology_intro_emitted_as_rubric(self):
         # "After the Canticle…" should appear as a rubric segment BEFORE
