@@ -81,6 +81,13 @@ def main():
             print(f'ERROR: extract_form_text.py failed for {form}', file=sys.stderr)
             sys.exit(2)
 
+    # If no date was given on CLI, use the date embedded in the golden file header.
+    if len(args) < 2:
+        for line in golden_path.read_text(encoding='utf-8').splitlines():
+            if line.startswith('# generated-date:'):
+                date_arg = line.split(':', 1)[1].strip()
+                break
+
     result = subprocess.run(
         ['node', 'cli/book.js', form, date_arg],
         capture_output=True,
