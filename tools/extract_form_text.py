@@ -204,22 +204,6 @@ def _render_collect_blocks(segs, shared_data, join_lines=True):
     return outer
 
 
-def _render_opening_responses(form_data, shared_data):
-    """Render form.opening_responses as blocks, matching book.js opening-response logic."""
-    segs = form_data.get('opening_responses') or []
-    has_dox = any(
-        s.get('type') == 'shared' and s.get('key') == 'doxology'
-        for s in segs
-    )
-    if has_dox and shared_data.get('doxology'):
-        pre_dox = [s for s in segs
-                   if not (s.get('type') == 'shared' and s.get('key') == 'doxology')]
-        result = _render_collect_blocks(pre_dox, shared_data, join_lines=False)
-        result.extend(_render_doxology_blocks(shared_data, alleluia=True))
-        return result
-    return _render_collect_blocks(segs, shared_data, join_lines=False)
-
-
 def _normalise_casing(line_type, text):
     """Fix PDF small-caps casing artifacts.
 
@@ -485,6 +469,33 @@ def _merge_rubric_lines(raw):
     return merged
 
 
+def _reclassify_headings(lines):
+    """Re-classify heading lines that look like liturgical content as response.
+
+    In some PDFs the first line on a new page is rendered with heading-weight
+    font even when it is a refrain or response (e.g. allsaints-mp litany
+    refrains, christmas-mp opening-response refrain).  Headings that end with
+    sentence-terminal punctuation (. ? !) and do NOT match any known
+    major/section heading pattern are reclassified as 'response'.
+    """
+    _KNOWN_HDG = re.compile(
+        r'^(?:the (?:psalm|reading|canticle|responsory|litany|dismissal)|'
+        r'(?:morning|evening) prayer\b|introductory responses|affirmation|'
+        r'thanksgiving|invitatory|(?:the )?lord\b|the lord\'s prayer)',
+        re.IGNORECASE,
+    )
+    result = []
+    for typ, text in lines:
+        if (typ == 'heading'
+                and not _MAJOR_HDRS.search(text)
+                and not _KNOWN_HDG.search(text)
+                and re.search(r'[.!?]$', text.strip())):
+            result.append(('response', text))
+        else:
+            result.append((typ, text))
+    return result
+
+
 # ── Main extraction ───────────────────────────────────────────────────────────
 
 def extract_form_text(form_name, date_str):
@@ -522,6 +533,7 @@ def extract_form_text(form_name, date_str):
 
     raw = [(t, x.strip()) for t, x in raw if not _is_noise(t, x) and x.strip()]
     lines = _merge_rubric_lines(raw)
+    lines = _reclassify_headings(lines)
 
     # ── State ─────────────────────────────────────────────────────────────────
     section                = None   # current content section
@@ -664,25 +676,14 @@ def extract_form_text(form_name, date_str):
                 section = 'intercessions'
                 blocks.append('Intercessions and Thanksgivings')
                 intercessions_emitted = True
-            elif re.search(r'^introductory responses$', sub_text, re.IGNORECASE):
-                # Render from offices.json — some PDFs mis-classify refrain lines
-                # as headings (e.g. christmas-mp), causing para flush mid-paragraph.
-                blocks.append('Introductory Responses')
-                blocks.extend(_render_opening_responses(form_data, shared_data))
-                section = 'intro_done'
             elif re.search(r'^the litany$', sub_text, re.IGNORECASE):
                 # If intercessions heading hasn't been emitted yet (seasonal forms where it
                 # doesn't appear as its own PDF sub-heading), emit it now before the litany.
                 if not intercessions_emitted:
                     blocks.append('Intercessions and Thanksgivings')
                     intercessions_emitted = True
+                section = 'litany'
                 blocks.append('The Litany')
-                # Render from offices.json — some PDFs mis-classify refrain lines
-                # as headings (e.g. allsaints-mp), causing para flush mid-litany.
-                blocks.extend(_render_collect_blocks(
-                    form_data.get('litany') or [], shared_data, join_lines=False
-                ))
-                section = 'litany_done'
             elif re.search(r'^the responsory$', sub_text, re.IGNORECASE):
                 # Inject first lesson before responsory.
                 if lesson_idx == 0 and lesson_idx < len(lessons):
@@ -716,15 +717,14 @@ def extract_form_text(form_name, date_str):
                     section = 'phos_hilaron_skip'
             else:
                 # Generic sub-heading.
-                if section not in ('intro_done', 'litany_done'):
-                    blocks.append(_normalise_casing('heading', sub_text))
-                    section = None
+                blocks.append(_normalise_casing('heading', sub_text))
+                section = None
 
             continue
 
         # ── Rubrics ───────────────────────────────────────────────────────────
         if typ == 'rubric':
-            if section in ('invitatory', 'phos_hilaron_skip', 'psalm_dox_skip', 'collect_done', 'intro_done'):
+            if section in ('invitatory', 'phos_hilaron_skip', 'psalm_dox_skip', 'collect_done'):
                 continue  # skip content for sections already rendered from offices.json
             if pre_gathering:
                 continue  # skip rubrics in the subtitle zone before first major heading
@@ -835,7 +835,7 @@ def extract_form_text(form_name, date_str):
         after_alt_intro = False
         if pre_gathering:
             continue  # skip subtitle lines from PDF (already emitted from form_data)
-        if section in ('invitatory', 'phos_hilaron_skip', 'psalm_dox_skip', 'collect_done', 'intro_done', 'litany_done'):
+        if section in ('invitatory', 'phos_hilaron_skip', 'psalm_dox_skip', 'collect_done'):
             continue  # skip content for sections already rendered from offices.json
         text = _normalise_casing(typ, text)
         if collect_mode:
