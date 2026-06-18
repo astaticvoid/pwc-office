@@ -984,31 +984,26 @@ async function render(dateStr, officeType, translation) {
 
   fillPsalms(contentEl);
   fillScripture(contentEl, translation);
-  prefetchBackground(dateStr);
+  prefetchOtherOffice(day, officeType, translation);
 }
 
 // ── Background prefetch ───────────────────────────────────────────────────────
-// Psalter is pre-cached at SW install. Here we warm the next 3 monthly
-// lectionary files so a month of navigation works offline without any prior visits.
-// Scripture books cache lazily on first read — no proactive Bible download.
+// Warm the scripture book cache for the other office so switching MP↔EP is instant.
 
-let _prefetchDone = false;
-
-function prefetchBackground(dateStr) {
-  if (_prefetchDone) return;
-  _prefetchDone = true;
-
-  const months = new Set();
-  for (let i = 1; i <= 90; i++) {
-    months.add(offsetDate(dateStr, i).slice(0, 7));
-  }
-  const queue = [...months].slice(0, 3).map(m => `${DATA}/lectionary/${m}.json`);
-
+function prefetchOtherOffice(day, officeType, translation) {
+  const other = officeType === 'mp' ? day.evening : day.morning;
+  if (!other) return;
   const schedule = window.requestIdleCallback
-    ? cb => requestIdleCallback(cb, { timeout: 2000 })
-    : cb => setTimeout(cb, 200);
-
-  schedule(() => queue.forEach(url => fetch(url).catch(() => {})));
+    ? cb => requestIdleCallback(cb, { timeout: 1000 })
+    : cb => setTimeout(cb, 100);
+  schedule(() => {
+    [other.lesson1, other.lesson2].forEach(lesson => {
+      if (!lesson) return;
+      const citation = typeof lesson === 'object' ? lesson.citation : lesson;
+      const parsed = parseCitation(citation);
+      if (parsed) fetchBook(translation, parsed.file).catch(() => {});
+    });
+  });
 }
 
 // ── Async fillers ─────────────────────────────────────────────────────────────
