@@ -80,7 +80,7 @@ export const SKIP_RUBRICS = /^(Affirmation of Faith|[Tt]he Lord'?s Prayer)\.?\s*
 
 // Exported so app.js can use them in collectToggleHtml without re-declaration.
 export const SC_HEADER = /^Additional\s+intercessions/i;
-export const SC_FOOTER = /^the\s+Lord['']s\s+Prayer/i;
+export const SC_FOOTER = /^the\s+Lord['’]s\s+Prayer/i;
 
 const INTERCESSIONS_RE = /^(The community may offer|Additional intercessions)/;
 const INTERCESSIONS_CONDENSED = '<p class="seg-rubric"><em>Offer intercessions, petitions, and thanksgivings, silently or aloud.</em></p>';
