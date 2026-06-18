@@ -1,11 +1,11 @@
 {
-  "extracted_at": "2026-06-16T13:48:31Z",
+  "extracted_at": "2026-06-18T02:25:07Z",
   "tool_versions": {
     "pdftotext": "pdftotext version 26.04.0"
   },
   "files": {
     "data/offices.json": {
-      "sha256": "8c55600b0532770b5368b5a21b3d85440fd1d15a4483a97de1292a86dc1beeba",
+      "sha256": "27811248e8098e1ad1eb03100d6733ee8b52c5bf1ecc056d48fe4947e9c98ff7",
       "entries": 31
     },
     "data/collects.json": {

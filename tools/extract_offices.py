@@ -785,6 +785,10 @@ _TEXT_PATCHES: list[tuple[str, str, str, str]] = [
     ("ordinary-wednesday-ep", "litany",
      "As we have put our hope in you.",
      "as we have put our hope in you."),
+    # Fix liturgical ‘O’ of address in evening hymn label (lower-o is a PDF artifact)
+    ("ordinary-sunday-ep", "phos_hilaron",
+     'the evening hymn: “o Gladsome Light, o Grace”',
+     'the evening hymn: “O Gladsome Light, O Grace”'),
 ]
 
 
@@ -797,7 +801,7 @@ def _apply_text_patches(offices: dict) -> dict:
         if not isinstance(section, list):
             continue
         for seg in section:
-            if seg.get("type") == "response" and seg.get("text") == old:
+            if seg.get("type") in ("response", "label") and seg.get("text") == old:
                 seg["text"] = new
     return offices
 

@@ -520,6 +520,11 @@ body.book-mode .alt-panel + .alt-panel::before {
   margin: 0.2rem 0 0.75rem var(--indent);
   white-space: pre-wrap;
 }
+.seg-label {
+  font-family: var(--font-liturgy); font-style: italic;
+  font-size: 0.95rem; color: var(--color-muted);
+  margin: 0.75rem 0 0.25rem;
+}
 /* Tighten versicle→response */
 .seg-leader + .seg-response { margin-top: 0.2rem; }
 .seg-response + .seg-leader { margin-top: 1rem; }

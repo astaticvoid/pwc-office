@@ -307,6 +307,7 @@ export function renderSegments(segs, shared) {
       const cls = BOOK_ONLY_RUBRICS.test(text) ? 'seg-rubric rubric-book-only' : 'seg-rubric';
       return `<p class="${cls}">${esc(text)}</p>`;
     }
+    if (seg.type === 'label')    return `<p class="seg-label">${esc(text)}</p>`;
     if (seg.type === 'response') return `<p class="seg-response">${bindMidpoints(formatLiturgicalText(text))}</p>`;
     return `<p class="seg-leader">${bindMidpoints(esc(text))}</p>`;
   }).join('');
