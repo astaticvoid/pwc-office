@@ -785,12 +785,26 @@ _TEXT_PATCHES: list[tuple[str, str, str, str]] = [
     ("ordinary-wednesday-ep", "litany",
      "As we have put our hope in you.",
      "as we have put our hope in you."),
-    # Fix liturgical ‘O’ of address in evening hymn label (lower-o is a PDF artifact)
+      # Fix 'The Evening Hymn:' capitalisation and per-hymn title casing (PDF artifacts)
     ("ordinary-sunday-ep", "phos_hilaron",
-     'the evening hymn: “o Gladsome Light, o Grace”',
-     'the evening hymn: “O Gladsome Light, O Grace”'),
+     'the evening hymn: “O Gladsome Light, O Grace”',
+     'The Evening Hymn: “O Gladsome Light, O Grace”'),
+    ("ordinary-monday-ep", "phos_hilaron",
+     'the evening hymn: “o Gracious Light, Lord Jesus Christ”',
+     'The Evening Hymn: “O Gracious Light, Lord Jesus Christ”'),
+    ("ordinary-tuesday-ep", "phos_hilaron",
+     'the evening hymn: “Light of the World, in Grace and Beauty”',
+     'The Evening Hymn: “Light of the World, in Grace and Beauty”'),
+    ("ordinary-wednesday-ep", "phos_hilaron",
+     'the evening hymn: “o Light, Whose splendour thrills”',
+     'The Evening Hymn: “O Light, Whose Splendour Thrills”'),
+    ("ordinary-thursday-ep", "phos_hilaron",
+     'the evening hymn: ”Christ, Mighty saviour”',
+     'The Evening Hymn: “Christ, Mighty Saviour”'),
+    ("ordinary-saturday-ep", "phos_hilaron",
+     'the evening hymn: “now from the Altar of My heart”',
+     'The Evening Hymn: “Now from the Altar of My Heart”'),
 ]
-
 
 def _apply_text_patches(offices: dict) -> dict:
     """Apply _TEXT_PATCHES to correct responses the extractor mis-capitalised."""
