@@ -7,8 +7,14 @@
     "vitest": "^1.0.0"
   },
   "scripts": {
-    "test":           "vitest run",
-    "test:web":       "playwright test",
+    "test": "vitest run",
+    "test:web": "playwright test",
     "test:web:local": "BASE_URL=http://localhost:8081 playwright test"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/cli": "^8.4.0",
+    "@capacitor/core": "^8.4.0",
+    "@capacitor/ios": "^8.4.0"
   }
 }

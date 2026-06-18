@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text check-book generate-golden serve serve-dist deploy test-web validate fetch-sources extract
+.PHONY: test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text check-book generate-golden serve serve-dist deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -100,6 +100,19 @@ test-web:
 # Verify data/ files match the last extraction — exits 1 if any file was edited directly.
 check-integrity:
 	python3 tools/check_data_integrity.py
+
+# Mobile — build dist/ then sync web assets into iOS and Android native projects.
+# After mobile-sync, open the native project in Xcode / Android Studio to build and archive.
+mobile-sync: build
+	npx cap sync
+
+# Open iOS project in Xcode (requires Xcode + Apple Developer account for device/archive).
+mobile-ios: mobile-sync
+	npx cap open ios
+
+# Open Android project in Android Studio (requires Android Studio + JDK).
+mobile-android: mobile-sync
+	npx cap open android
 
 # Deploy — sync dist/ to S3 (requires AWS_PROFILE or ambient credentials).
 # Set BUCKET in environment or pass: make deploy BUCKET=my-bucket-name

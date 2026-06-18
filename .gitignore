@@ -43,6 +43,19 @@ boneyard/
 # Generated build output — produced by `make build`, never committed
 dist/
 
+# Capacitor — native build artifacts (ios/ and android/ source is tracked; build outputs excluded)
+ios/App/Pods/
+ios/App/.build/
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/xcuserdata/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+# Generated web assets synced into native projects by `npx cap sync` — contain copyrighted data
+ios/App/App/public/
+android/app/src/main/assets/public/
+
 # Node / Playwright
 node_modules/
 playwright-report/
