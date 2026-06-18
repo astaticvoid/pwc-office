@@ -787,7 +787,7 @@ _TEXT_PATCHES: list[tuple[str, str, str, str]] = [
      "as we have put our hope in you."),
       # Fix 'The Evening Hymn:' capitalisation and per-hymn title casing (PDF artifacts)
     ("ordinary-sunday-ep", "phos_hilaron",
-     'the evening hymn: “O Gladsome Light, O Grace”',
+     'the evening hymn: “o Gladsome Light, o Grace”',
      'The Evening Hymn: “O Gladsome Light, O Grace”'),
     ("ordinary-monday-ep", "phos_hilaron",
      'the evening hymn: “o Gracious Light, Lord Jesus Christ”',
