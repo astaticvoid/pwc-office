@@ -546,6 +546,9 @@ body.book-mode .alt-panel + .alt-panel::before {
   margin: 0.4em 0 0.4em var(--indent);
   font-family: var(--font-liturgy); font-size: 1.12rem; line-height: var(--line-height);
 }
+@media (max-width: 520px) {
+  .verse { margin-left: 0; grid-template-columns: 1.4rem 1fr; }
+}
 .verse-num {
   font-size: 0.68em; color: var(--color-brass-ink); text-align: right;
   padding-top: 0.24em; font-family: var(--font-ui);
@@ -573,6 +576,9 @@ body.book-mode .alt-panel + .alt-panel::before {
   display: grid; grid-template-columns: 1.75rem 1fr; gap: 0 0.25rem;
   margin: 0.4em 0 0.4em var(--indent);
   font-family: var(--font-liturgy); font-size: 1.12rem; line-height: var(--line-height);
+}
+@media (max-width: 520px) {
+  .scripture-verse { margin-left: 0; grid-template-columns: 1.4rem 1fr; }
 }
 .scripture-attr {
   font-family: var(--font-ui); font-size: 0.75rem; color: var(--color-muted);
