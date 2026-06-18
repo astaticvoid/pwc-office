@@ -309,6 +309,12 @@ export function renderSegments(segs, shared) {
     }
     if (seg.type === 'label')    return `<p class="seg-label">${esc(text)}</p>`;
     if (seg.type === 'response') return `<p class="seg-response">${bindMidpoints(formatLiturgicalText(text))}</p>`;
+    // Split trailing "Amen." into a congregational-response paragraph.
+    const amenMatch = seg.type === 'leader' && text.match(/^([\s\S]+)\s(Amen\.)$/);
+    if (amenMatch) {
+      return `<p class="seg-leader">${bindMidpoints(esc(amenMatch[1]))}</p>`
+           + `<p class="seg-response">Amen.</p>`;
+    }
     return `<p class="seg-leader">${bindMidpoints(esc(text))}</p>`;
   }).join('');
 }
