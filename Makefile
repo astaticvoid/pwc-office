@@ -45,19 +45,11 @@ test-full:
 
 # Assemble dist/ for static deployment (S3, etc.).
 # Copies web/ source + dereferences the data/ symlink into one deployable folder.
-# Stamps dist/sw.js with a content hash of the precached shell files so the
-# service worker cache is automatically invalidated on every deploy.
 build:
 	rm -rf dist
 	cp -rL web/. dist/
 	rm -rf dist/data/.git
-	@HASH=$$(python3 -c "import hashlib,sys; h=hashlib.sha256(); \
-	  [h.update(open(f,'rb').read()) for f in sys.argv[1:]]; \
-	  print(h.hexdigest()[:8])" \
-	  dist/index.html dist/app.js dist/render.js dist/office.css dist/manifest.json \
-	  dist/data/offices.json dist/data/collects.json dist/data/season_bounds.json); \
-	sed -i '' "s/pwc-v1/pwc-$$HASH/" dist/sw.js; \
-	echo "dist/ ready (cache: pwc-$$HASH, $$(find dist -type f | wc -l | tr -d ' ') files)"
+	@echo "dist/ ready ($$(find dist -type f | wc -l | tr -d ' ') files)"
 
 # Verify dist/ has everything the app needs before deploying.
 check-dist: build test-unit
@@ -112,8 +104,7 @@ check-integrity:
 # Deploy — sync dist/ to S3 (requires AWS_PROFILE or ambient credentials).
 # Set BUCKET in environment or pass: make deploy BUCKET=my-bucket-name
 deploy: check-integrity check-dist
-	# sw.js must be no-cache so browsers always revalidate after a deploy.
-	# Sync everything except sw.js, then upload sw.js with explicit header.
+	# sw.js uploaded no-cache so existing installs receive the kill-switch promptly.
 	aws s3 sync dist/ s3://$(BUCKET)/ --delete --exclude "sw.js"
 	aws s3 cp dist/sw.js s3://$(BUCKET)/sw.js \
 	  --cache-control "no-cache, no-store" \
