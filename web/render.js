@@ -76,7 +76,11 @@ export const CANTICLE_SOURCE = {
 
 // Rubrics that are section-navigation cues in the printed book but are either
 // rendered as explicit headings or added programmatically as inter-section transitions.
-export const SKIP_RUBRICS = /^(Affirmation of Faith|[Tt]he Lord'?s Prayer)\.?\s*$|continues with|may conclude with|^The (Responsory|Litany) is said or sung\./i;
+export const SKIP_RUBRICS = /^(Affirmation of Faith|[Tt]he Lord'?s Prayer)\.?\s*$|may conclude with|^The (Responsory|Litany) is said or sung\./i;
+
+// Rubrics that are book-navigation instructions (pick one, introduces a section,
+// etc.) — noisy in the interactive app but needed in flat book mode.
+export const BOOK_ONLY_RUBRICS = /one of the following may be said or sung|the following psalms|at the end of the (psalm|canticle)|after the (psalm|canticle)|may be said or sung\.|one of the following affirmations|continues with|Evening Prayer continues/i;
 
 // Exported so app.js can use them in collectToggleHtml without re-declaration.
 export const SC_HEADER = /^Additional\s+intercessions/i;
@@ -299,7 +303,10 @@ export function renderSegments(segs, shared) {
     if (seg.type === 'rubric' && INTERCESSIONS_RE.test(seg.text || '')) return INTERCESSIONS_CONDENSED;
     if (seg.type === 'rubric' && SKIP_RUBRICS.test(seg.text || '')) return '';
     const text = seg.text || '';
-    if (seg.type === 'rubric')   return `<p class="seg-rubric">${esc(text)}</p>`;
+    if (seg.type === 'rubric') {
+      const cls = BOOK_ONLY_RUBRICS.test(text) ? 'seg-rubric rubric-book-only' : 'seg-rubric';
+      return `<p class="${cls}">${esc(text)}</p>`;
+    }
     if (seg.type === 'response') return `<p class="seg-response">${bindMidpoints(formatLiturgicalText(text))}</p>`;
     return `<p class="seg-leader">${bindMidpoints(esc(text))}</p>`;
   }).join('');
@@ -315,8 +322,8 @@ export function lessonHtml(lesson, shared, form) {
   const optional = typeof lesson === 'object' && lesson.optional;
   const displayCitation = expandCitationForDisplay(rawCitation);
   const display = optional ? `(${displayCitation})` : displayCitation;
-  const preambleRubric = `<p class="seg-rubric">A Reading from the appointed lectionary is read.</p>`;
-  const reflectionRubric = `<p class="seg-rubric">After a period of silent reflection one of the following is said.</p>`;
+  const preambleRubric = `<p class="seg-rubric rubric-book-only">A Reading from the appointed lectionary is read.</p>`;
+  const reflectionRubric = `<p class="seg-rubric rubric-book-only">After a period of silent reflection one of the following is said.</p>`;
   if (!form || !form.reading_response) console.warn('lessonHtml: no reading_response on form, using fallback');
   let readingResponse = (form && form.reading_response) || READING_RESPONSE;
   if (readingResponse?.type === 'shared' && shared) {

@@ -436,6 +436,10 @@ body {
 /* View toggle — hidden; View is now in Settings sheet */
 #view-toggle-row { display: none; }
 
+/* Book-only rubrics: hidden in normal mode, visible in book mode */
+.rubric-book-only { display: none; }
+body.book-mode .rubric-book-only { display: block; }
+
 /* Book mode */
 body.book-mode .alt-tabs          { display: none !important; }
 body.book-mode .alt-panel         { display: block !important; }
