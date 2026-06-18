@@ -6,6 +6,30 @@ Active handoff between Cowork (planning) and Claude Code (implementation). Cowor
 
 ---
 
+## Ready for Cowork review — Batch 17 (2026-06-17)
+
+Serving at **http://localhost:8081** (cache: `pwc-4dda0ceb`).
+
+### What to spot-check
+
+| Fix | URL | Check |
+|-----|-----|-------|
+| Fix 1 — SC_FOOTER regex | `/?form=ordinary-sunday-ep` | Seasonal Collect II panel shows only collect text — no trailing "the Lord's Prayer" line |
+| Fix 2 — Book-only rubrics (normal mode) | `/?form=ordinary-sunday-ep` | None of the listed navigation rubrics appear ("One of the following…", "The following Psalms…", "After the Canticle…", "Evening Prayer continues with…", "A Reading from the appointed lectionary…", "After a period of silent reflection…") |
+| Fix 2 — Book-only rubrics (book mode) | Toggle book mode on `/?form=ordinary-sunday-ep` | All the above rubrics now appear |
+| Fix 3 — Evening hymn label | `/?form=ordinary-sunday-ep` | Muted italic text `the evening hymn: "O Gladsome Light, O Grace"` appears before the Phos Hilaron stanzas (capital O in both "O Gladsome" and "O Grace") |
+| Fix 4 — Collect Amen. bold | `/?form=ordinary-sunday-ep` → Seasonal Collect I or II | "Amen." at the end of the collect renders **bold** (same weight as a response line) |
+| Fix 5 — Mobile scripture indentation | Any reading-heavy office at 375px viewport | Scripture verses sit flush with container edge (no left indent), same as psalm verses |
+
+### What changed
+
+- `web/render.js`: SC_FOOTER regex now includes U+2019 curly apostrophe; added `BOOK_ONLY_RUBRICS` constant; moved `continues with` from `SKIP_RUBRICS` to `BOOK_ONLY_RUBRICS`; updated `renderSegments` to emit `rubric-book-only` class; added `seg-label` render case; added Amen-splitting logic in leader render path; marked preamble/reflection rubrics in `lessonHtml` as `rubric-book-only`.
+- `web/office.css`: Added `.seg-label` styling (muted italic subtitle); added `.rubric-book-only { display: none }` + `body.book-mode .rubric-book-only { display: block }`.
+- `tools/extract_offices.py`: Extended `_apply_text_patches` to handle `label` type segments; added patch entry for `"O Gladsome Light, O Grace"` capitalisation. Re-extracted.
+- Fix 5 (mobile scripture indentation): No code change — CSS already correct (`--indent: 0` at ≤520px zeroes `margin-left: var(--indent)` on `.scripture-verse`).
+
+---
+
 ## Batch 17 spec — UI polish: rubrics, label type, collect Amen, apostrophe bug
 
 Five fixes. Implement in order; one commit per fix.
