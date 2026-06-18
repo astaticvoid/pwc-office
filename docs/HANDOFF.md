@@ -1,8 +1,174 @@
 # PWC — Handoff
 
-_Updated: 2026-06-16_
+_Updated: 2026-06-17_
 
 Active handoff between Cowork (planning) and Claude Code (implementation). Cowork writes specs here; Code implements in order.
+
+---
+
+## Batch 17 spec — UI polish: rubrics, label type, collect Amen, apostrophe bug
+
+Five fixes. Implement in order; one commit per fix.
+
+---
+
+### Fix 1 — SC_FOOTER regex apostrophe encoding bug (`render.js`)
+
+`SC_FOOTER` at line 83 of `render.js` is:
+```js
+export const SC_FOOTER = /^the\s+Lord['']s\s+Prayer/i;
+```
+The two characters in `['']` are both U+0027 (straight apostrophe). The data text `"the Lord's Prayer"` uses U+2019 (right curly quote). The regex never matches, so the Lord's Prayer rubric is not stripped from Seasonal Collect II.
+
+**Fix:** Replace the character class to include U+2019:
+```js
+export const SC_FOOTER = /^the\s+Lord['’]s\s+Prayer/i;
+```
+
+**Verify:** In the app on any ordinary weekday or Sunday EP, the Seasonal II collect panel should show only the collect text — no trailing "the Lord's Prayer" line.
+
+---
+
+### Fix 2 — Book-only rubrics: hide in normal mode, show in book mode (`render.js`, `app.js`, `office.css`)
+
+Many rubric strings are procedural directions for reading the printed book. In the interactive app the UI already handles the "pick one" interaction via tabs; showing these rubrics is noise. In book mode (flat read-through, no tabs) they are needed.
+
+**Pattern:** A rubric is "book-only" if it is an instruction to pick from alternatives, introduces a section that the app UI already presents structurally, or annotates the flow of the printed order.
+
+The user identified these specific instances currently showing outside book mode:
+- "One of the following may be said or sung."
+- "The following Psalms from the appointed lectionary are said or sung."
+- "At the end of the Psalm one of the following may be said or sung."
+- "A Reading from the appointed lectionary is read."
+- "After a period of silent reflection one of the following is said."
+- `"The Song of Mary," "A Song of Praise," or "A Song of Christ's Glory" may be said or sung.`
+- "After the Canticle one of the following may be said or sung."
+- "Evening Prayer continues with an Affirmation of Faith or the Litany."
+- "One of the following Affirmations of Faith may be said or sung."
+
+**Mechanism — CSS gate (preferred over JS mode flag):**
+
+Add a new CSS class `rubric-book-only`. In `office.css`:
+```css
+.rubric-book-only { display: none; }
+body.book-mode .rubric-book-only { display: block; }
+```
+
+**In `render.js`:**
+
+Add a `BOOK_ONLY_RUBRICS` constant:
+```js
+export const BOOK_ONLY_RUBRICS = /one of the following may be said or sung|the following psalms|at the end of the (psalm|canticle)|after the (psalm|canticle)|may be said or sung\.|one of the following affirmations|continues with|Evening Prayer continues/i;
+```
+
+In `renderSegments`, change the rubric render line to:
+```js
+if (seg.type === 'rubric') {
+  const cls = BOOK_ONLY_RUBRICS.test(text) ? 'seg-rubric rubric-book-only' : 'seg-rubric';
+  return `<p class="${cls}">${esc(text)}</p>`;
+}
+```
+
+**In `app.js` / `render.js` `lessonHtml()`:**
+
+The two hardcoded rubric strings are always emitted:
+```js
+const preambleRubric  = `<p class="seg-rubric">A Reading from the appointed lectionary is read.</p>`;
+const reflectionRubric = `<p class="seg-rubric">After a period of silent reflection one of the following is said.</p>`;
+```
+
+Change both to use `rubric-book-only`:
+```js
+const preambleRubric  = `<p class="seg-rubric rubric-book-only">A Reading from the appointed lectionary is read.</p>`;
+const reflectionRubric = `<p class="seg-rubric rubric-book-only">After a period of silent reflection one of the following is said.</p>`;
+```
+
+**Note:** Do NOT add these to `SKIP_RUBRICS` (which always hides). Book mode needs them.
+
+**Verify:** Normal mode — none of the listed rubrics should appear. Book mode — all should appear.
+
+---
+
+### Fix 3 — Evening hymn label: render `type: "label"` + fix capitalisation (`render.js`, `offices.json` / extractor)
+
+**Part A — renderer:** The `type: "label"` segment (evening hymn title) falls through to the default `seg-leader` render in `renderSegments`. It needs a dedicated case styled as a subtitle/label.
+
+In `render.js` `renderSegments`, add before the default:
+```js
+if (seg.type === 'label') return `<p class="seg-label">${esc(text)}</p>`;
+```
+
+In `office.css`, add styling for `.seg-label`:
+```css
+.seg-label {
+  font-family: var(--font-liturgy); font-style: italic;
+  font-size: 0.95rem; color: var(--color-muted);
+  margin: 0.75rem 0 0.25rem;
+}
+```
+
+**Part B — capitalisation:** The data has:
+```
+"the evening hymn: \"o Gladsome Light, o Grace\""
+```
+Both `o` before `Gladsome` and `o` before `Grace` should be `O` (liturgical O of address). The fix belongs in `tools/extract_offices.py` `_TEXT_PATCHES`. Add a patch entry:
+
+```python
+('the evening hymn: "o Gladsome Light, o Grace"',
+ 'the evening hymn: "O Gladsome Light, O Grace"'),
+```
+
+After adding the patch, run `make extract` to regenerate and verify the label text in `offices.json`.
+
+**Verify:** EP forms with phos_hilaron (ordinary-sunday-ep, ordinary-monday-ep through ordinary-saturday-ep, etc.) — the evening hymn heading should appear as muted italic text "the evening hymn: 'O Gladsome Light, O Grace'" before the hymn stanzas.
+
+---
+
+### Fix 4 — Seasonal collect "Amen." not bold (`render.js`)
+
+Collect texts are rendered as a single `seg-leader` string. The trailing "Amen." is congregational — it should render bold like a `seg-response`.
+
+In `render.js`, add a helper or inline logic in the collect rendering path: if a `leader` text ends with `\nAmen.` or ` Amen.`, split at the final `Amen.` and render the `Amen.` as a `<p class="seg-response">`.
+
+The cleanest approach is a postprocessor on the collect text string, not a data change:
+```js
+function renderCollectText(text) {
+  const amenMatch = text.match(/^([\s\S]+?)\n(Amen\.)$/);
+  if (amenMatch) {
+    return `<p class="seg-leader">${esc(amenMatch[1])}</p>`
+         + `<p class="seg-response">Amen.</p>`;
+  }
+  return `<p class="seg-leader">${esc(text)}</p>`;
+}
+```
+
+Apply this wherever collect text is rendered as a `leader` segment. Check both `collectHtml()` in `app.js` and anywhere `renderSegments` emits a `leader` segment whose text ends with `\nAmen.` — the latter is the more general fix.
+
+**Verify:** Ordinary Sunday EP, Seasonal Collect I — "Amen." at the end should render bold.
+
+---
+
+### Fix 5 — Verify scripture indentation fixed on mobile
+
+Cowork already added CSS (`web/office.css`):
+```css
+@media (max-width: 520px) {
+  :root { --indent: 0; }
+  .scripture-verse { grid-template-columns: 1.4rem 1fr; }
+}
+```
+
+With `--indent: 0`, `margin: 0.4em 0 0.4em var(--indent)` on `.scripture-verse` becomes `margin-left: 0`. This should already be correct. Verify by loading a reading-heavy office at 375px viewport and confirming scripture verses sit flush with the container edge (same as psalm verses). If still indented, check if the scripture container has its own margin and fix accordingly.
+
+---
+
+### After all fixes: delivery
+
+```bash
+make check-integrity && make build && make serve-dist
+```
+
+Update `docs/HANDOFF.md` with "Ready for Cowork review — Batch 17" section listing URLs to spot-check.
 
 ---
 
