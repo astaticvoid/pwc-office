@@ -161,9 +161,10 @@ Source CSV uses `Ps 139:1-17, (18-23)` where `(18-23)` is an optional extension 
 **Fix**: `_psalm_group` in `tools/convert_lectionary.py` now tracks the last psalm number and prefixes bare verse ranges: `(18-23)` after `139:1-17` → `{"citation": "139:18-23", "optional": true}`. All existing JSON files patched via migration script.  
 _Severity:_ P1 — shows entirely wrong psalm (sometimes 50 verses instead of 6).
 
-**BUG-18 (P3): Litany response capitalisation — Wednesday MP and EP** ✅ Fixed  
-The PDF source uses lowercase for congregation responses in the Wednesday litany (following ACC typographic convention). The extraction pipeline normalised these to sentence case. Patched directly in `data/offices.json`: 8 responses in `ordinary-wednesday-mp` (`"holy one, accomplish your purposes in us."`) and 4 responses in `ordinary-wednesday-ep` (`"to declare the mystery of Christ."` etc.) lowercased.  
-_Severity:_ P3 — invisible to most users; not a doctrinal error.
+**BUG-18 (P3): Litany response capitalisation — Wednesday MP and EP** ⚠️ Half-reversed by BUG-25 (2026-07-05)  
+The PDF source uses lowercase for congregation responses in the Wednesday litany (following ACC typographic convention). The extraction pipeline normalised these to sentence case. Originally "fixed" by lowercasing 8 MP responses and 4 EP responses via `_TEXT_PATCHES`.  
+**Revision (BUG-25):** the MP half was wrong. The premise "PDF uses lowercase" came from pdfplumber, which decodes the PDF's small-caps font as lowercase; `pdftotext` (poppler) decodes the same glyphs correctly and shows **"Holy One"** — a capitalised divine title. The MP patch is deleted and "holy one → Holy One" is now a `_DIVINE_FIXES` rule (response segments only). The 4 EP tuples stand: they are grammatical continuations of the leader line, verified lowercase via pdftotext (lines 8031–8042).  
+_Severity:_ P3 — invisible to most users; not a doctrinal error. _Lesson:_ casing corrections require the pdftotext oracle (Batch 19), not visual inspection of pdfplumber output.
 
 ---
 

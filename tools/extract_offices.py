@@ -260,6 +260,10 @@ _CONTINUATION_STARTS = {'who', 'which', 'that', 'and', 'or', 'but', 'nor', 'yet'
 _DIVINE_FIXES: list[tuple[re.Pattern, str]] = [
     (re.compile(r'\bholy spirit\b',       re.IGNORECASE), 'Holy Spirit'),
     (re.compile(r'\bholy ghost\b',        re.IGNORECASE), 'Holy Ghost'),
+    # Divine title in the Wednesday litany (BUG-25; pdftotext confirms "Holy One").
+    # Safe only because _fix_casing scopes to response segments — canticle/psalm
+    # "holy one(s)" lives in leader/psalm segments and is untouched.
+    (re.compile(r'\bholy one\b',          re.IGNORECASE), 'Holy One'),
     (re.compile(r"\bgod[’']s only son\b", re.IGNORECASE), "God’s only Son"),
     (re.compile(r'\bgod the father\b',    re.IGNORECASE), 'God the Father'),
     (re.compile(r'\bgod the son\b',       re.IGNORECASE), 'God the Son'),
@@ -767,12 +771,10 @@ def _canonical_doxology(alt_block: dict) -> dict:
 #
 # Format: (office_key, section_key, old_text, new_text)
 _TEXT_PATCHES: list[tuple[str, str, str, str]] = [
-    # BUG-18: Wednesday litany responses are lowercase in the PDF.
-    # MP: eight identical responses
-    ("ordinary-wednesday-mp", "litany",
-     "Holy one, accomplish your purposes in us.",
-     "holy one, accomplish your purposes in us."),
-    # EP: four distinct responses that start with a capital after _fix_casing
+    # BUG-18 (revised by BUG-25): the MP "holy one" patch was removed — pdftotext
+    # proves the PDF reads "Holy One" (small-caps decoded lowercase by pdfplumber).
+    # The four EP tuples below stand: grammatical continuations, verified lowercase
+    # in the PDF (pdftotext lines 8031–8042).
     ("ordinary-wednesday-ep", "litany",
      "To declare the mystery of Christ.",
      "to declare the mystery of Christ."),
