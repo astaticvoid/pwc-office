@@ -99,6 +99,4 @@ Deploy requires AWS credentials with S3 + CloudFront permissions. See `project_a
 
 ## Copyright constraints
 
-`sources/` and `data/` (except `data/translations/kjv/` and `data/patches.json`) are gitignored because they contain or derive from copyrighted ACC/BAS liturgical text. Never commit these files. The KJV is public domain and committed. `data/patches.json` contains only short text snippets used to verify corrections.
-
-An ACC licence inquiry is pending to eventually allow committing `data/` publicly.
+`sources/` and `data/` (except `data/translations/kjv/` and `data/patches.json`) are gitignored because they contain or derive from copyrighted ACC/BAS liturgical text. Never commit these files — each contributor must run the extraction pipeline locally from ACC source files. The KJV is public domain and committed. `data/patches.json` contains only short text snippets used to verify corrections.

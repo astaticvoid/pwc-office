@@ -114,9 +114,9 @@ data/         Generated JSON — gitignored (copyrighted content)
 
 ## Status
 
-- Lectionary data: 2025–2026 (Year B complete; Year A pending Advent 2026)
+- Lectionary data: 2025–2026 (Year B)
 - All 31 office forms rendering correctly
-- ACC licence inquiry pending (required before open-sourcing `data/`)
+- Liturgical data is permanently gitignored — each user runs the extraction pipeline locally from ACC source files
 
 ## Licence
 
