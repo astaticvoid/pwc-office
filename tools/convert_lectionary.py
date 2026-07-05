@@ -600,6 +600,9 @@ def parse_collect(raw: str) -> str:
 
 RE_MULTI = re.compile(r"(?i)two of the following (\w+) readings:\s*")
 RE_IS_COLL = re.compile(r"(?i)^Coll\s+\d")
+# CSV shorthand "Coll above" / "Coll below" points at the Collect of the Day in
+# the propers — it is not a lesson (BUG-26). Case-sensitive by design.
+RE_COLL_REF = re.compile(r"^Coll (above|below)\b")
 
 
 def parse_single_office(text: str) -> dict:
@@ -644,6 +647,9 @@ def parse_single_office(text: str) -> dict:
 
         lesson = parse_lesson(field)
         if lesson is not None:
+            citation = lesson if isinstance(lesson, str) else lesson.get("citation", "")
+            if RE_COLL_REF.match(citation):
+                continue
             lessons.append(lesson)
 
     if lessons:

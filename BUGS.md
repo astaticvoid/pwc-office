@@ -18,11 +18,6 @@ _(empty)_
 
 ### P1 — Incorrect content shown to user
 
-**BUG-26: "Coll above"/"Coll below" rendered as lesson citations**  
-Field-reported 2026-06-21. CSV shorthand meaning "use the Collect of the Day in the propers" is parsed as a lesson: 2026-06-20 EP (`"Coll below (Eve of National Indigenous Day of Prayer)"`), 2026-06-21 MP + EP (`"Coll above"`). Renders as a bogus third reading.  
-_Fix:_ HANDOFF.md Batch 18 Fix B.  
-_Files:_ `tools/convert_lectionary.py`
-
 **BUG-06: 2027 BAS lectionary not yet available**  
 Coverage ends at late December 2026. Navigation shows "Readings not yet available" at the boundary; next-arrow disabled. Not a mobile beta blocker — will be added when ACC publishes the 2027 data.  
 _Fix:_ When ACC provides the next lectionary CSV, add to `sources/` and run `make extract`.  
@@ -72,6 +67,10 @@ _Files:_ `web/app.js:26`
 ---
 
 ## Closed
+
+**BUG-26: "Coll above"/"Coll below" rendered as lesson citations**  
+Fixed 2026-07-05 (Batch 18 Fix B). `parse_single_office` now drops any lesson matching `^Coll (above|below)\b` (RE_COLL_REF) before it reaches the lessons list. Removed the pseudo-lessons from 2026-06-20 EP and 2026-06-21 MP/EP; the collect they point at is surfaced by Fix C (BUG-27). 2 new pytest tests.  
+_Files:_ `tools/convert_lectionary.py`, `tools/tests/test_convert_lectionary.py`
 
 **BUG-25: "Holy One" divine title lowercased in 22 litany responses (incl. wrong BUG-18 "fix")**  
 Fixed 2026-07-05 (Batch 18 Fix A). Added `holy one → Holy One` to `_DIVINE_FIXES` (response segments only); deleted BUG-18's wrong MP lowercasing tuple from `_TEXT_PATCHES` (its four EP continuation tuples stand — pdftotext-verified). Re-extracted; all 22 instances now "Holy One" (grep counts 8/4/5/5, zero lowercase). 2 new pytest tests. Root cause and lesson recorded in `docs/CORRECTNESS.md` (BUG-18 note).  
