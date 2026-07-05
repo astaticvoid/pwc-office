@@ -14,6 +14,7 @@ from convert_lectionary import (
     parse_name_meta,
     parse_psalm_field,
     parse_lesson,
+    parse_single_office,
     detect_bounds,
 )
 
@@ -130,6 +131,21 @@ class TestParseLesson:
 
     def test_whitespace_stripped(self):
         assert parse_lesson("  Isa 40:1-11  ") == "Isa 40:1-11"
+
+
+# ── parse_single_office ───────────────────────────────────────────────────────
+
+class TestParseSingleOffice:
+    def test_coll_above_pseudo_lesson_dropped(self):
+        # BUG-26: "Coll above/below" is a propers cross-reference, not a lesson.
+        office = parse_single_office("Ps 78:1-39; Num 14:26-45; Acts 15:1-12; Coll above")
+        assert office["lessons"] == ["Num 14:26-45", "Acts 15:1-12"]
+
+    def test_coll_below_with_parenthetical_dropped(self):
+        office = parse_single_office(
+            "Ps 63; Isa 40:25-31; Coll below (Eve of National Indigenous Day of Prayer)"
+        )
+        assert office["lessons"] == ["Isa 40:25-31"]
 
 
 # ── detect_bounds ─────────────────────────────────────────────────────────────
