@@ -28,8 +28,8 @@ boneyard/data/
 # Local secrets — never commit
 .env
 
-# Claude Code local settings
-.claude/
+# Claude Code — machine-local settings only; shared settings (.claude/settings.json etc.) are tracked
+.claude/settings.local.json
 
 # Design scratch space — docs/ is the tracked home for design docs
 redesign/
