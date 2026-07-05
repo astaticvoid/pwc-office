@@ -149,5 +149,4 @@ Capacitor wraps `dist/` as a native app (`capacitor.config.json`, `webDir: dist`
 
 - **Lectionary coverage**: rolling 12-month window, currently 2025–2026 (Year B)
 - **Office forms**: 31 forms in `data/offices.json`; form selection logic in `app.js` is season- and weekday-aware
-- **No Co-Authored-By** trailers in commits
 - **One logical change per commit** — don't batch unrelated changes across sessions
