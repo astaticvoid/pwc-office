@@ -8,15 +8,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Delivery workflow
 
+Claude Code owns planning, implementation, and verification end-to-end (the former Cowork review role is retired, 2026-07-05).
+
 After each commit: `git push`. Do not batch pushes — GitHub is the running record of progress.
 
 After all commits in a batch are pushed:
 1. `make check-integrity` — must pass before build
-2. `make build && make serve-dist` — serves dist/ on :8081 in the background (`make serve-dist &`)
-3. Write a "Ready for Cowork review" section at the top of `docs/HANDOFF.md` listing what to spot-check and at which URLs
-4. Stop. Do not run `make deploy`. Cowork reviews the running :8081 instance and approves deploy.
+2. `make build && make serve-dist &` — serves dist/ on :8081 in the background
+3. **Self-review**: browse `http://localhost:8081` with browser tools and verify each fix at the affected dates/forms; record what was checked in a "Verified" section at the top of `docs/HANDOFF.md`
+4. Stop. Do not run `make deploy` without the user's explicit go-ahead — deploy is production-facing (ACC trial audience).
 
-Cowork will browse to `http://localhost:8081` via browser tools, verify key dates, and trigger `make deploy` only after approving.
+## One-time setup
+
+```bash
+npm install
+npx playwright install   # Chromium browser for Playwright E2E tests
+
+pip install pdfplumber
+brew install poppler     # pdftotext — required by extraction pipeline
+```
 
 ## Commands
 
@@ -24,19 +34,30 @@ Cowork will browse to `http://localhost:8081` via browser tools, verify key date
 # Development — serve web/ directly (no build step, data symlink followed live)
 make serve                        # http://localhost:8080
 
+# Data pipeline (first time, or after source PDFs/CSVs change)
+make fetch-sources                # download ACC PDFs + CSVs → sources/
+make extract                      # full pipeline → data/*.json + data/lectionary/
+
 # Testing
 make test                         # Vitest unit tests + Python pytest (fast, no API key)
 make test-full                    # Structural check every day in lectionary (node)
 make test-smoke                   # 4 cases: structural + citation check vs lectionary.anglican.ca
 make test-seasonal                # 26 cases: one MP+EP per liturgical form
-make test-web                     # Playwright E2E suite (tests/e2e/office.spec.js)
+make test-web                     # Playwright E2E — requires `make serve-dist` in another terminal
 make test-tools                   # Python pytest for tools/ (needs pytest: brew install pytest)
 make validate                     # Validate lectionary JSON against ACC HTML (network)
+make check-book FORM=... DATE=... # Diff CLI plain-text output against PDF golden files
+make generate-golden              # Regenerate golden files for all 31 forms (tests/fixtures/book/, gitignored)
 
 # Build & verify before deploy
-make build                        # Assembles dist/, stamps service worker cache hash
+make build                        # Assembles dist/ (copies web/, dereferences data symlink)
 make check-dist                   # Runs build + tools/check_dist.py validation
 make serve-dist                   # Serves dist/ on :8081 (required for E2E pre-deploy)
+
+# Mobile (Capacitor — wraps dist/ as native iOS/Android shell)
+make mobile-sync                  # build + npx cap sync
+make mobile-ios                   # mobile-sync + open Xcode project
+make mobile-android               # mobile-sync + open Android Studio project
 
 # Deploy (needs AWS creds + BUCKET + CF_DISTRIBUTION_ID) — Cowork approval required first
 make deploy BUCKET=... CF_DISTRIBUTION_ID=...
@@ -48,6 +69,7 @@ Always use `python3` from Homebrew, not macOS system python (3.9, too old).
 
 ```
 BIBLE_API_KEY=       # API.Bible key for NRSVUE Scripture fetching
+ANTHROPIC_API_KEY=   # needed for test-smoke and test-seasonal (citation LLM checks)
 ```
 
 ## Architecture
@@ -61,7 +83,7 @@ PDFs / HTML  →  Python tools/  →  data/*.json + data/lectionary/YYYY-MM.json
                           (fetches JSON at runtime)    (loads JSON from disk)
 ```
 
-Copyrighted ACC/BAS content in `data/` is gitignored. The `web/data` entry is a symlink to `../data` — `make build` dereferences it via `cp -rL`.
+Copyrighted ACC/BAS content in `data/` is permanently gitignored (never committed — each contributor runs the extraction pipeline locally; only `data/translations/kjv/` and `data/patches.json` are committed). The `web/data` entry is a symlink to `../data` — `make build` dereferences it via `cp -rL`.
 
 ### Node CLI (`cli/`)
 
@@ -72,14 +94,13 @@ Copyrighted ACC/BAS content in `data/` is gitignored. The `web/data` entry is a 
 
 ### Web SPA (`web/`)
 
-Single-file architecture: `web/app.js` (~1400 lines) handles routing, lectionary lookup, form selection, rendering, and Scripture fetching. No framework, no build step. Sections are separated by `// ── Name ───` banners for navigation.
+Two-file core: `web/render.js` contains all office rendering functions and is imported by both `web/app.js` and the Node CLI (`cli/book.js`, `cli/office.js`). `web/app.js` (~1300 lines) handles routing, lectionary lookup, form selection, and Scripture fetching. No framework, no build step. Sections are separated by `// ── Name ───` banners for navigation.
 
 - **Form selection**: Season + weekday → one of 31 office forms from `data/offices.json`
 - **Psalms**: Loaded from `data/psalter.json` with verse numbers and midpoint markers
 - **Scripture**: NRSVUE fetched from API.Bible (lazy, cached)
-- **Lectionary**: Monthly JSON files (`data/lectionary/YYYY-MM.json`) fetched lazily and cached by service worker
-- **Offline**: Service worker (`sw.js`) caches shell + all data files; cache key is SHA256-stamped at build time
-- **Stuck SW escape hatch**: visit `/?reset` to unregister the service worker and clear caches
+- **Lectionary**: Monthly JSON files (`data/lectionary/YYYY-MM.json`) fetched lazily
+- **No service worker**: `sw.js` is a kill-switch only — it unregisters itself and clears all caches to clean up old installs. `app.js` no longer registers a SW; deploy uploads `sw.js` with no-cache headers so existing installs pick it up. Do not add SW caching back without discussion.
 
 ### Python tools (`tools/`)
 
@@ -116,14 +137,17 @@ One-time data pipeline scripts. Run via `make extract` (or in order):
 
 `data/patches.json` currently has 6 active entries (sovereign collect text, Canada Day / Saint Peter / Saint Paul page mislabeling). Add entries there only for corrections that cannot be expressed in the extraction logic (e.g. wording changes that require editorial judgment rather than a parsing fix).
 
-### Redesign work (`redesign/`)
+### Mobile shell (`ios/`, `android/`)
 
-Active design exploration lives in `redesign/` (untracked). `DESIGN.md` is the canonical reference; `HANDOVER.md` summarises decisions for cross-session continuity. Do not delete this directory.
+Capacitor wraps `dist/` as a native app (`capacitor.config.json`, `webDir: dist`). `make mobile-sync` rebuilds dist/ and runs `npx cap sync`; native builds happen in Xcode / Android Studio (`make mobile-ios` / `make mobile-android` open them). The web build stays the source of truth — no native-only code paths.
+
+### Design docs (`docs/`)
+
+`docs/DESIGN.md` is the canonical design reference. `docs/HANDOFF.md` carries cross-session handoff notes (and the "Ready for Cowork review" section from the delivery workflow). `docs/CORRECTNESS.md` and `docs/UX_AUDIT.md` record audit findings.
 
 ## Key constraints
 
-- **Lectionary coverage**: rolling 12-month window (Year B complete; Year A coverage begins Advent 2026)
-- **Service worker cache**: The string `pwc-v1` in `sw.js` is a placeholder — `make build` replaces it with a content hash. Never hardcode a real hash there.
+- **Lectionary coverage**: rolling 12-month window, currently 2025–2026 (Year B)
 - **Office forms**: 31 forms in `data/offices.json`; form selection logic in `app.js` is season- and weekday-aware
 - **No Co-Authored-By** trailers in commits
 - **One logical change per commit** — don't batch unrelated changes across sessions
