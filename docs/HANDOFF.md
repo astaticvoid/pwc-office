@@ -1,8 +1,153 @@
 # PWC — Handoff
 
-_Updated: 2026-06-17_
+_Updated: 2026-07-05_
 
-Active handoff between Cowork (planning) and Claude Code (implementation). Cowork writes specs here; Code implements in order.
+Session-to-session handoff. Claude Code owns planning, implementation, and verification end-to-end (the former Cowork review role is retired, 2026-07-05); specs are written here by planning sessions and implemented in order by later sessions.
+
+> **Context for implementing sessions (written 2026-07-05):** These specs were authored during a full project audit (see `docs/ASSESSMENT-2026-07.md` for reasoning and evidence). Follow them literally; where a spec says "verify", run the exact command and compare against the stated expected output. Every data-affecting fix ends with `make extract` + `make check-integrity` + `make test` — never edit `data/*.json` by hand. One commit per fix, push after each commit.
+
+---
+
+## Batch 18 spec — Field-trial correctness fixes (June 21/23/24 observations + audit)
+
+Nine fixes, ordered so data-pipeline changes (A–G) come before render-only changes (H–I) and re-extraction happens once per extractor touched. Fixes A–G each change extractor output: after each, run `make extract && make check-integrity && make test && make check-text`. BUGS.md cross-references: A=BUG-25, B=BUG-26, C=BUG-27, D=BUG-28, E=BUG-32, F=BUG-33, G=BUG-29, H=BUG-30, I=BUG-31.
+
+### Fix A — "Holy One" casing (BUG-25, P1) — `tools/extract_offices.py`
+
+Two changes:
+
+1. In `_DIVINE_FIXES` (≈line 260), add this entry **immediately after** the `holy ghost` entry (multi-word phrases must precede their components, and it must run before the standalone rules):
+```python
+    (re.compile(r'\bholy one\b', re.IGNORECASE), 'Holy One'),
+```
+2. In `_TEXT_PATCHES` (≈line 769), **delete** the one MP tuple (the BUG-18 entry that was based on a wrong premise):
+```python
+    ("ordinary-wednesday-mp", "litany",
+     "Holy one, accomplish your purposes in us.",
+     "holy one, accomplish your purposes in us."),
+```
+   **Keep** the four `ordinary-wednesday-ep` tuples ("to declare the mystery of Christ." etc.) — those are grammatical continuations, verified lowercase in the PDF (pdftotext lines 8031–8042).
+
+**Safety notes:** `_fix_casing` only processes `type == "response"` segments, so canticle/psalm texts (where lowercase "holy one(s)" is legitimate, e.g. Ps 16 "nor let your holy one see the Pit") are untouched — they live in leader/psalm segments and in `psalter.json` (different extractor). The IGNORECASE pattern is safe *only* because of this response-segment scoping; do not copy it into a broader pass.
+
+**Add pytest** in `tools/tests/` (follow the existing `_fix_casing` test style): a response segment `{"type": "response", "text": "holy one, accomplish your purposes in us."}` must come out `"Holy One, accomplish your purposes in us."`; a leader segment with the same text must be unchanged.
+
+**Verify after re-extract** (expected counts exactly):
+```bash
+grep -o '"Holy One, accomplish your purposes in us."' data/offices.json | wc -l   # 8
+grep -o '"Holy One, make all things new."' data/offices.json | wc -l              # 4
+grep -o '"Holy One, shine upon us and hear us."' data/offices.json | wc -l        # 5
+grep -o '"Holy One, hear and have mercy."' data/offices.json | wc -l              # 5
+grep -c '"[Hh]oly one' data/offices.json                                           # 0
+```
+Also update the BUG-18 note in `docs/CORRECTNESS.md`: the MP half of BUG-18 is reversed (PDF says "Holy One"); the EP continuations stand.
+
+### Fix B — Strip "Coll above/below" pseudo-lessons (BUG-26, P1) — `tools/convert_lectionary.py`
+
+In the row-processing path where lessons are parsed (near the `LESSON_FIXES` application, ≈line 798), filter out any lesson whose citation matches `^Coll (above|below)\b` (case-sensitive; applies to both string lessons and `{"citation": …}` dicts). Do this **before** `LESSON_FIXES` is applied so future fixes see clean input. Affected entries — 2026-06-20 evening, 2026-06-21 morning, 2026-06-21 evening — currently carry the pseudo-lesson as their last element.
+
+The dropped reference is not lost: Fix C surfaces the collect it points to.
+
+**Add pytest**: a lessons list `["Num 14:26-45", "Acts 15:1-12", "Coll above"]` parses to 2 lessons.
+
+**Verify after re-extract:**
+```bash
+grep -rn 'Coll above\|Coll below' data/lectionary/   # no matches in lessons arrays
+```
+
+### Fix C — Surface special-day propers Collect (BUG-27, P2) — `tools/convert_lectionary.py` + `web/app.js`
+
+**Converter side.** For any day where a "Coll above/below" reference was stripped (Fix B), extract the Collect of the Day from that day's `eucharist` blob and attach it to the day entry:
+
+- The blob format (see 2026-06-21) is: `… Collect of the Day: <collect text> Amen <next heading>: …` where subsequent headings are `Prayer over the Gifts:` and `Prayer after Communion:` and `Sentence:`.
+- Regex: `r'Collect of the Day:\s*(.*?)\s*(?=Prayer over the Gifts:|Prayer after Communion:|Sentence:|$)'` with `re.DOTALL`.
+- Store as `entry["collect_inline"] = {"name": entry["name"], "text": <captured text>}`. For a "Coll below" eve reference (2026-06-20 EP), the collect lives on the *next* day's blob — resolve it from the referenced day (the observance string names it: `eve_of:National Indigenous Day of Prayer`); if resolution is ambiguous, fall back to same-day blob and note it in the converter's stderr summary.
+- Trim a trailing bare `Amen` into `Amen.` for consistency with `collects.json` texts.
+
+**App side.** In `collectToggleHtml()` (`web/app.js:513`), the collect resolution currently starts from `collectRef` (`office.collect`). Add: when the office has no `collect` ref but the day entry has `collect_inline`, treat it as the Collect of the Day — same rendering path as a resolved BAS collect (`<p class="alt-source">` name + `<p class="collect-text">` text). Day-level data is already available at the call site (the day entry is what supplies `collectRef` today; pass `day.collect_inline` alongside).
+
+**Verify:** `node cli/office.js mp 2026-06-21` shows the "Creator God, from you every family…" collect under Collect of the Day; June 21 EP likewise; 2026-06-20 EP shows it (or, if eve-resolution was skipped, the stderr note says so). Playwright not required for this batch; the batch-end self-review covers the browser check at :8081.
+
+**Scope guard:** do NOT attempt a general propers/eucharist card in this batch. The `eucharist` field on ordinary ferias ("As Proper 12, except: …") is eucharist-specific noise for a Daily Office app. Only the collect extraction above is in scope; a general propers surface is a design decision for the owner (parked in ASSESSMENT §6).
+
+### Fix D — Render `lessons_pick` rubric (BUG-28, P2) — `web/app.js`, `cli/book.js`, `cli/office.js`
+
+21 days carry `lessons_pick: 2` with 3 lessons. Where the office's lessons are iterated for rendering (app.js lesson loop; both CLIs), if `office.lessons_pick` is present and `< lessons.length`, emit one rubric line **before the first lesson**:
+
+> Two of the following three readings are read.
+
+Generate the words from the numbers (`['one','two','three','four'][n-1]`) rather than hardcoding, but only 2-of-3 exists in current data. Use `class="seg-rubric"` (NOT `rubric-book-only` — this rubric is load-bearing in the interactive app precisely because the app does not implement pick-interaction). CLI: plain text line matching book-mode conventions.
+
+**Verify:** `node cli/office.js mp 2026-06-23` shows the rubric before "Num 16:20-35"; a day without `lessons_pick` (2026-06-24) shows no rubric. Grep test data count: `grep -l lessons_pick data/lectionary/*.json | wc -l` → 12 files, 21 occurrences total.
+
+### Fix E — 2026-09-27 merged citation (BUG-32, P2) — `tools/convert_lectionary.py`
+
+Add to `LESSON_FIXES` (format precedent at line 44–50):
+```python
+    # CSV has "(2 Kgs 17:1-18), Mt 13:44-52" — optional citation merged with following lesson
+    ("2026-09-27", "evening"): [{"citation": "2 Kgs 17:1-18", "optional": True}, "Mt 13:44-52"],
+```
+Check the raw CSV row first (`grep '2026-09-27' sources/bas_short_*.csv` — confirm there isn't a second non-optional lesson lost in the merge; if the CSV shows three items, include all three).
+
+**Verify after re-extract:** the 2026-09-27 evening lessons array has 2+ entries, first optional.
+
+### Fix F — Drop "O Antiphon" pseudo-lessons (BUG-33, P2) — `tools/convert_lectionary.py`
+
+Same mechanism as Fix B: filter lessons whose citation is exactly `O Antiphon` (14 instances, Dec 17–23 both years). The antiphon content is already delivered as a typed `o_antiphon` note on the same dates and renders correctly (BUG-07/UX-09).
+
+**Verify after re-extract:** `grep -c '"O Antiphon"' data/lectionary/2025-12.json data/lectionary/2026-12.json` — remaining matches are only inside `notes` text, none in `lessons` arrays. Spot-check `node cli/office.js ep 2025-12-17`.
+
+### Fix G — Reflow collect prose (BUG-29, P3) — `tools/extract_offices.py`, `tools/extract_collects.py`
+
+The PDF's column-width hard wraps are typographic, not semantic (evidence: breaks mid-clause, "…and who\nlives and reigns…"). Collects are prose; join their lines.
+
+1. `extract_offices.py`: in the `seasonal_collects` block assembly, for segments of `type == "leader"` only, apply `text = re.sub(r'\s*\n\s*', ' ', text).strip()`. Do NOT touch `rubric` segments (they contain intentional bullet lists) or `response` segments.
+2. `extract_collects.py`: apply the same join to every collect `text`. All 118 entries are single prose sentences ending in Amen — no intentional lineation exists (194 of their lines currently end mid-clause).
+
+**Caution — golden files:** `make check-book` diffs CLI output against PDF-derived goldens which retain the PDF's hard wraps. After this fix, if `make check-book` fails on collect lines, regenerate goldens (`make generate-golden`) and eyeball the diff — only line-joining changes are acceptable. Mention the regeneration in the commit message.
+
+**Verify:** `python3 -c "import json; c=json.load(open('data/collects.json')); print(sum(1 for v in c.values() if chr(10) in v['text']))"` → 0. In the app, a seasonal collect panel shows naturally wrapped prose.
+
+### Fix H — Italicise placeholder N (BUG-30, P3) — `web/render.js`
+
+In the segment-text render path (after `esc()`), replace standalone `N` with `<em>N</em>`: pattern `/\bN\b(?=[ ,.])/g`. Exactly 2 occurrences exist in `offices.json` (both "May N our bishop…"), verified safe — no legitimate standalone capital N elsewhere. Apply in `renderSegments` for leader/response text only (not rubrics, not scripture/psalm text, which come from different paths).
+
+**Add Vitest case** in `tests/unit/render.test.js`: a leader segment `"May N our bishop and all bishops"` renders containing `May <em>N</em> our bishop`.
+
+**Future (not this batch):** a settings field to substitute the diocesan bishop's name — parked in ASSESSMENT §6.
+
+### Fix I — EP default from 15:00 (BUG-31, P3) — `web/app.js:26`
+
+```js
+return new Date().getHours() >= 15 ? 'ep' : 'mp';
+```
+Rationale: eve-of-feast EP begins the feast; mid-afternoon is the traditional hinge, and the field request was explicit ("Eve prayer should start at 3pm"). Check `tests/` for any test pinning 17 (none known).
+
+### Batch 18 delivery
+
+After all nine commits are pushed: `make check-integrity && make build && make serve-dist &`, then **self-review with browser tools at :8081** and record a "Verified" table in this file covering: June 21 MP (collect present, no "Coll above" reading, reflowed seasonal collect), June 23 MP (pick-2 rubric, italic N in Wednesday-style litany days), June 24 MP (litany "Holy One"), Dec 17 EP (no O Antiphon reading), form=ordinary-wednesday-mp (litany casing). Do not `make deploy` without the owner's go-ahead.
+
+---
+
+## Batch 19 spec — Data-confidence tooling (casing oracle + prose-wrap detector)
+
+Do after Batch 18. Two additions to the quality harness; both advisory by default, `--strict` for gating. Full rationale in `docs/ASSESSMENT-2026-07.md` §4.
+
+### 19.1 `tools/check_casing.py` — casing oracle against pdftotext
+
+**Insight this encodes:** pdfplumber (extraction) decodes the small-caps font as lowercase; `pdftotext` (poppler) decodes the same glyphs with correct case. So `pdftotext` output is a free ground-truth oracle for casing — it would have caught all 22 BUG-25 errors *and* BUG-18's over-correction automatically.
+
+Implementation:
+1. Run `pdftotext sources/pray-without-ceasing.pdf -` once (subprocess), normalise whitespace (collapse runs, strip), keep as one big string plus a case-folded copy.
+2. For every segment of type `leader`, `response`, `label` in `data/offices.json` (resolve `_shared` refs; recurse into `alternatives` groups): normalise its text the same way, then locate it in the case-folded PDF text. If found, compare the original-case slice character-by-character; report any mismatch as `office_key/section_key: "<data text>" vs PDF "<pdf text>"`.
+3. Segments not found at all (edited by patches, `_TEXT_PATCHES`, or synthesized like `reading_response`) are listed under a separate "unmatched (informational)" count, not as errors. Expect the four EP BUG-18 continuation patches to appear as *mismatches* — add an explicit allowlist at the top of the script `KNOWN_INTENTIONAL = {…the four EP strings…}` with a comment pointing at BUG-18/BUG-25 evidence.
+4. `make check-casing` target; wire into `make validate` chain like `check-text`. Exit 0 unless `--strict`.
+
+**Acceptance:** running it on pre-Batch-18 data reports exactly the 22 BUG-25 strings; on post-Batch-18 data reports zero mismatches outside the allowlist.
+
+### 19.2 Extend `tools/check_text_quality.py` — column-wrap detector
+
+New rule: for prose-expected fields (collect texts in `collects.json`; `leader` segments inside `seasonal_collects`), any internal line ending without terminal punctuation (`,;:.!?—’”)`) is a suspected column wrap. After Batch 18 Fix G these should be zero; the rule prevents regression at the next re-extraction. Same warning/`--strict` convention as existing rules.
 
 ---
 

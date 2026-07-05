@@ -1,6 +1,6 @@
 # PWC — Project Roadmap
 
-_Last updated: 2026-06-14_
+_Last updated: 2026-07-05_
 
 This roadmap organises work into four phases with a rough priority ordering within each. Items are linked to BUGS.md where a known defect is involved.
 
@@ -19,9 +19,12 @@ These are the delivery targets tracked every cycle. Status updated as work progr
 | 2 | **Correctness audit** (30 office forms) | ✅ Done. All 30 forms pass automated CLI audit. Seasonal EP opening responses fixed. | — |
 | 3 | **FATS fully integrated** | 🟡 Phase 1 done (bio + collect fallback). Minor feast readings design pending. | Design decision |
 | 4 | **RCL Daily extractor** | 🟡 Spec complete. Lower priority than mobile; add when Synod CCT contact resolves. | Rights resolution |
-| 5 | **iOS / Android (Synod private beta)** | 🔴 Next. Capacitor proof-of-concept. ACC licence in progress — not a beta blocker. | Milestones 1–2 ✅ |
+| 5 | **iOS / Android (Synod private beta)** | 🟡 In progress. Capacitor shell committed (2026-06); native features + store submission remain. | Milestones 1–2 ✅ |
+| 6 | **Batch 18/19 — field-trial correctness fixes + casing oracle** | 🔴 Next. 9 bugs from June field observations + audit; specs complete in HANDOFF.md. | — |
 
-**Current focus:** Mobile. Remaining data/UX cleanup runs in parallel with Capacitor work.
+**Current focus:** Batch 18 correctness fixes first (small, trust-critical for the ACC trial), then mobile milestones. See `docs/ASSESSMENT-2026-07.md` for the 2026-07 audit and strategy validation.
+
+**Strategic context (2026-07-05):** The app is under trial by the Anglican Church of Canada as a candidate official prayer app. ACC is obtaining rights to distribute the copyrighted texts *in the app* (the open-source repo remains text-free — see ASSESSMENT §5). ACC's prime desire is mobile apps.
 
 _These milestones are referenced at every Cowork/Code delivery cycle review._
 
@@ -107,20 +110,7 @@ Run through all `collect` field values in the lectionary JSON and verify each re
 
 ## Phase 2 — Feature Completeness (Soon)
 
-### 2.1 Lectionary coverage
-
-**Year A extraction** (BUGS.md BUG-06)  
-When ACC provides the Year A CSV, run the full pipeline:
-- Add `bas_short_YYYY.csv` to `sources/` and run `make extract`
-- `convert_lectionary.py` converts it — expect to add new correction dict entries
-- `validate_lectionary.py` to cross-check
-- Update `season_bounds.json` with Year A bounds
-- Extend date picker `max` in the web app
-
-**Year A/B/C cycle display**  
-The web app should show the current BCP year (A/B/C) in the day metadata so users understand which lectionary year they're in. Derive from bounds.
-
-### 2.2 Missing liturgical content
+### 2.1 Missing liturgical content
 
 ✅ **Extract Occasional Prayers from BAS** (BUGS.md BUG-04, 2026-06-14)  
 Extended `extract_collects.py` to parse BAS pp.676-683. p.677 (For the Sovereign) and p.680 (Labour Day) now in `collects.json`. **Remaining:** app UI needs to parse the secondary "or N, PAGE" collect-ref format to display the alternative; currently `collectPageNum()` returns the first number only (the primary collect).
@@ -130,29 +120,12 @@ Extended `extract_collects.py` to parse BAS pp.676-683. p.677 (For the Sovereign
 - `civil_day` / `week_of_prayer`: muted informational row with bold day name
 - Other types: existing expand-on-read behaviour
 
-### 2.3 Print mode (BUGS.md BUG-08)
+### 2.2 Print mode (BUGS.md BUG-08)
 
 ✅ Fixed 2026-06-06. `@media print` CSS added:
 - All `.alt-panel-hidden` elements revealed
 - `.alt-tabs` hidden; nav, buttons, colour chips suppressed
 - Serif font at appropriate print sizing
-
-A `?view=print` URL parameter for screen-based "full text" mode (useful for leading a service from a laptop) is still worth adding.
-
-### 2.4 Offline improvements (BUGS.md BUG-09)
-
-**Explicit offline download UI**  
-Add a settings drawer with:
-- Current offline coverage indicator (which months are cached)
-- "Download next 3 months" / "Download full year" buttons
-- Per-translation download (KJV vs. NRSVUE)
-- Uses `Cache.put()` directly; shows progress
-
-### 2.5 ACC licence
-
-Draft and send inquiry to Anglican Church of Canada about reproducing BAS/PWC liturgical text in an open-source Anglican worship app. This unblocks:
-- Committing `data/` publicly
-- Publishing the repo under MIT or Apache 2.0
 
 ---
 
@@ -221,9 +194,9 @@ BAS has French editions. Long-term internationalization goal. Requires both a tr
 
 Generate machine-readable daily office readings for calendar integration. Could be a static build artifact (one ics per month) or a lightweight edge function.
 
-### 4.4 Go CLI parity
+### 4.4 Node CLI parity
 
-Ensure the CLI renders all features available in the web app, including seasonal collect toggle, alternate observance, and optional lessons. Currently the CLI shares the data layer but may not render all alternatives.
+Ensure the Node CLI (`cli/book.js`, `cli/office.js`) renders all features available in the web app, including seasonal collect toggle, alternate observance, and optional lessons. (The former Go CLI was retired when `web/render.js` + the Node CLI replaced it; its season-parity tests were superseded by the Playwright `data-season` checks.)
 
 ---
 
@@ -231,11 +204,11 @@ Ensure the CLI renders all features available in the web app, including seasonal
 
 PWC is being developed as an official Anglican Church of Canada distributed app. Distribution via the App Store and Google Play requires native (or hybrid-native) packaging. This is a large project; design decisions and technical choices need to be made before implementation begins.
 
-### 5.1 Technical approach (decision required)
+### 5.1 Technical approach — ✅ decided: Capacitor (shell committed 2026-06)
 
-Three viable paths:
+Three paths were considered:
 
-**Capacitor (recommended starting point)** — wraps the existing web SPA in a native shell with access to native APIs. Fastest path given the existing vanilla JS app. Capacitor is maintained by Ionic and widely used for exactly this pattern. The web app runs unchanged; native features (push notifications, offline storage, app icons) are layered on top.
+**Capacitor (chosen)** — wraps the existing web SPA in a native shell with access to native APIs. Fastest path given the existing vanilla JS app. Capacitor is maintained by Ionic and widely used for exactly this pattern. The web app runs unchanged; native features (push notifications, offline storage, app icons) are layered on top.
 
 **React Native / Flutter** — full rewrite of the frontend in a cross-platform framework. Produces better native UI fidelity but requires rewriting `app.js` (~1400 lines) in a new paradigm. Only justified if significant native UI is required or Capacitor proves inadequate.
 
@@ -252,7 +225,6 @@ Three viable paths:
 
 - ✅ No known P0 regressions (BUG-19, 22, 23 all fixed; 30/30 forms clean)
 - ✅ Render module extracted (`web/render.js`) — Capacitor can use web app directly
-- ACC licence — in progress; not a blocker for Synod private beta
 - 2027 BAS lectionary — will be added when ACC provides it; not blocking mobile
 - RCL daily — lower priority than mobile; add post-beta if rights resolve
 
@@ -280,7 +252,5 @@ By the end of Phase 1, the following should be true:
 
 By the end of Phase 2:
 
-- [ ] Year A lectionary data integrated
 - [x] Print mode functional
 - [ ] Occasional Prayers extracted
-- [ ] ACC licence inquiry sent

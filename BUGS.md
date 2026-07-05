@@ -1,8 +1,16 @@
 # PWC — Bug Tracker
 
-_Last updated: 2026-06-14 (23 bugs closed)_
+_Last updated: 2026-07-05 (23 bugs closed; 9 opened from field-trial observations and audit — see docs/ASSESSMENT-2026-07.md)_
 
-Severity scale: **P0** = data corruption / silent wrong output �� **P1** = incorrect content shown to user · **P2** = missing content / broken feature · **P3** = UX issue / cosmetic
+Severity scale: **P0** = data corruption / silent wrong output · **P1** = incorrect content shown to user · **P2** = missing content / broken feature · **P3** = UX issue / cosmetic
+
+---
+
+## Field observations — inbox
+
+_Drop dated observations from real use here; they get triaged into numbered bugs next session. (June 21/23/24 observations triaged 2026-07-05 → BUG-25…31.)_
+
+_(empty)_
 
 ---
 
@@ -10,10 +18,59 @@ Severity scale: **P0** = data corruption / silent wrong output �� **P1** = i
 
 ### P1 — Incorrect content shown to user
 
+**BUG-25: "Holy One" divine title lowercased in 22 litany responses (incl. wrong BUG-18 "fix")**  
+Field-reported 2026-06-24. Four response strings render with wrong casing: `"holy one, accomplish your purposes in us."` ×8 (Wednesday MP litany), `"Holy one, shine upon us and hear us."` ×5 (Epiphany MP), `"Holy one, hear and have mercy."` ×5, `"Holy one, make all things new."` ×4 (Christmas). `pdftotext` of the source PDF shows **"Holy One"** (both capitals) in every one of these responses — BUG-18's premise ("intentionally lowercase in the PDF") was wrong for the MP responses; its patch made them worse. Root cause: pdfplumber decodes the small-caps response font as lowercase; `_DIVINE_FIXES` in `extract_offices.py` has no `holy one → Holy One` entry. BUG-18's four EP *continuation* lowercasing patches ("to declare the mystery of Christ." etc.) are verified correct against the PDF and must stay.  
+_Fix:_ HANDOFF.md Batch 18 Fix A.  
+_Files:_ `tools/extract_offices.py` (`_DIVINE_FIXES`, `_TEXT_PATCHES`)
+
+**BUG-26: "Coll above"/"Coll below" rendered as lesson citations**  
+Field-reported 2026-06-21. CSV shorthand meaning "use the Collect of the Day in the propers" is parsed as a lesson: 2026-06-20 EP (`"Coll below (Eve of National Indigenous Day of Prayer)"`), 2026-06-21 MP + EP (`"Coll above"`). Renders as a bogus third reading.  
+_Fix:_ HANDOFF.md Batch 18 Fix B.  
+_Files:_ `tools/convert_lectionary.py`
+
 **BUG-06: 2027 BAS lectionary not yet available**  
 Coverage ends at late December 2026. Navigation shows "Readings not yet available" at the boundary; next-arrow disabled. Not a mobile beta blocker — will be added when ACC publishes the 2027 data.  
 _Fix:_ When ACC provides the next lectionary CSV, add to `sources/` and run `make extract`.  
 _Files:_ `web/app.js:render`, `tools/convert_lectionary.py`
+
+### P2 — Missing content / broken feature
+
+**BUG-27: Special-day propers (`eucharist` field) and `observances` never rendered**  
+Field-reported 2026-06-21 ("Where are day notes?"). `convert_lectionary.py` populates `eucharist` and `observances` on every applicable day, but no consumer exists in `web/` or `cli/` (grep confirms zero references). On National Indigenous Day of Prayer (2026-06-21) the day's own Collect — the very text BUG-26's "Coll above" points at — is invisible. The day looks bare despite rich data.  
+_Fix:_ HANDOFF.md Batch 18 Fix C (converter extracts the propers Collect into a day-level `collect_inline`; app renders it).  
+_Files:_ `tools/convert_lectionary.py`, `web/app.js`
+
+**BUG-28: `lessons_pick` unimplemented — "two of the following three readings" shows all 3 with no rubric**  
+Field-reported 2026-06-23. 21 days across the window carry `lessons_pick: 2` with 3 lessons (eves, Dec 24/31, etc.). No code in `web/` or `cli/` reads the field, so all three readings render as if all are required.  
+_Fix:_ HANDOFF.md Batch 18 Fix D.  
+_Files:_ `web/app.js`, `web/render.js`, `cli/book.js`, `cli/office.js`
+
+**BUG-32: 2026-09-27 EP first lesson is a merged citation**  
+Audit-found 2026-07-05. `"(2 Kgs 17:1-18), Mt 13:44-52"` is stored as a single lesson — the optional parenthesised citation and the following citation were not split (same artifact family as the fixed 2026-04-20 entry).  
+_Fix:_ HANDOFF.md Batch 18 Fix E (add `LESSON_FIXES` entry).  
+_Files:_ `tools/convert_lectionary.py`
+
+**BUG-33: "O Antiphon" emitted as a pseudo-lesson on Dec 17–23 evenings (14 instances)**  
+Audit-found 2026-07-05. The antiphon is already delivered properly as a typed note (`o_antiphon`, rendered per BUG-07); the same CSV cell also leaks into the `lessons` array as a citation `"O Antiphon"`, which the app will try to resolve as Scripture.  
+_Fix:_ HANDOFF.md Batch 18 Fix F (drop at converter).  
+_Files:_ `tools/convert_lectionary.py`
+
+### P3 — UX / cosmetic
+
+**BUG-29: Collect prose renders with PDF column-width line breaks**  
+Field-reported 2026-06-21 ("Seasonal collection has weird line breaks"). Extraction preserves hard wraps from the PDF column (`"…and who\nlives and reigns…"` — mid-clause, so typographic not semantic); `.seg-leader` and `.collect-text` use `white-space: pre-wrap`, so every viewport ≠ PDF column width shows ragged breaks. Affects `seasonal_collects` leader segments in `offices.json` AND `collects.json` (194 lines end mid-clause).  
+_Fix:_ HANDOFF.md Batch 18 Fix G (reflow prose at extraction).  
+_Files:_ `tools/extract_offices.py`, `tools/extract_collects.py`
+
+**BUG-30: Litany placeholder "N" renders as bare literal**  
+Field-reported 2026-06-23 ("N our Bishop"). Data is faithful to the PDF ("May N our bishop…") but the printed book italicises *N*; the app shows a plain "N" that reads as a typo. Exactly 2 standalone-N occurrences in `offices.json`, so a render-level italic is safe.  
+_Fix:_ HANDOFF.md Batch 18 Fix H.  
+_Files:_ `web/render.js`
+
+**BUG-31: MP→EP default switches at 17:00; should be 15:00**  
+Field-reported 2026-06-24 ("Eve prayer should start at 3pm"). `defaultOffice()` at `web/app.js:26` uses `getHours() >= 17`. Evening Prayer (and eve-of-feast observance) should be the default from mid-afternoon.  
+_Fix:_ HANDOFF.md Batch 18 Fix I.  
+_Files:_ `web/app.js:26`
 
 ---
 
