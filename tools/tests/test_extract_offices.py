@@ -78,6 +78,18 @@ class TestFixCasing:
         result = _fix_casing({"type": "response", "text": ""})
         assert result["text"] == ""
 
+    def test_holy_one_divine_title_in_response(self):
+        # BUG-25: "Holy One" is a divine title (small-caps in the PDF; pdftotext
+        # confirms the capitalisation). Applies to response segments only.
+        assert self._response("holy one, accomplish your purposes in us.") == \
+            "Holy One, accomplish your purposes in us."
+
+    def test_holy_one_leader_untouched(self):
+        # Leader segments (canticles, psalms) may legitimately contain lowercase
+        # "holy one" — _fix_casing must leave them alone.
+        original = "nor let your holy one see the Pit."
+        assert self._leader(original) == original
+
 
 # ── _group_alternatives ───────────────────────────────────────────���───────────
 

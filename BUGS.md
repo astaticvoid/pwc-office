@@ -18,11 +18,6 @@ _(empty)_
 
 ### P1 — Incorrect content shown to user
 
-**BUG-25: "Holy One" divine title lowercased in 22 litany responses (incl. wrong BUG-18 "fix")**  
-Field-reported 2026-06-24. Four response strings render with wrong casing: `"holy one, accomplish your purposes in us."` ×8 (Wednesday MP litany), `"Holy one, shine upon us and hear us."` ×5 (Epiphany MP), `"Holy one, hear and have mercy."` ×5, `"Holy one, make all things new."` ×4 (Christmas). `pdftotext` of the source PDF shows **"Holy One"** (both capitals) in every one of these responses — BUG-18's premise ("intentionally lowercase in the PDF") was wrong for the MP responses; its patch made them worse. Root cause: pdfplumber decodes the small-caps response font as lowercase; `_DIVINE_FIXES` in `extract_offices.py` has no `holy one → Holy One` entry. BUG-18's four EP *continuation* lowercasing patches ("to declare the mystery of Christ." etc.) are verified correct against the PDF and must stay.  
-_Fix:_ HANDOFF.md Batch 18 Fix A.  
-_Files:_ `tools/extract_offices.py` (`_DIVINE_FIXES`, `_TEXT_PATCHES`)
-
 **BUG-26: "Coll above"/"Coll below" rendered as lesson citations**  
 Field-reported 2026-06-21. CSV shorthand meaning "use the Collect of the Day in the propers" is parsed as a lesson: 2026-06-20 EP (`"Coll below (Eve of National Indigenous Day of Prayer)"`), 2026-06-21 MP + EP (`"Coll above"`). Renders as a bogus third reading.  
 _Fix:_ HANDOFF.md Batch 18 Fix B.  
@@ -77,6 +72,10 @@ _Files:_ `web/app.js:26`
 ---
 
 ## Closed
+
+**BUG-25: "Holy One" divine title lowercased in 22 litany responses (incl. wrong BUG-18 "fix")**  
+Fixed 2026-07-05 (Batch 18 Fix A). Added `holy one → Holy One` to `_DIVINE_FIXES` (response segments only); deleted BUG-18's wrong MP lowercasing tuple from `_TEXT_PATCHES` (its four EP continuation tuples stand — pdftotext-verified). Re-extracted; all 22 instances now "Holy One" (grep counts 8/4/5/5, zero lowercase). 2 new pytest tests. Root cause and lesson recorded in `docs/CORRECTNESS.md` (BUG-18 note).  
+_Files:_ `tools/extract_offices.py`, `tools/tests/test_extract_offices.py`
 
 **BUG-02: Season bounds detection uses brittle keyword matching**  
 Fixed 2026-06-14. Added `CANONICAL_BOUNDS_PHRASES` dict; `detect_bounds()` now matches exactly first and emits a `sys.stderr` warning on fuzzy fallback. 4 new pytest tests added. 147 total tool tests passing.  
