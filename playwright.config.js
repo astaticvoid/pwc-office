@@ -1,10 +1,10 @@
 // @ts-check
-const { defineConfig, devices } = require('@playwright/test');
+import { defineConfig, devices } from '@playwright/test';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:8080';
 const isLocal  = BASE_URL.startsWith('http://localhost');
 
-module.exports = defineConfig({
+export default defineConfig({
   testDir: './tests/e2e',
   timeout: 30_000,
   retries: isLocal ? 0 : 1,   // one retry on flaky network to Netlify

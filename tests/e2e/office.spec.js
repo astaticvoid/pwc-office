@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+import { test, expect } from '@playwright/test';
 
 // Use a fixed known-good date rather than today so tests don't break
 // on days with unusual structure (e.g. no alternate, no optional lesson).
