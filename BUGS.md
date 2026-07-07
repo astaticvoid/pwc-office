@@ -25,11 +25,6 @@ _Files:_ `web/app.js:render`, `tools/convert_lectionary.py`
 
 ### P2 — Missing content / broken feature
 
-**BUG-27: Special-day propers (`eucharist` field) and `observances` never rendered**  
-Field-reported 2026-06-21 ("Where are day notes?"). `convert_lectionary.py` populates `eucharist` and `observances` on every applicable day, but no consumer exists in `web/` or `cli/` (grep confirms zero references). On National Indigenous Day of Prayer (2026-06-21) the day's own Collect — the very text BUG-26's "Coll above" points at — is invisible. The day looks bare despite rich data.  
-_Fix:_ HANDOFF.md Batch 18 Fix C (converter extracts the propers Collect into a day-level `collect_inline`; app renders it).  
-_Files:_ `tools/convert_lectionary.py`, `web/app.js`
-
 **BUG-28: `lessons_pick` unimplemented — "two of the following three readings" shows all 3 with no rubric**  
 Field-reported 2026-06-23. 21 days across the window carry `lessons_pick: 2` with 3 lessons (eves, Dec 24/31, etc.). No code in `web/` or `cli/` reads the field, so all three readings render as if all are required.  
 _Fix:_ HANDOFF.md Batch 18 Fix D.  
@@ -67,6 +62,10 @@ _Files:_ `web/app.js:26`
 ---
 
 ## Closed
+
+**BUG-27: Special-day propers Collect never surfaced**  
+Fixed 2026-07-06 (Batch 18 Fix C). `convert_lectionary.py` now extracts the "Collect of the Day" from the propers `eucharist` blob (RE_COLLECT_OF_DAY) for any day whose offices referenced it via "Coll above/below", and attaches it as a day-level `collect_inline: {name, text}`. A "Coll below" eve resolves the collect from the *next* day's blob (2026-06-20 EP → 2026-06-21 propers, verified). `collectToggleHtml()` renders `collect_inline` as the Collect of the Day when no BAS collect ref exists; `cli/office.js` prints it too. Scope held to the collect only — a general propers/`eucharist` surface, and a consumer for the `observances` field, remain parked (ASSESSMENT §6).  
+_Files:_ `tools/convert_lectionary.py`, `web/app.js`, `cli/office.js`
 
 **BUG-26: "Coll above"/"Coll below" rendered as lesson citations**  
 Fixed 2026-07-05 (Batch 18 Fix B). `parse_single_office` now drops any lesson matching `^Coll (above|below)\b` (RE_COLL_REF) before it reaches the lessons list. Removed the pseudo-lessons from 2026-06-20 EP and 2026-06-21 MP/EP; the collect they point at is surfaced by Fix C (BUG-27). 2 new pytest tests.  

@@ -63,6 +63,10 @@ if (officeData?.lessons?.[1]) out += `\n## Lesson 2\n${strip(lessonHtml(officeDa
 out += section('Canticle', form.canticle);
 out += section('Intercessions', form.intercessions);
 out += section('Litany', form.litany);
+if (lectionaryDay?.collect_inline) {
+  const ci = lectionaryDay.collect_inline;
+  out += `\n## Collect of the Day\n\n${ci.name}\n${ci.text}\n`;
+}
 out += section("Lord's Prayer", form.lords_prayer_intro);
 out += section('Dismissal', form.dismissal);
 
