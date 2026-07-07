@@ -210,19 +210,25 @@ const B = []; // output blocks, joined by \n\n
 if (form.subtitle) B.push(form.subtitle);
 B.push('The Gathering of the Community');
 B.push('Introductory Responses');
+// Resolve a whole-field shared ref (seasonal EP forms hold opening_responses as
+// {type:'shared', key:…}); ordinary forms hold an array that may contain a
+// shared doxology ref element (BUG-34 — .some crashed on the object).
+let openingResponses = form.opening_responses;
+if (openingResponses?.type === 'shared' && shared) openingResponses = shared[openingResponses.key];
+openingResponses = openingResponses || [];
 // Opening doxology: present only on ordinary-time forms (opening_responses has a
 // shared doxology ref). Add Alleluia after each alternative (BAS rubric).
-const hasDoxRef = (form.opening_responses || []).some(
+const hasDoxRef = openingResponses.some(
   s => s.type === 'shared' && s.key === 'doxology'
 );
 if (hasDoxRef && shared.doxology) {
-  const preDoxa = (form.opening_responses || []).filter(
+  const preDoxa = openingResponses.filter(
     s => !(s.type === 'shared' && s.key === 'doxology')
   );
   B.push(textFlatSegs(preDoxa, shared));
   B.push(textAlternatives(shared.doxology.groups, shared, { alleluia: true }));
 } else {
-  B.push(textFlatSegs(form.opening_responses, shared));
+  B.push(textFlatSegs(openingResponses, shared));
 }
 
 // Phos Hilaron / Thanksgiving for Light

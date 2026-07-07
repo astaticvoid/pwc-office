@@ -27,16 +27,15 @@ _Files:_ `web/app.js:render`, `tools/convert_lectionary.py`
 
 ### P3 — UX / cosmetic
 
-**BUG-34: `cli/book.js` crashes on the 7 seasonal EP forms**  
-Audit-found 2026-07-06 while regenerating goldens for Fix G. `book.js:215` calls `(form.opening_responses || []).some(...)`, but since BUG-23 moved `opening_responses` to a `_shared` ref, the 7 seasonal EP forms (advent-ep…pentecost-ep) hold `{type:"shared", key:…}` there, so `.some` throws and `make check-book` for those forms dies (`TypeError: … .some is not a function`). Pre-existing (confirmed by stashing all Batch-18 work — still crashes); not caused by Fix G. Same shared-ref-resolution class as BUG-23. `make check-book` has silently been broken for these 7 forms since mid-June.  
-_Fix:_ resolve the shared ref before `.some`, mirroring the `web/app.js`/`cli/office.js` BUG-23 fix.  
-_Files:_ `cli/book.js:215`
-
 ---
 
 ---
 
 ## Closed
+
+**BUG-34: `cli/book.js` crashes on the 7 seasonal EP forms**  
+Fixed 2026-07-06. Pre-existing since BUG-23 (confirmed by stashing all Batch-18 work — still crashed): `book.js:215` called `.some` on `form.opening_responses`, which the 7 seasonal EP forms hold as a `{type:"shared"}` object, not an array. Now resolves the whole-field shared ref before use. All 31 forms pass `make check-book` again (which also re-confirms Fix G's reflow caused no collect regression).  
+_Files:_ `cli/book.js`
 
 **BUG-31: MP→EP default switches at 17:00; should be 15:00**  
 Fixed 2026-07-06 (Batch 18 Fix I). `defaultOffice()` at `web/app.js:26` now returns `ep` from `getHours() >= 15`. No test pinned 17.  
