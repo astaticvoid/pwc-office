@@ -294,6 +294,14 @@ export function renderAlternatives(seg, shared, contextKey) {
   return `<div class="alt-block"><div class="alt-tabs" role="tablist">${tabsHtml}</div>${panelsHtml}</div>`;
 }
 
+// BUG-30: the printed book italicises the placeholder N (e.g. "May N our bishop
+// and all bishops"); a plain capital "N" reads as a typo. Applied to
+// already-escaped leader/response HTML only — the 2 standalone-N instances in
+// offices.json are both this placeholder.
+function italicisePlaceholderN(html) {
+  return html.replace(/\bN\b(?=[ ,.])/g, '<em>N</em>');
+}
+
 export function renderSegments(segs, shared) {
   if (!segs || !segs.length) return '';
   return segs.map(seg => {
@@ -308,14 +316,14 @@ export function renderSegments(segs, shared) {
       return `<p class="${cls}">${esc(text)}</p>`;
     }
     if (seg.type === 'label')    return `<p class="seg-label">${esc(text)}</p>`;
-    if (seg.type === 'response') return `<p class="seg-response">${bindMidpoints(formatLiturgicalText(text))}</p>`;
+    if (seg.type === 'response') return `<p class="seg-response">${italicisePlaceholderN(bindMidpoints(formatLiturgicalText(text)))}</p>`;
     // Split trailing "Amen." into a congregational-response paragraph.
     const amenMatch = seg.type === 'leader' && text.match(/^([\s\S]+)\s(Amen\.)$/);
     if (amenMatch) {
-      return `<p class="seg-leader">${bindMidpoints(esc(amenMatch[1]))}</p>`
+      return `<p class="seg-leader">${italicisePlaceholderN(bindMidpoints(esc(amenMatch[1])))}</p>`
            + `<p class="seg-response">Amen.</p>`;
     }
-    return `<p class="seg-leader">${bindMidpoints(esc(text))}</p>`;
+    return `<p class="seg-leader">${italicisePlaceholderN(bindMidpoints(esc(text)))}</p>`;
   }).join('');
 }
 

@@ -118,6 +118,19 @@ describe('lessonsPick', () => {
   });
 });
 
+// ── placeholder N italics (BUG-30) ────────────────────────────────────────────
+describe('placeholder N', () => {
+  test('leader "May N our bishop" renders italic N', () => {
+    const html = renderSegments([{ type: 'leader', text: 'May N our bishop and all bishops' }], shared);
+    expect(html).toContain('May <em>N</em> our bishop');
+  });
+
+  test('does not italicise N inside a word', () => {
+    const html = renderSegments([{ type: 'leader', text: 'Nations and peoples' }], shared);
+    expect(html).not.toContain('<em>N</em>');
+  });
+});
+
 // ── Shared-ref render coverage ────────────────────────────────────────────────
 
 describe('all forms: shared-ref fields render non-empty HTML', () => {
