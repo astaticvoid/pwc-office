@@ -52,6 +52,9 @@ LESSON_FIXES: dict[tuple[str, str], list] = {
     ("2026-08-28", "morning"): ["Job 9:1-15", "Job 9:32-35", "Acts 10:34-48"],
     # CSV has "108:1-6, (7-13)" without "Ps" prefix
     ("2026-11-21", "morning"): ["Ps 108:1-6, (7-13)", "Mal 3:13—4:6", "Jas 5:13-20"],
+    # CSV has "(2 Kgs 17:1-18), Mt 13:44-52" — optional citation comma-merged
+    # with the following lesson (same family as 2026-04-20). BUG-32.
+    ("2026-09-27", "evening"): [{"citation": "2 Kgs 17:1-18", "optional": True}, "Mt 13:44-52"],
 }
 
 NAME_FIXES = {
@@ -603,6 +606,9 @@ RE_IS_COLL = re.compile(r"(?i)^Coll\s+\d")
 # CSV shorthand "Coll above" / "Coll below" points at the Collect of the Day in
 # the propers — it is not a lesson (BUG-26). Case-sensitive by design.
 RE_COLL_REF = re.compile(r"^Coll (above|below)\b")
+# "O Antiphon" leaks from the CSV into the lessons array on Dec 17–23 (BUG-33);
+# the antiphon is already delivered as a typed o_antiphon note. Not a lesson.
+RE_O_ANTIPHON = re.compile(r"^O Antiphon$")
 
 # Collect of the Day inside a eucharist propers blob (BUG-27). The blob runs
 # "… Collect of the Day: <text> Amen <next heading>: …".
@@ -656,7 +662,7 @@ def parse_single_office(text: str) -> dict:
         lesson = parse_lesson(field)
         if lesson is not None:
             citation = lesson if isinstance(lesson, str) else lesson.get("citation", "")
-            if RE_COLL_REF.match(citation):
+            if RE_COLL_REF.match(citation) or RE_O_ANTIPHON.match(citation):
                 continue
             lessons.append(lesson)
 

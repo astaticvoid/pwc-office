@@ -1,5 +1,5 @@
 {
-  "extracted_at": "2026-07-07T04:12:18Z",
+  "extracted_at": "2026-07-07T04:16:40Z",
   "tool_versions": {
     "pdftotext": "pdftotext version 26.07.0"
   },
@@ -21,7 +21,7 @@
       "entries": 173
     },
     "data/lectionary": {
-      "sha256": "cb695177196a145ad358de141dd543470aa7061f96a3ec96c5fac824233901b3",
+      "sha256": "762144b40a63b5770e4c2f6bc736dbc7f9f20b05d53d976f3af627592ef10971",
       "months": 19
     }
   }

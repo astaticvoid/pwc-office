@@ -147,6 +147,11 @@ class TestParseSingleOffice:
         )
         assert office["lessons"] == ["Isa 40:25-31"]
 
+    def test_o_antiphon_pseudo_lesson_dropped(self):
+        # BUG-33: "O Antiphon" is delivered as a typed note, not a lesson.
+        office = parse_single_office("Ps 89:1-29; Isa 9:2-7; 2 Pet 1:1-11; O Antiphon")
+        assert office["lessons"] == ["Isa 9:2-7", "2 Pet 1:1-11"]
+
 
 # ── detect_bounds ─────────────────────────────────────────────────────────────
 
