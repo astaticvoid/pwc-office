@@ -509,6 +509,13 @@ def run():
         ),
     }
 
+    # BUG-29: collect texts are single prose prayers; the PDF's column-width
+    # hard wraps are typographic, not semantic. Join internal line breaks so the
+    # app wraps them naturally instead of mid-clause.
+    for entry in collects.values():
+        if entry.get("text"):
+            entry["text"] = re.sub(r"\s*\n\s*", " ", entry["text"]).strip()
+
     write_json(collects, out_path)
     print(f"\nWrote {len(collects)} collects → {out_path}")
     if txt_fallbacks:

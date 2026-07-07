@@ -3,7 +3,10 @@
     "id": "patch-001",
     "description": "Update sovereign collect name from Queen to Sovereign",
     "target": "collects.json",
-    "path": ["677", "name"],
+    "path": [
+      "677",
+      "name"
+    ],
     "op": "replace",
     "old": "For the Queen",
     "new": "For the Sovereign"
@@ -12,16 +15,22 @@
     "id": "patch-002",
     "description": "Update sovereign collect text from Queen Elizabeth to King Charles",
     "target": "collects.json",
-    "path": ["677", "text"],
+    "path": [
+      "677",
+      "text"
+    ],
     "op": "replace",
-    "old": "Almighty God, fountain of all goodness, bless our Sovereign\nLady, Queen Elizabeth, and all who are in authority under her;\nthat they may order all things in wisdom and equity,\nrighteousness and peace, to the honour of your name, and the\ngood of your Church and people; through Jesus Christ our Lord.",
-    "new": "Almighty God, fountain of all goodness, bless our Sovereign\nLord, King Charles, and all who are in authority under him;\nthat they may order all things in wisdom and equity,\nrighteousness and peace, to the honour of your name, and the\ngood of your Church and people; through Jesus Christ our Lord."
+    "old": "Almighty God, fountain of all goodness, bless our Sovereign Lady, Queen Elizabeth, and all who are in authority under her; that they may order all things in wisdom and equity, righteousness and peace, to the honour of your name, and the good of your Church and people; through Jesus Christ our Lord.",
+    "new": "Almighty God, fountain of all goodness, bless our Sovereign Lord, King Charles, and all who are in authority under him; that they may order all things in wisdom and equity, righteousness and peace, to the honour of your name, and the good of your Church and people; through Jesus Christ our Lord."
   },
   {
     "id": "patch-003",
     "description": "Correct p.412 feast name: extractor picked up Canada Day heading (bottom of page) instead of Saint Peter and Saint Paul (whose collect appears at top of same page)",
     "target": "collects.json",
-    "path": ["412", "name"],
+    "path": [
+      "412",
+      "name"
+    ],
     "op": "replace",
     "old": "Canada Day 1 July",
     "new": "Saint Peter and Saint Paul 29 June"
@@ -30,7 +39,10 @@
     "id": "patch-004",
     "description": "Correct p.412 feast date to match Saint Peter and Saint Paul",
     "target": "collects.json",
-    "path": ["412", "date"],
+    "path": [
+      "412",
+      "date"
+    ],
     "op": "replace",
     "old": "1 July",
     "new": "29 June"
@@ -39,7 +51,10 @@
     "id": "patch-005",
     "description": "Correct p.413 feast name: extractor picked up Saint Thomas heading (bottom of page) instead of Canada Day (whose collect appears at top of same page)",
     "target": "collects.json",
-    "path": ["413", "name"],
+    "path": [
+      "413",
+      "name"
+    ],
     "op": "replace",
     "old": "Saint Thomas 3 July",
     "new": "Canada Day 1 July"
@@ -48,7 +63,10 @@
     "id": "patch-006",
     "description": "Correct p.413 feast date to match Canada Day",
     "target": "collects.json",
-    "path": ["413", "date"],
+    "path": [
+      "413",
+      "date"
+    ],
     "op": "replace",
     "old": "3 July",
     "new": "1 July"
@@ -57,45 +75,60 @@
     "id": "patch-007",
     "description": "Restore word spaces on p.356 (pdfplumber 26.04.0 concatenates words for this page)",
     "target": "collects.json",
-    "path": ["356", "text"],
+    "path": [
+      "356",
+      "text"
+    ],
     "op": "replace",
-    "old": "AlmightyGod,\nyourSonrevealedinsignsandmiracles\nthewonderofyoursavinglove.\nRenewyourpeoplewithyourheavenlygrace,\nandinallourweakness\nsustainusbyyourmightypower;\nthroughJesusChristourLord,\nwhoisaliveandreignswithyouandtheHolySpirit,\noneGod,nowandforever.",
-    "new": "Almighty God,\nyour Son revealed in signs and miracles\nthe wonder of your saving love.\nRenew your people with your heavenly grace,\nand in all our weakness\nsustain us by your mighty power;\nthrough Jesus Christ our Lord,\nwho is alive and reigns with you and the Holy Spirit,\none God, now and for ever."
+    "old": "AlmightyGod, yourSonrevealedinsignsandmiracles thewonderofyoursavinglove. Renewyourpeoplewithyourheavenlygrace, andinallourweakness sustainusbyyourmightypower; throughJesusChristourLord, whoisaliveandreignswithyouandtheHolySpirit, oneGod,nowandforever.",
+    "new": "Almighty God, your Son revealed in signs and miracles the wonder of your saving love. Renew your people with your heavenly grace, and in all our weakness sustain us by your mighty power; through Jesus Christ our Lord, who is alive and reigns with you and the Holy Spirit, one God, now and for ever."
   },
   {
     "id": "patch-008",
     "description": "Restore word spaces on p.358 (pdfplumber 26.04.0 concatenates words for this page)",
     "target": "collects.json",
-    "path": ["358", "text"],
+    "path": [
+      "358",
+      "text"
+    ],
     "op": "replace",
-    "old": "AlmightyGod,\ngrantustheSpirittothinkanddoalways\nthosethingsthatareright,\nthatwewhocandonothinggoodwithoutyou,\nmayliveaccordingtoyourholywill;\nthroughJesusChristourLord,\nwholivesandreignswithyouandtheHolySpirit,\noneGod,nowandforever.",
-    "new": "Almighty God,\ngrant us the Spirit to think and do always\nthose things that are right,\nthat we who can do nothing good without you,\nmay live according to your holy will;\nthrough Jesus Christ our Lord,\nwho lives and reigns with you and the Holy Spirit,\none God, now and for ever."
+    "old": "AlmightyGod, grantustheSpirittothinkanddoalways thosethingsthatareright, thatwewhocandonothinggoodwithoutyou, mayliveaccordingtoyourholywill; throughJesusChristourLord, wholivesandreignswithyouandtheHolySpirit, oneGod,nowandforever.",
+    "new": "Almighty God, grant us the Spirit to think and do always those things that are right, that we who can do nothing good without you, may live according to your holy will; through Jesus Christ our Lord, who lives and reigns with you and the Holy Spirit, one God, now and for ever."
   },
   {
     "id": "patch-009",
     "description": "Remove spurious blank lines on p.392 caused by running page-number and section-header stripping across a page break",
     "target": "collects.json",
-    "path": ["392", "text"],
+    "path": [
+      "392",
+      "text"
+    ],
     "op": "replace",
-    "old": "Almighty God,\nyou sent your Son Jesus Christ\n\n\n\nto be the light of the world.\nFree us from all that darkens and ensnares us,\nand bring us to eternal light and joy;\nthrough the power of him\nwho is alive and reigns with you and the Holy Spirit,\none God, now and for ever.",
-    "new": "Almighty God,\nyou sent your Son Jesus Christ\nto be the light of the world.\nFree us from all that darkens and ensnares us,\nand bring us to eternal light and joy;\nthrough the power of him\nwho is alive and reigns with you and the Holy Spirit,\none God, now and for ever."
+    "old": "Almighty God, you sent your Son Jesus Christ to be the light of the world. Free us from all that darkens and ensnares us, and bring us to eternal light and joy; through the power of him who is alive and reigns with you and the Holy Spirit, one God, now and for ever.",
+    "new": "Almighty God, you sent your Son Jesus Christ to be the light of the world. Free us from all that darkens and ensnares us, and bring us to eternal light and joy; through the power of him who is alive and reigns with you and the Holy Spirit, one God, now and for ever."
   },
   {
     "id": "patch-011",
     "description": "Restore missing space on p.432 Common of a Martyr: 'servantN' → 'servant N'",
     "target": "collects.json",
-    "path": ["432", "text"],
+    "path": [
+      "432",
+      "text"
+    ],
     "op": "replace",
-    "old": "Almighty God,\nwho gave your servantN courage\nto confess Jesus Christ\nand to die for this faith,\nmay we always be ready\nto give a reason for the hope that is in us,\nand to suffer gladly for his sake;\nthrough Jesus Christ our Lord,\nwho lives and reigns with you and the Holy Spirit,\none God, now and for ever.",
-    "new": "Almighty God,\nwho gave your servant N courage\nto confess Jesus Christ\nand to die for this faith,\nmay we always be ready\nto give a reason for the hope that is in us,\nand to suffer gladly for his sake;\nthrough Jesus Christ our Lord,\nwho lives and reigns with you and the Holy Spirit,\none God, now and for ever."
+    "old": "Almighty God, who gave your servantN courage to confess Jesus Christ and to die for this faith, may we always be ready to give a reason for the hope that is in us, and to suffer gladly for his sake; through Jesus Christ our Lord, who lives and reigns with you and the Holy Spirit, one God, now and for ever.",
+    "new": "Almighty God, who gave your servant N courage to confess Jesus Christ and to die for this faith, may we always be ready to give a reason for the hope that is in us, and to suffer gladly for his sake; through Jesus Christ our Lord, who lives and reigns with you and the Holy Spirit, one God, now and for ever."
   },
   {
     "id": "patch-010",
     "description": "Restore word spaces on p.396 (pdfplumber 26.04.0 concatenates words for this page)",
     "target": "collects.json",
-    "path": ["396", "text"],
+    "path": [
+      "396",
+      "text"
+    ],
     "op": "replace",
-    "old": "Creatorofthefruitfulearth,\nyoumadeusstewardsofallthings.\nGiveusgratefulheartsforallyourgoodness,\nandsteadfastwillstouseyourbountywell,\nthatthewholehumanfamily,\ntodayandingenerationstocome,\nmaywithusgivethanksfortherichesofyourcreation.\nWeaskthisinthenameofJesusChristtheLord.",
-    "new": "Creator of the fruitful earth,\nyou made us stewards of all things.\nGive us grateful hearts for all your goodness,\nand steadfast wills to use your bounty well,\nthat the whole human family,\ntoday and in generations to come,\nmay with us give thanks for the riches of your creation.\nWe ask this in the name of Jesus Christ the Lord."
+    "old": "Creatorofthefruitfulearth, youmadeusstewardsofallthings. Giveusgratefulheartsforallyourgoodness, andsteadfastwillstouseyourbountywell, thatthewholehumanfamily, todayandingenerationstocome, maywithusgivethanksfortherichesofyourcreation. WeaskthisinthenameofJesusChristtheLord.",
+    "new": "Creator of the fruitful earth, you made us stewards of all things. Give us grateful hearts for all your goodness, and steadfast wills to use your bounty well, that the whole human family, today and in generations to come, may with us give thanks for the riches of your creation. We ask this in the name of Jesus Christ the Lord."
   }
 ]

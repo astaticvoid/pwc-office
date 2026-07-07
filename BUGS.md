@@ -27,10 +27,10 @@ _Files:_ `web/app.js:render`, `tools/convert_lectionary.py`
 
 ### P3 — UX / cosmetic
 
-**BUG-29: Collect prose renders with PDF column-width line breaks**  
-Field-reported 2026-06-21 ("Seasonal collection has weird line breaks"). Extraction preserves hard wraps from the PDF column (`"…and who\nlives and reigns…"` — mid-clause, so typographic not semantic); `.seg-leader` and `.collect-text` use `white-space: pre-wrap`, so every viewport ≠ PDF column width shows ragged breaks. Affects `seasonal_collects` leader segments in `offices.json` AND `collects.json` (194 lines end mid-clause).  
-_Fix:_ HANDOFF.md Batch 18 Fix G (reflow prose at extraction).  
-_Files:_ `tools/extract_offices.py`, `tools/extract_collects.py`
+**BUG-34: `cli/book.js` crashes on the 7 seasonal EP forms**  
+Audit-found 2026-07-06 while regenerating goldens for Fix G. `book.js:215` calls `(form.opening_responses || []).some(...)`, but since BUG-23 moved `opening_responses` to a `_shared` ref, the 7 seasonal EP forms (advent-ep…pentecost-ep) hold `{type:"shared", key:…}` there, so `.some` throws and `make check-book` for those forms dies (`TypeError: … .some is not a function`). Pre-existing (confirmed by stashing all Batch-18 work — still crashes); not caused by Fix G. Same shared-ref-resolution class as BUG-23. `make check-book` has silently been broken for these 7 forms since mid-June.  
+_Fix:_ resolve the shared ref before `.some`, mirroring the `web/app.js`/`cli/office.js` BUG-23 fix.  
+_Files:_ `cli/book.js:215`
 
 **BUG-30: Litany placeholder "N" renders as bare literal**  
 Field-reported 2026-06-23 ("N our Bishop"). Data is faithful to the PDF ("May N our bishop…") but the printed book italicises *N*; the app shows a plain "N" that reads as a typo. Exactly 2 standalone-N occurrences in `offices.json`, so a render-level italic is safe.  
@@ -47,6 +47,10 @@ _Files:_ `web/app.js:26`
 ---
 
 ## Closed
+
+**BUG-29: Collect prose renders with PDF column-width line breaks**  
+Fixed 2026-07-06 (Batch 18 Fix G). Reflowed prose at extraction: `_reflow_leader_prose` joins internal line breaks in `seasonal_collects` leader segments (recursing into alternatives groups; rubric/response lineation preserved), and `extract_collects.py` joins every collect `text`. Collects with internal newlines: 0; seasonal-collect leaders with newlines: 0. Also joined the `\n` in the 8 affected `data/patches.json` entries' `old`/`new` values so they still match post-reflow collects.json and no longer re-introduce wraps. All 31 forms regenerate goldens cleanly (24 pass check-book; the 7 seasonal EP forms hit a pre-existing unrelated crash tracked as BUG-34).  
+_Files:_ `tools/extract_offices.py`, `tools/extract_collects.py`, `data/patches.json`
 
 **BUG-33: "O Antiphon" emitted as a pseudo-lesson on Dec 17–23 evenings**  
 Fixed 2026-07-06 (Batch 18 Fix F). `parse_single_office` now drops any lesson whose citation is exactly "O Antiphon" (RE_O_ANTIPHON), alongside the existing Coll filter. Removed 14 pseudo-lessons across 2025-12 and 2026-12; the antiphons remain as typed `o_antiphon` notes. 1 new pytest.  

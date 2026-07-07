@@ -282,6 +282,18 @@ _DIVINE_FIXES: list[tuple[re.Pattern, str]] = [
     (re.compile(r', o (?=\w)'),  ', O '),
 ]
 
+def _reflow_leader_prose(segs: list) -> list:
+    """BUG-29: join PDF column-wrap line breaks in leader (prose) segments.
+    Recurses into alternatives groups. Rubric/response segments are left as-is."""
+    for seg in segs:
+        if seg.get("type") == "leader" and seg.get("text"):
+            seg["text"] = re.sub(r"\s*\n\s*", " ", seg["text"]).strip()
+        elif seg.get("type") == "alternatives":
+            for g in seg.get("groups", []):
+                _reflow_leader_prose(g.get("segments", []))
+    return segs
+
+
 def _fix_casing(seg: dict) -> dict:
     """
     Fix PDF small-caps artifacts in response segments:
@@ -1051,6 +1063,12 @@ def extract_office(pdf, start: int, end: int, office_key: str = "") -> dict:
     for key in list(sections.keys()):
         if key not in _NO_ALT_SECTIONS:
             sections[key] = _group_alternatives(sections[key], office=office_key, section=key)
+
+    # BUG-29: seasonal collect leaders are prose; the PDF's column-width hard
+    # wraps are typographic, not semantic. Join them. Rubric segments (bullet
+    # lists) and response segments keep their lineation.
+    if "seasonal_collects" in sections:
+        _reflow_leader_prose(sections["seasonal_collects"])
 
     # Fold Berakah prayer blessing conclusions into nested alternatives inside
     # group II of seasonal opening_responses (not applicable to ordinary-time).
