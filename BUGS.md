@@ -25,6 +25,11 @@ _Files:_ `web/app.js:render`, `tools/convert_lectionary.py`
 
 ### P2 — Missing content / broken feature
 
+**BUG-35: Legacy Playwright E2E suite (`tests/e2e/office.spec.js`) has ~12 stale failures**  
+Found 2026-07-06. `make test-web` was unrunnable (playwright.config.js + office.spec.js used CommonJS `require` in an ESM package — fixed 2026-07-06 to ESM). With the harness unblocked, `office.spec.js` fails ~12 of ~50 tests (navigation arrows, observance toggle, translation/alt-tab persistence, and a `.alt-tab` count that assumes only 3 tabs on the page — now 26 as the office grew more alternatives). Confirmed **pre-existing, not a Batch 18 regression**: the pre-Batch-18 app fails *14* of the same tests (Batch 18 has fewer). The suite has drifted against Batches 11–17 while it couldn't run. New `tests/e2e/batch18.spec.js` (5 tests, all passing) covers the Batch 18 behaviours; the legacy suite needs a selector/assumption refresh.  
+_Fix:_ Update `office.spec.js` selectors/counts to the current DOM; scope `.alt-tab` assertions to the relevant block.  
+_Files:_ `tests/e2e/office.spec.js`
+
 ### P3 — UX / cosmetic
 
 ---
