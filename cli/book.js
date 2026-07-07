@@ -10,7 +10,7 @@
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { CANTICLE_SOURCE, ABBREV_TO_FILE } from '../web/render.js';
+import { CANTICLE_SOURCE, ABBREV_TO_FILE, lessonsPickText } from '../web/render.js';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const load = p => JSON.parse(readFileSync(join(__dir, '..', p), 'utf8'));
@@ -255,6 +255,10 @@ if (psalms.length && shared.doxology) {
 }
 
 const lessons = officeData?.lessons || [];
+if (officeData?.lessons_pick) {
+  const pickText = lessonsPickText(officeData.lessons_pick, lessons.length);
+  if (pickText) B.push(`(${pickText})`);
+}
 if (lessons[0]) B.push(renderLesson(lessons[0], form, shared));
 
 B.push('The Responsory');
