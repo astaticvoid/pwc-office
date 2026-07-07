@@ -94,3 +94,21 @@ One residual risk to track: **the Capacitor store builds bundle the texts into t
 4. **When a fix touches ≥4 similar instances, stop and write a parser rule instead of enumerated patches** (the BUG-25/26/33 lesson). If unsure which layer a correction belongs in, consult the table in §3.
 5. **Don't expand scope mid-batch.** Parked decisions (§6) need the owner; note new findings in BUGS.md "Field observations" and move on.
 6. **The priority order is: Batch 18 → Batch 19 → mobile milestones (ROADMAP §5.4).** Mobile is the ACC's prime desire; correctness fixes come first only because they're small and trust-critical.
+
+## 9. Model routing (added 2026-07-06)
+
+Right-size the model to the cognitive load of the task, and right-size the *orchestrator* so cheap glue can stay inline instead of being delegated.
+
+| Tier | Give it | Examples in this repo |
+|---|---|---|
+| **Haiku** | Rote, spec-complete work with no judgment | Test bodies transcribed from an exact spec; mechanical find/replace across enumerated sites |
+| **Sonnet** (workhorse) | Single/few-file fixes with a clear spec; straightforward extractor or converter edits; wiring tests to a suite | Most individual Batch-18-style fixes; `LESSON_FIXES`/`NAME_FIXES` additions; render-path tweaks |
+| **Fable / Opus** | Orchestration; cross-cutting reasoning; **correctness & liturgical audits**; ambiguous specs; golden-file "is this diff acceptable" judgment | Running a batch; auditing diffs against the PDF; deciding which correction layer (§3) a fix belongs in; anything where being wrong ships a text error to the ACC audience |
+
+**Delegation economics — the load-bearing rule.** A subagent costs a spawn plus cold re-derivation of context (HANDOFF spec, target files, the pdftotext gotcha, the re-extract/verify loop). Only delegate when the task's value clears that fixed cost:
+
+- **Do NOT delegate trivial glue.** `git commit`, a 5-line edit in a file the orchestrator already has loaded, a single grep — the orchestrator (kept on a strong model) does these inline. Serializing working-tree state into a subagent prompt costs more than the op.
+- **Do NOT delegate work already in the orchestrator's context** mid-batch. If the files and mental model are loaded, finishing inline beats a cold agent re-reading everything to write 20 lines.
+- **DO delegate the independent audit.** After a batch, a fresh Fable/Opus agent reads the diffs against the evidence with no confirmation bias — bounded context (diffs + BUGS.md + PDF), high value. This is the delegation that pays.
+- **DO delegate genuinely parallel or cold-start work.** Future batches begun fresh; several independent fixes at once. For parallel *data-pipeline* fixes use `isolation: worktree` — `make extract` mutates shared `data/`, so concurrent extractor edits collide without it.
+- When delegating, pass the model explicitly and hand the subagent the spec section + exact acceptance greps so it doesn't re-plan.
