@@ -604,6 +604,14 @@ RE_IS_COLL = re.compile(r"(?i)^Coll\s+\d")
 # the propers — it is not a lesson (BUG-26). Case-sensitive by design.
 RE_COLL_REF = re.compile(r"^Coll (above|below)\b")
 
+# Collect of the Day inside a eucharist propers blob (BUG-27). The blob runs
+# "… Collect of the Day: <text> Amen <next heading>: …".
+RE_COLLECT_OF_DAY = re.compile(
+    r"Collect of the Day:\s*(.*?)\s*"
+    r"(?=Prayer over the Gifts:|Prayer after Communion:|Sentence:|$)",
+    re.DOTALL,
+)
+
 
 def parse_single_office(text: str) -> dict:
     text = text.strip()
@@ -799,6 +807,13 @@ def main():
         mp = parse_office_column(row[3])
         ep = parse_office_column(row[4])
 
+        # Remember when this row's offices referenced the propers Collect
+        # ("Coll above/below" — stripped from lessons by RE_COLL_REF); a second
+        # pass below surfaces the collect itself as collect_inline (BUG-27).
+        raw_offices = " ".join(row[3:5])
+        if m := re.search(r"\bColl (above|below)\b", raw_offices):
+            entry["_coll_ref"] = m.group(1)
+
         # Apply manual lesson corrections for known CSV errors.
         for office_key, office_data in (("morning", mp), ("evening", ep)):
             fix = LESSON_FIXES.get((date_str, office_key))
@@ -817,6 +832,42 @@ def main():
                 entry["notes"] = notes
 
         entries.append(entry)
+
+    # Second pass (BUG-27): days whose offices said "Coll above/below" get the
+    # Collect of the Day extracted from the propers blob as collect_inline.
+    # "below" on an eve means the collect lives on the following day's blob.
+    by_date = {e["date"]: e for e in entries}
+    for entry in entries:
+        ref = entry.pop("_coll_ref", None)
+        if not ref:
+            continue
+        source = entry
+        if ref == "below":
+            next_key = (
+                datetime.date.fromisoformat(entry["date"])
+                + datetime.timedelta(days=1)
+            ).isoformat()
+            nxt = by_date.get(next_key)
+            if nxt and RE_COLLECT_OF_DAY.search(nxt.get("eucharist", "")):
+                source = nxt
+            else:
+                print(
+                    f"  note: {entry['date']} 'Coll below' did not resolve to "
+                    f"next day's propers; using same-day blob",
+                    file=sys.stderr,
+                )
+        m = RE_COLLECT_OF_DAY.search(source.get("eucharist", ""))
+        if not m or not m.group(1).strip():
+            print(
+                f"  note: {entry['date']} has 'Coll {ref}' but no "
+                f"'Collect of the Day:' text found — collect_inline skipped",
+                file=sys.stderr,
+            )
+            continue
+        text = m.group(1).strip()
+        if text.endswith("Amen"):
+            text += "."
+        entry["collect_inline"] = {"name": source["name"], "text": text}
 
     # Group entries by YYYY-MM and write one file per month.
     months: dict[str, dict] = {}

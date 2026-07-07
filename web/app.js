@@ -510,7 +510,9 @@ function collectHtml(collects, ref) {
 
 // Renders the collect section as a toggle between the daily collect and
 // the seasonal alternatives, as the rubric directs: "either…or".
-function collectToggleHtml(collects, collectRef, seasonalSegs, shared, fatsEntry) {
+// collectInline: day-level {name, text} extracted from special-day propers
+// (BUG-27) — used as the Collect of the Day when no BAS collect ref exists.
+function collectToggleHtml(collects, collectRef, seasonalSegs, shared, fatsEntry, collectInline) {
   // Separate the general "Additional intercessions…" rubric (display above toggle)
   // from the actual seasonal collect content.
   let splitAt = 0;
@@ -519,12 +521,16 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared, fatsEntry
   const generalRubrics = seasonalSegs.slice(0, splitAt);
   const seasonalContent = seasonalSegs.slice(splitAt);
 
-  const hasDaily      = !!collectRef;
-  const basResolvable = hasDaily && !!lookupCollect(collects, collectRef);
+  if (collectRef) collectInline = null; // BAS ref wins when both exist
+  const hasDaily      = !!collectRef || !!collectInline;
+  const basResolvable = !!collectInline || (!!collectRef && !!lookupCollect(collects, collectRef));
   const hasSeasonal   = seasonalContent.some(s => s.type !== 'rubric');
+  const dailyHtml = () => collectInline
+    ? `<p class="alt-source">${esc(collectInline.name)}</p><p class="collect-text">${esc(collectInline.text)}</p>`
+    : collectHtml(collects, collectRef);
 
   // Detect Occasional Prayer alternative in the collect ref (e.g. "344 or 8, 677 (The King)")
-  const occPage = hasDaily ? collectSecondaryPage(collectRef) : null;
+  const occPage = collectRef ? collectSecondaryPage(collectRef) : null;
   const occCollect = (occPage && collects[occPage]) || null;
 
   // FATS collect: shown as fallback when BAS collect is absent or unresolvable.
@@ -568,7 +574,7 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared, fatsEntry
   if (isSingleAlt) {
     const altGroups = seasonalContent[0].groups || [];
     const entries = [];
-    if (hasDaily) entries.push(['Collect of the Day', collectHtml(collects, collectRef)]);
+    if (hasDaily) entries.push(['Collect of the Day', dailyHtml()]);
     if (fatsCollect && !hasDaily) entries.push(['Collect of the Day', fatsPanelHtml()]);
     altGroups.forEach(g => {
       const cleanSegs = g.segments.filter(s =>
@@ -586,7 +592,7 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared, fatsEntry
     const displaySeasonal = seasonalContent.filter(s => s.type !== 'rubric');
     const seasonalTitle = periodMarker ? `<p class="alt-source">${esc(periodMarker.text)}</p>` : '';
     const entries = [
-      ['Collect of the Day', collectHtml(collects, collectRef)],
+      ['Collect of the Day', dailyHtml()],
       ['Seasonal Collect', seasonalTitle + `<div class="liturgy">${renderSegments(displaySeasonal, shared)}</div>`],
     ];
     if (occCollect) entries.push([occCollect.name, occPanelHtml()]);
@@ -594,11 +600,11 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared, fatsEntry
   } else if (hasDaily) {
     if (occCollect) {
       html += tabBlock([
-        ['Collect of the Day', collectHtml(collects, collectRef)],
+        ['Collect of the Day', dailyHtml()],
         [occCollect.name, occPanelHtml()],
       ]);
     } else {
-      html += `<h3 class="office-subsection-title">Collect of the Day</h3>${collectHtml(collects, collectRef)}`;
+      html += `<h3 class="office-subsection-title">Collect of the Day</h3>${dailyHtml()}`;
     }
   } else if (fatsCollect) {
     // No BAS collect entry — fall back to FATS collect
@@ -964,7 +970,7 @@ async function render(dateStr, officeType, translation) {
       html += renderSubsection('The Litany', form.litany, shared);
     }
     html += `<h3 class="office-subsection-title">The Collect</h3>`;
-    html += `<div id="prayers-collect">${collectToggleHtml(collects, activeOfficeData.collect, seasonalSegs, shared, fatsEntry)}</div>`;
+    html += `<div id="prayers-collect">${collectToggleHtml(collects, activeOfficeData.collect, seasonalSegs, shared, fatsEntry, day.collect_inline)}</div>`;
     if (form.lords_prayer_intro && form.lords_prayer_intro.length) {
       html += `<h3 class="office-subsection-title">The Lord's Prayer</h3>`;
       html += `<div class="liturgy">${renderSegments(form.lords_prayer_intro, shared)}</div>`;
