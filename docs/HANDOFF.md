@@ -1,8 +1,34 @@
 # PWC — Handoff
 
-_Updated: 2026-07-05_
+_Updated: 2026-07-06_
 
 Session-to-session handoff. Claude Code owns planning, implementation, and verification end-to-end (the former Cowork review role is retired, 2026-07-05); specs are written here by planning sessions and implemented in order by later sessions.
+
+---
+
+## Verified — Batch 18 delivered (2026-07-06)
+
+All nine field-trial fixes (A–I) implemented, committed one-per-fix, and pushed. Serving the built `dist/` at **http://localhost:8081**. **Not yet deployed — awaiting the owner's go-ahead.**
+
+**Gates:** `make check-integrity` ✅ · `make test` (Vitest 113 + pytest 152) ✅ · `make check-text` ✅ · `make check-book` all **31/31 forms** ✅ · targeted E2E `tests/e2e/batch18.spec.js` **5/5** ✅ (real headless Chromium against :8081).
+
+| Fix (bug) | What was verified | How |
+|---|---|---|
+| A (BUG-25) | "Holy One" restored in all 22 litany responses; 0 lowercase remain (grep 8/4/5/5) | data grep + browser (Wed litany shows "Holy One, accomplish…") |
+| B (BUG-26) | No "Coll above/below" reading on 2026-06-20 EP, 06-21 MP/EP | data + browser (no such `.reading-heading`) |
+| C (BUG-27) | Propers Collect surfaced as `collect_inline`; June 21 MP shows "National Indigenous Day of Prayer" / "Creator God…"; 06-20 EP resolves from next day | CLI + browser (`#prayers-collect`) |
+| D (BUG-28) | "Two of the following three readings are read." shows on 06-23 MP, absent on 06-24 | browser + Vitest (load-bearing, not book-only) |
+| E (BUG-32) | 2026-09-27 EP split into optional 2 Kgs + required Mt | data |
+| F (BUG-33) | 14 "O Antiphon" pseudo-lessons dropped; `o_antiphon` notes retained; none render as readings | data + browser (Dec 17 EP) |
+| G (BUG-29) | 0 collects and 0 seasonal-collect leaders with internal newlines; garbled pages reflowed | data + check-book 31/31 |
+| H (BUG-30) | Placeholder N italic in exactly 2 litanies (tuesday-mp, saturday-ep); not inside words | browser + Vitest |
+| I (BUG-31) | EP default from 15:00 | code + no test pinned 17 |
+
+**Also fixed in passing:** BUG-34 (pre-existing `book.js` crash on 7 seasonal EP forms — shared-ref not resolved; unblocked check-book for all 31). **Found & logged, not fixed:** BUG-35 (legacy `office.spec.js` has ~12 stale failures — confirmed pre-existing, the pre-Batch-18 app fails 14 of the same; `make test-web` was also ESM-broken, now fixed).
+
+**Next-session priority:** Batch 19 (casing oracle + prose-wrap detector), then mobile (ROADMAP §5.4). Consider refreshing BUG-35's legacy E2E selectors.
+
+---
 
 > **Context for implementing sessions (written 2026-07-05):** These specs were authored during a full project audit (see `docs/ASSESSMENT-2026-07.md` for reasoning and evidence). Follow them literally; where a spec says "verify", run the exact command and compare against the stated expected output. Every data-affecting fix ends with `make extract` + `make check-integrity` + `make test` — never edit `data/*.json` by hand. One commit per fix, push after each commit.
 
