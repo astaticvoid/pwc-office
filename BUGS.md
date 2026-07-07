@@ -25,16 +25,6 @@ _Files:_ `web/app.js:render`, `tools/convert_lectionary.py`
 
 ### P2 — Missing content / broken feature
 
-**BUG-32: 2026-09-27 EP first lesson is a merged citation**  
-Audit-found 2026-07-05. `"(2 Kgs 17:1-18), Mt 13:44-52"` is stored as a single lesson — the optional parenthesised citation and the following citation were not split (same artifact family as the fixed 2026-04-20 entry).  
-_Fix:_ HANDOFF.md Batch 18 Fix E (add `LESSON_FIXES` entry).  
-_Files:_ `tools/convert_lectionary.py`
-
-**BUG-33: "O Antiphon" emitted as a pseudo-lesson on Dec 17–23 evenings (14 instances)**  
-Audit-found 2026-07-05. The antiphon is already delivered properly as a typed note (`o_antiphon`, rendered per BUG-07); the same CSV cell also leaks into the `lessons` array as a citation `"O Antiphon"`, which the app will try to resolve as Scripture.  
-_Fix:_ HANDOFF.md Batch 18 Fix F (drop at converter).  
-_Files:_ `tools/convert_lectionary.py`
-
 ### P3 — UX / cosmetic
 
 **BUG-29: Collect prose renders with PDF column-width line breaks**  
@@ -57,6 +47,14 @@ _Files:_ `web/app.js:26`
 ---
 
 ## Closed
+
+**BUG-33: "O Antiphon" emitted as a pseudo-lesson on Dec 17–23 evenings**  
+Fixed 2026-07-06 (Batch 18 Fix F). `parse_single_office` now drops any lesson whose citation is exactly "O Antiphon" (RE_O_ANTIPHON), alongside the existing Coll filter. Removed 14 pseudo-lessons across 2025-12 and 2026-12; the antiphons remain as typed `o_antiphon` notes. 1 new pytest.  
+_Files:_ `tools/convert_lectionary.py`, `tools/tests/test_convert_lectionary.py`
+
+**BUG-32: 2026-09-27 EP first lesson is a merged citation**  
+Fixed 2026-07-06 (Batch 18 Fix E). Added `LESSON_FIXES[("2026-09-27","evening")]` splitting `"(2 Kgs 17:1-18), Mt 13:44-52"` into an optional 2 Kgs citation + required Mt (CSV confirmed only two items). Verified after re-extract.  
+_Files:_ `tools/convert_lectionary.py`
 
 **BUG-28: `lessons_pick` unimplemented — "two of the following three readings" shows all 3 with no rubric**  
 Fixed 2026-07-06 (Batch 18 Fix D). Added `lessonsPickText`/`lessonsPickRubricHtml` to `render.js` (number-word generated, e.g. "Two of the following three readings are read."). Wired into `proclamationHtml` (app), `cli/book.js`, and `cli/office.js` — emitted before the first lesson when `lessons_pick < lessons.length`. Uses `seg-rubric` (load-bearing, NOT book-only) since the app has no pick-interaction. Render-only, no data change (12 files / 21 occurrences unchanged). 3 new Vitest cases.  
