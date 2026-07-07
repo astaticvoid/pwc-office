@@ -21,9 +21,10 @@ const state = {
   translation: localStorage.getItem('pwc-translation') || 'nrsvue',
 };
 
-// Evening Prayer is said from ~5pm onward in Anglican practice.
+// Evening Prayer (and eve-of-feast observance) begins mid-afternoon in Anglican
+// practice; 3pm is the traditional hinge (BUG-31).
 function defaultOffice() {
-  return new Date().getHours() >= 17 ? 'ep' : 'mp';
+  return new Date().getHours() >= 15 ? 'ep' : 'mp';
 }
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
