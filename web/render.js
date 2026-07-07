@@ -343,3 +343,21 @@ export function lessonHtml(lesson, shared, form) {
     + reflectionRubric
     + responseHtml;
 }
+
+const _NUM_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six'];
+
+// BUG-28: when the lectionary says pick N of M readings, the app renders all M
+// (it has no pick-interaction). This rubric is load-bearing, not book-only —
+// the reader must know only N are appointed. Returns '' when there's nothing to pick.
+export function lessonsPickText(pick, total) {
+  if (!pick || pick >= total) return '';
+  const p = _NUM_WORDS[pick] || String(pick);
+  const t = _NUM_WORDS[total] || String(total);
+  const cap = p.charAt(0).toUpperCase() + p.slice(1);
+  return `${cap} of the following ${t} readings are read.`;
+}
+
+export function lessonsPickRubricHtml(pick, total) {
+  const text = lessonsPickText(pick, total);
+  return text ? `<p class="seg-rubric">${esc(text)}</p>` : '';
+}

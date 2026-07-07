@@ -8,7 +8,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import {
   seasonOf, officeFormSeason, seasonWeekIndex, formKey,
-  filterSeasonalCollects, renderSegments, renderSubsection, lessonHtml
+  filterSeasonalCollects, renderSegments, renderSubsection, lessonHtml, lessonsPickText
 } from '../web/render.js';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -57,6 +57,10 @@ if (lectionaryDay) out += `Day: ${lectionaryDay.name}\n`;
 out += section('Opening Responses', form.opening_responses);
 const psalms = officeData?.psalms ?? officeData?.psalm_sets?.[0];
 if (psalms) out += `\n## Psalm\n${(Array.isArray(psalms[0]) ? psalms[0] : psalms).map(p => typeof p === 'object' ? p.citation : p).join(', ')}\n`;
+if (officeData?.lessons_pick) {
+  const pickText = lessonsPickText(officeData.lessons_pick, officeData.lessons?.length || 0);
+  if (pickText) out += `\n${pickText}\n`;
+}
 if (officeData?.lessons?.[0]) out += `\n## Lesson 1\n${strip(lessonHtml(officeData.lessons[0], shared, form))}\n`;
 out += section('Responsory', form.responsory);
 if (officeData?.lessons?.[1]) out += `\n## Lesson 2\n${strip(lessonHtml(officeData.lessons[1], shared, form))}\n`;

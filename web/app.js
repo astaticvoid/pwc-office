@@ -3,7 +3,7 @@
 import {
   esc, parseDate, seasonOf, officeFormSeason, seasonWeekIndex, formKey,
   filterSeasonalCollects, renderAlternatives, renderSegments, renderSubsection,
-  lessonHtml, bindMidpoints, parseCitation,
+  lessonHtml, lessonsPickRubricHtml, bindMidpoints, parseCitation,
   READING_RESPONSE, CANTICLE_SOURCE, SKIP_RUBRICS, SC_HEADER, SC_FOOTER,
 } from './render.js';
 
@@ -492,6 +492,7 @@ function psalmHtml(officeData, shared) {
 function proclamationHtml(officeData, form, shared) {
   const lessons = (officeData.lessons || []);
   let html = psalmHtml(officeData, shared);
+  if (officeData.lessons_pick) html += lessonsPickRubricHtml(officeData.lessons_pick, lessons.length);
   if (lessons.length > 0) html += lessonHtml(lessons[0], shared, form);
   if (form) html += renderSubsection('The Responsory', form.responsory, shared);
   if (lessons.length > 1) html += lessonHtml(lessons[1], shared, form);

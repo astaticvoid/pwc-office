@@ -25,11 +25,6 @@ _Files:_ `web/app.js:render`, `tools/convert_lectionary.py`
 
 ### P2 — Missing content / broken feature
 
-**BUG-28: `lessons_pick` unimplemented — "two of the following three readings" shows all 3 with no rubric**  
-Field-reported 2026-06-23. 21 days across the window carry `lessons_pick: 2` with 3 lessons (eves, Dec 24/31, etc.). No code in `web/` or `cli/` reads the field, so all three readings render as if all are required.  
-_Fix:_ HANDOFF.md Batch 18 Fix D.  
-_Files:_ `web/app.js`, `web/render.js`, `cli/book.js`, `cli/office.js`
-
 **BUG-32: 2026-09-27 EP first lesson is a merged citation**  
 Audit-found 2026-07-05. `"(2 Kgs 17:1-18), Mt 13:44-52"` is stored as a single lesson — the optional parenthesised citation and the following citation were not split (same artifact family as the fixed 2026-04-20 entry).  
 _Fix:_ HANDOFF.md Batch 18 Fix E (add `LESSON_FIXES` entry).  
@@ -62,6 +57,10 @@ _Files:_ `web/app.js:26`
 ---
 
 ## Closed
+
+**BUG-28: `lessons_pick` unimplemented — "two of the following three readings" shows all 3 with no rubric**  
+Fixed 2026-07-06 (Batch 18 Fix D). Added `lessonsPickText`/`lessonsPickRubricHtml` to `render.js` (number-word generated, e.g. "Two of the following three readings are read."). Wired into `proclamationHtml` (app), `cli/book.js`, and `cli/office.js` — emitted before the first lesson when `lessons_pick < lessons.length`. Uses `seg-rubric` (load-bearing, NOT book-only) since the app has no pick-interaction. Render-only, no data change (12 files / 21 occurrences unchanged). 3 new Vitest cases.  
+_Files:_ `web/render.js`, `web/app.js`, `cli/book.js`, `cli/office.js`, `tests/unit/render.test.js`
 
 **BUG-27: Special-day propers Collect never surfaced**  
 Fixed 2026-07-06 (Batch 18 Fix C). `convert_lectionary.py` now extracts the "Collect of the Day" from the propers `eucharist` blob (RE_COLLECT_OF_DAY) for any day whose offices referenced it via "Coll above/below", and attaches it as a day-level `collect_inline: {name, text}`. A "Coll below" eve resolves the collect from the *next* day's blob (2026-06-20 EP → 2026-06-21 propers, verified). `collectToggleHtml()` renders `collect_inline` as the Collect of the Day when no BAS collect ref exists; `cli/office.js` prints it too. Scope held to the collect only — a general propers/`eucharist` surface, and a consumer for the `observances` field, remain parked (ASSESSMENT §6).  

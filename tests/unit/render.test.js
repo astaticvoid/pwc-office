@@ -2,7 +2,8 @@ import { describe, test, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
-  formKey, officeFormSeason, renderSegments, renderSubsection, lessonHtml, filterSeasonalCollects
+  formKey, officeFormSeason, renderSegments, renderSubsection, lessonHtml, filterSeasonalCollects,
+  lessonsPickText, lessonsPickRubricHtml
 } from '../../web/render.js';
 
 const offices = JSON.parse(readFileSync(join(import.meta.dirname, '../../data/offices.json'), 'utf8'));
@@ -95,6 +96,25 @@ describe('lessonHtml', () => {
     const form = offices['ordinary-wednesday-mp'];
     const lpHtml = renderSegments(form.lords_prayer_intro, shared);
     expect(lpHtml).toContain('Our Father in heaven');
+  });
+});
+
+// ── lessons_pick rubric (BUG-28) ──────────────────────────────────────────────
+describe('lessonsPick', () => {
+  test('2 of 3 renders the load-bearing rubric', () => {
+    expect(lessonsPickText(2, 3)).toBe('Two of the following three readings are read.');
+    expect(lessonsPickRubricHtml(2, 3)).toBe(
+      '<p class="seg-rubric">Two of the following three readings are read.</p>');
+  });
+
+  test('rubric is not book-only (must show in the interactive app)', () => {
+    expect(lessonsPickRubricHtml(2, 3)).not.toContain('rubric-book-only');
+  });
+
+  test('no rubric when pick >= total or pick is falsy', () => {
+    expect(lessonsPickText(3, 3)).toBe('');
+    expect(lessonsPickText(0, 3)).toBe('');
+    expect(lessonsPickRubricHtml(undefined, 3)).toBe('');
   });
 });
 
