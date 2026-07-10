@@ -38,6 +38,10 @@ _Files:_ `tests/e2e/office.spec.js`
 
 ## Closed
 
+**BUG-36: God's Spirit lowercased in 4 responses (found by the casing oracle)**  
+Found & fixed 2026-07-09 by `tools/check_casing.py` (Batch 19.1) on its first run. Four responses read "your spirit" where the PDF (pdftotext ground truth) has "your **Spirit**" (God's Spirit): `lent-mp` opening responses, `pentecost-ep` responsory (×2, Ps 104:30), `ordinary-thursday-ep` litany. `_DIVINE_FIXES` has no standalone `spirit → Spirit` rule (human "spirit" must stay lowercase), so each was added to `_TEXT_PATCHES`. Also extended `_apply_text_patches` to recurse into `alternatives` groups (the lent-mp response lives inside a I/II/III group). Oracle now reports 0 internal mismatches. 3 new pytests.  
+_Files:_ `tools/extract_offices.py`, `tools/tests/test_extract_offices.py`
+
 **BUG-34: `cli/book.js` crashes on the 7 seasonal EP forms**  
 Fixed 2026-07-06. Pre-existing since BUG-23 (confirmed by stashing all Batch-18 work — still crashed): `book.js:215` called `.some` on `form.opening_responses`, which the 7 seasonal EP forms hold as a `{type:"shared"}` object, not an array. Now resolves the whole-field shared ref before use. All 31 forms pass `make check-book` again (which also re-confirms Fix G's reflow caused no collect regression).  
 _Files:_ `cli/book.js`
