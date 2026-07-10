@@ -7,6 +7,9 @@ Checks for:
   - Duplicate adjacent words
   - Suspiciously long merged tokens
   - Hanging hyphens at line breaks
+  - Column wraps in prose fields (collect texts, seasonal_collects leaders):
+    a non-final line ending mid-clause is a suspected PDF column wrap (BUG-29
+    regression guard; should be zero after Batch 18 Fix G)
 
 Exits 0 always (warnings only).  Pass --strict to exit 1 on any finding.
 
@@ -125,6 +128,68 @@ def check_file(rel_path: str, findings: list) -> None:
     _walk_json(data, rel_path, findings)
 
 
+# ── Column-wrap detector (BUG-29 regression guard) ────────────────────────────
+
+# Collect prayers are single prose sentences (Batch 18 Fix G reflowed them). A
+# non-final line that ends WITHOUT terminal punctuation is a suspected PDF
+# column wrap ("…and who\nlives and reigns…"). These chars legitimately end a
+# line: , ; : . ! ? — ’ ” )
+_TERMINAL_PUNCT = tuple(",;:.!?—’”)")
+
+
+def _check_prose_wraps(text: str, location: str, findings: list) -> None:
+    if not isinstance(text, str) or "\n" not in text:
+        return
+    lines = [ln.strip() for ln in text.split("\n")]
+    for ln in lines[:-1]:              # every line except the last
+        if ln and not ln.endswith(_TERMINAL_PUNCT):
+            snippet = ln[-40:] if len(ln) > 40 else ln
+            findings.append((location, "column_wrap", f"line ends mid-clause: …{snippet!r}"))
+
+
+def _seasonal_collect_leaders(segs, path, out):
+    """Collect (location, text) for leader segments inside seasonal_collects,
+    recursing shared refs and alternatives groups."""
+    if isinstance(segs, dict) and segs.get("type") == "shared":
+        return  # seasonal_collects is never a whole-field shared ref
+    if not isinstance(segs, list):
+        return
+    for i, seg in enumerate(segs):
+        if not isinstance(seg, dict):
+            continue
+        if seg.get("type") == "alternatives":
+            for j, group in enumerate(seg.get("groups", [])):
+                _seasonal_collect_leaders(group.get("segments", []), f"{path}[{i}].groups[{j}]", out)
+        elif seg.get("type") == "leader" and seg.get("text"):
+            out.append((f"{path}[{i}]", seg["text"]))
+
+
+def check_prose_fields(findings: list) -> None:
+    """Column-wrap scan of prose-expected fields only: collect texts and
+    seasonal_collects leader segments. Applied narrowly — psalms, litanies and
+    canticles legitimately break lines without terminal punctuation."""
+    collects_path = ROOT / "data" / "collects.json"
+    if collects_path.exists():
+        collects = json.loads(collects_path.read_bytes())
+        for page, entry in collects.items():
+            if isinstance(entry, dict) and isinstance(entry.get("text"), str):
+                _check_prose_wraps(entry["text"], f"collects.json[{page!r}].text", findings)
+
+    offices_path = ROOT / "data" / "offices.json"
+    if offices_path.exists():
+        offices = json.loads(offices_path.read_bytes())
+        for office_key, form in offices.items():
+            if office_key.startswith("_") or not isinstance(form, dict):
+                continue
+            sc = form.get("seasonal_collects")
+            if sc is None:
+                continue
+            leaders: list = []
+            _seasonal_collect_leaders(sc, f"offices.json[{office_key!r}].seasonal_collects", leaders)
+            for loc, text in leaders:
+                _check_prose_wraps(text, loc, findings)
+
+
 # ── Entry point ──────────────────────────────────────────────────────────────
 
 def main():
@@ -142,6 +207,7 @@ def main():
     findings: list[tuple[str, str, str]] = []
     for rel in target_files:
         check_file(rel, findings)
+    check_prose_fields(findings)
 
     if findings:
         for loc, kind, detail in findings:
