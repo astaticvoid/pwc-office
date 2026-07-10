@@ -1,8 +1,26 @@
 # PWC — Handoff
 
-_Updated: 2026-07-06_
+_Updated: 2026-07-09_
 
 Session-to-session handoff. Claude Code owns planning, implementation, and verification end-to-end (the former Cowork review role is retired, 2026-07-05); specs are written here by planning sessions and implemented in order by later sessions.
+
+---
+
+## Verified — Batch 19 delivered (2026-07-09)
+
+Data-confidence tooling. Both tools implemented, committed, pushed. **Pure tooling + 4 data corrections it surfaced — no web/UI change; nothing to deploy.**
+
+**Gates:** `make check-integrity` ✅ · `make test` (Vitest 113 + pytest 162) ✅ · `make check-text` ✅ (now includes the column-wrap rule) · `make check-casing` ✅ (0 internal mismatches).
+
+| Item | Result |
+|---|---|
+| 19.1 `tools/check_casing.py` | pdftotext casing oracle over all 1286 leader/response/label segments. Separates **internal** casing errors (the signal) from **first-letter** editorial differences (99, informational) and unmatched (40, informational). `make check-casing`, wired into `make validate`. |
+| Oracle's first catch → **BUG-36** | Found 4 real errors on first run: "your spirit" → "your **Spirit**" (God's Spirit) in lent-mp / pentecost-ep ×2 / ordinary-thursday-ep. Fixed via `_TEXT_PATCHES` (+ extended `_apply_text_patches` to recurse into alternatives). Oracle now 0. |
+| 19.2 column-wrap detector | New rule in `check_text_quality.py`: non-final prose lines ending mid-clause (collect texts, seasonal_collects leaders) = suspected PDF column wrap. Guards BUG-29 from regressing. Reports 0 on current data; catches synthetic wraps (7 pytests). |
+
+**Acceptance met:** post-Batch-18 data reports **0** internal casing mismatches (after BUG-36) and **0** column wraps. The oracle demonstrably catches internal errors (verified against synthetic "Holy one"→"Holy One" and the 4 real spirit errors).
+
+**Next-session priority:** mobile (ROADMAP §5.4 — the ACC's prime desire: Capacitor native features + store submission). Open housekeeping: BUG-35 (refresh the ~12 stale legacy `office.spec.js` selectors); BUG-06 (2027 lectionary, blocked on ACC data). Consider making `make check-casing --strict` / `check-text --strict` a deploy gate once comfortable.
 
 ---
 
