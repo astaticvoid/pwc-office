@@ -132,36 +132,35 @@ test.describe('Office loads', () => {
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 
+// The nav was redesigned: the ← → arrows are hidden (kept in the DOM for
+// keyboard shortcuts only — see the Keyboard navigation describe), day-jump is
+// the calendar date-picker, "today" is the brand logo, and the MP/EP toggle
+// lives in the day-header controls (.day-ctrl-btn).
 test.describe('Navigation', () => {
-  test('prev arrow goes to previous day', async ({ page }) => {
+  test('date picker navigates to a chosen date', async ({ page }) => {
     await page.goto(MP);
-    await page.locator('#nav-prev').click();
+    await page.locator('#nav-date-picker').fill('2026-05-16');
     await expect(page).toHaveURL(/2026-05-16\/mp/);
     await expect(page.locator('#day-title')).not.toBeEmpty();
   });
 
-  test('next arrow goes to next day', async ({ page }) => {
-    await page.goto(MP);
-    await page.locator('#nav-next').click();
-    await expect(page).toHaveURL(/2026-05-18\/mp/);
-  });
-
   test('MP/EP toggle switches office', async ({ page }) => {
     await page.goto(MP);
-    await page.locator('#nav-ep').click();
+    await page.locator('.day-ctrl-btn', { hasText: 'Evening Prayer' }).click();
     await expect(page).toHaveURL(/2026-05-17\/ep/);
     await expect(page).toHaveTitle(/Evening Prayer/);
   });
 
-  test('today button navigates to today', async ({ page }) => {
+  test('brand logo navigates to today', async ({ page }) => {
     // Start on a different date
     await page.goto(PREV);
-    await page.locator('#nav-today').click();
-    // Should land on today's date
+    await page.locator('#nav-brand').click();
+    // Brand clears the hash to bare "/" and renders today; the date picker
+    // reflects the rendered date (picker.value = dateStr in render()).
     const today = new Date();
     const pad = n => String(n).padStart(2, '0');
     const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
-    await expect(page).toHaveURL(new RegExp(todayStr));
+    await expect(page.locator('#nav-date-picker')).toHaveValue(todayStr);
   });
 });
 
@@ -273,9 +272,9 @@ test.describe('Alternatives', () => {
     // Select tab II
     await altBlock.locator('.alt-tab').nth(1).click();
 
-    // Switch to EP and back to MP
-    await page.locator('#nav-ep').click();
-    await page.locator('#nav-mp').click();
+    // Switch to EP and back to MP (day-header office toggle)
+    await page.locator('.day-ctrl-btn', { hasText: 'Evening Prayer' }).click();
+    await page.locator('.day-ctrl-btn', { hasText: 'Morning Prayer' }).click();
 
     const altBlockAfter = page.locator('.alt-block').first();
     await altBlockAfter.waitFor();
@@ -391,7 +390,8 @@ test.describe('Translation switch', () => {
     await expect(page.locator('.scripture-verse').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
     await page.locator('#nav-translation').selectOption('kjv');
 
-    await page.locator('#nav-next').click();
+    // Navigate to the next day (arrows are keyboard-only now; go by URL).
+    await page.goto('/#/2026-05-18/mp');
     await expect(page.locator('.scripture-verse').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
     await expect(page.locator('#nav-translation')).toHaveValue('kjv');
     await expect(page.locator('#scripture-attr')).toContainText('KJV');
@@ -400,12 +400,18 @@ test.describe('Translation switch', () => {
 
 // ── Observance toggle ─────────────────────────────────────────────────────────
 
+// The observance switch moved into the day-header controls
+// (.day-ctrl-group--obs): a primary/alternate segmented control whose buttons
+// are hash links (…/mp/primary, …/mp/alternate). The old .observance-card is a
+// hidden legacy element. The .obs-readings[data-obs] blocks are unchanged.
+const OBS_ALT = 'a.day-ctrl-btn[href*="/alternate"]';
+
 test.describe('Observance toggle', () => {
   // 2026-05-17 has Easter VII (primary) and Ascension (alternate)
-  test('observance card is visible', async ({ page }) => {
+  test('observance control is visible', async ({ page }) => {
     await page.goto(MP);
-    await expect(page.locator('.observance-card')).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('.observance-card-link')).toBeVisible();
+    await expect(page.locator('.day-ctrl-group--obs')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(OBS_ALT)).toBeVisible();
   });
 
   test('primary readings visible by default, alternate hidden', async ({ page }) => {
@@ -416,16 +422,16 @@ test.describe('Observance toggle', () => {
 
   test('clicking alternate observance swaps visible readings', async ({ page }) => {
     await page.goto(MP);
-    await expect(page.locator('.observance-card-link')).toBeVisible({ timeout: 5000 });
-    await page.locator('.observance-card-link').click();
+    await expect(page.locator(OBS_ALT)).toBeVisible({ timeout: 5000 });
+    await page.locator(OBS_ALT).click();
     await expect(page.locator('.obs-readings[data-obs="primary"]')).toHaveClass(/obs-hidden/);
     await expect(page.locator('.obs-readings[data-obs="alternate"]')).not.toHaveClass(/obs-hidden/);
   });
 
   test('title updates to reflect alternate observance', async ({ page }) => {
     await page.goto(MP);
-    await expect(page.locator('.observance-card-link')).toBeVisible({ timeout: 5000 });
-    await page.locator('.observance-card-link').click();
+    await expect(page.locator(OBS_ALT)).toBeVisible({ timeout: 5000 });
+    await page.locator(OBS_ALT).click();
     await expect(page).toHaveTitle(/Ascension/, { timeout: 5000 });
   });
 
@@ -434,11 +440,12 @@ test.describe('Observance toggle', () => {
     // Primary: Seventh Sunday of Easter (collect 344)
     await expect(page.locator('#prayers-collect')).toContainText('Seventh Sunday of Easter', { timeout: 5000 });
     // Switch to Ascension (collect 343)
-    await expect(page.locator('.observance-card-link')).toBeVisible({ timeout: 5000 });
-    await page.locator('.observance-card-link').click();
+    await expect(page.locator(OBS_ALT)).toBeVisible({ timeout: 5000 });
+    await page.locator(OBS_ALT).click();
     await expect(page.locator('#prayers-collect')).toContainText('Ascension of the Lord', { timeout: 5000 });
-    // Switch back — primary collect restored
-    await page.locator('.observance-card-link').click();
+    // Switch back — the primary observance button is the first in the obs
+    // segment (its href has no "/primary" suffix; primary is the default).
+    await page.locator('.day-ctrl-seg--obs .day-ctrl-btn').first().click();
     await expect(page.locator('#prayers-collect')).toContainText('Seventh Sunday of Easter', { timeout: 5000 });
   });
 });
@@ -454,11 +461,13 @@ test.describe('Reading response renders after lesson', () => {
       await page.goto(`/#/${date}/${office}`);
       // Wait for scripture to load (replaces placeholder)
       await page.waitForSelector('.scripture-placeholder:not(:has(.loading))', { timeout: 10000 });
-      // Reading response tab strip must exist after the lesson
-      const tabs = page.locator('.alt-tabs').first();
-      await expect(tabs).toBeVisible();
+      // The reading-response tab strip is the .alt-block containing the
+      // "The word of the Lord" versicle. Scope to it — the page has many other
+      // alt-blocks (collect, canticle, affirmation), so a page-wide count is wrong.
+      const rrBlock = page.locator('.alt-block', { hasText: 'The word of the Lord' }).first();
+      await expect(rrBlock.locator('.alt-tabs')).toBeVisible();
       // Must have 3 options (I / II / III)
-      await expect(page.locator('.alt-tab')).toHaveCount(3);
+      await expect(rrBlock.locator(':scope > .alt-tabs > .alt-tab')).toHaveCount(3);
     });
   }
 });
