@@ -818,7 +818,32 @@ _TEXT_PATCHES: list[tuple[str, str, str, str]] = [
     ("ordinary-saturday-ep", "phos_hilaron",
      'the evening hymn: “now from the Altar of My heart”',
      'The Evening Hymn: “Now from the Altar of My Heart”'),
+    # BUG-36: God's Spirit lowercased. pdftotext oracle (check_casing.py) shows
+    # "Spirit" in every one of these; _DIVINE_FIXES has no safe standalone
+    # "spirit → Spirit" rule (human "spirit" must stay lowercase), so patch each.
+    ("lent-mp", "opening_responses",
+     "and sustain us by your bountiful spirit.",
+     "and sustain us by your bountiful Spirit."),
+    ("pentecost-ep", "responsory",
+     "When you send forth your spirit, we are created;\nyou renew the face of the earth.",
+     "When you send forth your Spirit, we are created;\nyou renew the face of the earth."),
+    ("ordinary-thursday-ep", "litany",
+     "and sustain them with your spirit.",
+     "and sustain them with your Spirit."),
 ]
+
+def _patch_segments(segs: list, old: str, new: str) -> None:
+    """Replace matching response/label text in a segment list, recursing into
+    alternatives groups (some patched responses live inside I/II/III groups)."""
+    for seg in segs:
+        if not isinstance(seg, dict):
+            continue
+        if seg.get("type") == "alternatives":
+            for group in seg.get("groups", []):
+                _patch_segments(group.get("segments", []), old, new)
+        elif seg.get("type") in ("response", "label") and seg.get("text") == old:
+            seg["text"] = new
+
 
 def _apply_text_patches(offices: dict) -> dict:
     """Apply _TEXT_PATCHES to correct responses the extractor mis-capitalised."""
@@ -828,9 +853,7 @@ def _apply_text_patches(offices: dict) -> dict:
         section = offices.get(office_key, {}).get(section_key)
         if not isinstance(section, list):
             continue
-        for seg in section:
-            if seg.get("type") in ("response", "label") and seg.get("text") == old:
-                seg["text"] = new
+        _patch_segments(section, old, new)
     return offices
 
 

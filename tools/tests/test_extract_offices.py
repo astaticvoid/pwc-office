@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from extract_offices import _char_type, _group_alternatives, _fix_casing
+from extract_offices import _char_type, _group_alternatives, _fix_casing, _patch_segments
 
 
 # ── _char_type ────────────────────────────────────────────────────────────────
@@ -89,6 +89,36 @@ class TestFixCasing:
         # "holy one" — _fix_casing must leave them alone.
         original = "nor let your holy one see the Pit."
         assert self._leader(original) == original
+
+
+# ── _patch_segments (BUG-36 recursion) ────────────────────────────────────────
+
+class TestPatchSegments:
+    def test_patches_flat_response(self):
+        segs = [{"type": "response", "text": "your spirit."}]
+        _patch_segments(segs, "your spirit.", "your Spirit.")
+        assert segs[0]["text"] == "your Spirit."
+
+    def test_patches_response_nested_in_alternatives(self):
+        # BUG-36: some patched responses live inside I/II/III groups; the patch
+        # must recurse into alternatives (lent-mp opening_responses).
+        segs = [{
+            "type": "alternatives",
+            "groups": [
+                {"label": "I", "segments": [
+                    {"type": "response", "text": "and sustain us by your bountiful spirit."},
+                ]},
+            ],
+        }]
+        _patch_segments(segs, "and sustain us by your bountiful spirit.",
+                        "and sustain us by your bountiful Spirit.")
+        assert segs[0]["groups"][0]["segments"][0]["text"] == \
+            "and sustain us by your bountiful Spirit."
+
+    def test_leaves_non_matching_untouched(self):
+        segs = [{"type": "response", "text": "a broken spirit."}]
+        _patch_segments(segs, "your spirit.", "your Spirit.")
+        assert segs[0]["text"] == "a broken spirit."
 
 
 # ── _group_alternatives ───────────────────────────────────────────���───────────
