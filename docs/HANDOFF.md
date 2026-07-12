@@ -22,7 +22,7 @@ Quality and rendering: verse/block text differentiation, litany data reflow, lin
 
 **FATS decision:** Phase 1 (bio + collect fallback) is the complete integration. FATS readings are Eucharistic propers — not suitable for Daily Office. RCL Daily is the correct lectionary source for daily readings.
 
-**Next-session priority:** mobile (ROADMAP §5.4 — Capacitor native features + store submission), then RCL Daily lectionary (RTF source files confirmed available at commontexts.org).
+**Next-session priority:** mobile (ROADMAP §5.4 — Capacitor native features + store submission). RCL Daily extraction pipeline is complete (13 months extracted, Nov 2026 forward) — UI integration deferred until the data window opens in November.
 
 ---
 
