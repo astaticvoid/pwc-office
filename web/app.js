@@ -17,11 +17,11 @@ const isNative = !!(window.__pwcPlugins?.Capacitor?.isNativePlatform?.());
 // ── Storage (localStorage + Capacitor Preferences) ────────────────────────────
 
 function storageGet(key) {
-  return storageGet(key);
+  return localStorage.getItem(key);
 }
 
 function storageSet(key, value) {
-  storageSet(key, value);
+  localStorage.setItem(key, value);
   if (isNative) {
     window.__pwcPlugins.Preferences.set({ key, value }).catch(() => {});
   }
