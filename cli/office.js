@@ -43,11 +43,11 @@ if (!form) {
 const officeData = lectionaryDay ? lectionaryDay[officeType === 'mp' ? 'morning' : 'evening'] : null;
 
 // Minimal text render (HTML tags stripped for readability)
-function strip(html) { return html.replace(/<[^>]+>/g, '').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'); }
-function section(title, segs) {
+function strip(html) { return html.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'); }
+function section(title, segs, verse = false) {
   if (segs?.type === 'shared' && shared) segs = shared[segs.key];
   if (!segs || !segs.length) return '';
-  return `\n## ${title}\n\n${strip(renderSegments(segs, shared))}\n`;
+  return `\n## ${title}\n\n${strip(renderSegments(segs, shared, verse))}\n`;
 }
 
 let out = `# ${officeType.toUpperCase()} — ${dateStr}\n`;
@@ -62,16 +62,16 @@ if (officeData?.lessons_pick) {
   if (pickText) out += `\n${pickText}\n`;
 }
 if (officeData?.lessons?.[0]) out += `\n## Lesson 1\n${strip(lessonHtml(officeData.lessons[0], shared, form))}\n`;
-out += section('Responsory', form.responsory);
+out += section('Responsory', form.responsory, true);
 if (officeData?.lessons?.[1]) out += `\n## Lesson 2\n${strip(lessonHtml(officeData.lessons[1], shared, form))}\n`;
-out += section('Canticle', form.canticle);
+out += section('Canticle', form.canticle, true);
 out += section('Intercessions', form.intercessions);
 out += section('Litany', form.litany);
 if (lectionaryDay?.collect_inline) {
   const ci = lectionaryDay.collect_inline;
   out += `\n## Collect of the Day\n\n${ci.name}\n${ci.text}\n`;
 }
-out += section("Lord's Prayer", form.lords_prayer_intro);
-out += section('Dismissal', form.dismissal);
+out += section("Lord's Prayer", form.lords_prayer_intro, true);
+out += section('Dismissal', form.dismissal, true);
 
 console.log(out);

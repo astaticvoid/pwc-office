@@ -148,3 +148,38 @@ describe('all forms: shared-ref fields render non-empty HTML', () => {
       `${name} reading_response resolves to empty`).toBeGreaterThan(0);
   });
 });
+
+// ── Verse rendering ────────────────────────────────────────────────────────────
+
+describe('verse rendering preserves leader line breaks', () => {
+  const segs = [
+    { type: 'leader', text: 'Blessed are you, Sovereign God,\ncreator of light and darkness,\nto you be glory and praise for ever.' },
+    { type: 'response', text: 'To you be glory and praise for ever.' },
+  ];
+
+  test('leader has <br> in verse mode', () => {
+    const html = renderSegments(segs, shared, true);
+    expect(html).toContain('Sovereign God,<br>creator');
+  });
+
+  test('leader has no <br> in prose mode (default)', () => {
+    const html = renderSegments(segs, shared);
+    expect(html).not.toContain('<br>');
+  });
+
+  test('prose leader collapses newline to space', () => {
+    const html = renderSegments(segs, shared, false);
+    expect(html).not.toContain('<br>');
+    expect(html).toContain('Sovereign God,\ncreator');
+  });
+
+  test('verse leader with Amen splits Amen to response', () => {
+    const amenSegs = [
+      { type: 'leader', text: 'May God, who has called us out of darkness into the marvellous light\nof Christ,\nbless us and fill us with peace. Amen.' },
+    ];
+    const html = renderSegments(amenSegs, shared, true);
+    expect(html).toContain('light<br>of Christ');
+    expect(html).toContain('seg-response');
+    expect(html).toContain('Amen.');
+  });
+});
