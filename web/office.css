@@ -601,6 +601,10 @@ body.book-mode .alt-panel + .alt-panel::before {
   font-family: var(--font-ui); font-size: 0.78rem; font-style: italic;
   color: var(--color-muted); margin-top: 0.4rem;
 }
+.scripture-offline {
+  font-family: var(--font-ui); font-size: 0.78rem; font-style: italic;
+  color: var(--color-muted); margin-top: 0.4rem;
+}
 
 /* ── Collect ────────────────────────────────────────────────────────────────── */
 
