@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from extract_offices import _char_type, _group_alternatives, _fix_casing, _patch_segments
+from extract_offices import _char_type, _group_alternatives, _fix_casing, _patch_segments, _reflow_litany_prose
 
 
 # ── _char_type ────────────────────────────────────────────────────────────────
@@ -228,3 +228,51 @@ class TestGroupAlternatives:
 
     def test_empty_input(self):
         assert _group_alternatives([]) == []
+
+
+# ── _reflow_litany_prose ──────────────────────────────────────────────────────
+
+class TestReflowLitanyProse:
+    """Tests for smart reflow of PDF column-wrap line breaks in litany leaders."""
+
+    def test_joins_mid_clause_wraps(self):
+        segs = [{"type": "leader", "text": "Watchful at all times, let us pray to God for strength to stand with\nconfidence."}]
+        _reflow_litany_prose(segs)
+        assert segs[0]["text"] == "Watchful at all times, let us pray to God for strength to stand with confidence."
+
+    def test_preserves_sentence_breaks(self):
+        segs = [{"type": "leader", "text": "Let us pray to the Creator of the universe.\nHoly One, by the good news of our salvation"}]
+        _reflow_litany_prose(segs)
+        assert segs[0]["text"] == "Let us pray to the Creator of the universe.\nHoly One, by the good news of our salvation"
+
+    def test_joins_mid_clause_between_sentence_breaks(self):
+        segs = [{"type": "leader", "text": "Let us pray to the Creator of the universe.\nHoly One, by the good news of our salvation\nbrought to Mary by the angel:"}]
+        _reflow_litany_prose(segs)
+        assert segs[0]["text"] == "Let us pray to the Creator of the universe.\nHoly One, by the good news of our salvation brought to Mary by the angel:"
+
+    def test_preserves_comma_break(self):
+        segs = [{"type": "leader", "text": "Encompass us with your light as with a cloak,\nand conquer the darkness of our night."}]
+        _reflow_litany_prose(segs)
+        assert segs[0]["text"] == "Encompass us with your light as with a cloak,\nand conquer the darkness of our night."
+
+    def test_ignores_rubric_segments(self):
+        segs = [{"type": "rubric", "text": "The Litany is said or sung."}]
+        original = segs[0]["text"]
+        _reflow_litany_prose(segs)
+        assert segs[0]["text"] == original
+
+    def test_ignores_response_segments(self):
+        segs = [{"type": "response", "text": "Holy One,\nhear and have mercy."}]
+        original = segs[0]["text"]
+        _reflow_litany_prose(segs)
+        assert segs[0]["text"] == original
+
+    def test_single_line_unchanged(self):
+        segs = [{"type": "leader", "text": "God of Israel, may this day be one of fulfillment and peace."}]
+        _reflow_litany_prose(segs)
+        assert segs[0]["text"] == "God of Israel, may this day be one of fulfillment and peace."
+
+    def test_recurses_into_alternatives(self):
+        segs = [{"type": "alternatives", "groups": [{"label": "I", "segments": [{"type": "leader", "text": "O God of our salvation, guard and direct your Church\nin the way of unity, service, and praise."}]}]}]
+        _reflow_litany_prose(segs)
+        assert segs[0]["groups"][0]["segments"][0]["text"] == "O God of our salvation, guard and direct your Church in the way of unity, service, and praise."

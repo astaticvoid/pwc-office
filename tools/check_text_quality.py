@@ -164,10 +164,28 @@ def _seasonal_collect_leaders(segs, path, out):
             out.append((f"{path}[{i}]", seg["text"]))
 
 
+def _litany_leaders(segs, path, out):
+    """Collect (location, text) for leader segments inside litany sections,
+    recursing alternatives groups."""
+    if isinstance(segs, dict) and segs.get("type") == "shared":
+        return
+    if not isinstance(segs, list):
+        return
+    for i, seg in enumerate(segs):
+        if not isinstance(seg, dict):
+            continue
+        if seg.get("type") == "alternatives":
+            for j, group in enumerate(seg.get("groups", [])):
+                _litany_leaders(group.get("segments", []), f"{path}[{i}].groups[{j}]", out)
+        elif seg.get("type") == "leader" and seg.get("text"):
+            out.append((f"{path}[{i}]", seg["text"]))
+
+
 def check_prose_fields(findings: list) -> None:
-    """Column-wrap scan of prose-expected fields only: collect texts and
-    seasonal_collects leader segments. Applied narrowly — psalms, litanies and
-    canticles legitimately break lines without terminal punctuation."""
+    """Column-wrap scan of prose-expected fields: collect texts, seasonal_collects
+    and litany leader segments. Litanies are prose (not verse); line breaks without
+    terminal punctuation are PDF column wraps that _reflow_litany_prose should have
+    joined at extraction time."""
     collects_path = ROOT / "data" / "collects.json"
     if collects_path.exists():
         collects = json.loads(collects_path.read_bytes())
@@ -182,11 +200,17 @@ def check_prose_fields(findings: list) -> None:
             if office_key.startswith("_") or not isinstance(form, dict):
                 continue
             sc = form.get("seasonal_collects")
-            if sc is None:
-                continue
-            leaders: list = []
-            _seasonal_collect_leaders(sc, f"offices.json[{office_key!r}].seasonal_collects", leaders)
-            for loc, text in leaders:
+            if sc is not None:
+                leaders: list = []
+                _seasonal_collect_leaders(sc, f"offices.json[{office_key!r}].seasonal_collects", leaders)
+                for loc, text in leaders:
+                    _check_prose_wraps(text, loc, findings)
+            lit = form.get("litany")
+            if lit is not None:
+                l_leaders: list = []
+                _litany_leaders(lit, f"offices.json[{office_key!r}].litany", l_leaders)
+                for loc, text in l_leaders:
+                    _check_prose_wraps(text, loc, findings)
                 _check_prose_wraps(text, loc, findings)
 
 
