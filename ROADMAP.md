@@ -18,11 +18,11 @@ These are the delivery targets tracked every cycle. Status updated as work progr
 | 1.5 | **JS render module + Node CLI + Vitest** | ✅ | — |
 | 2 | **Correctness audit** (31 office forms) | ✅ | — |
 | 3 | **FATS integrated** | ✅ Phase 1 (bio + collect). Readings out of scope — FATS is a Eucharistic resource, not Daily Office. | — |
-| 4 | **RCL Daily lectionary** | 🟡 RTF source files available (CCT). Extractor + UI pending. | Implementation |
+| 4 | **RCL Daily lectionary** | 🟡 Extraction pipeline complete (13 months extracted, Nov 2026 forward). UI deferred until data window opens. | Implementation |
 | 5 | **iOS / Android (Synod private beta)** | 🟡 Capacitor shell committed. Native features + store submission remain. | Implementation |
 | 6 | **Batch 18–20 — field-trial fixes + quality tooling** | ✅ All shipped. 0 bugs, 0 casing errors, 0 column wraps, 0 line-break bugs. | — |
 
-**Current focus:** Batch 18 correctness fixes first (small, trust-critical for the ACC trial), then mobile milestones. See `docs/ASSESSMENT-2026-07.md` for the 2026-07 audit and strategy validation.
+**Current focus:** mobile (Capacitor native features + store submission). RCL Daily deferred — extraction done, data starts Nov 2026.
 
 **Strategic context (2026-07-05):** The app is under trial by the Anglican Church of Canada as a candidate official prayer app. ACC is obtaining rights to distribute the copyrighted texts *in the app* (the open-source repo remains text-free — see ASSESSMENT §5). ACC's prime desire is mobile apps.
 
