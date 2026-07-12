@@ -14,13 +14,107 @@ const DATA = 'data';
 const FEATURE_RCL_DAILY = false;
 const isNative = !!(window.__pwcPlugins?.Capacitor?.isNativePlatform?.());
 
+// ── Storage (localStorage + Capacitor Preferences) ────────────────────────────
+
+function storageGet(key) {
+  return storageGet(key);
+}
+
+function storageSet(key, value) {
+  storageSet(key, value);
+  if (isNative) {
+    window.__pwcPlugins.Preferences.set({ key, value }).catch(() => {});
+  }
+}
+
+function storageRemove(key) {
+  localStorage.removeItem(key);
+  if (isNative) {
+    window.__pwcPlugins.Preferences.remove({ key }).catch(() => {});
+  }
+}
+
+async function migrateStorageToPreferences() {
+  if (!isNative) return;
+  try {
+    const { value: migrated } = await window.__pwcPlugins.Preferences.get({ key: 'pwc-storage-migrated' });
+    if (migrated === '1') return;
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('pwc-')) {
+        await window.__pwcPlugins.Preferences.set({ key, value: storageGet(key) });
+      }
+    }
+    await window.__pwcPlugins.Preferences.set({ key: 'pwc-storage-migrated', value: '1' });
+  } catch (_) { /* Preferences unavailable */ }
+}
+
+async function restoreStorageFromPreferences() {
+  if (!isNative) return;
+  try {
+    const { value: migrated } = await window.__pwcPlugins.Preferences.get({ key: 'pwc-storage-migrated' });
+    if (migrated !== '1') return;
+    if (localStorage.length > 0) return;
+    const keys = ['pwc-translation', 'pwc-theme', 'pwc-font-size', 'pwc-lectionary',
+      'pwc-rcl-track', 'pwc-eval-dismissed', 'pwc-book-mode', 'pwc-alt-collect'];
+    for (const key of keys) {
+      const { value } = await window.__pwcPlugins.Preferences.get({ key });
+      if (value) storageSet(key, value);
+    }
+  } catch (_) { /* Preferences unavailable */ }
+}
+
+// ── Native platform features ──────────────────────────────────────────────────
+
+function updateNativeStatusBar() {
+  if (!isNative) return;
+  const { StatusBar, Style } = window.__pwcPlugins;
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  StatusBar.setStyle({ style: isDark ? Style.Dark : Style.Dark });
+  StatusBar.setBackgroundColor({ color: '#15382A' });
+}
+
+function initNativeFeatures() {
+  if (!isNative) return;
+
+  // Keyboard — hide accessory bar (no text inputs in the app)
+  window.__pwcPlugins.Keyboard.setAccessoryBarVisible({ isVisible: false }).catch(() => {});
+
+  // Back-button — minimize instead of exit
+  window.__pwcPlugins.App.addListener('backButton', ({ canGoBack }) => {
+    if (!canGoBack) {
+      window.__pwcPlugins.App.minimizeApp().catch(() => {});
+    }
+  });
+
+  // Offline detection
+  window.__pwcPlugins.Network.getStatus().then(status => {
+    window.__pwcOffline = !status.connected;
+  }).catch(() => {});
+  window.__pwcPlugins.Network.addListener('networkStatusChange', status => {
+    window.__pwcOffline = !status.connected;
+    if (status.connected && window.__pwcLastRoute) {
+      handleHashChange();
+    }
+  });
+
+  // External links — open in device browser
+  document.addEventListener('click', e => {
+    const link = e.target.closest('a');
+    if (link && link.href && !link.href.startsWith(window.location.origin) && link.href.startsWith('http')) {
+      e.preventDefault();
+      window.__pwcPlugins.Browser.open({ url: link.href }).catch(() => {});
+    }
+  });
+}
+
 // ── State ─────────────────────────────────────────────────────────────────────
 
 const state = {
   date:        todayStr(),
   office:      defaultOffice(),
   observance:  'primary',
-  translation: localStorage.getItem('pwc-translation') || 'nrsvue',
+  translation: storageGet('pwc-translation') || 'nrsvue',
 };
 
 // Evening Prayer (and eve-of-feast observance) begins mid-afternoon in Anglican
@@ -32,18 +126,20 @@ function defaultOffice() {
 // ── Theme ─────────────────────────────────────────────────────────────────────
 
 function initTheme() {
-  const stored = localStorage.getItem('pwc-theme');
+  const stored = storageGet('pwc-theme');
   if (stored) document.documentElement.setAttribute('data-theme', stored);
   // No stored pref = light (default; no attribute needed)
   updateThemeButton();
+  updateNativeStatusBar();
 }
 
 function toggleTheme() {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const next = isDark ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('pwc-theme', next);
+  storageSet('pwc-theme', next);
   updateThemeButton();
+  updateNativeStatusBar();
 }
 
 function updateThemeButton() {
@@ -60,7 +156,7 @@ const FONT_SIZES = ['medium', 'large'];
 const FONT_LABELS = { medium: 'Medium', large: 'Large' };
 
 function initFontSize() {
-  const raw = localStorage.getItem('pwc-font-size') || 'medium';
+  const raw = storageGet('pwc-font-size') || 'medium';
   const stored = raw === 'small' ? 'medium' : raw;
   document.documentElement.setAttribute('data-font-size', stored);
   updateFontSizeButton(stored);
@@ -70,7 +166,7 @@ function cycleFontSize() {
   const current = document.documentElement.getAttribute('data-font-size') || 'medium';
   const next = FONT_SIZES[(FONT_SIZES.indexOf(current) + 1) % FONT_SIZES.length];
   document.documentElement.setAttribute('data-font-size', next);
-  localStorage.setItem('pwc-font-size', next);
+  storageSet('pwc-font-size', next);
   updateFontSizeButton(next);
 }
 
@@ -134,11 +230,11 @@ function fetchDay(dateStr) {
 
 function getLectionary() {
   if (!FEATURE_RCL_DAILY) return 'bas';
-  return localStorage.getItem('pwc-lectionary') || 'bas';
+  return storageGet('pwc-lectionary') || 'bas';
 }
 
 function getRclTrack() {
-  return localStorage.getItem('pwc-rcl-track') || 'track1';
+  return storageGet('pwc-rcl-track') || 'track1';
 }
 
 /** Convert an RCL Daily day entry into the BAS-compatible office shape that
@@ -466,7 +562,7 @@ function psalmHtml(officeData, shared) {
     html += `<p class="seg-rubric">A Psalm from the appointed lectionary is said or sung.</p>`;
     const stateKey = 'pwc-psalmset-' + allFlat.map(p => typeof p === 'object' ? p.citation : p).join('-');
     const idBase = stateKey.replace(/[^a-zA-Z0-9-]/g, '_');
-    const saved = parseInt(localStorage.getItem(stateKey) || '0');
+    const saved = parseInt(storageGet(stateKey) || '0');
     const active = Math.min(Math.max(0, saved), psalmSets.length); // 0 = All
     const tabsHtml = [
       `<button class="alt-tab${active === 0 ? ' alt-tab-active' : ''}" role="tab" aria-selected="${active === 0}" aria-controls="${idBase}-panel-0" id="${idBase}-tab-0" data-idx="0" data-key="${esc(stateKey)}">All</button>`
@@ -500,7 +596,7 @@ function psalmHtml(officeData, shared) {
       // Multiple appointed psalms — all said in sequence; tabs let you focus on one.
       const stateKey = 'pwc-psalm-' + psalms.map(p => typeof p === 'object' ? p.citation : p).join('-');
       const idBase = stateKey.replace(/[^a-zA-Z0-9-]/g, '_');
-      const saved = parseInt(localStorage.getItem(stateKey) || '0');
+      const saved = parseInt(storageGet(stateKey) || '0');
       const active = Math.min(Math.max(0, saved), psalms.length); // 0 = All
       const tabsHtml = [
         `<button class="alt-tab${active === 0 ? ' alt-tab-active' : ''}" role="tab" aria-selected="${active === 0}" aria-controls="${idBase}-panel-0" id="${idBase}-tab-0" data-idx="0" data-key="${esc(stateKey)}">All</button>`
@@ -591,7 +687,7 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared, fatsEntry
 
   const stateKey = 'pwc-alt-collect';
   const idBase   = 'pwc-alt-collect';
-  const savedIdx = parseInt(localStorage.getItem(stateKey) || '0');
+  const savedIdx = parseInt(storageGet(stateKey) || '0');
 
   // Helper: builds one tab-block from arrays of [label, htmlContent] pairs.
   function tabBlock(entries) {
@@ -1052,6 +1148,10 @@ async function render(dateStr, officeType, translation) {
 
   contentEl.innerHTML = html;
 
+  if (isNative) {
+    window.__pwcPlugins.SplashScreen.hide().catch(() => {});
+  }
+
   fillPsalms(contentEl);
   fillScripture(contentEl, translation);
   prefetchOtherOffice(day, officeType, translation);
@@ -1094,6 +1194,10 @@ function fillScripture(root, translation) {
       if (!parsed) { el.innerHTML = `<p class="error-msg">Cannot parse: ${esc(rawCitation)}</p>`; return; }
 
       let bookData, usedTranslation = translation;
+      if (window.__pwcOffline) {
+        el.innerHTML = '<p class="scripture-offline">Unable to load Scripture (offline)</p>';
+        return;
+      }
       try {
         bookData = await fetchBook(translation, parsed.file);
       } catch (_) {
@@ -1127,7 +1231,7 @@ function fillScripture(root, translation) {
 
 function switchTranslation(newTranslation) {
   state.translation = newTranslation;
-  localStorage.setItem('pwc-translation', newTranslation);
+  storageSet('pwc-translation', newTranslation);
   // Reset scripture placeholders to loading, then re-fill only those.
   const root = document.getElementById('office-content');
   root.querySelectorAll('.scripture-placeholder').forEach(el => {
@@ -1176,7 +1280,7 @@ function hideStaleBanner() {
 // ── Evaluation banner ─────────────────────────────────────────────────────────
 
 function initEvalBanner() {
-  if (localStorage.getItem('pwc-eval-dismissed')) return;
+  if (storageGet('pwc-eval-dismissed')) return;
   const banner = document.createElement('div');
   banner.id = 'eval-banner';
   banner.className = 'eval-banner';
@@ -1184,7 +1288,7 @@ function initEvalBanner() {
     + `<button class="eval-banner-dismiss" aria-label="Dismiss">&#215;</button>`;
   document.getElementById('main').insertAdjacentElement('afterbegin', banner);
   banner.querySelector('.eval-banner-dismiss').addEventListener('click', () => {
-    localStorage.setItem('pwc-eval-dismissed', '1');
+    storageSet('pwc-eval-dismissed', '1');
     banner.remove();
   });
 }
@@ -1231,7 +1335,7 @@ function initScrollBehaviour() {
 
 function activateTab(tab, idx) {
   const stateKey = tab.dataset.key;
-  localStorage.setItem(stateKey, String(idx));
+  storageSet(stateKey, String(idx));
   // Update every alt-block sharing this key so linked blocks (e.g. doxology
   // after each psalm) stay in sync.
   const seen = new Set();
@@ -1248,10 +1352,13 @@ function activateTab(tab, idx) {
   });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  await migrateStorageToPreferences();
+  await restoreStorageFromPreferences();
   initTheme();
   initFontSize();
   initScrollBehaviour();
+  initNativeFeatures();
 
   document.getElementById('nav-brand').addEventListener('click', e => {
     e.preventDefault();
@@ -1295,7 +1402,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (bkBtn)  { bkBtn.classList.toggle('is-active',  isBook);  bkBtn.setAttribute('aria-pressed', String(isBook)); }
   }
 
-  if (localStorage.getItem(bookModeKey) === '1') {
+  if (storageGet(bookModeKey) === '1') {
     document.body.classList.add('book-mode');
     syncViewModeUI(true);
   }
@@ -1303,7 +1410,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (viewToggle) viewToggle.addEventListener('click', () => {
     const isBook = document.body.classList.toggle('book-mode');
     syncViewModeUI(isBook);
-    localStorage.setItem(bookModeKey, isBook ? '1' : '0');
+    storageSet(bookModeKey, isBook ? '1' : '0');
   });
 
   const viewModeOffice = document.getElementById('view-mode-office');
@@ -1312,14 +1419,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.body.classList.contains('book-mode')) {
       document.body.classList.remove('book-mode');
       syncViewModeUI(false);
-      localStorage.setItem(bookModeKey, '0');
+      storageSet(bookModeKey, '0');
     }
   });
   if (viewModeBook) viewModeBook.addEventListener('click', () => {
     if (!document.body.classList.contains('book-mode')) {
       document.body.classList.add('book-mode');
       syncViewModeUI(true);
-      localStorage.setItem(bookModeKey, '1');
+      storageSet(bookModeKey, '1');
     }
   });
 
@@ -1328,7 +1435,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'b' && !e.target.matches('input,select,textarea')) {
       const isBook = document.body.classList.toggle('book-mode');
       syncViewModeUI(isBook);
-      localStorage.setItem(bookModeKey, isBook ? '1' : '0');
+      storageSet(bookModeKey, isBook ? '1' : '0');
     }
   });
 
@@ -1350,7 +1457,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const trackComp = document.getElementById('rcl-track-comp');
 
     function syncLectionaryUI() {
-      const isRcl = localStorage.getItem(lecKey) === 'rcl';
+      const isRcl = storageGet(lecKey) === 'rcl';
       if (lecBasBtn) {
         lecBasBtn.classList.toggle('is-active', !isRcl);
         lecBasBtn.setAttribute('aria-pressed', String(!isRcl));
@@ -1363,7 +1470,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function syncTrackUI() {
-      const isComp = localStorage.getItem(trackKey) === 'track2';
+      const isComp = storageGet(trackKey) === 'track2';
       if (trackSemi) {
         trackSemi.classList.toggle('is-active', !isComp);
         trackSemi.setAttribute('aria-pressed', String(!isComp));
@@ -1375,7 +1482,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function switchLectionary(val) {
-      localStorage.setItem(lecKey, val);
+      storageSet(lecKey, val);
       syncLectionaryUI();
       syncTrackUI();
       render(state.date, state.office, state.translation);
@@ -1384,12 +1491,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (lecBasBtn) lecBasBtn.addEventListener('click', () => switchLectionary('bas'));
     if (lecRclBtn) lecRclBtn.addEventListener('click', () => switchLectionary('rcl'));
     if (trackSemi) trackSemi.addEventListener('click', () => {
-      localStorage.setItem(trackKey, 'track1');
+      storageSet(trackKey, 'track1');
       syncTrackUI();
       render(state.date, state.office, state.translation);
     });
     if (trackComp) trackComp.addEventListener('click', () => {
-      localStorage.setItem(trackKey, 'track2');
+      storageSet(trackKey, 'track2');
       syncTrackUI();
       render(state.date, state.office, state.translation);
     });
