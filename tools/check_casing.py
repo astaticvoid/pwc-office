@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-check_casing.py — casing oracle for data/offices.json against pdftotext.
+check_casing.py — casing oracle and lineation check for data/offices.json.
 
 Why this exists (BUG-25 / BUG-18):
   pdfplumber (the extraction pipeline) decodes the PDF's small-caps response
@@ -29,12 +29,18 @@ What it does:
   Segments not found at all (synthesized like reading_response, or reworded by
   patches) are counted as informational "unmatched" — never errors.
 
+  With --check-breaks, also compares line break counts per segment: for each
+  matched segment, builds a whitespace-flexible regex from the normalized text
+  and searches the raw pdftotext output to count \n in the PDF's rendering.
+  Reports segments where the data's \n count differs from the PDF's — these
+  need human review (PDF has column wraps in prose, intentional breaks in verse).
+
 Exits 0 always (advisory).  Pass --strict to exit 1 on any INTERNAL mismatch
 outside the allowlist.  Pass --show-first-letter to list the first-letter
 differences too.
 
 Usage:
-    python3 tools/check_casing.py [--strict]
+    python3 tools/check_casing.py [--strict] [--check-breaks]
 """
 
 import argparse
@@ -71,8 +77,33 @@ def _norm(text: str) -> str:
     return _WS.sub(" ", text.translate(_QUOTES)).strip()
 
 
-def pdf_text() -> tuple[str, str]:
-    """Return (normalised original-case PDF text, casefolded copy)."""
+def _raw_match(raw_text: str, norm_slice: str) -> tuple[str | None, int]:
+    """Locate norm_slice in raw pdftotext text allowing flexible whitespace and
+    quote variants between tokens. Returns (matched raw substring, newline count).
+    Returns (None, 0) if not found."""
+    if not norm_slice:
+        return None, 0
+    parts: list[str] = []
+    for c in norm_slice:
+        if c in ' \t':
+            if not parts or parts[-1] != r'\s+':
+                parts.append(r'\s+')
+        elif c in "'\u2018\u2019":
+            parts.append(r"['\u2018\u2019]")
+        elif c in '"\u201c\u201d':
+            parts.append(r'["\u201c\u201d]')
+        else:
+            parts.append(re.escape(c))
+    pattern = ''.join(parts)
+    match = re.search(pattern, raw_text, re.DOTALL)
+    if match:
+        return match.group(), match.group().count('\n')
+    return None, 0
+
+
+def pdf_text() -> tuple[str, str, str]:
+    """Return (raw pdftotext, normalised original-case, casefolded copy).
+    Raw keeps line breaks for --check-breaks comparison."""
     if not PDF.exists():
         print(f"ERROR: source PDF not found: {PDF}\n"
               f"  Run `make fetch-sources` first.", file=sys.stderr)
@@ -82,7 +113,7 @@ def pdf_text() -> tuple[str, str]:
         capture_output=True, text=True, check=True,
     ).stdout
     norm = _norm(raw)
-    return norm, norm.casefold()
+    return raw, norm, norm.casefold()
 
 
 def iter_segments(offices: dict):
@@ -148,16 +179,20 @@ def main():
                     help="Exit 1 on any INTERNAL mismatch outside the allowlist.")
     ap.add_argument("--show-first-letter", action="store_true",
                     help="Also list the first-letter (editorial) differences.")
+    ap.add_argument("--check-breaks", action="store_true",
+                    help="Compare line break counts per segment against pdftotext raw text.")
     args = ap.parse_args()
 
     offices = json.loads(OFFICES.read_bytes())
-    pdf_norm, pdf_low = pdf_text()
+    pdf_raw, pdf_norm, pdf_low = pdf_text()
 
     internal: list[tuple[str, str, str, str]] = []
     first_letter: list[tuple[str, str, str, str]] = []
     allowlisted = 0
     unmatched = 0
     checked = 0
+
+    break_diffs: list[tuple[str, str, int, int, str]] = []
 
     for office_key, section_key, text in iter_segments(offices):
         seg = _norm(text)
@@ -171,13 +206,21 @@ def main():
         pdf_slice = pdf_norm[idx: idx + len(seg)]
         kind = _classify(seg, pdf_slice)
         if kind == "match":
-            continue
-        if seg in KNOWN_INTENTIONAL:
+            pass
+        elif seg in KNOWN_INTENTIONAL:
             allowlisted += 1
-            continue
-        (internal if kind == "internal" else first_letter).append(
-            (office_key, section_key, seg, pdf_slice)
-        )
+        elif kind == "internal":
+            internal.append((office_key, section_key, seg, pdf_slice))
+        else:
+            first_letter.append((office_key, section_key, seg, pdf_slice))
+
+        if args.check_breaks:
+            data_nl = text.count('\n')
+            _, pdf_nl = _raw_match(pdf_raw, seg)
+            if data_nl != pdf_nl:
+                break_diffs.append(
+                    (office_key, section_key, data_nl, pdf_nl, seg[:80])
+                )
 
     if internal:
         print("CASING MISMATCHES (internal — likely errors):\n")
@@ -195,11 +238,20 @@ def main():
                   f'"{data_text[:1]}…" vs pdf "{pdf_slice[:1]}…"')
         print()
 
-    print(
-        f"checked {checked} segments — {len(internal)} internal mismatch(es); "
-        f"{len(first_letter)} first-letter, {allowlisted} allowlisted, "
-        f"{unmatched} unmatched (all informational)."
-    )
+    if args.check_breaks and break_diffs:
+        print("LINE BREAK DIFFERENCES (data vs PDF — review manually):\n")
+        for office_key, section_key, data_nl, pdf_nl, snippet in break_diffs:
+            print(f"{office_key}/{section_key}: data={data_nl} pdf={pdf_nl}  "
+                  f'…{snippet}…')
+        print()
+
+    summary = (f"checked {checked} segments — {len(internal)} internal mismatch(es); "
+               f"{len(first_letter)} first-letter, {allowlisted} allowlisted, "
+               f"{unmatched} unmatched")
+    if args.check_breaks:
+        summary += f"; {len(break_diffs)} line-break diffs"
+    summary += " (all informational)."
+    print(summary)
     if not internal:
         print("No casing errors found.")
 
