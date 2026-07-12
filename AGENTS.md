@@ -133,6 +133,7 @@ Capacitor wraps `dist/` as a native app (`capacitor.config.json`, `webDir: dist`
 
 - `docs/DESIGN.md` — canonical design reference
 - `docs/HANDOFF.md` — cross-session handoff notes and delivery records
+- `docs/ROADMAP.md` — milestones, priorities, blocked items
 - `docs/CORRECTNESS.md`, `docs/UX_AUDIT.md` — audit findings
 
 ---
@@ -142,6 +143,7 @@ Capacitor wraps `dist/` as a native app (`capacitor.config.json`, `webDir: dist`
 - **Never edit `data/*.json` directly.** All corrections go through extractor fixes (`_TEXT_PATCHES` in `tools/extract_offices.py`, dicts in `tools/convert_lectionary.py`) or `data/patches.json`. `make check-integrity` validates this — it fails if any data file was touched outside the pipeline.
 - **One logical change per commit.** Push after each commit — don't batch.
 - **Deploy requires user go-ahead.** Never run `make deploy` unprompted.
+- **Keep `docs/HANDOFF.md` and `docs/ROADMAP.md` current.** After every batch/stage is delivered, add a "Verified" section to HANDOFF.md with gates + change summary table, and update ROADMAP.md to move the relevant milestone from "In progress" to "Completed." These two docs are the single source of truth for what's done, what's next, and what's blocked. A stale roadmap is worse than no roadmap.
 
 ## Data correction locations
 
@@ -163,11 +165,14 @@ After any data pipeline change:
 make extract && make check-integrity && make test && make check-text
 ```
 
-After all commits in a batch are pushed:
+After all commits in a batch/stage are pushed:
 1. `make check-integrity` — must pass
-2. `make build && make serve-dist &` — serves dist/ on :8081
-3. Self-review with browser at `http://localhost:8081`; record findings in `docs/HANDOFF.md`
-4. Stop — do not deploy
+2. `make test` — all tests must pass
+3. `make build && make serve-dist &` — serves dist/ on :8081
+4. Self-review with browser at `http://localhost:8081`; record findings in `docs/HANDOFF.md`
+5. **Update `docs/HANDOFF.md`** — add a "Verified" section at the top with gates, a change summary table, and a next-priority line
+6. **Update `docs/ROADMAP.md`** — move completed milestones to §1, update test counts, refresh blocked/planned items
+7. Stop — do not deploy
 
 ## Key constraints
 
@@ -177,5 +182,5 @@ After all commits in a batch are pushed:
 
 ## Next priorities (2026-07)
 
-- **Mobile**: Capacitor native features + store submission (shell committed, native work pending)
-- **RCL Daily**: Extraction pipeline complete, data extracted Nov 2026 forward. UI integration deferred.
+- **Mobile Stage 2**: Store submission (Stage 1 delivered — blocked on Apple/Google Developer accounts + ACC rights)
+- **RCL Daily**: Extraction pipeline complete, data extracted Nov 2026 forward. UI integration deferred until the data window opens.
