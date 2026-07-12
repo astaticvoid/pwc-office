@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from check_text_quality import _check_prose_wraps, _seasonal_collect_leaders
+from check_text_quality import _check_prose_wraps, _seasonal_collect_leaders, _litany_leaders
 
 
 class TestColumnWrap:
@@ -63,3 +63,28 @@ class TestSeasonalCollectLeaders:
         out = []
         _seasonal_collect_leaders(segs, "sc", out)
         assert [t for _, t in out] == ["Almighty God. Amen."]
+
+
+class TestLitanyLeaders:
+    def test_extracts_litany_leaders(self):
+        segs = [
+            {"type": "rubric", "text": "The Litany is said or sung."},
+            {"type": "leader", "text": "God of Israel, may this day be one of fulfillment and peace."},
+            {"type": "response", "text": "Holy One, hear and have mercy."},
+        ]
+        out = []
+        _litany_leaders(segs, "lit", out)
+        assert [t for _, t in out] == ["God of Israel, may this day be one of fulfillment and peace."]
+
+    def test_flags_mid_clause_wrap_in_litany(self):
+        wraps = []
+        _check_prose_wraps("Watchful at all times, let us pray to God for strength to stand with\nconfidence.", "loc", wraps)
+        assert len(wraps) == 1
+        assert wraps[0][0] == "loc"
+        assert wraps[0][1] == "column_wrap"
+        assert "stand with" in wraps[0][2]
+
+    def test_accepts_sentence_break_in_litany(self):
+        wraps = []
+        _check_prose_wraps("Let us pray to the Creator of the universe.\nHoly One, by the good news of our salvation", "loc", wraps)
+        assert wraps == []

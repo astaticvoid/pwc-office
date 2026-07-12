@@ -294,6 +294,39 @@ def _reflow_leader_prose(segs: list) -> list:
     return segs
 
 
+# Terminal punctuation characters — if a non-final line ends with one of these,
+# the line break is treated as a sentence/paragraph break rather than a column wrap.
+_TERMINAL_PUNCT = (",", ";", ":", ".", "!", "?", "\u2014", "\u2019", "\u201d", ")")
+# \u2014 = em dash, \u2019 = curly right single quote, \u201d = curly right double quote
+
+def _reflow_litany_prose(segs: list) -> list:
+    """Join mid-clause PDF column-wrap line breaks in litany leader segments.
+    Lines ending with terminal punctuation (,.!?;: etc.) keep their break
+    (typically intro-rubric → petition separation). Lines ending mid-clause
+    are joined with a space. Recurses into alternatives groups."""
+    for seg in segs:
+        if seg.get("type") == "leader" and seg.get("text") and "\n" in seg["text"]:
+            lines = seg["text"].split("\n")
+            result = []
+            i = 0
+            while i < len(lines):
+                stripped = lines[i].strip()
+                if not stripped:
+                    i += 1
+                    continue
+                j = i + 1
+                while j < len(lines) and lines[j].strip() and stripped and not stripped.endswith(_TERMINAL_PUNCT):
+                    stripped += " " + lines[j].strip()
+                    j += 1
+                result.append(stripped)
+                i = j
+            seg["text"] = "\n".join(result)
+        elif seg.get("type") == "alternatives":
+            for g in seg.get("groups", []):
+                _reflow_litany_prose(g.get("segments", []))
+    return segs
+
+
 def _fix_casing(seg: dict) -> dict:
     """
     Fix PDF small-caps artifacts in response segments:
@@ -1092,6 +1125,13 @@ def extract_office(pdf, start: int, end: int, office_key: str = "") -> dict:
     # lists) and response segments keep their lineation.
     if "seasonal_collects" in sections:
         _reflow_leader_prose(sections["seasonal_collects"])
+
+    # Litany leaders are prose but extract with PDF column-width hard wraps.
+    # Unlike seasonal_collects (all prose), litany leaders sometimes have a
+    # rubric-like intro line before the petition — join mid-clause wraps but
+    # preserve breaks after terminal punctuation.
+    if "litany" in sections:
+        _reflow_litany_prose(sections["litany"])
 
     # Fold Berakah prayer blessing conclusions into nested alternatives inside
     # group II of seasonal opening_responses (not applicable to ordinary-time).
