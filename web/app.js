@@ -11,6 +11,8 @@ import {
 // Dev: python3 -m http.server 8080 from repo root, open /web/ — web/data symlink
 // Prod: web/ synced to S3 bucket root, data/ at same root
 const DATA = 'data';
+const FEATURE_RCL_DAILY = false;
+const isNative = !!(window.__pwcPlugins?.Capacitor?.isNativePlatform?.());
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -116,15 +118,59 @@ function fetchBook(translation, filename) {
 
 /** Fetch the lectionary entry for `dateStr` (YYYY-MM-DD) from the monthly JSON file. */
 function fetchDay(dateStr) {
+  const lectionary = getLectionary();
+  const basePath = lectionary === 'rcl' ? `${DATA}/rcl-daily` : `${DATA}/lectionary`;
   const monthKey = dateStr.slice(0, 7); // 'YYYY-MM'
-  if (!_cache.months[monthKey])
-    _cache.months[monthKey] = fetch(`${DATA}/lectionary/${monthKey}.json`)
+  const cacheKey = `${lectionary}:${monthKey}`;
+  if (!_cache.months[cacheKey])
+    _cache.months[cacheKey] = fetch(`${basePath}/${monthKey}.json`)
       .then(r => { if (!r.ok) throw new Error(`${monthKey}: ${r.status}`); return r.json(); });
-  return _cache.months[monthKey].then(month => {
+  return _cache.months[cacheKey].then(month => {
     const day = month[dateStr];
-    if (!day) throw new Error(`${dateStr}: not found in ${monthKey}.json`);
+    if (!day) throw new Error(`${dateStr}: not found in ${monthKey}.json (${lectionary})`);
     return day;
   });
+}
+
+function getLectionary() {
+  if (!FEATURE_RCL_DAILY) return 'bas';
+  return localStorage.getItem('pwc-lectionary') || 'bas';
+}
+
+function getRclTrack() {
+  return localStorage.getItem('pwc-rcl-track') || 'track1';
+}
+
+/** Convert an RCL Daily day entry into the BAS-compatible office shape that
+ *  psalmHtml / proclamationHtml / etc. expect. */
+function rclDayToOffice(rclDay, track) {
+  const t = track === 'track2' && rclDay.track2 && rclDay.track2.psalm
+    ? rclDay.track2
+    : (rclDay.track1 || rclDay);
+
+  const rawPs = t.psalm || '';
+  // Strip "Psalm" prefix, leading "or ", " or ..." alternatives for psalter lookup.
+  let psalmCit = rawPs.replace(/^Psalm\s+/i, '');
+  psalmCit = psalmCit.replace(/^[Oo]r\s+/, '');
+  psalmCit = psalmCit.replace(/\s+or\s+.+$/, '');
+  psalmCit = psalmCit.trim();
+
+  // Strip leading "or " from reading citations too.
+  function cleanReading(r) { return (r || '').replace(/^[Oo]r\s+/, '').trim(); }
+
+  return {
+    name: rclDay.week_label || rclDay.date,
+    rank: 'feria',
+    colour: '',
+    morning: {
+      psalms:  [psalmCit],
+      lessons: [cleanReading(t.first_reading || '')],
+    },
+    evening: {
+      psalms:  [psalmCit],
+      lessons: [cleanReading(t.second_reading || '')],
+    },
+  };
 }
 
 // ── Collect lookup ────────────────────────────────────────────────────────────
@@ -670,20 +716,23 @@ async function render(dateStr, officeType, translation) {
   document.getElementById('nav-date').textContent = fmtNavDate(dateStr);
 
   // Bounds enforcement before attempting to fetch the day file.
-  const boundsMax = offsetDate(bounds.christmas_ii, 6);
+  // For RCL, use the RCL coverage range (church year starting Advent 2026).
+  const isRcl = getLectionary() === 'rcl';
+  const boundsMax = isRcl ? '2027-11-27' : offsetDate(bounds.christmas_ii, 6);
+  const boundsMin = isRcl ? '2026-11-26' : bounds.advent_i;
   if (dateStr > boundsMax) {
     contentEl.innerHTML = `<div class="out-of-range-msg">
       <p class="out-of-range-title">Readings not yet available</p>
       <p>Coverage extends through <strong>${esc(fmtFullDate(boundsMax))}</strong>.</p>
-      <p class="out-of-range-note">Year A readings (Advent 2026 and beyond) are in preparation.</p>
+      <p class="out-of-range-note">${isRcl ? 'RCL Daily coverage (Year B, 2026–2027).' : 'Year A readings (Advent 2026 and beyond) are in preparation.'}</p>
       <p><a href="${hashFor(todayStr(), defaultOffice())}">Return to today</a></p>
     </div>`;
     return;
   }
-  if (dateStr < bounds.advent_i) {
+  if (dateStr < boundsMin) {
     contentEl.innerHTML = `<div class="out-of-range-msg">
       <p class="out-of-range-title">Outside coverage</p>
-      <p>Daily Office data begins with Advent I, ${esc(bounds.advent_i.slice(0, 4))}.</p>
+      <p>${isRcl ? 'RCL Daily' : 'Daily Office'} data begins with ${esc(fmtFullDate(boundsMin))}.</p>
       <p><a href="${hashFor(todayStr(), defaultOffice())}">Return to today</a></p>
     </div>`;
     return;
@@ -726,6 +775,17 @@ async function render(dateStr, officeType, translation) {
 
   document.documentElement.setAttribute('data-season', season);
 
+  // RCL Daily: transform flat psalm/reading into BAS-compatible morning/evening shape.
+  if (getLectionary() === 'rcl' && !day.morning && !day.evening) {
+    const track = getRclTrack();
+    const adapted = rclDayToOffice(day, track);
+    day.morning = adapted.morning;
+    day.evening = adapted.evening;
+    if (!day.name || day.name === day.date) day.name = adapted.name;
+    if (!day.rank) day.rank = adapted.rank;
+    if (!day.colour) day.colour = adapted.colour;
+  }
+
   const officeData = officeType === 'mp' ? (day.morning || {}) : (day.evening || {});
 
   // Nav
@@ -733,7 +793,7 @@ async function render(dateStr, officeType, translation) {
   const nextEl = document.getElementById('nav-next');
   const prevDate = offsetDate(dateStr, -1);
   const nextDate = offsetDate(dateStr, +1);
-  if (prevDate < bounds.advent_i) { prevEl.removeAttribute('href'); prevEl.classList.add('nav-disabled'); }
+  if (prevDate < boundsMin) { prevEl.removeAttribute('href'); prevEl.classList.add('nav-disabled'); }
   else { prevEl.href = hashFor(prevDate, officeType); prevEl.classList.remove('nav-disabled'); }
   if (nextDate > boundsMax) { nextEl.removeAttribute('href'); nextEl.classList.add('nav-disabled'); }
   else { nextEl.href = hashFor(nextDate, officeType); nextEl.classList.remove('nav-disabled'); }
@@ -770,11 +830,13 @@ async function render(dateStr, officeType, translation) {
       + `</span>`
     : '';
   const seasonLabel = season === 'OrdinaryTime' ? 'Ordinary Time' : season;
+  const lecLabel = isRcl ? ' <span class="meta-item meta-item--lec">RCL</span>' : '';
   document.getElementById('day-meta').innerHTML =
     `<span class="meta-item meta-item--season">`
     + `<span class="meta-lbl">Season</span>`
     + `<span class="meta-val">${esc(seasonLabel)}</span>`
     + `</span>`
+    + lecLabel
     + `<span class="meta-sep">·</span>`
     + `<span class="meta-item">${esc(formatRank(day.rank))}</span>`
     + colourChip;
@@ -1276,6 +1338,65 @@ document.addEventListener('DOMContentLoaded', () => {
   const sel = document.getElementById('nav-translation');
   sel.value = state.translation;
   sel.addEventListener('change', () => { switchTranslation(sel.value); });
+
+  // ── RCL Daily settings: lectionary source + track ─────────────────────────
+  if (FEATURE_RCL_DAILY) {
+    const lecKey = 'pwc-lectionary';
+    const trackKey = 'pwc-rcl-track';
+    const lecBasBtn = document.getElementById('lectionary-bas');
+    const lecRclBtn = document.getElementById('lectionary-rcl');
+    const trackRow = document.getElementById('rcl-track-row');
+    const trackSemi = document.getElementById('rcl-track-semi');
+    const trackComp = document.getElementById('rcl-track-comp');
+
+    function syncLectionaryUI() {
+      const isRcl = localStorage.getItem(lecKey) === 'rcl';
+      if (lecBasBtn) {
+        lecBasBtn.classList.toggle('is-active', !isRcl);
+        lecBasBtn.setAttribute('aria-pressed', String(!isRcl));
+      }
+      if (lecRclBtn) {
+        lecRclBtn.classList.toggle('is-active', isRcl);
+        lecRclBtn.setAttribute('aria-pressed', String(isRcl));
+      }
+      if (trackRow) trackRow.style.display = isRcl ? '' : 'none';
+    }
+
+    function syncTrackUI() {
+      const isComp = localStorage.getItem(trackKey) === 'track2';
+      if (trackSemi) {
+        trackSemi.classList.toggle('is-active', !isComp);
+        trackSemi.setAttribute('aria-pressed', String(!isComp));
+      }
+      if (trackComp) {
+        trackComp.classList.toggle('is-active', isComp);
+        trackComp.setAttribute('aria-pressed', String(isComp));
+      }
+    }
+
+    function switchLectionary(val) {
+      localStorage.setItem(lecKey, val);
+      syncLectionaryUI();
+      syncTrackUI();
+      render(state.date, state.office, state.translation);
+    }
+
+    if (lecBasBtn) lecBasBtn.addEventListener('click', () => switchLectionary('bas'));
+    if (lecRclBtn) lecRclBtn.addEventListener('click', () => switchLectionary('rcl'));
+    if (trackSemi) trackSemi.addEventListener('click', () => {
+      localStorage.setItem(trackKey, 'track1');
+      syncTrackUI();
+      render(state.date, state.office, state.translation);
+    });
+    if (trackComp) trackComp.addEventListener('click', () => {
+      localStorage.setItem(trackKey, 'track2');
+      syncTrackUI();
+      render(state.date, state.office, state.translation);
+    });
+
+    syncLectionaryUI();
+    syncTrackUI();
+  }
 
   const picker = document.getElementById('nav-date-picker');
   picker.addEventListener('click', () => { try { picker.showPicker(); } catch (_) {} });
