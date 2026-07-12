@@ -1,6 +1,6 @@
 # PWC — Project Roadmap
 
-_Last updated: 2026-07-05_
+_Last updated: 2026-07-11_
 
 This roadmap organises work into four phases with a rough priority ordering within each. Items are linked to BUGS.md where a known defect is involved.
 
@@ -14,13 +14,13 @@ These are the delivery targets tracked every cycle. Status updated as work progr
 
 | # | Milestone | Status | Blocking |
 |---|-----------|--------|---------|
-| 1 | **Cleanup & data integrity** | ✅ Done. BUG-19, 22, 23, 24 fixed. 30/30 forms pass correctness audit. | — |
-| 1.5 | **JS render module + Node CLI + Vitest** | ✅ Done. `web/render.js` extracted; Node CLI working; 48 Vitest + render-level shared-ref tests. | — |
-| 2 | **Correctness audit** (30 office forms) | ✅ Done. All 30 forms pass automated CLI audit. Seasonal EP opening responses fixed. | — |
-| 3 | **FATS fully integrated** | 🟡 Phase 1 done (bio + collect fallback). Minor feast readings design pending. | Design decision |
-| 4 | **RCL Daily extractor** | 🟡 Spec complete. Lower priority than mobile; add when Synod CCT contact resolves. | Rights resolution |
-| 5 | **iOS / Android (Synod private beta)** | 🟡 In progress. Capacitor shell committed (2026-06); native features + store submission remain. | Milestones 1–2 ✅ |
-| 6 | **Batch 18/19 — field-trial correctness fixes + casing oracle** | 🔴 Next. 9 bugs from June field observations + audit; specs complete in HANDOFF.md. | — |
+| 1 | **Cleanup & data integrity** | ✅ | — |
+| 1.5 | **JS render module + Node CLI + Vitest** | ✅ | — |
+| 2 | **Correctness audit** (31 office forms) | ✅ | — |
+| 3 | **FATS integrated** | ✅ Phase 1 (bio + collect). Readings out of scope — FATS is a Eucharistic resource, not Daily Office. | — |
+| 4 | **RCL Daily lectionary** | 🟡 RTF source files available (CCT). Extractor + UI pending. | Implementation |
+| 5 | **iOS / Android (Synod private beta)** | 🟡 Capacitor shell committed. Native features + store submission remain. | Implementation |
+| 6 | **Batch 18–20 — field-trial fixes + quality tooling** | ✅ All shipped. 0 bugs, 0 casing errors, 0 column wraps, 0 line-break bugs. | — |
 
 **Current focus:** Batch 18 correctness fixes first (small, trust-critical for the ACC trial), then mobile milestones. See `docs/ASSESSMENT-2026-07.md` for the 2026-07 audit and strategy validation.
 
