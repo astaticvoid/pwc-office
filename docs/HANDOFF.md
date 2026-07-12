@@ -1,8 +1,28 @@
 # PWC — Handoff
 
-_Updated: 2026-07-09_
+_Updated: 2026-07-11_
 
 Session-to-session handoff. Claude Code owns planning, implementation, and verification end-to-end (the former Cowork review role is retired, 2026-07-05); specs are written here by planning sessions and implemented in order by later sessions.
+
+---
+
+## Verified — Batch 20 delivered (2026-07-11)
+
+Quality and rendering: verse/block text differentiation, litany data reflow, line-break oracle. All deployed.
+
+**Gates:** `make check-integrity` ✅ · `make test` (Vitest 117 + pytest 173 = 290) ✅ · `make check-text --strict` ✅ (now covers litany leaders) · `make check-casing` ✅ (0 internal) · `make check-casing --check-breaks` ✅ (166 flagged, 0 real bugs — all pdftotext layout artifacts).
+
+| Item | Result |
+|---|---|
+| Verse vs block rendering | `render.js` now takes `verse` param. Verse sections (responsory, canticle, thanksgiving_for_light, phos_hilaron, invitatory, lords_prayer_intro, dismissal) preserve `\n` as `<br>`. Prose sections (litany, opening_responses, seasonal_collects) strip `\n` to spaces. +4 Vitest cases. |
+| Litany leader reflow | `_reflow_litany_prose` in `extract_offices.py` joins mid-clause `\n` in litany leaders at extraction time. 70 column wraps eliminated → 0. Sentence breaks preserved (79 remaining `\n` all after terminal punctuation). +8 pytests. |
+| Column-wrap detector extended | `check_text_quality.py` now scans litany leaders. +2 pytests. |
+| Line-break oracle | `check_casing.py --check-breaks` builds whitespace-flexible regex from each segment and counts `\n` in raw pdftotext. 166 diffs flagged across 1286 segments; all verified false positives (pdftotext indent-change breaks, stanza spacing). Zero real line-break bugs. |
+| BUG-06 removed | 2027 lectionary is routine data update, not a bug. Cleaned from 4 files. |
+
+**FATS decision:** Phase 1 (bio + collect fallback) is the complete integration. FATS readings are Eucharistic propers — not suitable for Daily Office. RCL Daily is the correct lectionary source for daily readings.
+
+**Next-session priority:** mobile (ROADMAP §5.4 — Capacitor native features + store submission), then RCL Daily lectionary (RTF source files confirmed available at commontexts.org).
 
 ---
 
@@ -19,8 +39,6 @@ Data-confidence tooling. Both tools implemented, committed, pushed. **Pure tooli
 | 19.2 column-wrap detector | New rule in `check_text_quality.py`: non-final prose lines ending mid-clause (collect texts, seasonal_collects leaders) = suspected PDF column wrap. Guards BUG-29 from regressing. Reports 0 on current data; catches synthetic wraps (7 pytests). |
 
 **Acceptance met:** post-Batch-18 data reports **0** internal casing mismatches (after BUG-36) and **0** column wraps. The oracle demonstrably catches internal errors (verified against synthetic "Holy one"→"Holy One" and the 4 real spirit errors).
-
-**Next-session priority:** mobile (ROADMAP §5.4 — the ACC's prime desire: Capacitor native features + store submission). Open housekeeping: BUG-35 (refresh the ~12 stale legacy `office.spec.js` selectors); Consider making `make check-casing --strict` / `check-text --strict` a deploy gate once comfortable.
 
 ---
 
@@ -43,8 +61,6 @@ All nine field-trial fixes (A–I) implemented, committed one-per-fix, and pushe
 | I (BUG-31) | EP default from 15:00 | code + no test pinned 17 |
 
 **Also fixed in passing:** BUG-34 (pre-existing `book.js` crash on 7 seasonal EP forms — shared-ref not resolved; unblocked check-book for all 31). **Found & logged, not fixed:** BUG-35 (legacy `office.spec.js` has ~12 stale failures — confirmed pre-existing, the pre-Batch-18 app fails 14 of the same; `make test-web` was also ESM-broken, now fixed).
-
-**Next-session priority:** Batch 19 (casing oracle + prose-wrap detector), then mobile (ROADMAP §5.4). Consider refreshing BUG-35's legacy E2E selectors.
 
 ---
 

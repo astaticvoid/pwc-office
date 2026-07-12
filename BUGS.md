@@ -1,6 +1,6 @@
 # PWC — Bug Tracker
 
-_Last updated: 2026-07-05 (23 bugs closed; 9 opened from field-trial observations and audit — see docs/ASSESSMENT-2026-07.md)_
+_Last updated: 2026-07-11 (36 bugs closed; 0 open)_
 
 Severity scale: **P0** = data corruption / silent wrong output · **P1** = incorrect content shown to user · **P2** = missing content / broken feature · **P3** = UX issue / cosmetic
 
