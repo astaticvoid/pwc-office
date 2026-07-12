@@ -45,7 +45,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>UIViewControllerBasedStatusBarAppearance</key>
-	<true/>
+<key>UIViewControllerBasedStatusBarAppearance</key>
+<false/>
+<key>UIStatusBarStyle</key>
+<string>UIStatusBarStyleDarkContent</string>
 </dict>
 </plist>

@@ -27,6 +27,12 @@
   --color-day: #3B6B4E;
 
   --content-max: 42rem;
+
+  /* safe area for notched devices */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
 }
 
 /* Font size — scale html so all rem values change uniformly */
@@ -63,6 +69,7 @@
 }
 @media (max-width: 520px) {
   :root { --indent: 0; }
+  .seg-leader, .seg-response { line-height: 1.7; }
 }
 
 /* ── Reset ─────────────────────────────────────────────────────────────────── */
@@ -79,6 +86,9 @@ body {
   color: var(--color-text);
   -webkit-font-smoothing: antialiased;
   touch-action: manipulation;
+  padding-top: var(--safe-top);
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
 }
 
 /* ── Navigation ────────────────────────────────────────────────────────────── */
@@ -90,6 +100,9 @@ body {
   top: 0; left: 0; right: 0;
   z-index: 100;
   box-shadow: 0 2px 0 var(--color-accent), 0 4px 16px rgba(0,0,0,0.18);
+  padding-top: var(--safe-top);
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
 }
 
 #nav-inner {
@@ -297,7 +310,7 @@ body {
   position: relative; width: 100%;
   background: var(--color-surface);
   border-radius: 18px 18px 0 0;
-  padding: 0.6rem 1.25rem 2.4rem;
+  padding: 0.6rem 1.25rem calc(2.4rem + var(--safe-bottom));
   transform: translateY(100%);
   transition: transform 0.28s cubic-bezier(0.32,0.72,0,1);
   max-width: 480px; margin: 0 auto;
@@ -371,7 +384,7 @@ body {
 #main {
   max-width: var(--content-max);
   margin: 0 auto;
-  padding: 1.5rem 1.25rem 5rem;
+  padding: 1.5rem 1.25rem calc(5rem + var(--safe-bottom));
 }
 
 /* ── Day header ─────────────────────────────────────────────────────────────── */
