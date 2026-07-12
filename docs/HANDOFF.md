@@ -22,9 +22,410 @@ Quality and rendering: verse/block text differentiation, litany data reflow, lin
 
 **FATS decision:** Phase 1 (bio + collect fallback) is the complete integration. FATS readings are Eucharistic propers — not suitable for Daily Office. RCL Daily is the correct lectionary source for daily readings.
 
-**Next-session priority:** mobile (ROADMAP §5.4 — Capacitor native features + store submission). RCL Daily extraction pipeline is complete (13 months extracted, Nov 2026 forward) — UI integration deferred until the data window opens in November.
+**Next-session priority:** mobile (Batch 21 — two-stage spec below). RCL Daily extraction pipeline is complete (13 months extracted, Nov 2026 forward) — UI integration deferred until the data window opens in November.
 
 ---
+
+## Batch 21 spec — Mobile: Capacitor native shell → store submission
+
+Two-stage strategy. **Stage 1** (5 commits) makes the shell production-capable — build fixes, native plugins, safe-area CSS, offline resilience. **Stage 2** (5 commits) gets it into the stores — branded icons/splash, store metadata, signing, beta distribution.
+
+Full requirements and roadmap at `docs/ROADMAP.md` §5.
+
+### Pre-spec audit — shell baseline (2026-07-11)
+
+| Finding | Severity | Detail |
+|---------|----------|--------|
+| Android `colors.xml` missing | **Build-breaking** | `styles.xml` references `@color/colorPrimary`, `@color/colorPrimaryDark`, `@color/colorAccent` — none exist. Gradle sync will fail. |
+| iOS AppIcon incomplete | **Wrong** | Only 1024×1024 slot. Missing all required sizes. Icon won't render correctly on device. |
+| All native icons/splash are Capacitor defaults | **Wrong** | Teal puzzle-piece pattern, not PWC branded. |
+| Background colour mismatch | **Wrong** | capacitor.config `backgroundColor: #faf9f7` vs web CSS `--color-bg: #F4EEDF`. Launch flash is wrong colour. |
+| No `viewport-fit=cover` | **Wrong** | Content letterboxed on notched devices (iPhone X+). No `env(safe-area-inset-*)` CSS anywhere. |
+| Zero Capacitor plugins | **Missing** | No status bar, splash API, keyboard, back-button, persistent storage, external browser, or network detection. |
+| No Capacitor awareness in `app.js` | **Missing** | App unaware it's in a native shell. Uses `localStorage` (iOS can purge it). No offline fallback for Scripture fetch. |
+| Android `allowBackup: true` | **Risk** | All app data backs up to Google Drive. No user-generated data to preserve. |
+
+**Gates at baseline:** `make check-integrity` ✅, `make test` (290) ✅.
+
+---
+
+### Stage 1 — Platform readiness (5 commits)
+
+**Goal:** production-capable native shell. Builds on both platforms with native chrome integrated, safe-area-correct layout, and offline-resilient behaviour. No store metadata yet.
+
+All Stage 1 commits are **web/UI + native config only** — no data extraction, no `make extract` needed. Gate after all commits: `make build && make mobile-sync` succeeds on both platforms; `make test` (290) still passes; browser smoke-check at `:8081` shows no regression.
+
+---
+
+#### Commit 1 — Build fixes + colour consistency
+
+Four fixes, one commit. None affect the web SPA.
+
+**A. Android `colors.xml`** — create `android/app/src/main/res/values/colors.xml`:
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#15382A</color>
+    <color name="colorPrimaryDark">#0E261C</color>
+    <color name="colorAccent">#2c3e50</color>
+</resources>
+```
+`colorPrimary` = web `--color-nav` (`#15382A`). `colorPrimaryDark` = darkened variant. `colorAccent` = `manifest.json` `theme_color`.
+
+**B. Android manifest hardening** — in `android/app/src/main/AndroidManifest.xml`, on `<application>`:
+- `android:allowBackup="false"` (was `true`)
+- Add `android:usesCleartextTraffic="false"` (capacitor.config already sets `androidScheme: "https"`)
+
+**C. Colour consistency** — align to web CSS `#F4EEDF`:
+- `capacitor.config.json`: `"backgroundColor"` → `"#F4EEDF"`
+- `web/manifest.json`: `"background_color"` → `"#F4EEDF"`
+- `android/app/src/main/res/drawable/ic_launcher_background.xml`: fill → `#15382A`
+- `android/app/src/main/res/values/ic_launcher_background.xml`: colour → `#15382A`
+
+**D. iOS icon slot fix** — update `ios/App/App/Assets.xcassets/AppIcon.appiconset/Contents.json` to declare all 17 required slots, each pointing at the existing `AppIcon-512@2x.png`. (Stage 2 replaces with branded icons — this just un-breaks the template.)
+
+**Verify:** `make mobile-sync` succeeds. Android Gradle sync shows no missing-resource errors. iOS project opens without icon-catalog warnings. Launch shows `#F4EEDF` background — no colour flash.
+
+---
+
+#### Commit 2 — Capacitor plugins: install + native registration
+
+Install seven plugin packages:
+```bash
+npm install @capacitor/status-bar @capacitor/splash-screen @capacitor/keyboard \
+            @capacitor/app @capacitor/preferences @capacitor/browser @capacitor/network
+```
+Then `npx cap sync` to auto-register them in native projects.
+
+**No JS wiring in this commit.** Decouples install from integration.
+
+| Plugin | Role |
+|--------|------|
+| `@capacitor/status-bar` | Match status bar to nav style, handle light/dark mode |
+| `@capacitor/splash-screen` | `SplashScreen.hide()` after first paint — prevents white flash |
+| `@capacitor/keyboard` | Hide accessory bar (no text inputs in app) |
+| `@capacitor/app` | Android back-button → minimize instead of exit |
+| `@capacitor/preferences` | Native-backed persistent storage (replaces `localStorage`) |
+| `@capacitor/browser` | Open external links in device browser, not trapped in webview |
+| `@capacitor/network` | Offline detection — suppress Scripture fetch errors |
+
+**Verify:** `npx cap sync` completes. Native projects compile with all plugin dependencies resolved. No `web/` files changed.
+
+---
+
+#### Commit 3 — Plugin JS bundle + platform awareness
+
+**A. Install esbuild:**
+```bash
+npm install --save-dev esbuild
+```
+
+**B. Create `web/capacitor-plugins.src.js`:**
+```js
+import { Capacitor } from '@capacitor/core';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { SplashScreen } from '@capacitor/splash-screen';
+import { Keyboard } from '@capacitor/keyboard';
+import { App } from '@capacitor/app';
+import { Preferences } from '@capacitor/preferences';
+import { Browser } from '@capacitor/browser';
+import { Network } from '@capacitor/network';
+
+window.__pwcPlugins = {
+  Capacitor, StatusBar, Style, SplashScreen,
+  Keyboard, App, Preferences, Browser, Network,
+};
+```
+
+**C. Wire into `Makefile`:**
+- `serve` target: add `npx esbuild web/capacitor-plugins.src.js --bundle --format=iife --outfile=web/capacitor-plugins.js`
+- `build` target: add `npx esbuild web/capacitor-plugins.src.js --bundle --format=iife --outfile=dist/capacitor-plugins.js`
+
+**D. Load in `web/index.html`** — add before `app.js`:
+```html
+<script src="capacitor-plugins.js"></script>
+```
+
+**E. Gitignore** `web/capacitor-plugins.js` (build artifact; source is `.src.js`).
+
+**F. Platform guard in `web/app.js`** — at top of file:
+```js
+const isNative = !!(window.__pwcPlugins?.Capacitor?.isNativePlatform?.());
+```
+
+**Verify:** `make serve` produces `web/capacitor-plugins.js`. `make build` produces `dist/capacitor-plugins.js`. In plain browser, `isNative` is `false` — app behaves identically to pre-Batch-21. `make test` (290) still passes.
+
+---
+
+#### Commit 4 — Native plugin wiring + Preferences storage migration
+
+All changes in `web/app.js` and `web/office.css`. No data pipeline changes.
+
+**A. Status bar** — call after `render()` first paints:
+```js
+if (isNative) {
+  const { StatusBar, Style } = window.__pwcPlugins;
+  const isDark = document.body.classList.contains('dark-mode');
+  StatusBar.setStyle({ style: isDark ? Style.Dark : Style.Dark });
+  // Always use dark style — the nav bar is dark and status bar overlays it.
+  // If truly needed: light style when content area is visible below nav.
+  StatusBar.setBackgroundColor({ color: '#15382A' });
+}
+```
+Also listen for theme toggle to update status bar style.
+
+**B. Splash screen** — after first meaningful paint (DOM populated with office text, before Scripture fetch):
+```js
+if (isNative) {
+  window.__pwcPlugins.SplashScreen.hide();
+}
+```
+
+**C. Keyboard** — configure on init (no text inputs to show accessory bar for):
+```js
+if (isNative) {
+  window.__pwcPlugins.Keyboard.setAccessoryBarVisible({ isVisible: false });
+}
+```
+
+**D. Back-button** — prevent accidental exit:
+```js
+if (isNative) {
+  const { App } = window.__pwcPlugins;
+  App.addListener('backButton', ({ canGoBack }) => {
+    if (!canGoBack) {
+      App.minimizeApp();
+    }
+  });
+}
+```
+
+**E. Preferences storage** — wrapper functions replacing `localStorage`:
+```js
+async function storageGet(key) {
+  if (isNative) {
+    const { value } = await window.__pwcPlugins.Preferences.get({ key });
+    return value;
+  }
+  return localStorage.getItem(key);
+}
+async function storageSet(key, value) {
+  if (isNative) {
+    await window.__pwcPlugins.Preferences.set({ key, value });
+    return;
+  }
+  localStorage.setItem(key, value);
+}
+async function storageRemove(key) {
+  if (isNative) {
+    await window.__pwcPlugins.Preferences.remove({ key });
+    return;
+  }
+  localStorage.removeItem(key);
+}
+```
+Replace all `localStorage.getItem('pwc-*')` / `setItem` / `removeItem` calls with the wrapper functions. On first native launch, migrate existing `localStorage` values to Preferences:
+```js
+async function migrateStorageIfNeeded() {
+  if (!isNative) return;
+  const { value: migrated } = await storageGet('pwc-storage-migrated');
+  if (migrated === '1') return;
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key.startsWith('pwc-')) {
+      await storageSet(key, localStorage.getItem(key));
+    }
+  }
+  await storageSet('pwc-storage-migrated', '1');
+}
+```
+
+**F. Offline detection** — graceful degradation for Scripture fetch:
+```js
+if (isNative) {
+  const { Network } = window.__pwcPlugins;
+  const status = await Network.getStatus();
+  window.__pwcOffline = !status.connected;
+  Network.addListener('networkStatusChange', (status) => {
+    window.__pwcOffline = !status.connected;
+    if (status.connected && window.__pwcLastRoute) {
+      renderFromRoute(window.__pwcLastRoute);
+    }
+  });
+}
+```
+When `window.__pwcOffline` is `true`, Scripture fetch path renders "Unable to load Scripture (offline)" in muted italic. Do NOT block office rendering.
+
+**G. External links** — open in device browser:
+```js
+if (isNative) {
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest('a');
+    if (link && link.href && !link.href.startsWith(window.location.origin)) {
+      e.preventDefault();
+      window.__pwcPlugins.Browser.open({ url: link.href });
+    }
+  });
+}
+```
+
+**Verify:** `make test` (290) passes. Browser at `:8081` functions identically (all native calls gated). In Capacitor webview: status bar matches theme, splash dismisses cleanly, back-button minimizes, settings persist across cold starts, offline indicator shows when airplane mode is on, external links open in device browser.
+
+---
+
+#### Commit 5 — Safe-area CSS + mobile layout refinements
+
+**A. Viewport** — in `web/index.html`:
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+```
+
+**B. Safe-area CSS variables** — at top of `web/office.css`:
+```css
+:root {
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
+  --safe-area-inset-right: env(safe-area-inset-right, 0px);
+}
+```
+
+**C. Apply to edge-touching containers:**
+- `body`: `padding-top: var(--safe-area-inset-top)`
+- `#nav`: `padding-top: var(--safe-area-inset-top)` (dark background extends behind notch)
+- `.settings-panel`: `padding-bottom: var(--safe-area-inset-bottom)` (clears home indicator)
+- `#day-content`: `padding-bottom: calc(2rem + var(--safe-area-inset-bottom))`
+- `.app-container`: `padding-left: var(--safe-area-inset-left); padding-right: var(--safe-area-inset-right)`
+- `#nav`: `padding-left: calc(0.75rem + var(--safe-area-inset-left)); padding-right: calc(0.75rem + var(--safe-area-inset-right))`
+
+**D. iOS Info.plist** — change `UIViewControllerBasedStatusBarAppearance` from `true` to `false` so Capacitor's StatusBar plugin can control the status bar.
+
+**E. Mobile layout refinements** (inside existing `@media (max-width: 520px)`):
+- `--font-size: 1.05rem` (was 1rem — reading experience needs slightly larger text at 375px)
+- `.seg-leader, .seg-response`: `line-height: 1.65`
+- `#day-brand`: `margin-top: 0.75rem` (was 1.5rem)
+- `.nav-compact` controls: reduce font-size by 0.05rem to prevent wrapping at 375px
+
+**Verify:** iPhone Simulator (notched): content doesn't go under notch or home indicator. Nav background extends to top of screen. `make test` (290) passes. `:8081` shows no visual regression.
+
+---
+
+#### Stage 1 gate check
+
+```bash
+make check-integrity && make test && make build && make mobile-sync
+```
+All must pass. Open in iOS Simulator and Android Emulator: app should feel native, not a website in a frame.
+
+---
+
+### Stage 2 — Store submission (5 commits)
+
+**Prerequisites (verify before starting Stage 2):**
+- [ ] Apple Developer account with access to App Store Connect for `ca.pwcoffice.dailyoffice`
+- [ ] Google Play Console account for `ca.pwcoffice.dailyoffice`
+- [ ] Apple Distribution certificate + provisioning profile
+- [ ] ACC rights: confirm beta distribution within Synod evaluation group is authorised (ASSESSMENT §5)
+
+If any prerequisite is missing, stop and flag to the owner.
+
+---
+
+#### Commit 6 — App icon generation (all sizes, branded)
+
+**Source:** `web/icon.png` (512×512, existing PWC branded icon).
+
+Use `sips` (macOS built-in) to generate all required sizes. Script as `tools/generate_icons.sh` for reproducibility.
+
+**iOS — 17 slots:** Update `AppIcon.appiconset/Contents.json` entries with correctly-sized PNG filenames. All files placed in the asset catalog directory.
+
+**Android — adaptive icon (API 26+):** Replace foreground layer at each density (mdpi=108, hdpi=162, xhdpi=216, xxhdpi=324, xxxhdpi=432) with branded icon on `#15382A` background. Update legacy `ic_launcher.png` and `ic_launcher_round.png` (mdpi=48 through xxxhdpi=192).
+
+**Verify:** Xcode icon catalog shows all slots filled, no warnings. Android build shows PWC icon on launcher.
+
+---
+
+#### Commit 7 — Splash screen branding
+
+**Design:** `#F4EEDF` background with centred PWC icon (80% opacity). No text. Generated at 2732×2732 for 3x.
+
+**iOS:** Replace all three scale slots in `Splash.imageset/Contents.json` with branded image.
+
+**Android:** Replace `drawable/splash.png` and all density-specific fallbacks with branded splash (same design, 2880×2880 source).
+
+**Verify:** Launch shows branded splash on both platforms. Transition from splash to web content is seamless (same `#F4EEDF` background).
+
+---
+
+#### Commit 8 — Store metadata
+
+**A. Version** — add `"version": "1.0.0"` to `capacitor.config.json`. Sync to iOS `MARKETING_VERSION` and Android `versionName`.
+
+**B. App name** — confirm with owner: keep "Daily Office" or change? Currently consistent across all platforms.
+
+**C. Privacy label** — "No data collected." No analytics, no accounts, no tracking. Only network: `api.bible` (Scripture lookup — server-side logging per their policy) and `lectionary.anglican.ca` (optional link). Write `docs/privacy.txt`.
+
+**D. Store description** (draft for owner review):
+> Daily Office brings the Anglican Morning and Evening Prayer to your pocket. Follow the liturgical seasons with the authorized BAS lectionary — psalms, readings, canticles, and collects, all in one place. No accounts, no tracking, no ads. Just prayer.
+
+**E. Age rating** — Apple: 4+. Google: Everyone.
+
+**Verify:** If Apple/Google accounts are available, create the app record. If not, write metadata to `docs/store-metadata.md` and flag to owner.
+
+---
+
+#### Commit 9 — Signing + archive build
+
+**A. Xcode signing** — in `ios/App/App.xcodeproj/project.pbxproj`, set `DEVELOPMENT_TEAM` (from Apple account), `CODE_SIGN_STYLE = Automatic`.
+
+**B. Archive targets** — add to `Makefile`:
+```makefile
+mobile-archive-ios: mobile-sync
+	cd ios/App && xcodebuild -workspace App.xcworkspace -scheme App -configuration Release archive -archivePath ../../build/ios/App.xcarchive
+
+mobile-archive-android: mobile-sync
+	cd android && ./gradlew assembleRelease
+```
+
+**Verify:** `make mobile-archive-ios` produces valid `.xcarchive`. `make mobile-archive-android` produces `app-release.apk`. If no Apple Developer access, skip iOS archive and flag.
+
+---
+
+#### Commit 10 — Beta distribution: TestFlight + Play Internal Track
+
+**iOS TestFlight:**
+- Upload archive to App Store Connect from Xcode Organizer
+- Add Synod evaluation group as internal testers (up to 100 Apple IDs)
+- Set Export Compliance = No (no encryption beyond HTTPS)
+- Submit for Beta App Review
+
+**Android Play Internal Track:**
+- Upload signed `.aab` to Play Console → Internal Testing
+- Add Synod evaluation group email addresses as testers
+- Roll out (bypasses review — available within minutes)
+
+**Copyright compliance** — write `docs/distribution-compliance.md`:
+> Beta distribution is limited to the Synod evaluation group under ACC direction. The app bundle contains copyrighted liturgical texts (BAS). Until ACC grants distribution rights, do not promote the TestFlight/Play Internal links outside the evaluation group. The open-source repository continues to exclude copyrighted data.
+
+**Verify:** TestFlight available to internal testers. Play Internal Track available to whitelisted accounts. App installs and runs on real devices.
+
+---
+
+#### Stage 2 gate check
+
+```bash
+make check-integrity && make test && make build && make mobile-sync && make mobile-archive-ios
+```
+Owner review: confirm store listings and authorize beta distribution.
+
+---
+
+### Post-Batch-21: next priorities
+
+1. RCL Daily UI integration (Nov 2026 — flip `FEATURE_RCL_DAILY = true`)
+2. 2027 lectionary data (routine `make fetch-sources && make extract`)
+3. Bishop name substitution (settings field for *N* placeholder)
+4. Push notifications + widget (post-store polish — ROADMAP §5.4)
 
 ## Verified — Batch 19 delivered (2026-07-09)
 
