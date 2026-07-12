@@ -20,7 +20,7 @@ Data-confidence tooling. Both tools implemented, committed, pushed. **Pure tooli
 
 **Acceptance met:** post-Batch-18 data reports **0** internal casing mismatches (after BUG-36) and **0** column wraps. The oracle demonstrably catches internal errors (verified against synthetic "Holy one"→"Holy One" and the 4 real spirit errors).
 
-**Next-session priority:** mobile (ROADMAP §5.4 — the ACC's prime desire: Capacitor native features + store submission). Open housekeeping: BUG-35 (refresh the ~12 stale legacy `office.spec.js` selectors); BUG-06 (2027 lectionary, blocked on ACC data). Consider making `make check-casing --strict` / `check-text --strict` a deploy gate once comfortable.
+**Next-session priority:** mobile (ROADMAP §5.4 — the ACC's prime desire: Capacitor native features + store submission). Open housekeeping: BUG-35 (refresh the ~12 stale legacy `office.spec.js` selectors); Consider making `make check-casing --strict` / `check-text --strict` a deploy gate once comfortable.
 
 ---
 
