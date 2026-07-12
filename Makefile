@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text check-casing check-book generate-golden serve serve-dist deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android
+.PHONY: test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text check-casing check-book generate-golden serve serve-dist deploy test-web validate fetch-sources extract extract-rcl mobile-sync mobile-ios mobile-android
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -49,6 +49,7 @@ build:
 	rm -rf dist
 	cp -rL web/. dist/
 	rm -rf dist/data/.git
+	npx esbuild web/capacitor-plugins.src.js --bundle --format=iife --outfile=dist/capacitor-plugins.js
 	@echo "dist/ ready ($$(find dist -type f | wc -l | tr -d ' ') files)"
 
 # Verify dist/ has everything the app needs before deploying.
@@ -59,6 +60,7 @@ check-dist: build test-unit
 # No build step — web/data symlink is followed live.
 # Override port: make serve PORT=9000
 serve:
+	npx esbuild web/capacitor-plugins.src.js --bundle --format=iife --outfile=web/capacitor-plugins.js
 	-lsof -ti:$(PORT) | xargs kill -9 2>/dev/null; true
 	python3 -m http.server $(PORT) --directory web
 
@@ -97,6 +99,14 @@ check-casing:
 # Requires network access; run manually before a data re-extraction.
 validate: check-text check-casing
 	python3 tools/validate_lectionary.py
+
+# Extract RCL Daily Readings from RTF source → data/rcl-daily/
+extract-rcl:
+	python3 tools/extract_rcl_daily.py
+
+# Validate RCL Daily extraction output
+validate-rcl:
+	python3 tools/validate_rcl_daily.py --strict
 
 # Run E2E tests locally against web/ (default — no bandwidth cost).
 test-web:
