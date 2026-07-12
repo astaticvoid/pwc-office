@@ -24,7 +24,7 @@ _Last updated: 2026-07-11_
 - `cli/office.js` — debug renderer
 
 ### §1.4 — Testing (done)
-- Vitest (117) + pytest (173) = 290 unit tests
+- Vitest (117) + pytest (213) = 330 unit tests
 - Playwright E2E (104 passed, 0 failed)
 - `make test-full`, `make test-smoke`, `make test-seasonal`
 
@@ -33,18 +33,19 @@ _Last updated: 2026-07-11_
 - Casing oracle, column-wrap detector, line-break oracle
 - 9 Batch-18 field-trial fixes deployed
 
+### §1.6 — Mobile Stage 1: Platform readiness (done, 2026-07-11)
+- Android `colors.xml` build fix; background colour consistency
+- 7 Capacitor plugins installed: status-bar, splash-screen, keyboard, app, preferences, browser, network
+- Plugin JS bundle (esbuild IIFE) + `isNative` platform guard
+- Native feature wiring: status bar, splash dismiss, back-button, Preferences storage, offline detection, external links
+- Safe-area CSS (`viewport-fit=cover`, `env(safe-area-inset-*)`) + mobile typography refinements
+
 ---
 
 ## 2. In progress
 
-### §2.1 — Mobile: Capacitor native shell → store submission
-The Capacitor shell is committed (`ios/`, `android/`) and syncing (`make mobile-sync`). It is a pure webview wrapper with zero native integrations. The ACC's stated prime desire is a mobile app. See `docs/HANDOFF.md` — Batch 21 for the full two-stage spec.
-
-**Stage 1 — Platform readiness** (est. 1 session)
-Fix build issues, wire up Capacitor native plugins, add safe-area CSS and mobile-responsive refinements, integrate offline detection.
-
-**Stage 2 — Store submission** (est. 1 session, blocked on ACC rights + Apple/Google accounts)
-Branded app icons and splash screens, store metadata, signing, TestFlight/Play Internal Track beta distribution.
+### §2.1 — Mobile Stage 2: Store submission (blocked)
+Gated on Apple Developer account, Google Play Console account, and ACC rights confirmation. Branded icons, splash branding, store metadata, signing, TestFlight/Play Internal Track beta distribution.
 
 ---
 

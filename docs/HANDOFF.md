@@ -6,6 +6,24 @@ Session-to-session handoff. Claude Code owns planning, implementation, and verif
 
 ---
 
+## Verified — Batch 21 Stage 1 delivered (2026-07-11)
+
+Mobile platform readiness: build fixes, 7 Capacitor plugins, native chrome integration, safe-area CSS, offline resilience. All 5 commits pushed. **Stage 2 (store submission) is gated on Apple/Google Developer accounts + ACC rights confirmation.**
+
+**Gates:** `make check-integrity` ✅ · `make test` (Vitest 117 + pytest 213 = 330) ✅ · `make build` ✅ (207 files, includes capacitor-plugins.js) · `make mobile-sync` ✅ (7 plugins synced to both platforms)
+
+| Item | Result |
+|---|---|
+| Build fixes | Android `colors.xml` created, `allowBackup=false`, `usesCleartextTraffic=false`. All backgrounds aligned to `#F4EEDF`. iOS icon slots filled (17/17). |
+| Capacitor plugins | 7 installed + native-registered: status-bar, splash-screen, keyboard, app, preferences, browser, network. |
+| Plugin JS bundle | esbuild IIFE bundle (`capacitor-plugins.js`, 31.9 KB) loaded in `index.html` before `app.js`. Platform guard `isNative` gates all native calls. |
+| Native feature wiring | Status bar (dark style, `#15382A` background). Splash dismiss after paint. Keyboard accessory bar hidden. Android back-button → minimize. Preferences-backed storage with localStorage migration. Offline detection → graceful Scripture fetch fallback. External links → device browser. |
+| Safe-area CSS | `viewport-fit=cover`. `env(safe-area-inset-*)` applied to body, nav, main, settings panel. iOS `UIViewControllerBasedStatusBarAppearance=false`. Mobile line-height 1.7. |
+
+**Next priority:** Stage 2 store submission — blocked on Apple/Google Developer accounts + ACC rights. RCL Daily UI integration deferred until Nov 2026.
+
+---
+
 ## Verified — Batch 20 delivered (2026-07-11)
 
 Quality and rendering: verse/block text differentiation, litany data reflow, line-break oracle. All deployed.
@@ -22,11 +40,11 @@ Quality and rendering: verse/block text differentiation, litany data reflow, lin
 
 **FATS decision:** Phase 1 (bio + collect fallback) is the complete integration. FATS readings are Eucharistic propers — not suitable for Daily Office. RCL Daily is the correct lectionary source for daily readings.
 
-**Next-session priority:** mobile (Batch 21 — two-stage spec below). RCL Daily extraction pipeline is complete (13 months extracted, Nov 2026 forward) — UI integration deferred until the data window opens in November.
+**Next-session priority:** Batch 21 Stage 2 (store submission — blocked on Apple/Google accounts + ACC rights). RCL Daily UI integration deferred until Nov 2026.
 
 ---
 
-## Batch 21 spec — Mobile: Capacitor native shell → store submission
+## Batch 21 spec — Mobile: Capacitor native shell → store submission (Stage 2 pending)
 
 Two-stage strategy. **Stage 1** (5 commits) makes the shell production-capable — build fixes, native plugins, safe-area CSS, offline resilience. **Stage 2** (5 commits) gets it into the stores — branded icons/splash, store metadata, signing, beta distribution.
 
