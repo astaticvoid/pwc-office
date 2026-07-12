@@ -49,7 +49,6 @@ build:
 	rm -rf dist
 	cp -rL web/. dist/
 	rm -rf dist/data/.git
-	npx esbuild web/capacitor-plugins.src.js --bundle --format=iife --outfile=dist/capacitor-plugins.js
 	@echo "dist/ ready ($$(find dist -type f | wc -l | tr -d ' ') files)"
 
 # Verify dist/ has everything the app needs before deploying.
@@ -60,7 +59,6 @@ check-dist: build test-unit
 # No build step — web/data symlink is followed live.
 # Override port: make serve PORT=9000
 serve:
-	npx esbuild web/capacitor-plugins.src.js --bundle --format=iife --outfile=web/capacitor-plugins.js
 	-lsof -ti:$(PORT) | xargs kill -9 2>/dev/null; true
 	python3 -m http.server $(PORT) --directory web
 
