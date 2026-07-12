@@ -2,7 +2,7 @@
 
 _Updated: 2026-07-11_
 
-Session-to-session handoff. Claude Code owns planning, implementation, and verification end-to-end (the former Cowork review role is retired, 2026-07-05); specs are written here by planning sessions and implemented in order by later sessions.
+Session-to-session handoff. All specifications and verified delivery records live here. `docs/ROADMAP.md` is the milestone-level companion — keep both current. After every batch/stage is delivered, add a "Verified" section above with gates + a change summary table, and update the roadmap.
 
 ---
 
