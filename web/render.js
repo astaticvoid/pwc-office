@@ -113,6 +113,28 @@ export const ABBREV_TO_FILE = {
   'Bar':'Baruch','1 Macc':'1 Maccabees','2 Macc':'2 Maccabees','2 Esd':'2 Esdras',
 };
 
+// Map full book names → BAS abbreviations (for RCL Daily data which uses full names).
+const FULL_TO_ABBREV = {
+  'Genesis':'Gen','Exodus':'Ex','Leviticus':'Lev','Numbers':'Num','Deuteronomy':'Dt',
+  'Joshua':'Jos','Judges':'Jg','Ruth':'Ruth','1 Samuel':'1 Sam','2 Samuel':'2 Sam',
+  '1 Kings':'1 Kgs','2 Kings':'2 Kgs','1 Chronicles':'1 Chr','2 Chronicles':'2 Chr',
+  'Ezra':'Ezra','Nehemiah':'Neh','Esther':'Est','Job':'Job','Psalm':'Ps','Psalms':'Ps',
+  'Proverbs':'Pr','Ecclesiastes':'Ec','Song of Solomon':'Song','Song of Songs':'Song',
+  'Isaiah':'Is','Jeremiah':'Jer','Lamentations':'Lam','Ezekiel':'Ezek','Daniel':'Dan',
+  'Hosea':'Hos','Joel':'Jl','Amos':'Am','Obadiah':'Ob','Jonah':'Jon',
+  'Micah':'Mic','Nahum':'Nah','Habakkuk':'Hab','Zephaniah':'Zeph',
+  'Haggai':'Hag','Zechariah':'Zech','Malachi':'Mal',
+  'Matthew':'Mt','Mark':'Mk','Luke':'Lk','John':'Jn','Acts':'Acts',
+  'Romans':'Rom','1 Corinthians':'1 Cor','2 Corinthians':'2 Cor',
+  'Galatians':'Gal','Ephesians':'Eph','Philippians':'Phil','Colossians':'Col',
+  '1 Thessalonians':'1 Th','2 Thessalonians':'2 Th','1 Timothy':'1 Tim',
+  '2 Timothy':'2 Tim','Titus':'Tit','Philemon':'Philem','Hebrews':'Heb',
+  'James':'Jas','1 Peter':'1 Pet','2 Peter':'2 Pet','1 John':'1 Jn',
+  '2 John':'2 Jn','3 John':'3 Jn','Jude':'Jude','Revelation':'Rev',
+  'Tobit':'Tob','Judith':'Jdt','Wisdom':'Wis','Wisdom of Solomon':'Wis',
+  'Sirach':'Sir','Baruch':'Bar','1 Maccabees':'1 Macc','2 Maccabees':'2 Macc',
+};
+
 // ── Utility ────────────────────────────────────────────────────────────────────
 
 export function esc(s) {
@@ -233,6 +255,8 @@ export function formKey(season, officeType, weekday) {
 
 export function parseCitation(rawCitation) {
   let citation = rawCitation;
+  // Strip leading "or " / "Or " from alternative reading options.
+  citation = citation.replace(/^[Oo]r\s+/, '');
   const orIdx = citation.indexOf(' or ');
   if (orIdx >= 0) citation = citation.slice(0, orIdx).trim();
   citation = citation.trim();
@@ -247,7 +271,9 @@ export function parseCitation(rawCitation) {
   }
   if (numStart < 0) return null;
 
-  const abbrev = (prefix + s.slice(0, numStart)).trim();
+  const rawAbbrev = (prefix + s.slice(0, numStart)).trim();
+  // Try BAS abbreviation first, then full book name → abbreviation fallback.
+  const abbrev = ABBREV_TO_FILE[rawAbbrev] ? rawAbbrev : (FULL_TO_ABBREV[rawAbbrev] || rawAbbrev);
   let rest = s.slice(numStart).trim();
   const file = ABBREV_TO_FILE[abbrev];
   if (!file) return null;
