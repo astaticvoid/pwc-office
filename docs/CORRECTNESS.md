@@ -176,7 +176,7 @@ _Severity:_ P3 — invisible to most users; not a doctrinal error. _Lesson:_ cas
 | Other weekday litany capitalisation | BUG-18 may affect other weekdays | Spot-check Monday and Thursday litanies |
 | O Antiphons (Dec 17–23) | Render as plain italic; liturgically significant | UX-09 in audit |
 | Collect of the Day accuracy | Verify collected text matches lectionary source | Spot-check a known date |
-| Year B → Year A transition | Coverage ends Dec 2026 (BUG-06) | Boundary gated by `boundsMax` |
+| Year B → Year A transition | Coverage ends Dec 2026 | Boundary gated by `boundsMax` |
 
 ---
 

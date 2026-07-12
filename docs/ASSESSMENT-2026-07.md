@@ -25,7 +25,7 @@ Strategic context (stated by the owner, 2026-07-05):
 | `make check-text` | ✅ no PDF-artifact patterns |
 | Collect ref resolution (all 19 months, MP+EP) | ✅ 0 unresolvable |
 | Psalter | ✅ 150/150 psalms |
-| Lectionary window | 2025-06 → 2026-12 (19 months, contiguous); 2027 pending ACC data (BUG-06) |
+| Lectionary window | 2025-06 → 2026-12 (19 months, contiguous); 2027 pending ACC data |
 | Office forms | 31 forms; 30/30 audited forms pass CLI correctness audit |
 | Open bugs | 9 (2×P1, 4×P2, 3×P3) — all specced in Batch 18; none architectural |
 | Stale docs | ROADMAP §4.4 "Go CLI parity" — the Go CLI no longer exists (Node CLI replaced it); §5 still describes Capacitor as a future decision (it shipped) |

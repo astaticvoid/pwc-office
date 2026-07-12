@@ -18,10 +18,6 @@ _(empty)_
 
 ### P1 — Incorrect content shown to user
 
-**BUG-06: 2027 BAS lectionary not yet available**  
-Coverage ends at late December 2026. Navigation shows "Readings not yet available" at the boundary; next-arrow disabled. Not a mobile beta blocker — will be added when ACC publishes the 2027 data.  
-_Fix:_ When ACC provides the next lectionary CSV, add to `sources/` and run `make extract`.  
-_Files:_ `web/app.js:render`, `tools/convert_lectionary.py`
 
 ### P2 — Missing content / broken feature
 
