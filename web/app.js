@@ -495,9 +495,9 @@ function proclamationHtml(officeData, form, shared) {
   let html = psalmHtml(officeData, shared);
   if (officeData.lessons_pick) html += lessonsPickRubricHtml(officeData.lessons_pick, lessons.length);
   if (lessons.length > 0) html += lessonHtml(lessons[0], shared, form);
-  if (form) html += renderSubsection('The Responsory', form.responsory, shared);
+  if (form) html += renderSubsection('The Responsory', form.responsory, shared, true);
   if (lessons.length > 1) html += lessonHtml(lessons[1], shared, form);
-  if (form) html += renderSubsection('The Canticle', form.canticle, shared);
+  if (form) html += renderSubsection('The Canticle', form.canticle, shared, true);
   for (const lesson of lessons.slice(2)) html += lessonHtml(lesson, shared, form);
   return html;
 }
@@ -920,12 +920,12 @@ async function render(dateStr, officeType, translation) {
     if (openingResponses && openingResponses.length)
       html += renderSubsection('Introductory Responses', openingResponses, shared);
     if (form.thanksgiving_for_light && form.thanksgiving_for_light.length)
-      html += renderSubsection('Thanksgiving', form.thanksgiving_for_light, shared);
+      html += renderSubsection('Thanksgiving', form.thanksgiving_for_light, shared, true);
     // Ordinary-time EP: evening hymn reference (Phos Hilaron).
     if (form.phos_hilaron && form.phos_hilaron.length)
-      html += `<div class="liturgy">${renderSegments(form.phos_hilaron, shared)}</div>`;
+      html += `<div class="liturgy">${renderSegments(form.phos_hilaron, shared, true)}</div>`;
     if (form.invitatory && form.invitatory.length)
-      html += renderSubsection('Invitatory Psalm', form.invitatory, shared);
+      html += renderSubsection('Invitatory Psalm', form.invitatory, shared, true);
   }
 
   // ── Proclamation ───────────────────────────────────────────────────────────
@@ -975,7 +975,7 @@ async function render(dateStr, officeType, translation) {
     html += `<div id="prayers-collect">${collectToggleHtml(collects, activeOfficeData.collect, seasonalSegs, shared, fatsEntry, day.collect_inline)}</div>`;
     if (form.lords_prayer_intro && form.lords_prayer_intro.length) {
       html += `<h3 class="office-subsection-title">The Lord's Prayer</h3>`;
-      html += `<div class="liturgy">${renderSegments(form.lords_prayer_intro, shared)}</div>`;
+      html += `<div class="liturgy">${renderSegments(form.lords_prayer_intro, shared, true)}</div>`;
     }
   }
 
@@ -983,7 +983,7 @@ async function render(dateStr, officeType, translation) {
   if (form && form.dismissal && form.dismissal.length) {
     html += `<h2 class="office-section-title">The Sending Forth of the Community</h2>`;
     html += `<h3 class="office-subsection-title">The Dismissal</h3>`;
-    html += `<div class="liturgy">${renderSegments(form.dismissal, shared)}</div>`;
+    html += `<div class="liturgy">${renderSegments(form.dismissal, shared, true)}</div>`;
   }
 
   html += `<p class="scripture-attr" id="scripture-attr">Translation: ${esc(translation.toUpperCase())}</p>`;

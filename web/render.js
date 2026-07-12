@@ -264,7 +264,7 @@ function expandCitationForDisplay(rawCitation) {
 
 // ── Rendering ─────────────────────────────────────────────────────────────────
 
-export function renderAlternatives(seg, shared, contextKey) {
+export function renderAlternatives(seg, shared, contextKey, verse = false) {
   if (!seg.groups || !seg.groups.length) return '';
   const stateKey = contextKey
     ? 'pwc-alt-' + contextKey
@@ -289,7 +289,7 @@ export function renderAlternatives(seg, shared, contextKey) {
       if (!citation) console.warn('CANTICLE_SOURCE missing entry for:', g.label);
       sourceHtml = `<p class="alt-source">${esc(g.label)}${citation ? ` — ${esc(citation)}` : ''}</p>`;
     }
-    return `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-${i}" aria-labelledby="${idBase}-tab-${i}" data-idx="${i}">${sourceHtml}${renderSegments(g.segments, shared)}</div>`;
+    return `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-${i}" aria-labelledby="${idBase}-tab-${i}" data-idx="${i}">${sourceHtml}${renderSegments(g.segments, shared, verse)}</div>`;
   }).join('');
   return `<div class="alt-block"><div class="alt-tabs" role="tablist">${tabsHtml}</div>${panelsHtml}</div>`;
 }
@@ -302,12 +302,12 @@ function italicisePlaceholderN(html) {
   return html.replace(/\bN\b(?=[ ,.])/g, '<em>N</em>');
 }
 
-export function renderSegments(segs, shared) {
+export function renderSegments(segs, shared, verse = false) {
   if (!segs || !segs.length) return '';
   return segs.map(seg => {
     let contextKey;
     if (seg.type === 'shared' && shared) { contextKey = seg.key; seg = shared[seg.key] || seg; }
-    if (seg.type === 'alternatives') return renderAlternatives(seg, shared, contextKey);
+    if (seg.type === 'alternatives') return renderAlternatives(seg, shared, contextKey, verse);
     if (seg.type === 'rubric' && INTERCESSIONS_RE.test(seg.text || '')) return INTERCESSIONS_CONDENSED;
     if (seg.type === 'rubric' && SKIP_RUBRICS.test(seg.text || '')) return '';
     const text = seg.text || '';
@@ -317,19 +317,20 @@ export function renderSegments(segs, shared) {
     }
     if (seg.type === 'label')    return `<p class="seg-label">${esc(text)}</p>`;
     if (seg.type === 'response') return `<p class="seg-response">${italicisePlaceholderN(bindMidpoints(formatLiturgicalText(text)))}</p>`;
-    // Split trailing "Amen." into a congregational-response paragraph.
+    const formatted = verse ? formatLiturgicalText(text) : esc(text);
     const amenMatch = seg.type === 'leader' && text.match(/^([\s\S]+)\s(Amen\.)$/);
     if (amenMatch) {
-      return `<p class="seg-leader">${italicisePlaceholderN(bindMidpoints(esc(amenMatch[1])))}</p>`
+      const amenBody = verse ? formatLiturgicalText(amenMatch[1]) : esc(amenMatch[1]);
+      return `<p class="seg-leader">${italicisePlaceholderN(bindMidpoints(amenBody))}</p>`
            + `<p class="seg-response">Amen.</p>`;
     }
-    return `<p class="seg-leader">${italicisePlaceholderN(bindMidpoints(esc(text)))}</p>`;
+    return `<p class="seg-leader">${italicisePlaceholderN(bindMidpoints(formatted))}</p>`;
   }).join('');
 }
 
-export function renderSubsection(label, segs, shared) {
+export function renderSubsection(label, segs, shared, verse = false) {
   if (!segs || !segs.length) return '';
-  return `<h3 class="office-subsection-title">${esc(label)}</h3><div class="liturgy">${renderSegments(segs, shared)}</div>`;
+  return `<h3 class="office-subsection-title">${esc(label)}</h3><div class="liturgy">${renderSegments(segs, shared, verse)}</div>`;
 }
 
 export function lessonHtml(lesson, shared, form) {
