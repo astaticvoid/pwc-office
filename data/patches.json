@@ -1,134 +1,65 @@
 [
   {
     "id": "patch-001",
-    "description": "Update sovereign collect name from Queen to Sovereign",
-    "target": "collects.json",
-    "path": [
-      "677",
-      "name"
-    ],
+    "description": "Fix truncated subtitle in All Saints MP office form (BUG-37)",
+    "target": "offices.json",
+    "path": ["allsaints-mp", "subtitle"],
     "op": "replace",
-    "old": "For the Queen",
-    "new": "For the Sovereign"
+    "old": "From All Saints until the",
+    "new": "From All Saints until the First Sunday of Advent"
   },
   {
     "id": "patch-002",
-    "description": "Update sovereign collect text from Queen Elizabeth to King Charles",
-    "target": "collects.json",
-    "path": [
-      "677",
-      "text"
-    ],
+    "description": "Fix truncated subtitle in All Saints EP office form (BUG-37)",
+    "target": "offices.json",
+    "path": ["allsaints-ep", "subtitle"],
     "op": "replace",
-    "old": "Almighty God, fountain of all goodness, bless our Sovereign Lady, Queen Elizabeth, and all who are in authority under her; that they may order all things in wisdom and equity, righteousness and peace, to the honour of your name, and the good of your Church and people; through Jesus Christ our Lord.",
-    "new": "Almighty God, fountain of all goodness, bless our Sovereign Lord, King Charles, and all who are in authority under him; that they may order all things in wisdom and equity, righteousness and peace, to the honour of your name, and the good of your Church and people; through Jesus Christ our Lord."
+    "old": "From All Saints until the",
+    "new": "From All Saints until the First Sunday of Advent"
   },
   {
     "id": "patch-003",
-    "description": "Correct p.412 feast name: extractor picked up Canada Day heading (bottom of page) instead of Saint Peter and Saint Paul (whose collect appears at top of same page)",
-    "target": "collects.json",
-    "path": [
-      "412",
-      "name"
-    ],
+    "description": "Fix truncated subtitle in Lent MP office form (BUG-37)",
+    "target": "offices.json",
+    "path": ["lent-mp", "subtitle"],
     "op": "replace",
-    "old": "Canada Day 1 July",
-    "new": "Saint Peter and Saint Paul 29 June"
+    "old": "From Ash Wednesday until the",
+    "new": "From Ash Wednesday until the Fourth Sunday in Lent"
   },
   {
     "id": "patch-004",
-    "description": "Correct p.412 feast date to match Saint Peter and Saint Paul",
-    "target": "collects.json",
-    "path": [
-      "412",
-      "date"
-    ],
+    "description": "Fix truncated subtitle in Lent EP office form (BUG-37)",
+    "target": "offices.json",
+    "path": ["lent-ep", "subtitle"],
     "op": "replace",
-    "old": "1 July",
-    "new": "29 June"
+    "old": "From Ash Wednesday until the",
+    "new": "From Ash Wednesday until the Fourth Sunday in Lent"
   },
   {
     "id": "patch-005",
-    "description": "Correct p.413 feast name: extractor picked up Saint Thomas heading (bottom of page) instead of Canada Day (whose collect appears at top of same page)",
-    "target": "collects.json",
-    "path": [
-      "413",
-      "name"
-    ],
+    "description": "Fix truncated subtitle in Passiontide MP office form (BUG-37)",
+    "target": "offices.json",
+    "path": ["passiontide-mp", "subtitle"],
     "op": "replace",
-    "old": "Saint Thomas 3 July",
-    "new": "Canada Day 1 July"
+    "old": "From the Fifth Sunday in",
+    "new": "From the Fifth Sunday in Lent to the Saturday before Easter"
   },
   {
     "id": "patch-006",
-    "description": "Correct p.413 feast date to match Canada Day",
-    "target": "collects.json",
-    "path": [
-      "413",
-      "date"
-    ],
+    "description": "Fix truncated subtitle in Passiontide EP office form (BUG-37)",
+    "target": "offices.json",
+    "path": ["passiontide-ep", "subtitle"],
     "op": "replace",
-    "old": "3 July",
-    "new": "1 July"
+    "old": "From the Fifth Sunday in",
+    "new": "From the Fifth Sunday in Lent to the Saturday before Easter"
   },
   {
     "id": "patch-007",
-    "description": "Restore word spaces on p.356 (pdfplumber 26.04.0 concatenates words for this page)",
-    "target": "collects.json",
-    "path": [
-      "356",
-      "text"
-    ],
+    "description": "Fix truncated subtitle in Pentecost EP office form (BUG-37)",
+    "target": "offices.json",
+    "path": ["pentecost-ep", "subtitle"],
     "op": "replace",
-    "old": "AlmightyGod, yourSonrevealedinsignsandmiracles thewonderofyoursavinglove. Renewyourpeoplewithyourheavenlygrace, andinallourweakness sustainusbyyourmightypower; throughJesusChristourLord, whoisaliveandreignswithyouandtheHolySpirit, oneGod,nowandforever.",
-    "new": "Almighty God, your Son revealed in signs and miracles the wonder of your saving love. Renew your people with your heavenly grace, and in all our weakness sustain us by your mighty power; through Jesus Christ our Lord, who is alive and reigns with you and the Holy Spirit, one God, now and for ever."
-  },
-  {
-    "id": "patch-008",
-    "description": "Restore word spaces on p.358 (pdfplumber 26.04.0 concatenates words for this page)",
-    "target": "collects.json",
-    "path": [
-      "358",
-      "text"
-    ],
-    "op": "replace",
-    "old": "AlmightyGod, grantustheSpirittothinkanddoalways thosethingsthatareright, thatwewhocandonothinggoodwithoutyou, mayliveaccordingtoyourholywill; throughJesusChristourLord, wholivesandreignswithyouandtheHolySpirit, oneGod,nowandforever.",
-    "new": "Almighty God, grant us the Spirit to think and do always those things that are right, that we who can do nothing good without you, may live according to your holy will; through Jesus Christ our Lord, who lives and reigns with you and the Holy Spirit, one God, now and for ever."
-  },
-  {
-    "id": "patch-009",
-    "description": "Remove spurious blank lines on p.392 caused by running page-number and section-header stripping across a page break",
-    "target": "collects.json",
-    "path": [
-      "392",
-      "text"
-    ],
-    "op": "replace",
-    "old": "Almighty God, you sent your Son Jesus Christ to be the light of the world. Free us from all that darkens and ensnares us, and bring us to eternal light and joy; through the power of him who is alive and reigns with you and the Holy Spirit, one God, now and for ever.",
-    "new": "Almighty God, you sent your Son Jesus Christ to be the light of the world. Free us from all that darkens and ensnares us, and bring us to eternal light and joy; through the power of him who is alive and reigns with you and the Holy Spirit, one God, now and for ever."
-  },
-  {
-    "id": "patch-011",
-    "description": "Restore missing space on p.432 Common of a Martyr: 'servantN' → 'servant N'",
-    "target": "collects.json",
-    "path": [
-      "432",
-      "text"
-    ],
-    "op": "replace",
-    "old": "Almighty God, who gave your servantN courage to confess Jesus Christ and to die for this faith, may we always be ready to give a reason for the hope that is in us, and to suffer gladly for his sake; through Jesus Christ our Lord, who lives and reigns with you and the Holy Spirit, one God, now and for ever.",
-    "new": "Almighty God, who gave your servant N courage to confess Jesus Christ and to die for this faith, may we always be ready to give a reason for the hope that is in us, and to suffer gladly for his sake; through Jesus Christ our Lord, who lives and reigns with you and the Holy Spirit, one God, now and for ever."
-  },
-  {
-    "id": "patch-010",
-    "description": "Restore word spaces on p.396 (pdfplumber 26.04.0 concatenates words for this page)",
-    "target": "collects.json",
-    "path": [
-      "396",
-      "text"
-    ],
-    "op": "replace",
-    "old": "Creatorofthefruitfulearth, youmadeusstewardsofallthings. Giveusgratefulheartsforallyourgoodness, andsteadfastwillstouseyourbountywell, thatthewholehumanfamily, todayandingenerationstocome, maywithusgivethanksfortherichesofyourcreation. WeaskthisinthenameofJesusChristtheLord.",
-    "new": "Creator of the fruitful earth, you made us stewards of all things. Give us grateful hearts for all your goodness, and steadfast wills to use your bounty well, that the whole human family, today and in generations to come, may with us give thanks for the riches of your creation. We ask this in the name of Jesus Christ the Lord."
+    "old": "From Ascension to the",
+    "new": "From Ascension through Trinity Sunday"
   }
 ]

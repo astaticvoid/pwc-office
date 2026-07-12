@@ -1,15 +1,15 @@
 {
-  "extracted_at": "2026-07-12T01:54:46Z",
+  "extracted_at": "2026-07-12T04:48:10Z",
   "tool_versions": {
     "pdftotext": "pdftotext version 26.07.0"
   },
   "files": {
     "data/offices.json": {
-      "sha256": "302c498e996d767c72aeffb156a28d3ab7dbe84dbfc1abd18837c1a8ee8f2853",
+      "sha256": "feffb7425adbd2c0f2aa0e7e8e19c893a5a9f7d79d137965a159a7578ae50baf",
       "entries": 31
     },
     "data/collects.json": {
-      "sha256": "d19ef9be71c6a867e9e8894b0caf5c644f853464da325ecf6b8af2415377cacd",
+      "sha256": "8b630e7effe7d432157fdbad805490713914bb7b908bb488af7b9c8bdd8807a5",
       "entries": 118
     },
     "data/psalter.json": {
