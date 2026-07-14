@@ -10,17 +10,16 @@ Instructions for automated tooling working in this repository.
 
 ```bash
 npm install
-npx playwright install   # Chromium browser for Playwright E2E tests
-
-pip install pdfplumber
-brew install poppler     # pdftotext — required by extraction pipeline
+npx playwright install              # Chromium browser for Playwright E2E tests
+pip install pdfplumber              # PDF extraction dependency
+# pdftotext from poppler required (apt: poppler-utils, brew: poppler)
 ```
 
 Required environment variables in `.env` (gitignored):
-- `BIBLE_API_KEY` — API.Bible key for NRSVUE Scripture fetching
-- `ANTHROPIC_API_KEY` — needed for test-smoke and test-seasonal (citation LLM checks)
+- None currently required. KJV scripture is bundled in `data/translations/kjv/` and works offline.
+- NRSVUE scripture is not distributable — if a local copy is placed at `data/translations/nrsvue/` the app will use it.
 
-Always use `python3` from Homebrew, not macOS system python (3.9, too old). The Makefile uses `python3` and `pytest` (not `python3 -m pytest`).
+The Makefile uses `python3` and `pytest` (not `python3 -m pytest`).
 
 ## Commands
 
@@ -37,7 +36,7 @@ make test                         # Vitest + pytest (fast, no network) — go-to
 make test-full                    # structural check: every day × MP+EP in lectionary
 make test-smoke                   # 4 cases: citation check vs lectionary.anglican.ca
 make test-seasonal                # 26 cases: one MP+EP per liturgical form
-make test-web                     # Playwright E2E — requires `make serve-dist` in another terminal
+make test-web                     # Playwright E2E — auto-starts web/ server on :8080
 make test-tools                   # Python pytest for tools/
 make validate                     # Validate lectionary JSON against ACC HTML (network)
 
@@ -72,7 +71,7 @@ make deploy BUCKET=... CF_DISTRIBUTION_ID=...
 ### Focused test commands
 
 ```bash
-npx vitest run -t "pattern"       # run a single Vitest test
+npx vitest run -t "pattern"       # run a single Vitest test (tests in tests/unit/render.test.js)
 pytest tools/tests/ -k "pattern"   # run a single pytest
 make check-book FORM=allsaints-mp  # diff one form against golden file
 ```
@@ -180,7 +179,4 @@ After all commits in a batch/stage are pushed:
 - Office forms: 31 in `data/offices.json`; form selection is season- and weekday-aware
 - `FEATURE_RCL_DAILY = false` until Nov 2026 data window
 
-## Next priorities (2026-07)
 
-- **Mobile Stage 2**: Store submission (Stage 1 delivered — blocked on Apple/Google Developer accounts + ACC rights)
-- **RCL Daily**: Extraction pipeline complete, data extracted Nov 2026 forward. UI integration deferred until the data window opens.

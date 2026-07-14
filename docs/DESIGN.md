@@ -185,16 +185,16 @@ The season computation logic (`SeasonOf`, `FormSeasonOf`) is implemented in both
 
 | Layer | Tool | Trigger |
 |-------|------|---------|
-| Go unit tests | `go test ./...` | `make test` (fast, no API key) |
+| Vitest unit tests | `vitest run` | `make test` (fast, no API key) |
 | Structural full-year check | `e2e_full` build tag | `make test-full` |
-| LLM-evaluated smoke (4 days) | `e2e_smoke` build tag | `make test-smoke` (needs `ANTHROPIC_API_KEY`) |
-| LLM-evaluated seasonal (1 MP+EP per season) | `e2e_seasonal` | `make test-seasonal` |
+| Citation cross-check (4 days) | `tools/test_eval.js` | `make test-smoke` (no API key) |
+| Citation cross-check (1 MP+EP per season) | `tools/test_eval.js` | `make test-seasonal` (no API key) |
 | Playwright E2E (70+ tests, browser) | `playwright test` | `make test-web` |
 | CSV vs HTML validation | `validate_lectionary.py` | Manual |
 | Data integrity | `manifest.json` hash check | Every extraction run |
 
 **Gaps (open):**
-- LLM-evaluated smoke/seasonal tests depend on the `claude` CLI being installed — targeted for replacement with golden snapshot tests (see HANDOFF.md)
+- (none currently tracked)
 
 **Gaps (resolved):**
 - ✅ Python tools now have 53 pytest tests (`make test-tools`) — BUG-12, 2026-06-07

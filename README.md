@@ -80,12 +80,12 @@ make extract         # → data/offices.json, psalter.json, collects.json,
 
 ### Scripture
 
-NRSVUE is fetched on demand from API.Bible (lazy, cached by the service worker).
-KJV can be downloaded and converted for offline use:
+KJV (with Apocrypha) is bundled in `data/translations/kjv/` and works fully offline.
 
-```sh
-BIBLE_API_KEY=your_key_here   # set in .env (gitignored)
-```
+NRSVUE is not distributable. If you have a local copy, place it at
+`data/translations/nrsvue/` (one JSON file per book, same format as KJV)
+and the app will use it automatically. Without it, all readings fall back
+to KJV.
 
 ## Architecture
 

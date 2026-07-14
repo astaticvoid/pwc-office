@@ -14,7 +14,6 @@ npx playwright install
 
 # Create .env with your API keys
 cp .env.example .env   # edit as needed
-# ANTHROPIC_API_KEY=  (needed for test-smoke and test-seasonal)
 # BIBLE_API_KEY=       (API.Bible key for NRSVUE Scripture fetching)
 ```
 
