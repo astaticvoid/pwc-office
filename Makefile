@@ -49,6 +49,7 @@ build:
 	rm -rf dist
 	cp -rL web/. dist/
 	rm -rf dist/data/.git
+	python3 tools/generate_version_manifest.py --dist-dir dist
 	@echo "dist/ ready ($$(find dist -type f | wc -l | tr -d ' ') files)"
 
 # Verify dist/ has everything the app needs before deploying.
@@ -127,10 +128,55 @@ mobile-ios: mobile-sync
 mobile-android: mobile-sync
 	npx cap open android
 
-# Deploy — sync dist/ to S3 (requires AWS_PROFILE or ambient credentials).
-# Set BUCKET in environment or pass: make deploy BUCKET=my-bucket-name
+# ── Deploy (versioned directories) ──────────────────────────────────────────
+# Requires AWS_PROFILE or ambient credentials, BUCKET, CF_DISTRIBUTION_ID.
+#
+# Three-stage workflow:
+#   1. make deploy-staging  — upload to releases/vTIMESTAMP/ and staging/
+#   2. make test-staging     — Playwright smoke against staging
+#   3. make promote          — CloudFront origin-path swap to production
+#
+# Rollback: make rollback    — swaps to previous release
+
+RELEASE = $(shell date -u +%Y-%m-%dT%H%M%SZ)-$(shell git rev-parse --short HEAD)
+
+deploy-staging: check-integrity check-dist
+	aws s3 sync dist/ s3://$(BUCKET)/releases/$(RELEASE)/ --delete
+	aws s3 sync s3://$(BUCKET)/releases/$(RELEASE)/ s3://$(BUCKET)/staging/ --delete
+	@echo "Deployed to staging: $(RELEASE)"
+	@echo "$(RELEASE)" > .deploy-latest
+
+test-staging:
+	STAGING_URL=https://staging.pwcoffice.ca \
+	  npx playwright test --grep "@smoke"
+
+promote:
+	@test -f .deploy-latest || (echo "Run deploy-staging first"; exit 1)
+	@RELEASE=$$(cat .deploy-latest); \
+	aws cloudfront get-distribution-config --id $(CF_DISTRIBUTION_ID) \
+	  > /tmp/cf-config.json; \
+	jq '.DistributionConfig.Origins.Items[0].OriginPath = "/releases/'"$$RELEASE"'"' \
+	  /tmp/cf-config.json > /tmp/cf-new.json; \
+	aws cloudfront update-distribution --id $(CF_DISTRIBUTION_ID) \
+	  --distribution-config file:///tmp/cf-new.json; \
+	echo "Promoted $$RELEASE to production"
+
+rollback:
+	@PREV=$$(aws s3 ls s3://$(BUCKET)/releases/ | sort -r | head -2 | tail -1 | awk '{print $$2}'); \
+	echo "Rolling back to $$PREV"; \
+	aws cloudfront get-distribution-config --id $(CF_DISTRIBUTION_ID) \
+	  > /tmp/cf-config.json; \
+	jq '.DistributionConfig.Origins.Items[0].OriginPath = "/releases/'"$$PREV"'"' \
+	  /tmp/cf-config.json > /tmp/cf-new.json; \
+	aws cloudfront update-distribution --id $(CF_DISTRIBUTION_ID) \
+	  --distribution-config file:///tmp/cf-new.json; \
+	echo "Rolled back to $$PREV"
+
+# Legacy single-step deploy — kept for compatibility during transition.
+# Use deploy-staging + test-staging + promote for production deploys.
 deploy: check-integrity check-dist
-	# sw.js uploaded no-cache so existing installs receive the kill-switch promptly.
+	@echo "DEPRECATED: use 'make deploy-staging' then 'make promote'"
+	@echo "Running legacy deploy..."
 	aws s3 sync dist/ s3://$(BUCKET)/ --delete --exclude "sw.js"
 	aws s3 cp dist/sw.js s3://$(BUCKET)/sw.js \
 	  --cache-control "no-cache, no-store" \
