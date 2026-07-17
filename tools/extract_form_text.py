@@ -28,8 +28,9 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT / 'tools'))
 
-import pdfplumber
-from extract_offices import OFFICES, _page_styled_lines, _is_noise, _MAJOR_HDRS, _DIVINE_FIXES
+import fitz  # PyMuPDF
+from extract_office_styles import extract_office_typed_lines
+from extract_offices import OFFICES, _is_noise, _MAJOR_HDRS, _DIVINE_FIXES
 
 # ── Casing helpers ────────────────────────────────────────────────────────────
 
@@ -527,9 +528,9 @@ def extract_form_text(form_name, date_str):
     start_p, end_p = page_range
 
     raw = []
-    with pdfplumber.open(str(pdf_path)) as pdf:
-        for pg in range(start_p - 1, end_p):
-            raw.extend(_page_styled_lines(pdf.pages[pg], form_name))
+    doc = fitz.open(str(pdf_path))
+    raw.extend(extract_office_typed_lines(doc, form_name, start_p, end_p))
+    doc.close()
 
     raw = [(t, x.strip()) for t, x in raw if not _is_noise(t, x) and x.strip()]
     lines = _merge_rubric_lines(raw)
