@@ -19,7 +19,6 @@ import json
 import os
 import re
 import sys
-import collections
 from pathlib import Path
 
 import fitz  # PyMuPDF
@@ -54,92 +53,6 @@ def _load_offices():
     return [(k, v["start"], v["end"]) for k, v in bounds.items()]
 
 OFFICES = _load_offices()
-
-# ── Style classifier ──────────────────────────────────────────────────────────
-
-# Red rubric color observed in the PDF: approx (0.736, 0.189, 0.227).
-_RED_R_MIN = 0.5
-_RED_G_MAX = 0.4
-
-def _char_type(c: dict) -> str:
-    fn  = c.get("fontname", "")
-    sz  = round(c.get("size", 0), 1)
-    col = c.get("non_stroking_color") or (0, 0, 0)
-    is_red = (
-        isinstance(col, tuple)
-        and len(col) >= 3
-        and col[0] > _RED_R_MIN
-        and col[1] < _RED_G_MAX
-    )
-    if is_red:                      return "rubric"
-    if "Bold" in fn and sz >= 11:   return "heading"
-    if "Bold" in fn:                return "response"
-    if "Italic" in fn and sz < 10:  return "footer"
-    return "leader"
-
-
-# ── Line extraction from page.chars ──────────────────────────────────────────
-
-def _page_styled_lines(page, office="") -> list[tuple[str, str]]:
-    """
-    Return (type, text) for each line on the page, in reading order.
-    Characters are grouped by y-coordinate into lines, then classified
-    by the dominant style among that line's characters.
-    """
-    chars = page.chars or []
-    if not chars:
-        return []
-
-    # Sort top-to-bottom, left-to-right.
-    chars = sorted(chars, key=lambda c: (round(c.get("top", 0)), c.get("x0", 0)))
-
-    # Group into lines by y-coordinate proximity (tolerance: 3pt).
-    line_buckets: list[list[dict]] = []
-    cur_y: float | None = None
-    cur_bucket: list[dict] = []
-    for ch in chars:
-        y = round(ch.get("top", 0))
-        if cur_y is None or abs(y - cur_y) > 3:
-            if cur_bucket:
-                line_buckets.append(cur_bucket)
-            cur_bucket = [ch]
-            cur_y = y
-        else:
-            cur_bucket.append(ch)
-    if cur_bucket:
-        line_buckets.append(cur_bucket)
-
-    result: list[tuple[str, str]] = []
-    for bucket in line_buckets:
-        sorted_b = sorted(bucket, key=lambda c: c.get("x0", 0))
-
-        # Reconstruct text with word spacing from x-coordinate gaps.
-        text = ""
-        prev_x1: float | None = None
-        for ch in sorted_b:
-            x0 = ch.get("x0", 0)
-            x1 = ch.get("x1", x0 + 1)
-            if prev_x1 is not None and x0 - prev_x1 > 1.5:
-                text += " "
-            text += ch.get("text", "")
-            prev_x1 = x1
-        text = text.strip()
-        if not text:
-            continue
-
-        # Classify by majority vote.
-        type_counts = collections.Counter(_char_type(c) for c in bucket)
-        dominant = type_counts.most_common(1)[0][0]
-        result.append((dominant, text))
-        # Log minority disagreements so we can audit misclassified lines.
-        if _DEBUG and len(type_counts) > 1:
-            votes = ", ".join(f"{t}×{n}" for t, n in type_counts.most_common())
-            _dbg(f"  RAW [{dominant}] {repr(text[:60])}  (votes: {votes})", office=office)
-        elif _DEBUG:
-            _dbg(f"  RAW [{dominant}] {repr(text[:60])}", office=office)
-
-    return result
-
 
 # ── Section key mapping ───────────────────────────────────────────────────────
 
