@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-// tools/test_full.js — Port of e2e/full_test.go.
-// Walks all lectionary JSON files, runs cli/book.js for each date × MP+EP,
-// asserts required plain-text section headings are present.
+// tools/test_full.js — Structural check: all lectionary dates × MP+EP.
+// Spawns cli/book.js (which uses renderSegmentsText per ADR 0004).
 // Exit 0 on pass, exit 1 with failure summary.
 
 import { readdirSync, readFileSync } from 'fs';
@@ -9,7 +8,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { formKey, officeFormSeason } from '../web/render.js';
+import { officeFormSeason, formKey } from '../web/render.js';
 
 const execFileAsync = promisify(execFile);
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -27,7 +26,6 @@ const REQUIRED = [
   'The Sending Forth of the Community',
 ];
 
-// Build list of all (date, officeType) pairs from the lectionary files.
 const lectionaryDir = join(root, 'data/lectionary');
 const files = readdirSync(lectionaryDir).filter(f => f.endsWith('.json')).sort();
 
@@ -44,7 +42,6 @@ for (const file of files) {
   }
 }
 
-// Run tasks with bounded concurrency.
 async function runWithPool(tasks, concurrency) {
   const failures = [];
   let idx = 0;
@@ -76,6 +73,5 @@ if (failures.length) {
   console.error(`\n${failures.length} failure(s) out of ${tasks.length} checks:\n`);
   for (const f of failures) console.error('  FAIL:', f);
   process.exit(1);
-} else {
-  console.log(`All ${tasks.length} checks passed.`);
 }
+console.log(`All ${tasks.length} checks passed.`);

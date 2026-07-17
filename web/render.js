@@ -396,3 +396,127 @@ export function lessonsPickRubricHtml(pick, total) {
   const text = lessonsPickText(pick, total);
   return text ? `<p class="seg-rubric">${esc(text)}</p>` : '';
 }
+
+// ── Text-mode rendering ──────────────────────────────────────────────────────
+
+/**
+ * Walk segments depth-first, resolving shared refs and recursing into
+ * alternatives. Yields leaf-level display items.
+ *
+ * @generator
+ * @param {Array} segs
+ * @param {Object} shared
+ * @yields {Object} {type:'segment', seg} | {type:'enter_alt', groups} | {type:'exit_alt'}
+ *                | {type:'enter_group', group} | {type:'exit_group'}
+ */
+export function* walkSegments(segs, shared) {
+  if (!segs) return;
+  if (!Array.isArray(segs)) segs = [segs];
+  for (const seg of segs) {
+    if (seg.type === 'shared' && shared) {
+      yield* walkSegments(shared[seg.key] || seg, shared);
+      continue;
+    }
+    if (seg.type === 'alternatives') {
+      yield { type: 'enter_alt', groups: seg.groups };
+      for (const group of seg.groups) {
+        yield { type: 'enter_group', group };
+        yield* walkSegments(group.segments, shared);
+        yield { type: 'exit_group' };
+      }
+      yield { type: 'exit_alt' };
+      continue;
+    }
+    yield { type: 'segment', seg };
+  }
+}
+
+/**
+ * Render segments as structured text blocks.
+ * @param {Array} segs
+ * @param {Object} shared
+ * @param {Object} [opts]
+ * @param {boolean} [opts.verse=false] Preserve internal line breaks
+ * @param {boolean} [opts.showLabel=false] Include canticle citations as headers
+ * @param {RegExp} [opts.skipRubrics] Rubric patterns to omit entirely
+ * @param {boolean} [opts.skipShortLabels=false] Inline Roman-numeral labels
+ * @param {Object} [opts.condenseRubrics] Pattern→replacement map for rubric shorthand
+ * @param {boolean} [opts.alleluia=false] Append Alleluia after each alt group
+ * @returns {Array<{type:string, text:string}>}
+ */
+export function renderSegmentsText(segs, shared, opts = {}) {
+  const blocks = [];
+  let inAlt = false;
+  for (const event of walkSegments(segs, shared)) {
+    if (event.type === 'enter_alt') {
+      inAlt = true;
+      continue;
+    }
+    if (event.type === 'exit_alt') {
+      inAlt = false;
+      continue;
+    }
+    if (event.type === 'enter_group') {
+      if (opts.showLabel && event.group.label && !SHORT_LABEL_RE.test(event.group.label)) {
+        const cite = CANTICLE_SOURCE[event.group.label];
+        blocks.push({ type: 'label', text: cite ? `${event.group.label} — ${cite}` : event.group.label });
+      } else if (!opts.skipShortLabels && event.group.label) {
+        blocks.push({ type: 'label', text: event.group.label });
+      }
+      continue;
+    }
+    if (event.type === 'exit_group') {
+      if (opts.alleluia) blocks.push({ type: 'para', text: 'Alleluia.' });
+      // Insert 'or' separator between groups (but not after the last)
+      continue;
+    }
+
+    // Leaf segment
+    const { seg } = event;
+    const text = (seg.text || '').trim();
+    if (!text) continue;
+
+    if (seg.type === 'rubric') {
+      // Check skip patterns
+      if (opts.skipRubrics && opts.skipRubrics.test(text)) continue;
+      // Check condense patterns
+      if (opts.condenseRubrics) {
+        for (const [pattern, replacement] of Object.entries(opts.condenseRubrics)) {
+          if (text.includes(pattern)) {
+            blocks.push({ type: 'rubric', text: replacement });
+            continue;
+          }
+        }
+        continue;
+      }
+      blocks.push({ type: 'rubric', text });
+    } else if (seg.type === 'label') {
+      blocks.push({ type: 'label', text });
+    } else {
+      // leader or response
+      const formatted = opts.verse ? text : text.replace(/\n/g, ' ');
+      blocks.push({ type: 'para', text: formatted });
+    }
+  }
+  return blocks;
+}
+
+/**
+ * Join text blocks into a string with appropriate spacing.
+ * Consecutive 'para' blocks are joined with '\n' (same paragraph).
+ * Other block types get '\n\n' separation.
+ */
+export function blocksToString(blocks) {
+  const parts = [];
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i];
+    if (b.type === 'rubric') {
+      parts.push(`(${b.text})`);
+    } else if (b.type === 'label') {
+      parts.push(b.text);
+    } else {
+      parts.push(b.text);
+    }
+  }
+  return parts.join('\n\n');
+}

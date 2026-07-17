@@ -2,15 +2,16 @@
 /**
  * cli/book.js — Book-mode plain-text renderer for Daily Office forms.
  * Usage: node cli/book.js FORM [YYYY-MM-DD]
- * Output: clean plain text suitable for diffing against PDF golden files.
  *
- * Does NOT use renderSegments/renderAlternatives from render.js — those
- * produce HTML with tab UI. This renderer is self-contained plain text.
+ * Uses renderSegmentsText from web/render.js for all segment rendering.
  */
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { CANTICLE_SOURCE, ABBREV_TO_FILE, lessonsPickText } from '../web/render.js';
+import {
+  renderSegmentsText, blocksToString,
+  ABBREV_TO_FILE, CANTICLE_SOURCE, lessonsPickText,
+} from '../web/render.js';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const load = p => JSON.parse(readFileSync(join(__dir, '..', p), 'utf8'));
@@ -41,143 +42,41 @@ const officeData = lectionaryDay
   ? lectionaryDay[officeType === 'ep' ? 'evening' : 'morning']
   : null;
 
-// ── Skip / condense patterns ───────────────────────────────────────────────────
+// ── Book-mode rendering options ─────────────────────────────────────────────
 
-// Navigation rubrics that are section cues in the printed book, not content.
-const BOOK_SKIP_RUBRICS = /continues with|may conclude with|^The Litany is said or sung\./i;
+const BK = {
+  verse: false,
+  showLabel: true,
+  skipRubrics: /continues with|may conclude with|^The Litany is said or sung\./i,
+  skipShortLabels: true,
+  condenseRubrics: {
+    'The community may offer': 'Offer intercessions, petitions, and thanksgivings, silently or aloud.',
+  },
+};
 
-// Structural rubrics in seasonal_collects: not content.
-// Use [''] to match both straight and curly apostrophes.
-const SKIP_COLLECT_RE = /^Either the Collect of the Day|^the Lord['’]\s*s Prayer$/i;
-
-// Intercessions rubric: condense to first sentence only.
-const INTERCESSIONS_RE = /^(The community may offer|Additional intercessions)/i;
-
-// Roman-numeral labels (I, II, III …) are not section headers in plain text.
-const SHORT_LABEL_RE = /^(?:Form\s+)?(?:I{1,3}|IV|V|VI{0,3}|IX|X)$/i;
-
-// ── Rubric rendering ──────────────────────────────────────────────────────────
-
-function textRubric(seg, opts = {}) {
-  const t = (seg.text || '').trim();
-  if (BOOK_SKIP_RUBRICS.test(t)) return '';
-  if (opts.skipCollectRubric && SKIP_COLLECT_RE.test(t)) return '';
-  if (INTERCESSIONS_RE.test(t)) {
-    const joined = t.replace(/\n/g, ' ');
-    const firstSentence = joined.split(/\.\s/)[0] + '.';
-    return `(${firstSentence.trim()})`;
-  }
-  return `(${t})`;
+function text(segs, opts = {}) {
+  return blocksToString(renderSegmentsText(segs, shared, { ...BK, ...opts }));
 }
 
-// ── Core segment renderers ────────────────────────────────────────────────────
-
-/**
- * Render an alternatives block: each group's segments joined with \n,
- * groups separated by \n\nor\n\n. When opts.showLabel is true and the group
- * label is not a short Roman-numeral label, emit the label (+ CANTICLE_SOURCE
- * citation if available) as a header before the group text.
- */
-function textAlternatives(groups, shared, opts = {}) {
-  return groups
-    .map(g => {
-      const groupText = textFlatSegs(g.segments, shared, opts);
-      if (!groupText) return '';
-      let body = groupText;
-      if (opts.alleluia) body += '\nAlleluia.';
-      if (opts.showLabel && g.label && !SHORT_LABEL_RE.test(g.label)) {
-        const cite = CANTICLE_SOURCE[g.label];
-        const header = cite ? `${g.label} — ${cite}` : g.label;
-        return `${header}\n\n${body}`;
-      }
-      return body;
-    })
-    .filter(Boolean)
-    .join('\n\nor\n\n');
+function resolveShared(field) {
+  if (field?.type === 'shared' && shared) return shared[field.key];
+  return field || [];
 }
 
-/**
- * Render an array (or single object) of segments as plain text.
- *
- * Within a "paragraph" of consecutive leader/response segments, lines are
- * joined with \n (no blank lines). Rubrics and alternatives blocks flush the
- * current paragraph and become their own blocks, with \n\n between blocks.
- * Skipped rubrics (empty string) do NOT flush the paragraph or create gaps.
- */
-function textFlatSegs(segs, shared, opts = {}) {
-  if (!segs) return '';
-  const blocks = [];
-  let para = [];
-
-  function flush() {
-    if (para.length) { blocks.push(para.join('\n')); para = []; }
-  }
-
-  function proc(seg) {
-    if (seg.type === 'shared') {
-      const resolved = shared[seg.key];
-      if (!resolved) return;
-      if (Array.isArray(resolved)) { resolved.forEach(proc); return; }
-      proc(resolved);
-      return;
-    }
-    if (seg.type === 'label') {
-      // Plain titled heading — no parentheses, emitted as its own block.
-      const text = (seg.text || '').trim();
-      if (text) { flush(); blocks.push(text); }
-    } else if (seg.type === 'rubric') {
-      const text = textRubric(seg, opts);
-      if (text) { flush(); blocks.push(text); }
-      // skipped rubric: do NOT flush — keeps adjacent leader/response together
-    } else if (seg.type === 'alternatives') {
-      // Short-label alternatives (I, II, III) following non-empty para: fold
-      // first group inline (no blank line) — matches BAS thanksgiving formatting
-      // where the berakah response continues the preceding prayer without a gap.
-      if (para.length > 0 && (seg.groups || []).every(g => SHORT_LABEL_RE.test(g.label || ''))) {
-        (seg.groups[0]?.segments || []).forEach(proc);
-        if (seg.groups.length > 1) {
-          flush();
-          const restText = textAlternatives(seg.groups.slice(1), shared, opts);
-          if (restText) blocks.push('or\n\n' + restText);
-        }
-      } else {
-        const text = textAlternatives(seg.groups, shared, opts);
-        if (text) { flush(); blocks.push(text); }
-      }
-    } else {
-      // leader or response: accumulate into current paragraph
-      let text = (seg.text || '').trimEnd();
-      if (opts.joinLines) text = text.replace(/\n/g, ' ');
-      if (text) para.push(text);
-    }
-  }
-
-  if (!Array.isArray(segs)) { proc(segs); } else { segs.forEach(proc); }
-  flush();
-  return blocks.join('\n\n');
-}
-
-// ── Psalm renderer ────────────────────────────────────────────────────────────
+// ── Psalm ────────────────────────────────────────────────────────────────────
 
 function renderPsalm(citation) {
   const raw = typeof citation === 'object' ? citation.citation : String(citation);
   const num = raw.replace(/[^0-9].*/, '');
   const ps  = psalter[num];
-  if (!ps) return `[Psalm ${raw}: not found in psalter]`;
-  const title  = ps.title ? `Psalm ${ps.number} — ${ps.title}` : `Psalm ${ps.number}`;
+  if (!ps) return `[Psalm ${raw}: not found]`;
+  const title = ps.title ? `Psalm ${ps.number} — ${ps.title}` : `Psalm ${ps.number}`;
   const verses = ps.text.split('\n')
-    .map(l => l.replace(/^\d+\s/, '').trimStart())
-    .join('\n')
-    .trimEnd();
+    .map(l => l.replace(/^\d+\s/, '').trimStart()).join('\n').trimEnd();
   return `${title}\n\n${verses}`;
 }
 
-// ── Reading renderer ──────────────────────────────────────────────────────────
-
-const READING_RUBRIC =
-  '(A Reading from the Daily Office Lectionary, the Weekday Eucharistic ' +
-  'Lectionary, or the Revised Common Lectionary Daily Readings is read. ' +
-  'After a period of silent reflection one of the following is said.)';
+// ── Reading ─────────────────────────────────────────────────────────────────
 
 function expandCitation(raw) {
   return raw.split(' or ').map(part => {
@@ -193,71 +92,62 @@ function citationStr(lesson) {
   return expandCitation(raw);
 }
 
-function renderLesson(lesson, form, shared) {
-  let rr = form.reading_response;
-  if (rr?.type === 'shared') rr = shared[rr.key];
-  const rrText = rr ? textFlatSegs([rr], shared) : '';
-  return ['The Reading', READING_RUBRIC, `[Reading: ${citationStr(lesson)}]`, rrText]
-    .filter(Boolean).join('\n\n');
+function renderLesson(lesson) {
+  return [
+    'The Reading',
+    '(A Reading from the Daily Office Lectionary, the Weekday Eucharistic ' +
+      'Lectionary, or the Revised Common Lectionary Daily Readings is read. ' +
+      'After a period of silent reflection one of the following is said.)',
+    `[Reading: ${citationStr(lesson)}]`,
+    text(form.reading_response),
+  ].join('\n\n');
 }
 
-// ── Build output ──────────────────────────────────────────────────────────────
+// ── Build output ───────────────────────────────────────────────────────────
 
-const B = []; // output blocks, joined by \n\n
+const B = [];
 
-// ── The Gathering of the Community ───────────────────────────────────────────
-// Seasonal forms have a subtitle (date range), ordinary forms do not.
+// Gathering
 if (form.subtitle) B.push(form.subtitle);
 B.push('The Gathering of the Community');
-B.push('Introductory Responses');
-// Resolve a whole-field shared ref (seasonal EP forms hold opening_responses as
-// {type:'shared', key:…}); ordinary forms hold an array that may contain a
-// shared doxology ref element (BUG-34 — .some crashed on the object).
-let openingResponses = form.opening_responses;
-if (openingResponses?.type === 'shared' && shared) openingResponses = shared[openingResponses.key];
-openingResponses = openingResponses || [];
-// Opening doxology: present only on ordinary-time forms (opening_responses has a
-// shared doxology ref). Add Alleluia after each alternative (BAS rubric).
-const hasDoxRef = openingResponses.some(
-  s => s.type === 'shared' && s.key === 'doxology'
+
+const opening = resolveShared(form.opening_responses);
+// Separate doxology from opening responses (ordinary-time forms)
+const openingWithoutDox = opening.filter(
+  s => !(s.type === 'shared' && s.key === 'doxology')
 );
-if (hasDoxRef && shared.doxology) {
-  const preDoxa = openingResponses.filter(
-    s => !(s.type === 'shared' && s.key === 'doxology')
-  );
-  B.push(textFlatSegs(preDoxa, shared));
-  B.push(textAlternatives(shared.doxology.groups, shared, { alleluia: true }));
-} else {
-  B.push(textFlatSegs(openingResponses, shared));
+B.push('Introductory Responses');
+B.push(text(openingWithoutDox));
+if (shared.doxology && opening.some(s => s.type === 'shared' && s.key === 'doxology')) {
+  B.push(text(shared.doxology.groups, { alleluia: true }));
 }
 
-// Phos Hilaron / Thanksgiving for Light
 if (form.thanksgiving_for_light) {
   B.push('Thanksgiving for Light');
-  B.push(textFlatSegs(form.thanksgiving_for_light, shared));
+  B.push(text(form.thanksgiving_for_light));
 } else if (form.phos_hilaron) {
-  B.push(textFlatSegs(form.phos_hilaron, shared));
+  B.push(text(form.phos_hilaron));
 }
 
-// ── The Proclamation of the Word ─────────────────────────────────────────────
+// Proclamation
 B.push('The Proclamation of the Word');
 B.push('The Psalm');
-B.push('(A Psalm from the Daily Office Lectionary, the Weekday Eucharistic Lectionary, or the Revised Common Lectionary Daily Readings is said or sung.)');
+B.push('(A Psalm from the Daily Office Lectionary, the Weekday Eucharistic '
+  + 'Lectionary, or the Revised Common Lectionary Daily Readings is said or sung.)');
 
 const psalms = officeData?.psalms || [];
-for (const psalm of psalms) {
-  B.push(renderPsalm(psalm));
-}
-// Psalm doxology rubric: seasonal forms use "At the end of the Psalm"; ordinary
-// use "After the Psalm". Pentecost adds "(s)" for multiple psalms.
-const psalmDoxRubric = form.subtitle
+for (const psalm of psalms) B.push(renderPsalm(psalm));
+
+// Psalm doxology
+const isSeasonal = !!form.subtitle;
+const psalmDox = isSeasonal
   ? (formName.includes('pentecost')
       ? '(At the end of the Psalm(s) one of the following may be said or sung.)'
       : '(At the end of the Psalm one of the following may be said or sung.)')
   : '(After the Psalm one of the following may be said or sung.)';
 if (psalms.length && shared.doxology) {
-  B.push(psalmDoxRubric);
-  B.push(textAlternatives(shared.doxology.groups, shared, {}));
+  B.push(psalmDox);
+  B.push(text([shared.doxology]));
 }
 
 const lessons = officeData?.lessons || [];
@@ -265,42 +155,37 @@ if (officeData?.lessons_pick) {
   const pickText = lessonsPickText(officeData.lessons_pick, lessons.length);
   if (pickText) B.push(`(${pickText})`);
 }
-if (lessons[0]) B.push(renderLesson(lessons[0], form, shared));
+if (lessons[0]) B.push(renderLesson(lessons[0]));
 
 B.push('The Responsory');
-B.push(textFlatSegs(form.responsory, shared));
+B.push(text(form.responsory));
 
-if (lessons[1]) B.push(renderLesson(lessons[1], form, shared));
+if (lessons[1]) B.push(renderLesson(lessons[1]));
 
 B.push('The Canticle');
-// DATA GAP: canticle intro rubric (naming the three canticles) not in form data.
-B.push(textFlatSegs(form.canticle, shared, { showLabel: true }));
+B.push(text(form.canticle, { showLabel: true }));
 
-// ── Affirmation of Faith ──────────────────────────────────────────────────────
+// Affirmation
 B.push('Affirmation of Faith');
-// DATA GAP: "(One of the following Affirmations of Faith may be said or sung.)"
-// rubric is not in shared.affirmation data.
-B.push(textFlatSegs(form.affirmation, shared, { showLabel: true }));
+B.push(text(form.affirmation, { showLabel: true }));
 
-// ── The Prayers of the Community ─────────────────────────────────────────────
+// Prayers
 B.push('The Prayers of the Community');
 B.push('Intercessions and Thanksgivings');
-B.push(textFlatSegs(form.intercessions, shared));
+B.push(text(form.intercessions));
 
 B.push('The Litany');
-// "The Litany is said or sung." rubric is suppressed by BOOK_SKIP_RUBRICS.
-B.push(textFlatSegs(form.litany, shared));
+B.push(text(form.litany));
 
 B.push('The Collect');
 B.push(`[Collect of the Day: ${dateStr}]`);
-B.push(textFlatSegs(form.seasonal_collects, shared, { skipCollectRubric: true, joinLines: true }));
+B.push(text(form.seasonal_collects, { joinLines: true }));
 
-// ── The Sending Forth of the Community ───────────────────────────────────────
+// Sending Forth
 B.push('The Sending Forth of the Community');
 B.push("The Lord's Prayer");
-B.push(textFlatSegs(form.lords_prayer_intro, shared));
-
+B.push(text(form.lords_prayer_intro));
 B.push('The Dismissal');
-B.push(textFlatSegs(form.dismissal, shared));
+B.push(text(form.dismissal));
 
 process.stdout.write(B.filter(Boolean).join('\n\n') + '\n');
