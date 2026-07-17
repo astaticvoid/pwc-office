@@ -28,7 +28,7 @@ import re
 import sys
 from pathlib import Path
 
-from extract_lib import check_manifest, normalise_quotes, pdf_as_txt, write_json
+from extract_lib import check_manifest, normalise_quotes, pdf_as_text, write_json
 from psalter_corrections import apply as apply_corrections, spot_checks
 
 
@@ -154,7 +154,7 @@ def main():
 
     root = Path(__file__).parent.parent
 
-    with pdf_as_txt(root / "sources" / "pray-without-ceasing.pdf") as src:
+    with pdf_as_text(root / "sources" / "pray-without-ceasing.pdf") as src:
         psalms_list = extract_psalms(src)
 
     found   = {p["number"] for p in psalms_list}
