@@ -44,41 +44,16 @@ def _dbg(*parts, office="", section=""):
 ROOT = Path(__file__).parent.parent
 
 # ── Office table ──────────────────────────────────────────────────────────────
-# (key, start_book_page, end_book_page_inclusive)
-OFFICES = [
-    # Seasonal
-    ("advent-mp",        14, 21),
-    ("advent-ep",        22, 28),
-    ("christmas-mp",     29, 35),
-    ("christmas-ep",     36, 42),
-    ("epiphany-mp",      43, 49),
-    ("epiphany-ep",      50, 56),
-    ("lent-mp",          57, 64),
-    ("lent-ep",          65, 71),
-    ("passiontide-mp",   72, 78),
-    ("passiontide-ep",   79, 85),
-    ("easter-mp",        86, 92),
-    ("easter-ep",        93, 99),
-    ("pentecost-mp",    100, 106),
-    ("pentecost-ep",    107, 113),
-    ("allsaints-mp",    114, 120),
-    ("allsaints-ep",    121, 128),
-    # Ordinary Time (by weekday)
-    ("ordinary-sunday-mp",    132, 138),
-    ("ordinary-sunday-ep",    139, 145),
-    ("ordinary-monday-mp",    146, 152),
-    ("ordinary-monday-ep",    153, 159),
-    ("ordinary-tuesday-mp",   160, 166),
-    ("ordinary-tuesday-ep",   167, 173),
-    ("ordinary-wednesday-mp", 174, 181),
-    ("ordinary-wednesday-ep", 182, 188),
-    ("ordinary-thursday-mp",  189, 195),
-    ("ordinary-thursday-ep",  196, 202),
-    ("ordinary-friday-mp",    203, 209),
-    ("ordinary-friday-ep",    210, 216),
-    ("ordinary-saturday-mp",  217, 223),
-    ("ordinary-saturday-ep",  224, 230),
-]
+# Page bounds detected by detect_office_bounds.py from the PDF content.
+# Regenerate with: python3 tools/detect_office_bounds.py --write
+def _load_offices():
+    bounds_path = ROOT / "tools" / "office_bounds.json"
+    if not bounds_path.exists():
+        sys.exit(f"Bounds file not found: {bounds_path}\nRun: python3 tools/detect_office_bounds.py --write")
+    bounds = json.loads(bounds_path.read_text())
+    return [(k, v["start"], v["end"]) for k, v in bounds.items()]
+
+OFFICES = _load_offices()
 
 # ── Style classifier ──────────────────────────────────────────────────────────
 
