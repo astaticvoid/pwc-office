@@ -2,12 +2,11 @@
 """
 check_casing.py — casing oracle and lineation check for data/offices.json.
 
-Why this exists (BUG-25 / BUG-18):
-  pdfplumber (the extraction pipeline) decodes the PDF's small-caps response
-  font as *lowercase*; `pdftotext` (poppler) decodes the same glyphs with the
-  correct case. So pdftotext output is a free ground-truth oracle for casing.
-  This tool would have caught all 22 BUG-25 "Holy One" errors — and BUG-18's
-  over-correction — automatically.
+check_casing.py uses pdftotext as an *independent* oracle — the only place it
+  remains in the toolchain. PyMuPDF (fitz) is the primary extraction tool for
+  all other tasks; pdftotext provides a second, independent text-decoding path
+  that may catch extraction bugs that fitz alone would not.
+  If pdftotext is not installed, this tool warns and skips the oracle check.
 
 What it does:
   For every leader / response / label segment in offices.json (resolving
@@ -101,17 +100,24 @@ def _raw_match(raw_text: str, norm_slice: str) -> tuple[str | None, int]:
     return None, 0
 
 
-def pdf_text() -> tuple[str, str, str]:
+def pdf_text() -> tuple[str, str, str] | None:
     """Return (raw pdftotext, normalised original-case, casefolded copy).
-    Raw keeps line breaks for --check-breaks comparison."""
+    Raw keeps line breaks for --check-breaks comparison.
+    Returns None if pdftotext is not available."""
     if not PDF.exists():
         print(f"ERROR: source PDF not found: {PDF}\n"
               f"  Run `make fetch-sources` first.", file=sys.stderr)
         sys.exit(2)
-    raw = subprocess.run(
-        ["pdftotext", str(PDF), "-"],
-        capture_output=True, text=True, check=True,
-    ).stdout
+    try:
+        raw = subprocess.run(
+            ["pdftotext", str(PDF), "-"],
+            capture_output=True, text=True, check=True,
+        ).stdout
+    except FileNotFoundError:
+        print("WARNING: pdftotext not found — independent oracle check skipped.\n"
+              "  Install pdftotext (poppler-utils) to enable the casing oracle check.",
+              file=sys.stderr)
+        return None
     norm = _norm(raw)
     return raw, norm, norm.casefold()
 
@@ -184,7 +190,10 @@ def main():
     args = ap.parse_args()
 
     offices = json.loads(OFFICES.read_bytes())
-    pdf_raw, pdf_norm, pdf_low = pdf_text()
+    pdf_result = pdf_text()
+    if pdf_result is None:
+        sys.exit(0)
+    pdf_raw, pdf_norm, pdf_low = pdf_result
 
     internal: list[tuple[str, str, str, str]] = []
     first_letter: list[tuple[str, str, str, str]] = []

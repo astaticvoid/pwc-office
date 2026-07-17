@@ -47,7 +47,13 @@ def count_entries(path: Path) -> int:
     return 0
 
 
-def pdftotext_version() -> str:
+def tool_versions() -> dict[str, str]:
+    versions: dict[str, str] = {}
+    try:
+        import fitz
+        versions["fitz"] = fitz.version
+    except ImportError:
+        versions["fitz"] = "not found"
     try:
         result = subprocess.run(
             ["pdftotext", "-v"], capture_output=True, text=True
@@ -55,10 +61,13 @@ def pdftotext_version() -> str:
         output = result.stderr or result.stdout
         for line in output.splitlines():
             if "version" in line.lower() or "pdftotext" in line.lower():
-                return line.strip()
-        return output.strip().splitlines()[0] if output.strip() else "unknown"
-    except FileNotFoundError:
-        return "pdftotext not found"
+                versions["pdftotext"] = line.strip()
+                break
+        else:
+            versions["pdftotext"] = output.strip().splitlines()[0] if output.strip() else "unknown"
+    except (FileNotFoundError, OSError):
+        versions["pdftotext"] = "not found"
+    return versions
 
 
 def main():
@@ -90,9 +99,7 @@ def main():
 
     manifest = {
         "extracted_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "tool_versions": {
-            "pdftotext": pdftotext_version(),
-        },
+        "tool_versions": tool_versions(),
         "files": files_entry,
     }
 

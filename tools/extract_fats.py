@@ -10,8 +10,9 @@ Run:
 
 import json
 import re
-import subprocess
 from pathlib import Path
+
+import fitz
 
 ROOT = Path(__file__).parent.parent
 PDF_PATH = ROOT / 'sources' / 'For-All-The-Saints.pdf'
@@ -314,11 +315,8 @@ def parse_propers(page: str) -> dict:
 
 
 def extract_fats(pdf_path: Path) -> dict:
-    result = subprocess.run(
-        ['pdftotext', str(pdf_path), '-'],
-        capture_output=True, text=True, check=True,
-    )
-    raw_pages = result.stdout.split('\x0c')
+    with fitz.open(pdf_path) as pdf:
+        raw_pages = [page.get_text() or "" for page in pdf]
     pages = [strip_garbage_header(p) for p in raw_pages]
 
     # Main section: PDF pages 37–385 (0-indexed 36–384)

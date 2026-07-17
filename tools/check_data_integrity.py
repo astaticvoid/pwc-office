@@ -34,28 +34,49 @@ def lectionary_composite_hash(lect_dir: Path) -> str:
     return h.hexdigest()
 
 
-def check_pdftotext_version(manifest: dict) -> None:
-    expected = manifest.get("tool_versions", {}).get("pdftotext")
-    if not expected:
+def check_tool_versions(manifest: dict) -> None:
+    expected_versions = manifest.get("tool_versions", {})
+    if not expected_versions:
         return
+
     try:
-        result = subprocess.run(
-            ["pdftotext", "-v"], capture_output=True, text=True
-        )
-        actual = (result.stdout + result.stderr).splitlines()[0].strip()
-    except FileNotFoundError:
-        print("VERSION WARN pdftotext not found (manifest recorded " + expected + ")")
-        print("             → Install pdftotext to enable version tracking.")
-        return
-    if actual == expected:
-        print(f"VERSION OK   {actual} (matches manifest)")
-    else:
-        print(f"VERSION WARN {actual} (manifest recorded {expected})")
-        print(
-            "             → Version changed since last extraction. Run make extract then\n"
-            "               make check-text to catch any new garbled-text regressions\n"
-            "               before deploying."
-        )
+        import fitz
+        fitz_ver = fitz.version
+        fitz_expected = expected_versions.get("fitz")
+        if fitz_expected and fitz_expected != "not found":
+            if fitz_ver == fitz_expected:
+                print(f"VERSION OK   fitz {fitz_ver} (matches manifest)")
+            else:
+                print(f"VERSION WARN fitz {fitz_ver} (manifest recorded {fitz_expected})")
+        elif fitz_expected == "not found":
+            print(f"VERSION WARN fitz {fitz_ver} now available (manifest recorded 'not found')")
+        else:
+            print(f"VERSION OK   fitz {fitz_ver}")
+    except ImportError:
+        fitz_expected = expected_versions.get("fitz")
+        if fitz_expected and fitz_expected != "not found":
+            print(f"VERSION WARN fitz not found (manifest recorded {fitz_expected})")
+
+    pdftotext_expected = expected_versions.get("pdftotext")
+    if pdftotext_expected:
+        try:
+            result = subprocess.run(
+                ["pdftotext", "-v"], capture_output=True, text=True
+            )
+            actual = (result.stdout + result.stderr).splitlines()[0].strip()
+        except (FileNotFoundError, OSError):
+            print("VERSION NOTE pdftotext not found (optional; manifest recorded " 
+                  + pdftotext_expected + ")")
+            return
+        if actual == pdftotext_expected:
+            print(f"VERSION OK   {actual} (matches manifest)")
+        else:
+            print(f"VERSION WARN {actual} (manifest recorded {pdftotext_expected})")
+            print(
+                "             → pdftotext version changed. Run make extract then\n"
+                "               make check-text to catch any new garbled-text regressions\n"
+                "               before deploying."
+            )
 
 
 def main():
@@ -68,7 +89,7 @@ def main():
         sys.exit(1)
 
     manifest = json.loads(MANIFEST_PATH.read_bytes())
-    check_pdftotext_version(manifest)
+    check_tool_versions(manifest)
     tracked = manifest.get("files", {})
 
     drift = False

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 detect_office_bounds.py — find office form page boundaries by scanning
-pdftotext output for form title patterns.
+PDF text extracted via PyMuPDF (fitz) for form title patterns.
 
 Two-phase detection:
   1. Seasonal forms: matched by unique title regex (16 forms)
@@ -18,9 +18,10 @@ Usage:
 import argparse
 import json
 import re
-import subprocess
 import sys
 from pathlib import Path
+
+import fitz
 
 ROOT = Path(__file__).parent.parent
 PDF = ROOT / "sources" / "pray-without-ceasing.pdf"
@@ -72,12 +73,8 @@ EXPECTED_ORDINARY = len(ORDINARY_FORM_KEYS)  # 14
 
 
 def detect(pdf_path: Path) -> dict[str, tuple[int, int]]:
-    result = subprocess.run(
-        ["pdftotext", "-layout", str(pdf_path), "-"],
-        capture_output=True, text=True, check=True,
-    )
-    text = result.stdout
-    pages = text.split("\f")
+    with fitz.open(pdf_path) as pdf:
+        pages = [page.get_text() or "" for page in pdf]
 
     # ── Phase 1: detect seasonal forms by unique title ──────────────────────
     # Skip running-header lines (page number + form title, e.g. "64 Morning Prayer for Lent")
