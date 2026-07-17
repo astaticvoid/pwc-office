@@ -16,6 +16,7 @@ Usage:
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -54,6 +55,78 @@ def span_type(span: dict) -> str:
         return "footer"
 
     return "leader"
+
+
+def spans_to_typed_lines(page_spans: list[dict]) -> list[tuple[str, str]]:
+    """Group spans on a page into typed lines by y-position proximity.
+    Returns [(type, text), ...] — same format as _page_styled_lines()."""
+    if not page_spans:
+        return []
+    sorted_spans = sorted(page_spans, key=lambda s: (round(s["y0"]), s["x0"]))
+    lines: list[list[dict]] = []
+    cur_line: list[dict] = []
+    cur_y: float | None = None
+    for s in sorted_spans:
+        y = round(s["y0"])
+        if cur_y is not None and abs(y - cur_y) > 2:
+            if cur_line:
+                lines.append(cur_line)
+            cur_line = [s]
+            cur_y = y
+        else:
+            cur_line.append(s)
+            if cur_y is None:
+                cur_y = y
+    if cur_line:
+        lines.append(cur_line)
+    result: list[tuple[str, str]] = []
+    for line_spans in lines:
+        line_spans.sort(key=lambda s: s["x0"])
+        # Count types; exclude footer spans from classification
+        body = [s for s in line_spans if s["type"] != "footer"]
+        if not body:
+            continue
+        types = {}
+        for s in body:
+            t = s["type"]
+            types[t] = types.get(t, 0) + 1
+        dominant = max(types, key=types.get)
+        text = " ".join(s["text"] for s in line_spans).strip()
+        # Skip running-header lines (page number + form title)
+        if (re.match(r"^\d{1,3}$", text) or
+            re.match(r"^(Morning|Evening) Prayer", text)):
+            continue
+        if text:
+            result.append((dominant, text))
+    return result
+
+
+def extract_office_typed_lines(pdf_doc: fitz.Document, form_key: str,
+                                start_page: int, end_page: int) -> list[tuple[str, str]]:
+    """Return typed lines for an entire office form (all pages concatenated)."""
+    all_lines: list[tuple[str, str]] = []
+    for i in range(start_page - 1, end_page):
+        page = pdf_doc[i]
+        d = page.get_text("dict", flags=fitz.TEXTFLAGS_DICT)
+        segments = []
+        for block in d["blocks"]:
+            if "lines" not in block:
+                continue
+            for line in block["lines"]:
+                for span in line["spans"]:
+                    text = span["text"].strip()
+                    if not text:
+                        continue
+                    segments.append({
+                        "type": span_type(span),
+                        "text": text,
+                        "x0": span["bbox"][0],
+                        "y0": span["bbox"][1],
+                        "x1": span["bbox"][2],
+                        "y1": span["bbox"][3],
+                    })
+        all_lines.extend(spans_to_typed_lines(segments))
+    return all_lines
 
 
 def extract_office(pdf_doc: fitz.Document, form_key: str,
