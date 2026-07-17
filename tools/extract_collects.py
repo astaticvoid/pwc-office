@@ -25,7 +25,7 @@ from pathlib import Path
 
 import fitz  # PyMuPDF
 
-from extract_lib import check_manifest, pdf_as_txt, write_json
+from extract_lib import check_manifest, pdf_as_text, write_json
 
 ROOT = Path(__file__).parent.parent
 
@@ -48,8 +48,9 @@ _OCC_PAGE_ALIASES = {
     "680": "17",  # prayer 17 "For Industry and Commerce" begins BAS p.680
 }
 
-# Matches numbered prayer headers: "8 For the Queen", "32 A General Intercession"
-_OCC_HEADER = re.compile(r'^(\d+) ([A-Z][^\n]+)', re.MULTILINE)
+# Matches numbered prayer headers: number on its own line, name on next line.
+# PyMuPDF outputs: "1\nFor the Unity of Christians\n" (number and name on separate lines).
+_OCC_HEADER = re.compile(r'^(\d+)\n([A-Z][^\n]+)', re.MULTILINE)
 
 # ── Pages where font encoding garbles text; always use pdftotext fallback ────────
 # These pages have font-encoding issues that pdfplumber cannot recover from.
@@ -424,7 +425,7 @@ def run():
 
     out_path = ROOT / "data" / "collects.json"
 
-    with pdf_as_txt(pdf_path) as bas_txt_path:
+    with pdf_as_text(pdf_path) as bas_txt_path:
         bas_txt = _load_bas_txt(bas_txt_path)
 
     collects: dict[str, dict] = {}
