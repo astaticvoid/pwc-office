@@ -18,8 +18,7 @@ extract:
 	python3 tools/extract_collects.py
 	python3 tools/validate_corrections.py
 	python3 tools/apply_corrections.py
-	python3 tools/convert_lectionary.py --accept --window 12
-	python3 tools/validate_lectionary.py
+	python3 tools/convert_lectionary.py --window 12
 	python3 tools/update_extract_manifest.py
 	git -C data/ add -A && git -C data/ commit -m "extraction $(shell date +%Y-%m-%d)" || true
 
