@@ -17,7 +17,7 @@ office:
 - Collect of the Day
 - Observance toggle for feast days with alternate readings
 - Seasonal colour theming, dark mode, font-size control
-- PWA — installs on iOS/Android, works fully offline
+- PWA — installs on iOS/Android via Capacitor
 
 ## Running locally
 
@@ -30,7 +30,7 @@ Requires `data/` to be populated — see **Data pipeline** below.
 ## Deploying
 
 ```sh
-make build        # assemble dist/ (stamps service worker cache hash)
+make build        # assemble dist/
 make check-dist   # verify completeness
 make deploy BUCKET=my-bucket CF_DISTRIBUTION_ID=XXXXX  # sync to S3 + invalidate CloudFront
 ```
@@ -94,7 +94,7 @@ web/          Pure client-side SPA — HTML/CSS/vanilla JS, no build step
   app.js      Routing, lectionary, office rendering, psalm/scripture fetching
   render.js   Shared rendering functions (imported by app.js and Node CLI)
   office.css  Styling and seasonal theming
-  sw.js       Service worker — cache-first, offline support
+  sw.js       Service worker — kill-switch only (unregisters old installs)
 
 cli/          Node CLI tools (ES modules, no build step)
   book.js     Book-mode plain-text renderer — node cli/book.js FORM [DATE]

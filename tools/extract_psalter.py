@@ -4,9 +4,8 @@ extract_psalter.py — extract the PWC Liturgical Psalter.
 
 Reads sources/pray-without-ceasing.pdf and writes:
 
-  data/psalter.json         — combined dict {str(num): psalm}, embedded in
-                              the Go CLI binary via go:embed and fetched by
-                              the web SPA on first load
+  data/psalter.json         — combined dict {str(num): psalm}, loaded by
+                               the web SPA on first load
 
 Schema: { number: int, book: int, title: str, text: str }
   (source-corrected entries also carry source_corrections: [...])
@@ -170,7 +169,7 @@ def main():
         for w in warnings:
             print(f"WARNING: {w}", file=sys.stderr)
 
-    # ── Write: combined dict (Go CLI) ─────────────────────────────────────────
+    # ── Write: combined dict ─────────────────────────────────────────────
     psalter_path = root / "data" / "psalter.json"
     psalter_path.parent.mkdir(parents=True, exist_ok=True)
     combined = {str(n): p for n, p in sorted(psalms_by_num.items())}

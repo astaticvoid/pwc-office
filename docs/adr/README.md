@@ -8,7 +8,7 @@
 | [0004](./0004-unified-rendering-engine.md) | Single rendering engine with HTML and text output modes | Proposed |
 | [0005](./0005-single-correction-manifest.md) | Single versioned manifest for all data corrections | Proposed |
 | [0006](./0006-versioned-atomic-deploys.md) | Versioned directory deploys with staged promotion | Proposed |
-| [0007](./0007-service-worker-offline-support.md) | Service worker with tiered caching for offline support | Proposed |
+| [0007](./0007-service-worker-offline-support.md) | Browser cache and Capacitor bundle for offline support | Proposed |
 
 ## Status values
 - **Proposed** — decision documented, awaiting review/adoption
