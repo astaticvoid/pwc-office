@@ -2,7 +2,7 @@
 extract_collects.py — extract BAS collects by book page number.
 
 Reads sources/BAS.pdf directly and uses a transient pdftotext extraction
-for pages that pdfplumber garbles due to font encoding issues.
+for pages that have font encoding issues.
 Writes data/collects.json.
 
 Each collect entry includes:
@@ -23,7 +23,7 @@ import re
 import sys
 from pathlib import Path
 
-import pdfplumber
+import fitz  # PyMuPDF
 
 from extract_lib import check_manifest, pdf_as_txt, write_json
 
@@ -51,7 +51,7 @@ _OCC_PAGE_ALIASES = {
 # Matches numbered prayer headers: "8 For the Queen", "32 A General Intercession"
 _OCC_HEADER = re.compile(r'^(\d+) ([A-Z][^\n]+)', re.MULTILINE)
 
-# ── Pages where pdfplumber garbles text; always use pdftotext fallback ────────
+# ── Pages where font encoding garbles text; always use pdftotext fallback ────────
 # These pages have font-encoding issues that pdfplumber cannot recover from.
 # pdftotext produces clean text for them, so we bypass the garbling check.
 _TXT_FALLBACK_PAGES = {356, 358, 392, 396}
@@ -372,10 +372,10 @@ def _extract_occasional_prayers(pdf, collects: dict) -> None:
     to a given page key.  Instead, all prayers are extracted and then stored
     under the explicit page aliases in _OCC_PAGE_ALIASES.
     """
-    total = len(pdf.pages)
+    total = len(pdf)
     all_text = ""
     for idx in range(OCCASIONAL_FIRST_PAGE - 1, min(OCCASIONAL_LAST_PAGE, total)):
-        page_text = pdf.pages[idx].extract_text() or ""
+        page_text = pdf[idx].get_text() or ""
         all_text += page_text + "\n"
 
     headers = list(_OCC_HEADER.finditer(all_text))
@@ -433,13 +433,13 @@ def run():
 
     current_name = ""
 
-    with pdfplumber.open(pdf_path) as pdf:
-        total = len(pdf.pages)
+    with fitz.open(pdf_path) as pdf:
+        total = len(pdf)
 
         for idx in range(FIRST_PAGE - 1, min(LAST_PAGE, total)):
             book_page = idx + 1
-            text = pdf.pages[idx].extract_text() or ""
-            overflow_pdf = (pdf.pages[idx + 1].extract_text() or "") if idx + 1 < total else ""
+            text = pdf[idx].get_text() or ""
+            overflow_pdf = (pdf[idx + 1].get_text() or "") if idx + 1 < total else ""
 
             # ── Update current feast name ─────────────────────────────────
             candidate = _feast_name_from_page(text)

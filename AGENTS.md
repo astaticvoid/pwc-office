@@ -11,7 +11,7 @@ Instructions for automated tooling working in this repository.
 ```bash
 npm install
 npx playwright install              # Chromium browser for Playwright E2E tests
-pip install pdfplumber              # PDF extraction dependency
+pip install pymupdf                # PDF extraction dependency (PyMuPDF)
 # pdftotext from poppler required (apt: poppler-utils, brew: poppler)
 ```
 

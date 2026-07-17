@@ -27,22 +27,22 @@ def _generate_txt(pdf_path: Path, dest: Path, prefer_pdftotext: bool = True) -> 
     except (FileNotFoundError, subprocess.CalledProcessError):
         if prefer_pdftotext:
             print(
-                "WARNING: pdftotext not found — falling back to pdfplumber "
+                "WARNING: pdftotext not found — falling back to PyMuPDF "
                 "(some pages may have garbled text)",
                 file=sys.stderr,
             )
     try:
-        import pdfplumber  # noqa: PLC0415
+        import fitz  # noqa: PLC0415
     except ImportError:
         print(
-            "ERROR: neither pdftotext nor pdfplumber is available — cannot extract PDF",
+            "ERROR: neither pdftotext nor PyMuPDF (fitz) is available — cannot extract PDF",
             file=sys.stderr,
         )
         sys.exit(1)
     pages = []
-    with pdfplumber.open(pdf_path) as pdf:
-        for page in pdf.pages:
-            pages.append(page.extract_text(layout=True) or "")
+    with fitz.open(pdf_path) as pdf:
+        for page in pdf:
+            pages.append(page.get_text() or "")
     dest.write_text("\n\f\n".join(pages), encoding="utf-8")
 
 
@@ -50,7 +50,7 @@ def _generate_txt(pdf_path: Path, dest: Path, prefer_pdftotext: bool = True) -> 
 def pdf_as_txt(pdf_path: Path, prefer_pdftotext: bool = True):
     """Context manager: yield a transient Path to a text extraction of pdf_path.
 
-    Uses pdftotext (poppler) if available, falls back to pdfplumber.
+    Uses pdftotext (poppler) if available, falls back to PyMuPDF (fitz).
     The temp file is deleted on exit — no persistent .txt files in sources/.
     """
     tmp = Path(tempfile.mktemp(suffix=".txt"))
