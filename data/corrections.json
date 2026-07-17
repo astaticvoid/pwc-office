@@ -6,6 +6,15 @@
   "lectionary_ranks": [],
   "lectionary_colours": [],
   "lectionary_notes": [],
-  "psalter": [],
+  "psalter": [
+    {
+      "id": "ps35-v25",
+      "source": "pwc-pdf-error",
+      "psalm": 35,
+      "action": "replace",
+      "old": "Do let them say in their hearts,",
+      "new": "Do not let them say in their hearts,"
+    }
+  ],
   "fats": []
 }
