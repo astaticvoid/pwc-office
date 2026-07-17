@@ -22,7 +22,7 @@ import sys
 import collections
 from pathlib import Path
 
-import pdfplumber
+import fitz  # PyMuPDF
 
 from extract_lib import check_manifest
 
@@ -989,21 +989,13 @@ def _fix_shared_affirmation(offices: dict) -> dict:
 
 # ── Main extraction ───────────────────────────────────────────────────────────
 
-def extract_office(pdf, start: int, end: int, office_key: str = "") -> dict:
-    # Collect all styled lines across the page range.
-    all_lines: list[tuple[str, str]] = []
-    for book_pg in range(start, end + 1):
-        idx = book_pg - 1
-        if idx < len(pdf.pages):
-            all_lines.extend(_page_styled_lines(pdf.pages[idx], office=office_key))
-
-    # Pull title (first heading line) and subtitle (first leader line before any section).
+def extract_office(typed_lines: list[tuple[str, str]], office_key: str = "") -> dict:
     title = ""
     subtitle = ""
     header_done = False
     filtered_lines: list[tuple[str, str]] = []
 
-    for typ, text in all_lines:
+    for typ, text in typed_lines:
         if _is_noise(typ, text):
             _dbg(f"  NOISE [{typ}] {repr(text[:60])}", office=office_key)
             continue
@@ -1153,21 +1145,25 @@ def run():
 
     out_path = ROOT / "data" / "offices.json"
 
+    from extract_office_styles import extract_office_typed_lines  # noqa: PLC0415
+
     offices: dict[str, dict] = {}
-    with pdfplumber.open(pdf_path) as pdf:
-        for key, start, end in OFFICES:
-            _dbg(f"\n{'='*60}\nEXTRACTING: {key} (pages {start}–{end})\n{'='*60}", office=key)
-            offices[key] = extract_office(pdf, start, end, office_key=key)
-            sections = [k for k in offices[key] if k not in ("title", "subtitle")]
-            print(f"  {key}: {sections}")
-            # Log final section group counts for quick audit.
-            for sk, sv in offices[key].items():
-                if sk in ("title", "subtitle") or not isinstance(sv, list):
-                    continue
-                for seg in sv:
-                    if seg.get('type') == 'alternatives':
-                        glabels = [g['label'] for g in seg.get('groups', [])]
-                        _dbg(f"  RESULT {sk}: alternatives {glabels}", office=key)
+    doc = fitz.open(pdf_path)
+    for key, start, end in OFFICES:
+        _dbg(f"\n{'='*60}\nEXTRACTING: {key} (pages {start}–{end})\n{'='*60}", office=key)
+        typed_lines = extract_office_typed_lines(doc, key, start, end)
+        offices[key] = extract_office(typed_lines, office_key=key)
+        sections = [k for k in offices[key] if k not in ("title", "subtitle")]
+        print(f"  {key}: {sections}")
+        # Log final section group counts for quick audit.
+        for sk, sv in offices[key].items():
+            if sk in ("title", "subtitle") or not isinstance(sv, list):
+                continue
+            for seg in sv:
+                if seg.get('type') == 'alternatives':
+                    glabels = [g['label'] for g in seg.get('groups', [])]
+                    _dbg(f"  RESULT {sk}: alternatives {glabels}", office=key)
+    doc.close()
 
     offices = _dedup_shared(offices)
     offices = _fix_shared_affirmation(offices)
