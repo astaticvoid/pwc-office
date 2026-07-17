@@ -7,7 +7,6 @@ Imported by: extract_psalter.py, extract_collects.py, extract_offices.py,
 
 import hashlib
 import json
-import subprocess
 import sys
 import tempfile
 from contextlib import contextmanager
@@ -16,26 +15,13 @@ from pathlib import Path
 
 # ── PDF → text ────────────────────────────────────────────────────────────────
 
-def _generate_txt(pdf_path: Path, dest: Path, prefer_pdftotext: bool = True) -> None:
+def _generate_txt(pdf_path: Path, dest: Path) -> None:
     print(f"Extracting {pdf_path.name}…", file=sys.stderr)
-    try:
-        subprocess.run(
-            ["pdftotext", "-layout", str(pdf_path), str(dest)],
-            check=True, capture_output=True,
-        )
-        return
-    except (FileNotFoundError, subprocess.CalledProcessError):
-        if prefer_pdftotext:
-            print(
-                "WARNING: pdftotext not found — falling back to PyMuPDF "
-                "(some pages may have garbled text)",
-                file=sys.stderr,
-            )
     try:
         import fitz  # noqa: PLC0415
     except ImportError:
         print(
-            "ERROR: neither pdftotext nor PyMuPDF (fitz) is available — cannot extract PDF",
+            "ERROR: PyMuPDF (fitz) is not available — cannot extract PDF",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -47,15 +33,15 @@ def _generate_txt(pdf_path: Path, dest: Path, prefer_pdftotext: bool = True) -> 
 
 
 @contextmanager
-def pdf_as_txt(pdf_path: Path, prefer_pdftotext: bool = True):
+def pdf_as_text(pdf_path: Path):
     """Context manager: yield a transient Path to a text extraction of pdf_path.
 
-    Uses pdftotext (poppler) if available, falls back to PyMuPDF (fitz).
+    Uses PyMuPDF (fitz) for PDF text extraction.
     The temp file is deleted on exit — no persistent .txt files in sources/.
     """
     tmp = Path(tempfile.mktemp(suffix=".txt"))
     try:
-        _generate_txt(pdf_path, tmp, prefer_pdftotext)
+        _generate_txt(pdf_path, tmp)
         yield tmp
     finally:
         tmp.unlink(missing_ok=True)

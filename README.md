@@ -61,11 +61,10 @@ and are generated locally from source PDFs and the ACC lectionary.
 
 ### One-time setup
 
-Requires `PyMuPDF` and `pdftotext` (poppler):
+Requires `PyMuPDF`:
 
 ```sh
 pip install pymupdf
-brew install poppler   # macOS
 ```
 
 Source PDFs go in `sources/` (gitignored). Run `make fetch-sources` to
