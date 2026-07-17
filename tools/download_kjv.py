@@ -24,7 +24,7 @@ API_BASE = "https://api.getbible.net/v2/kjva"
 # Fetching assembled per-book JSON from api.getbible.net is simpler and is
 # the intended use of that public API — 74 requests, done once, ~15 seconds.
 
-# getbible book number -> output filename (must match osisToBookFile in bible_local.go)
+# getbible book number -> output filename
 BOOKS = {
     # Old Testament
     1:  "Genesis",

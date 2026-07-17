@@ -2,7 +2,8 @@
 """
 Convert sources/bible.json (NRSVUE) → data/bible/<BookName>.json
 
-One file per book so the Go runtime only loads the books needed for a given day.
+One file per book for efficient loading — only the books needed for a given day
+are fetched.
 
 Input structure:  {testament: {book_name: {ch_str: {v_str: text}}}}
 Output per file:  {ch_str: {v_str: text}}

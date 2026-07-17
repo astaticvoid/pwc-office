@@ -2,7 +2,7 @@
 
 ## Dev environment setup
 
-**Prerequisites:** Go 1.21+, Python 3.11+ (Homebrew — not macOS system python), Node.js 20+ (for Playwright).
+**Prerequisites:** Python 3.11+, Node.js 20+ (for Playwright and Vitest).
 
 ```bash
 git clone <repo>
@@ -14,7 +14,6 @@ npx playwright install
 
 # Create .env with your API keys
 cp .env.example .env   # edit as needed
-# BIBLE_API_KEY=       (API.Bible key for NRSVUE Scripture fetching)
 ```
 
 Start the dev server:
@@ -65,7 +64,7 @@ Re-run the pipeline after updating any source PDF or CSV.
 
 | Command | What it runs | When to use |
 |---------|-------------|-------------|
-| `make test` | Go unit tests — fast, no API key | Always, before committing |
+| `make test` | Vitest + pytest — fast, no API key | Always, before committing |
 | `make test-full` | Structural check of every day in the lectionary window | Before a data re-extraction |
 | `make test-smoke` | 4 key dates: structure + reading cross-check | After office rendering changes |
 | `make test-seasonal` | One MP+EP per liturgical season: structure + readings | After seasonal collect / form changes |
@@ -77,7 +76,7 @@ Re-run the pipeline after updating any source PDF or CSV.
 **Typical pre-commit workflow:**
 
 ```bash
-make test          # Go unit tests
+make test          # Vitest + pytest
 make test-web      # Playwright suite (requires: make serve-dist in another terminal)
 ```
 
@@ -86,7 +85,7 @@ make test-web      # Playwright suite (requires: make serve-dist in another term
 ## Build and deploy
 
 ```bash
-make build         # Assembles dist/ (dereferences data/ symlink, stamps sw.js cache key)
+make build         # Assembles dist/ (dereferences data/ symlink)
 make check-dist    # Runs build + tools/check_dist.py validation
 make serve-dist    # Serves dist/ on :8081 — required for Playwright pre-deploy check
 make deploy BUCKET=<s3-bucket> CF_DISTRIBUTION_ID=<cf-id>

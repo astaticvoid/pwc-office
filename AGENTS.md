@@ -92,7 +92,7 @@ Copyrighted content in `data/` is permanently gitignored. Only `data/translation
 
 Two-file core: `web/render.js` contains all office rendering functions and is imported by the browser SPA (`web/app.js`), the Node CLI (`cli/book.js`, `cli/office.js`), and Vitest tests. A change to `render.js` affects all three. Vitest covers rendering; Playwright covers E2E; `make check-book` covers CLI.
 
-`web/app.js` (~1300 lines) handles routing, lectionary lookup, form selection (season + weekday → one of 31 office forms), and Scripture fetching (NRSVUE from API.Bible, lazy cached). No framework, no build step. Sections are separated by `// ── Name ───` banners.
+`web/app.js` (~1300 lines) handles routing, lectionary lookup, form selection (season + weekday → one of 31 office forms), and Scripture fetching (NRSVUE from local `data/translations/`, KJV bundled). No framework, no build step. Sections are separated by `// ── Name ───` banners.
 
 **Leaders & responses are rendered by `web/render.js`.** There is no separate Go or Node renderer — the shared module is the single source of truth.
 
