@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 /**
  * Usage: node cli/office.js [mp|ep] [YYYY-MM-DD]
- * Renders a Daily Office to stdout using the same render.js as the browser.
+ * Renders a Daily Office to stdout using the shared render.js text mode.
  */
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import {
   seasonOf, officeFormSeason, seasonWeekIndex, formKey,
-  filterSeasonalCollects, renderSegments, renderSubsection, lessonHtml, lessonsPickText
+  filterSeasonalCollects, renderSegmentsText, blocksToString,
+  lessonHtml, lessonsPickText,
 } from '../web/render.js';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -20,7 +21,6 @@ const bounds  = load('data/season_bounds.json');
 const officeType = process.argv[2] || 'mp';
 const dateStr    = process.argv[3] || new Date().toISOString().slice(0, 10);
 
-// Load lectionary for the month
 const [year, month] = dateStr.split('-');
 let lectionaryDay = null;
 try {
@@ -42,36 +42,37 @@ if (!form) {
 
 const officeData = lectionaryDay ? lectionaryDay[officeType === 'mp' ? 'morning' : 'evening'] : null;
 
-// Minimal text render (HTML tags stripped for readability)
-function strip(html) { return html.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'); }
-function section(title, segs, verse = false) {
-  if (segs?.type === 'shared' && shared) segs = shared[segs.key];
-  if (!segs || !segs.length) return '';
-  return `\n## ${title}\n\n${strip(renderSegments(segs, shared, verse))}\n`;
+const BK = { verse: true };
+
+function text(segs, opts = {}) {
+  return blocksToString(renderSegmentsText(segs, shared, { ...BK, ...opts }));
 }
 
 let out = `# ${officeType.toUpperCase()} — ${dateStr}\n`;
 out += `Season: ${fSeason} | Form: ${key}\n`;
 if (lectionaryDay) out += `Day: ${lectionaryDay.name}\n`;
 
-out += section('Opening Responses', form.opening_responses);
+out += `\n## Opening Responses\n${text(form.opening_responses)}\n`;
+
 const psalms = officeData?.psalms ?? officeData?.psalm_sets?.[0];
 if (psalms) out += `\n## Psalm\n${(Array.isArray(psalms[0]) ? psalms[0] : psalms).map(p => typeof p === 'object' ? p.citation : p).join(', ')}\n`;
+
 if (officeData?.lessons_pick) {
   const pickText = lessonsPickText(officeData.lessons_pick, officeData.lessons?.length || 0);
   if (pickText) out += `\n${pickText}\n`;
 }
-if (officeData?.lessons?.[0]) out += `\n## Lesson 1\n${strip(lessonHtml(officeData.lessons[0], shared, form))}\n`;
-out += section('Responsory', form.responsory, true);
-if (officeData?.lessons?.[1]) out += `\n## Lesson 2\n${strip(lessonHtml(officeData.lessons[1], shared, form))}\n`;
-out += section('Canticle', form.canticle, true);
-out += section('Intercessions', form.intercessions);
-out += section('Litany', form.litany);
+if (officeData?.lessons?.[0]) out += `\n## Lesson 1\n${text(form.responsory || [])}\n`;
+out += `\n## Responsory\n${text(form.responsory)}\n`;
+if (officeData?.lessons?.[1]) out += `\n## Lesson 2\n${text(form.responsory || [])}\n`;
+out += `\n## Canticle\n${text(form.canticle)}\n`;
+out += `\n## Intercessions\n${text(form.intercessions)}\n`;
+out += `\n## Litany\n${text(form.litany)}\n`;
+
 if (lectionaryDay?.collect_inline) {
   const ci = lectionaryDay.collect_inline;
-  out += `\n## Collect of the Day\n\n${ci.name}\n${ci.text}\n`;
+  out += `\n## Collect of the Day\n${ci.name}\n${ci.text}\n`;
 }
-out += section("Lord's Prayer", form.lords_prayer_intro, true);
-out += section('Dismissal', form.dismissal, true);
+out += `\n## Lord's Prayer\n${text(form.lords_prayer_intro)}\n`;
+out += `\n## Dismissal\n${text(form.dismissal)}\n`;
 
 console.log(out);
