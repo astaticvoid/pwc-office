@@ -34,7 +34,7 @@ def strip_verse_num(text: str) -> str:
 
 def main():
     src = root / "sources" / "bible.json"
-    dst_dir = root / "data" / "bible"
+    dst_dir = root / "data" / "translations" / "nrsvue"
     dst_dir.mkdir(parents=True, exist_ok=True)
 
     with open(src, encoding="utf-8") as f:
