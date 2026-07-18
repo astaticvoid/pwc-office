@@ -18,6 +18,13 @@ Required environment variables in `.env` (gitignored):
 - No keys required. KJV scripture is bundled in `data/translations/kjv/` and works offline.
 - NRSVUE scripture is not distributable — if a local copy is placed at `data/translations/nrsvue/` the app will use it.
 - Deploy targets need `BUCKET`, `CF_DISTRIBUTION_ID`, `STAGING_DOMAIN`, `STAGING_CF_ID`.
+- Also provide `AWS_PROFILE` in `.env` so AWS CLI credentials resolve automatically.
+
+**All build, test, and deploy operations should be run through `make`.**
+The Makefile includes `.env` at line 1 (`-include .env`), so environment
+variables are loaded automatically. Running `aws` CLI commands directly will
+fail with "Unable to locate credentials" because the shell environment does
+not source `.env`. Use `make deploy-staging`, `make serve-dist`, etc.
 
 ## Commands
 
