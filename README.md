@@ -29,29 +29,40 @@ Requires `data/` to be populated — see **Data pipeline** below.
 
 ## Deploying
 
+Three-stage deploy pipeline with staging verification:
+
 ```sh
-make build        # assemble dist/
-make check-dist   # verify completeness
-make deploy BUCKET=my-bucket CF_DISTRIBUTION_ID=XXXXX  # sync to S3 + invalidate CloudFront
+make deploy-staging    # upload to releases/vTIMESTAMP/ + staging/
+make test-staging      # Playwright smoke tests against staging
+make promote           # CloudFront origin-path swap to production
+make rollback          # revert to previous release
 ```
 
-Requires the AWS CLI and ambient credentials (`AWS_PROFILE` or environment
-variables).
+Requires the AWS CLI, `BUCKET`, `CF_DISTRIBUTION_ID`, `STAGING_DOMAIN`, and
+`STAGING_CF_ID` in `.env` (see `.env.example`).
+
+Before promoting, review changes:
+
+```sh
+node tools/compare_staging.cjs [date] [mp|ep]   # A/B diff staging vs production
+```
 
 ## Testing
 
 ```sh
-make test         # Vitest unit tests + Python pytest (fast, no network)
-make test-web     # Playwright E2E suite against web/
-make test-full    # structural check of every day × MP+EP in the lectionary year (~25s)
+make test             # Vitest unit tests (fast, no network)
+make test-web         # Playwright E2E suite against web/
+make test-full        # structural check of every day × MP+EP in the lectionary year
+make test-smoke       # 4 representative days: structure + reading cross-check
+make test-seasonal    # 26 cases: one MP+EP per liturgical form
 ```
 
-The smoke and seasonal suites check rendered output against citations fetched
-from `lectionary.anglican.ca` (skipped, not failed, if the site is unreachable):
+### Quality assurance
 
 ```sh
-make test-smoke    # 4 representative days: Easter, Lent, a feast day
-make test-seasonal # 26 cases: one MP+EP per liturgical form
+node tools/validate_office.cjs   # 6 liturgical rules against all 30 forms
+node tools/audit_office.cjs      # cross-form statistical outlier detection
+node tools/review_form.cjs FORM [date]  # line-numbered text renderer for review
 ```
 
 ## Data pipeline
@@ -77,9 +88,18 @@ make extract         # → data/offices.json, psalter.json, collects.json,
                      #   season_bounds.json, data/lectionary/
 ```
 
+Office form page ranges are detected from PDF content (not hardcoded):
+
+```sh
+python3 tools/detect_office_bounds.py --strict  # verify committed bounds
+python3 tools/detect_office_bounds.py --write   # regenerate after PDF change
+```
+
+Corrections to extracted text live in `data/corrections.json` (committed).
+
 ### Scripture
 
-KJV (with Apocrypha) is bundled in `data/translations/kjv/` and works fully offline.
+KJV (with Apocrypha) is bundled in `data/translations/kjv/` and works offline.
 
 NRSVUE is not distributable. If you have a local copy, place it at
 `data/translations/nrsvue/` (one JSON file per book, same format as KJV)
@@ -91,30 +111,45 @@ to KJV.
 ```
 web/          Pure client-side SPA — HTML/CSS/vanilla JS, no build step
   app.js      Routing, lectionary, office rendering, psalm/scripture fetching
-  render.js   Shared rendering functions (imported by app.js and Node CLI)
+  render.js   Shared rendering functions (HTML + text modes, structured output)
   office.css  Styling and seasonal theming
   sw.js       Service worker — kill-switch only (unregisters old installs)
 
-cli/          Node CLI tools (ES modules, no build step)
+cli/          Node CLI tools (ES modules)
   book.js     Book-mode plain-text renderer — node cli/book.js FORM [DATE]
-  office.js   Debug HTML-strip renderer — node cli/office.js [mp|ep] [DATE]
+  office.js   Structured text renderer — node cli/office.js [mp|ep] [DATE]
 
-tools/        Python data pipeline (extraction, validation, testing)
-  test_full.js      Structural check: all dates × MP+EP
-  test_eval.js      Citation check vs lectionary.anglican.ca (smoke + seasonal)
+tools/        Extraction, validation, QA, and testing
+  extract_offices.py        Office form extraction (PyMuPDF)
+  extract_office_styles.py  Span-level style classification
+  extract_psalter.py        Psalter extraction
+  extract_collects.py       BAS collects extraction
+  convert_lectionary.py     CSV → monthly JSON lectionary
+  detect_office_bounds.py   Content-based page detection
+  normalize_offices.py      Shared-block deduplication
+  validate_office.cjs       Liturgical rule validators (all 30 forms)
+  audit_office.cjs          Cross-form statistical outlier detection
+  compare_staging.cjs       Staging vs production A/B diff
+  review_form.cjs           Line-numbered text renderer for review
+  check_data_integrity.py   SHA-256 integrity guard
+  update_extract_manifest.py  Extraction manifest writer
 
 data/         Generated JSON — gitignored (copyrighted content)
-  offices.json        All 31 office forms
-  psalter.json        Full psalter with verse numbers and midpoint markers
-  collects.json       Collects indexed by date
-  season_bounds.json  Liturgical season boundaries for current year
-  lectionary/         Monthly JSON — YYYY-MM.json
+  offices.json         30 office forms + _shared blocks
+  psalter.json         Full psalter with verse numbers and midpoint markers
+  collects.json        Collects indexed by date
+  season_bounds.json   Liturgical season boundaries for current year
+  lectionary/          Monthly JSON — YYYY-MM.json
+  corrections.json     Single versioned correction manifest (committed)
 ```
 
 ## Status
 
 - Lectionary data: 2025–2026 (Year B)
-- All 31 office forms rendering correctly
+- All 30 office forms rendering correctly
+- PyMuPDF extraction pipeline — single PDF dependency
+- Corrections consolidated to single `corrections.json` (1 active entry)
+- Liturgical QA tools: rule validators + cross-form audit
 - Liturgical data is permanently gitignored — each user runs the extraction pipeline locally from ACC source files
 
 ## Licence
