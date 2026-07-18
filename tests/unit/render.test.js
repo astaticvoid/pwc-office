@@ -294,6 +294,31 @@ describe.skipIf(!HAS_DATA)('renderOfficeJSON sync with renderSegments', () => {
     const gath = epJson.sections.find(s => s.name === 'Gathering');
     expect(gath.dynamic.phosHilaronPresent || gath.dynamic.thanksgivingForLightPresent).toBe(true);
   });
+
+  test('phos_hilaron preserves poetic line breaks (no _LINE_JOIN artifacts)', () => {
+    const MIN_LINES = {
+      'ordinary-sunday-ep':    11,
+      'ordinary-monday-ep':    14,
+      'ordinary-tuesday-ep':    9,
+      'ordinary-wednesday-ep': 14,
+      'ordinary-thursday-ep':  24,
+      'ordinary-friday-ep':    14,
+      'ordinary-saturday-ep':  19,
+    };
+    for (const [formKey, form] of forms) {
+      const phos = form.phos_hilaron;
+      if (!phos || !phos.length) continue;
+      const expected = MIN_LINES[formKey];
+      if (!expected) continue;
+      for (const seg of phos) {
+        if (seg.type !== 'leader') continue;
+        const lines = seg.text.split('\n');
+        expect(lines.length,
+          `${formKey}: expected >= ${expected} poetic lines (including stanza breaks), got ${lines.length}`)
+          .toBeGreaterThanOrEqual(expected);
+      }
+    }
+  });
 });
 
 // ── Verse rendering: inline sup numbers, no grid divs, * break handling ──────
