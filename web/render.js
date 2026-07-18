@@ -72,6 +72,11 @@ export const CANTICLE_SOURCE = {
   'A Song of the Spirit':                    'Revelation 22:12–14, 16, 17',
   'A Song of the Wilderness':                'Isaiah 35:1, 2b–4a, 4c–6, 10',
   'A Song of the Word of the Lord':          'Isaiah 55:6–11',
+
+  // Affirmations of Faith — rendered via renderAlternatives but not canticles.
+  // Included with empty citations to suppress CANTICLE_SOURCE warning.
+  "The Apostles\u2019 Creed": '',
+  'Hear, O Israel': '',
 };
 
 // Rubrics that are section-navigation cues in the printed book but are either
@@ -312,7 +317,7 @@ export function renderAlternatives(seg, shared, contextKey, verse = false) {
     let sourceHtml = '';
     if (!SHORT_LABEL_RE.test(g.label.trim())) {
       const citation = CANTICLE_SOURCE[g.label];
-      if (!citation) console.warn('CANTICLE_SOURCE missing entry for:', g.label);
+      if (citation === undefined) console.warn('CANTICLE_SOURCE missing entry for:', g.label);
       sourceHtml = `<p class="alt-source">${esc(g.label)}${citation ? ` — ${esc(citation)}` : ''}</p>`;
     }
     return `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-${i}" aria-labelledby="${idBase}-tab-${i}" data-idx="${i}">${sourceHtml}${renderSegments(g.segments, shared, verse)}</div>`;

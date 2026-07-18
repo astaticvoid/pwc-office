@@ -25,11 +25,14 @@ extract:
 	  git -C data/ add -A && git -C data/ commit -m "extraction $(shell date +%Y-%m-%d)" || true; \
 	fi
 
-# Unit tests — no API key needed, always fast.
-test: test-unit test-tools qa
+# Suppress Node 22 localStorage experimental warning (render.js has polyfill).
+NODE_OPTIONS = --localstorage-file=/tmp/pwc-ls.json
 
+# Unit tests — no API key needed, always fast.
 test-unit:
 	npm test
+
+test: test-unit test-tools qa
 
 # Smoke — 4 cases: structural + reading citation check vs lectionary.anglican.ca.
 # Skips citation check if site is unreachable.
