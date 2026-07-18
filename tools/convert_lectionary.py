@@ -82,6 +82,7 @@ RANK_FIXES = {
 # Colour corrections: CSV encodes the day rank in the colour field for this entry.
 COLOUR_FIXES = {
     "2026-04-28": "White",  # CSV has "Feria" (the rank) instead of the Easter season colour
+    "2026-10-04": "Green",  # Nineteenth Sunday after Pentecost, Season of Creation
 }
 
 # Dates whose notes column should be suppressed entirely. The raw CSV text is

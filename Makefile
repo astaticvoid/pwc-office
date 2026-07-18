@@ -104,6 +104,10 @@ qa:
 	@node tools/audit_office.cjs --json > /tmp/pwc-audit.json
 	@COHERENCE_THRESHOLD=100 node tools/coherence_score.cjs /tmp/pwc-validate.json /tmp/pwc-audit.json
 	@rm -f /tmp/pwc-validate.json /tmp/pwc-audit.json
+	@echo "=== Render validation ==="
+	@node tools/validate_render.cjs
+	@echo "=== Lectionary data ==="
+	@node tools/validate_lectionary.cjs
 
 # Validate extracted lectionary data against the ACC HTML source.
 # Requires network access; run manually before a data re-extraction.
