@@ -1,5 +1,5 @@
 {
-  "extracted_at": "2026-07-18T17:42:04Z",
+  "extracted_at": "2026-07-18T19:24:59Z",
   "tool_versions": {
     "fitz": [
       "1.27.2.3",
@@ -10,7 +10,7 @@
   },
   "files": {
     "data/offices.json": {
-      "sha256": "adfdab52fd04cd1fc87a1fefe774d661f12d50550febd1d471f86506abdf38ea",
+      "sha256": "8f49788da9052a44c8ee4cc6532679523b4ebb59645e7be563c0b02ec54af491",
       "entries": 31
     },
     "data/collects.json": {
