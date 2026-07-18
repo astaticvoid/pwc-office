@@ -23,26 +23,19 @@
     return;
   }
 
-  // Native Capacitor webview — register plugins against the injected runtime.
-  // Each Capacitor.registerPlugin() call returns a Proxy that routes method
-  // calls to the native implementation.
-  var StatusBar = C.registerPlugin('StatusBar');
-  var SplashScreen = C.registerPlugin('SplashScreen');
-  var Keyboard = C.registerPlugin('Keyboard');
-  var App = C.registerPlugin('App');
-  var Preferences = C.registerPlugin('Preferences');
-  var Browser = C.registerPlugin('Browser');
-  var Network = C.registerPlugin('Network');
+  // Native Capacitor webview — plugins are auto-registered by the native
+  // bridge in Capacitor v8+. They live on Capacitor.Plugins.
+  var P = C.Plugins || {};
 
   window.__pwcPlugins = {
     Capacitor: C,
-    StatusBar: StatusBar,
+    StatusBar: P.StatusBar,
     Style: { Dark: 'DARK', Light: 'LIGHT', Default: 'DEFAULT' },
-    SplashScreen: SplashScreen,
-    Keyboard: Keyboard,
-    App: App,
-    Preferences: Preferences,
-    Browser: Browser,
-    Network: Network,
+    SplashScreen: P.SplashScreen,
+    Keyboard: P.Keyboard,
+    App: P.App,
+    Preferences: P.Preferences,
+    Browser: P.Browser,
+    Network: P.Network,
   };
 })();
