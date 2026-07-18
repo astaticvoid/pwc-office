@@ -605,7 +605,7 @@ function psalmHtml(officeData, shared) {
         const tabIdx = i + 1;
         return `<button class="alt-tab${tabIdx === active ? ' alt-tab-active' : ''}" role="tab" aria-selected="${tabIdx === active}" aria-controls="${idBase}-panel-${tabIdx}" id="${idBase}-tab-${tabIdx}" data-idx="${tabIdx}" data-key="${esc(stateKey)}">Psalm ${esc(c)}</button>`;
       })).join('');
-      html += `<p class="seg-rubric">The following Psalms from the appointed lectionary are said or sung.</p>`;
+      html += `<p class="seg-rubric rubric-book-only">The following Psalms from the appointed lectionary are said or sung.</p>`;
       html += `<div class="alt-block"><div class="alt-tabs" role="tablist">${tabsHtml}</div>`;
       // Panel 0: all psalms in sequence
       let allHtml = '';
