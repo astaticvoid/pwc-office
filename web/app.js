@@ -1086,7 +1086,7 @@ async function render(dateStr, officeType, translation) {
 
   // Primary readings — psalms, lesson 1, responsory, canticle, lesson 2+ (if any).
   html += `<div class="obs-readings${activeObs !== 'primary' ? ' obs-hidden' : ''}" data-obs="primary">`;
-  if (officeData.label) html += `<h3 class="office-subsection-title">${esc(officeData.label)}</h3>`;
+  if (officeData.label) html += `<p class="observance-label">${esc(officeData.label)}</p>`;
   html += proclamationHtml(officeData, form, shared);
   html += `</div>`;
 
@@ -1094,7 +1094,7 @@ async function render(dateStr, officeType, translation) {
   if (officeData.alternate) {
     const alt = officeData.alternate;
     html += `<div class="obs-readings${activeObs !== 'alternate' ? ' obs-hidden' : ''}" data-obs="alternate">`;
-    if (alt.label) html += `<h3 class="office-subsection-title">${esc(alt.label)}</h3>`;
+    if (alt.label) html += `<p class="observance-label">${esc(alt.label)}</p>`;
     html += proclamationHtml(alt, form, shared);
     html += `</div>`;
   }
@@ -1106,8 +1106,8 @@ async function render(dateStr, officeType, translation) {
     const affirmTransition = hasLitany
       ? `${mpOrEp} Prayer continues with an Affirmation of Faith or the Litany.`
       : `${mpOrEp} Prayer continues with the Affirmation of Faith.`;
+    html += `<h2 class="office-section-title">The Affirmation of Faith</h2>`;
     html += `<p class="seg-rubric rubric-book-only">${esc(affirmTransition)}</p>`;
-    html += `<h3 class="office-subsection-title">Affirmation of Faith</h3>`;
     html += `<div class="liturgy">${renderSegments(form.affirmation, shared)}</div>`;
   }
 
