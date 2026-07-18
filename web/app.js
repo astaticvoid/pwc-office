@@ -404,9 +404,9 @@ async function renderPsalm(citStr) {
   const titleHtml = `<p class="psalm-title">Psalm ${data.number}${data.title ? ` — ${data.title}` : ''}</p>`;
   const versesHtml = filtered.map(v => {
     const txt = bindMidpoints(esc(v.text));
-    return `<div class="verse"><span class="verse-num" aria-hidden="true">${v.num}</span><span class="verse-text">${txt}</span></div>`;
-  }).join('');
-  return `${titleHtml}<div class="psalm-block">${versesHtml}</div>`;
+    return `<sup>${v.num}</sup> ${txt}`;
+  }).join('<br>');
+  return `${titleHtml}<p class="psalm-block">${versesHtml}</p>`;
 }
 
 // ── Scripture citation parsing ────────────────────────────────────────────────
@@ -1100,15 +1100,17 @@ async function render(dateStr, officeType, translation) {
   }
 
   // Affirmation of Faith closes the Proclamation section (not Prayers).
-  if (asm.sections.some(s => s.name === 'Affirmation')) {
-    const mpOrEp = (form.title || '').toLowerCase().startsWith('evening') ? 'Evening' : 'Morning';
-    const hasLitany = form.litany && form.litany.length;
-    const affirmTransition = hasLitany
-      ? `${mpOrEp} Prayer continues with an Affirmation of Faith or the Litany.`
-      : `${mpOrEp} Prayer continues with the Affirmation of Faith.`;
-    html += `<h2 class="office-section-title">The Affirmation of Faith</h2>`;
-    html += `<p class="seg-rubric rubric-book-only">${esc(affirmTransition)}</p>`;
-    html += `<div class="liturgy">${renderSegments(form.affirmation, shared)}</div>`;
+  if (asm.sections.some(s => s.name === 'Proclamation')) {
+    const proc = asm.sections.find(s => s.name === 'Proclamation');
+    if (proc && proc.dynamic && proc.dynamic.hasAffirmation) {
+      const mpOrEp = (form.title || '').toLowerCase().startsWith('evening') ? 'Evening' : 'Morning';
+      const hasLitany = form.litany && form.litany.length;
+      const affirmTransition = hasLitany
+        ? `${mpOrEp} Prayer continues with an Affirmation of Faith or the Litany.`
+        : `${mpOrEp} Prayer continues with the Affirmation of Faith.`;
+      html += `<p class="seg-rubric rubric-book-only">${esc(affirmTransition)}</p>`;
+      html += renderSubsection('Affirmation of Faith', form.affirmation, shared);
+    }
   }
 
   // ── Prayers ────────────────────────────────────────────────────────────────
@@ -1209,9 +1211,10 @@ function fillScripture(root, translation) {
       }
 
       const allVerses = ranges.flatMap(r => extractVerses(bookData, r));
-      el.innerHTML = allVerses.map(({ v, text }) =>
-        `<div class="scripture-verse"><span class="verse-num" aria-hidden="true">${v}</span><span class="verse-text">${esc(text)}</span></div>`
-      ).join('');
+      const versesHtml = allVerses.map(({ v, text }) =>
+        `<sup>${v}</sup> ${esc(text)}`
+      ).join('<br>');
+      el.innerHTML = `<p class="scripture-block">${versesHtml}</p>`;
       // UX-08: Inform the user when the preferred translation was unavailable.
       if (usedTranslation !== translation) {
         el.innerHTML += `<p class="scripture-fallback-note">[${usedTranslation.toUpperCase()} shown — ${translation.toUpperCase()} unavailable for this reading]</p>`;
