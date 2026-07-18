@@ -58,6 +58,9 @@ make check-text                   # scan for PDF extraction artifacts
 make check-text --strict          # same but exits non-zero on findings
 make check-casing                 # casing oracle against pdftotext ground truth
 make check-integrity              # verify data/ hashes match extract manifest — fails if any
+# NOTE: after changing _VERSE_SECTIONS or _fix_* in extract_offices.py, re-run
+# `make extract` before `make check-integrity`.  The manifest stores hashes of
+# the committed data; stale hashes after a code change will fail the check.
 
 # Build & verify
 make build                        # assemble dist/ (copies web/, dereferences data symlink)
@@ -138,6 +141,8 @@ Extraction pipeline (run via `make extract`):
 8. `update_extract_manifest.py` → `tools/extract_manifest.json` (SHA-256 + counts, committed)
 
 **Data integrity guard:** `check_data_integrity.py` compares current `data/*.json` hashes against `tools/extract_manifest.json`. Exits 1 if any file was edited outside the pipeline. Wired into `make deploy-staging` as a gate.
+
+**Verse section sync:** `_VERSE_SECTIONS` in `tools/extract_offices.py` must stay in sync with `VERSE_SECTIONS` in `tools/validate_office.cjs`. When adding a verse-like section, update both locations and the line-count assertions in `tests/unit/render.test.js`.
 
 **Page bounds:** `detect_office_bounds.py` detects office form page ranges from PDF content (title patterns). Output is committed as `tools/office_bounds.json`. No hardcoded page numbers.
 
