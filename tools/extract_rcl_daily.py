@@ -13,7 +13,7 @@ Usage:
     python3 tools/extract_rcl_daily.py [--year YEAR] [--season-bounds PATH] [--rtf PATH]
 
 The extractor:
-  1. Converts RTF to plain text via textutil
+  1. Converts RTF to plain text via striprtf
   2. Parses the Year B template into a linear sequence of day entries
   3. Computes church-year season bounds (Easter-based) for the target year
   4. Maps template days to calendar dates
