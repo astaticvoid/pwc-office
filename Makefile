@@ -141,8 +141,23 @@ RELEASE = $(shell date -u +%Y-%m-%dT%H%M%SZ)-$(shell git rev-parse --short HEAD)
 
 deploy-staging: check-integrity check-dist
 	aws s3 sync dist/ s3://$(BUCKET)/releases/$(RELEASE)/ --delete
-	aws s3 sync s3://$(BUCKET)/releases/$(RELEASE)/ s3://$(BUCKET)/staging/ --delete
-	@echo "Deployed to staging: $(RELEASE)"
+	# App shell: short cache (1 min) — pick up changes quickly during testing
+	aws s3 sync dist/ s3://$(BUCKET)/staging/ --delete \
+	  --exclude "*" --include "*.html" --include "*.js" --include "*.css" \
+	  --cache-control "max-age=60"
+	# Data files: medium cache (1 hour) — change only on re-extraction
+	aws s3 sync dist/ s3://$(BUCKET)/staging/ --delete \
+	  --exclude "*" --include "*.json" \
+	  --cache-control "max-age=3600"
+	# Static assets: long cache (24 hours) — images, fonts, icons
+	aws s3 sync dist/ s3://$(BUCKET)/staging/ --delete \
+	  --exclude "*" --include "*.png" --include "*.svg" --include "*.ico" \
+	  --cache-control "max-age=86400"
+	# sw.js: never cache — kill-switch must always be fresh
+	aws s3 sync dist/ s3://$(BUCKET)/staging/ --delete \
+	  --exclude "*" --include "sw.js" \
+	  --cache-control "max-age=0, no-store"
+	@echo "Staging deployed: $(RELEASE)"
 	@echo "$(RELEASE)" > .deploy-latest
 
 test-staging:
