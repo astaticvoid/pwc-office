@@ -93,6 +93,7 @@ body {
   padding-top: var(--safe-top);
   padding-left: var(--safe-left);
   padding-right: var(--safe-right);
+  transition: background 0.25s, color 0.25s;
 }
 
 /* ── Navigation ────────────────────────────────────────────────────────────── */
@@ -327,9 +328,9 @@ body {
 #day-brand { display: none; }
 
 #day-header {
-  padding: 1rem 0 0.75rem;
-  margin-bottom: 0.75rem;
-  padding-bottom: 0.75rem;
+  padding: 1rem 0 1.25rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--color-border);
 }
 
 #day-office-name {
@@ -354,8 +355,8 @@ body {
 }
 
 #day-meta {
-  display: flex; align-items: center; gap: 0.6rem 0.9rem;
-  flex-wrap: wrap; font-size: 0.78rem;
+  display: flex; align-items: center; gap: 0.5rem 0.8rem;
+  flex-wrap: wrap; font-size: 0.76rem;
 }
 
 /* Meta: season item */
@@ -365,7 +366,7 @@ body {
   font-family: var(--font-ui); font-size: 0.6rem;
   letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-muted); opacity: 0.8;
 }
-.meta-val { font-family: var(--font-ui); font-size: 0.78rem; color: var(--color-text); font-weight: 500; }
+.meta-val { font-family: var(--font-ui); color: var(--color-text); font-weight: 500; }
 .meta-sep { color: var(--color-border); }
 
 /* Colour chip */
@@ -377,7 +378,7 @@ body {
 .colour-chip-toggle { cursor: pointer; transition: transform 0.15s; }
 .colour-chip-toggle:hover { transform: scale(1.25); }
 .colour-cycle-hint { font-size: 0.7em; opacity: 0.55; }
-.colour-name { font-size: 0.78rem; color: var(--color-muted); font-family: var(--font-ui); }
+.colour-name { color: var(--color-muted); font-family: var(--font-ui); }
 
 /* ── View toggle (book mode) ────────────────────────────────────────────────── */
 
@@ -439,7 +440,7 @@ body.book-mode .alt-panel + .alt-panel::before {
   font-size: 0.76rem; font-weight: 700;
   letter-spacing: 0.16em; text-transform: uppercase;
   color: var(--color-heading);
-  margin: 2.5rem 0 1rem;
+  margin: 2rem 0 1.25rem;
   padding-top: 1rem;
   border-top: 1.5px solid var(--color-accent);
 }
@@ -448,7 +449,7 @@ body.book-mode .alt-panel + .alt-panel::before {
   font-family: var(--font-liturgy);
   font-size: 1.14rem; font-weight: 600; letter-spacing: 0.005em;
   color: var(--color-heading);
-  margin: 1.6rem 0 0.55rem;
+  margin: 1.4rem 0 0.6rem;
 }
 
 .observance-label {
