@@ -37,3 +37,22 @@ jobs:
 
       - name: Data integrity check
         run: make check-integrity
+
+  mobile-light:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build dist
+        run: make build
+
+      - name: Capacitor sync (web-to-native bridge check)
+        run: npx cap sync android
