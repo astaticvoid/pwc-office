@@ -24,12 +24,22 @@ Now we need to guarantee the rendered output is liturgically right.
 - NRSVUE fetcher (private repo)
 - Stale docs cleaned: API.Bible, Go, SW caching references removed
 
+### Done (2026-07-18 QA sprint)
+
+- `renderOfficeJSON` — full-office structured output shared by validators and browser
+- `assembleSections` — single source of truth for section ordering and visibility
+- Expanded rule suite — 19 rules across 3 tiers (was 6)
+- `coherence_score.cjs` — composite 0-100 score with promote gate
+- CI gate — `make qa` wired into `make test`, GitHub Actions workflow
+- PDF column-break artifacts fixed — systemic `_normalize_whitespace` regex
+- CLI rendering fixes — canticle verse breaks, N placeholder text mode
+- `collectSecondaryPage` moved to shared module
+- CLI Lord's Prayer harmonized with web app section structure
+- Sync test — Vitest verifies HTML and JSON paths produce matching output
+- 8 expected audit outliers documented in `audit_expected.json`
+
 ### Next
 
-- Structured output for liturgical validators — emit parseable JSON alongside HTML (ADR pattern)
-- Expand rule suite — canticle verse breaks, collect formatting, seasonal coherence
-- Coherence scoring — single number for go/no-go on promote
-- CI gate — wire `validate_office.cjs` + `audit_office.cjs` into `make test`
 - Promote staging to production (user testing in progress)
 
 ### Parked
@@ -44,9 +54,9 @@ Now we need to guarantee the rendered output is liturgically right.
 
 ### Rendering
 
-- Mid-line breaks in prose collects from PDF column layout (affects ~14 dismissal blessings)
-- "N" placeholder renders as bare text in CLI text mode (HTML mode italicises via `render.js`)
-- Canticle verses join with spaces instead of line breaks in text mode
+- ~~Mid-line breaks in prose collects from PDF column layout (affects ~14 dismissal blessings)~~ — Fixed 2026-07-18: `_normalize_whitespace` regex joins mid-sentence `\n` in leader/response segments. Validator confirms zero remaining.
+- ~~"N" placeholder renders as bare text in CLI text mode~~ — Fixed 2026-07-18: `renderSegmentsText` wraps `N` as `(N)` in text mode.
+- ~~Canticle verses join with spaces instead of line breaks in text mode~~ — Fixed 2026-07-18: CLI canticle rendering passes `verse: true`.
 
 ### Extraction
 
@@ -55,9 +65,9 @@ Now we need to guarantee the rendered output is liturgically right.
 
 ### Infrastructure
 
-- Staging cache headers need `make build` integration (currently manual S3 upload)
+- ~~Staging cache headers need `make build` integration~~ — Done: `deploy-staging` already sets per-type cache headers.
 - Production still on pre-rubric-fix release (user testing staging)
-- No CI — tests are local only
+- ~~No CI — tests are local only~~ — Done 2026-07-18: GitHub Actions runs `make test` (Vitest + QA gate + integrity check) on push/PR.
 
 ---
 
