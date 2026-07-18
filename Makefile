@@ -111,6 +111,10 @@ qa:
 	@node tools/validate_render.cjs
 	@echo "=== Lectionary data ==="
 	@node tools/validate_lectionary.cjs
+	@echo "=== Cross-form text ==="
+	@node tools/audit_text.cjs
+	@echo "=== Accessibility ==="
+	@node tools/audit_a11y.cjs
 
 # Validate extracted lectionary data against the ACC HTML source.
 # Requires network access; run manually before a data re-extraction.
