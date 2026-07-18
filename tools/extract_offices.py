@@ -82,7 +82,7 @@ _SUB_HDR_MAP: list[tuple] = [
     # Seasonal EP: Service of Light elements (Gathering section)
     (re.compile(r'^thanksgiving$',                      re.IGNORECASE), "thanksgiving_for_light"),
     # Ordinary-time EP: evening hymn heading carries the hymn title as rubric text
-    (re.compile(r'^the evening hymn\b',                 re.IGNORECASE), "phos_hilaron"),
+    (re.compile(r'^(?:the )?evening hymn\b',              re.IGNORECASE), "phos_hilaron"),
     (re.compile(r'^the Responsory$',                    re.IGNORECASE), "responsory"),
     (re.compile(r'^the Canticle$',                      re.IGNORECASE), "canticle"),
     (re.compile(r'Affirmation of faith',                re.IGNORECASE), "affirmation"),
