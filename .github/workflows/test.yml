@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           npm install
-          python3 -m pip install pymupdf pytest
+          python3 -m pip install pymupdf pytest striprtf
 
       - name: Fetch sources
         run: make fetch-sources

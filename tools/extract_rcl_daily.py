@@ -163,14 +163,10 @@ def compute_season_bounds(year):
 
 
 def rtf_to_text(rtf_path):
-    """Convert RTF to plain text using macOS textutil."""
-    result = subprocess.run(
-        ["textutil", "-convert", "txt", "-stdout", rtf_path],
-        capture_output=True, text=True,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"textutil failed on {rtf_path}: {result.stderr}")
-    return result.stdout
+    """Convert RTF to plain text using striprtf (cross-platform)."""
+    from striprtf.striprtf import rtf_to_text as _parse
+    with open(rtf_path, 'r') as f:
+        return _parse(f.read())
 
 
 def parse_rtf_template(text):
