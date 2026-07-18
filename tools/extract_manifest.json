@@ -1,19 +1,24 @@
 {
-  "extracted_at": "2026-07-14T07:04:21Z",
+  "extracted_at": "2026-07-17T14:12:13Z",
   "tool_versions": {
+    "fitz": [
+      "1.27.2.3",
+      "1.27.2",
+      null
+    ],
     "pdftotext": "pdftotext version 26.07.0"
   },
   "files": {
     "data/offices.json": {
-      "sha256": "feffb7425adbd2c0f2aa0e7e8e19c893a5a9f7d79d137965a159a7578ae50baf",
+      "sha256": "35fdf3d5703301d05d50a5e6957f6cee9c40315bd643d9ba059fccdcbb29401e",
       "entries": 31
     },
     "data/collects.json": {
-      "sha256": "8b630e7effe7d432157fdbad805490713914bb7b908bb488af7b9c8bdd8807a5",
-      "entries": 118
+      "sha256": "3120edfd27ef94829cbbe8640503d8c60e8c8194d5fe2375c6ee7588716403e9",
+      "entries": 110
     },
     "data/psalter.json": {
-      "sha256": "fefbb20d10ec049239727bf1e557ded2654088873759bfb42042bd76685e957e",
+      "sha256": "229e26c9f0a066afe16f8067d6092b898d027441eb06d3a2baca9f57c6fdd9e2",
       "entries": 150
     },
     "data/fats/saints.json": {
