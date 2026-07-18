@@ -41,7 +41,7 @@ test.describe('Office loads', () => {
     // Psalm title should include "Psalm N"
     await expect(page.locator('.psalm-title').first()).toContainText('Psalm');
     // At least one verse should be rendered
-    await expect(page.locator('.verse').first()).toBeVisible();
+    await expect(page.locator('.psalm-block sup').first()).toBeVisible();
   });
 
   test('morning prayer: no loading spinners remain', async ({ page }) => {
@@ -53,7 +53,7 @@ test.describe('Office loads', () => {
 
   test('morning prayer: scripture fills in without errors', async ({ page }) => {
     await page.goto(MP);
-    await expect(page.locator('.scripture-verse').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
+    await expect(page.locator('.scripture-placeholder sup').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
     await expect(page.locator('.error-msg')).toHaveCount(0);
   });
 
@@ -112,7 +112,7 @@ test.describe('Office loads', () => {
   test('evening prayer loads', async ({ page }) => {
     await page.goto(EP);
     await expect(page).toHaveTitle(/Evening Prayer/);
-    await expect(page.locator('.verse').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
+    await expect(page.locator('.psalm-block sup').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
     await expect(page.locator('.error-msg')).toHaveCount(0);
   });
 
@@ -374,25 +374,25 @@ test.describe('Date picker', () => {
 test.describe('Translation switch', () => {
   test('switching to KJV re-renders scripture', async ({ page }) => {
     await page.goto(MP);
-    await expect(page.locator('.scripture-verse').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
-    const before = await page.locator('.scripture-verse').first().textContent();
+    await expect(page.locator('.scripture-placeholder sup').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
+    const before = await page.locator('.scripture-placeholder').first().textContent();
 
     await page.locator('#nav-translation').selectOption('kjv');
     // Wait for loading state to clear
     await expect(page.locator('.scripture-placeholder p.loading')).toHaveCount(0, { timeout: CONTENT_TIMEOUT });
-    const after = await page.locator('.scripture-verse').first().textContent();
+    const after = await page.locator('.scripture-placeholder').first().textContent();
     // KJV and NRSVUE differ in wording
     expect(after).not.toBe(before);
   });
 
   test('translation preference persists across navigation', async ({ page }) => {
     await page.goto(MP);
-    await expect(page.locator('.scripture-verse').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
+    await expect(page.locator('.scripture-placeholder sup').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
     await page.locator('#nav-translation').selectOption('kjv');
 
     // Navigate to the next day (arrows are keyboard-only now; go by URL).
     await page.goto('/#/2026-05-18/mp');
-    await expect(page.locator('.scripture-verse').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
+    await expect(page.locator('.scripture-placeholder sup').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
     await expect(page.locator('#nav-translation')).toHaveValue('kjv');
     await expect(page.locator('#scripture-attr')).toContainText('KJV');
   });

@@ -295,3 +295,46 @@ describe.skipIf(!HAS_DATA)('renderOfficeJSON sync with renderSegments', () => {
     expect(gath.dynamic.phosHilaronPresent || gath.dynamic.thanksgivingForLightPresent).toBe(true);
   });
 });
+
+// ── Verse rendering: inline sup numbers, no grid divs, * break handling ──────
+
+describe('verse rendering structure', () => {
+  test('canticle leader text has <br> at * caesura breaks', () => {
+    const segs = [
+      { type: 'leader', text: 'My soul proclaims the greatness of the Lord, my spirit rejoices in God my Saviour, *\nfor you, Lord, have looked with favour on your lowly servant.\nFrom this day all generations will call me blessed: *\nyou, the Almighty, have done great things for me and holy is your name.' },
+    ];
+    const html = renderSegments(segs, shared, true);
+    expect(html).toMatch(/\*<\/span><\/span><br>for/);
+    expect(html).toMatch(/\*<\/span><\/span><br>you/);
+  });
+
+  test('canticle leader text does not use grid divs', () => {
+    const segs = [
+      { type: 'leader', text: 'Blessed are you, Lord, the God of Israel, *\nyou have come to your people and set them free.' },
+    ];
+    const html = renderSegments(segs, shared, true);
+    expect(html).not.toContain('class="verse"');
+    expect(html).not.toContain('class="verse-num"');
+    expect(html).not.toContain('class="scripture-verse"');
+    expect(html).toContain('<br>');
+    expect(html).toContain('class="seg-leader"');
+  });
+
+  test('prose leader (verse=false) does not emit <br>', () => {
+    const segs = [{ type: 'leader', text: 'A reading from the Book of Joshua.' }];
+    const html = renderSegments(segs, shared, false);
+    expect(html).not.toContain('<br>');
+  });
+
+  test('psalm title uses psalm-title class, not verse grid', () => {
+    // The psalm rendering is in app.js (browser), but we can verify
+    // that renderSegments never emits the old grid-based classes.
+    const segs = [
+      { type: 'leader', text: 'Happy are they who have not walked in the counsel of the wicked, *\nnor lingered in the way of sinners,\nnor sat in the seats of the scornful.' },
+    ];
+    const html = renderSegments(segs, shared, true);
+    expect(html).toContain('<br>');
+    expect(html).not.toContain('class="verse"');
+    expect(html).not.toContain('grid-template');
+  });
+});
