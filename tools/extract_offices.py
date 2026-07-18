@@ -780,14 +780,20 @@ def _apply_text_patches(offices: dict) -> dict:
 
 def _normalize_whitespace(offices: dict) -> dict:
     """Fix common PyMuPDF whitespace artifacts across all forms."""
-    import copy
+    import copy, re
     offices = copy.deepcopy(offices)
 
-    def _fix(text):
-        # "Amen ." → "Amen." (space between word and period)
+    # Join mid-sentence line breaks from PDF column wrapping.
+    # Rule 1: \n + lowercase → always join (no verse text starts lowercase).
+    # Rule 2: \n + uppercase but no punctuation before \n → join
+    #   (e.g., "power of the\nSpirit" vs "created;\nyou renew" which preserves ;).
+    _LINE_JOIN = re.compile(r"(?<![.,;:!?])\n([a-zA-Z])")
+
+    def _fix(text, seg_type=None):
         text = text.replace("Amen .", "Amen.")
-        # Remove trailing spaces before newlines
         text = text.replace(" \n", "\n")
+        if seg_type in ("leader", "response"):
+            text = _LINE_JOIN.sub(r" \1", text)
         return text
 
     def _walk(segs):
@@ -796,7 +802,7 @@ def _normalize_whitespace(offices: dict) -> dict:
                 for g in seg.get("groups", []):
                     _walk(g.get("segments", []))
             elif "text" in seg:
-                seg["text"] = _fix(seg["text"])
+                seg["text"] = _fix(seg["text"], seg.get("type"))
 
     for office_key, form in offices.items():
         if office_key.startswith("_"):
