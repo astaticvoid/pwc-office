@@ -288,21 +288,16 @@ body {
 
 .settings-row select, .settings-row button {
   font-family: var(--font-ui); font-size: 0.85rem;
-  background: rgba(0,0,0,0.05); border: 1px solid var(--color-border);
+  background: var(--color-surface); border: 1px solid var(--color-border);
   border-radius: 7px; padding: 0.3rem 0.65rem;
   color: var(--color-text); cursor: pointer;
-}
-[data-theme="dark"] .settings-row select,
-[data-theme="dark"] .settings-row button {
-  background: rgba(255,255,255,0.07);
 }
 /* Mini segmented control inside settings */
 .settings-mini-seg {
   display: flex; gap: 3px; padding: 3px;
-  background: rgba(0,0,0,0.06); border: 1px solid var(--color-border);
+  background: var(--color-bg); border: 1px solid var(--color-border);
   border-radius: 10px; flex-shrink: 0;
 }
-[data-theme="dark"] .settings-mini-seg { background: rgba(255,255,255,0.06); }
 .settings-mini-seg button {
   background: transparent; border: none; cursor: pointer;
   font-family: var(--font-ui); font-size: 0.78rem; font-weight: 500;
@@ -533,9 +528,8 @@ body.book-mode .scripture-block sup { display: inline; }
 .psalm-gloria {
   font-family: var(--font-liturgy);
   margin-top: 0.5rem; padding-top: 0.25rem;
-  border-top: 1px solid rgba(0,0,0,0.1);
+  border-top: 1px solid var(--color-border);
 }
-[data-theme="dark"] .psalm-gloria { border-top-color: rgba(255,255,255,0.1); }
 
 /* ── Scripture reading ──────────────────────────────────────────────────────── */
 
@@ -689,10 +683,9 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 
 .day-ctrl-seg {
   display: flex; gap: 4px; padding: 4px;
-  background: rgba(0,0,0,0.05); border: 1px solid var(--color-border);
+  background: var(--color-surface); border: 1px solid var(--color-border);
   border-radius: 12px;
 }
-[data-theme="dark"] .day-ctrl-seg { background: rgba(255,255,255,0.05); }
 
 .day-ctrl-btn {
   flex: 1; text-align: center; padding: 0.55rem 0.5rem; border-radius: 8px;
