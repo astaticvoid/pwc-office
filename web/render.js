@@ -711,18 +711,16 @@ export function assembleSections(cfg) {
     }
   }
 
-  sections.push(p);
-
-  // ── Affirmation ────────────────────────────────────────────────────
+  // ── Affirmation (subsection of Proclamation) ──────────────────────
   if (form && form.affirmation && form.affirmation.length) {
-    const a = { name: 'Affirmation', visible: true, subsections: [], dynamic: {} };
-    a.subsections.push({
+    p.subsections.push({
       label: 'Affirmation of Faith',
       segments: flattenSegs(form.affirmation, shared),
     });
-    a.dynamic.hasAffirmation = true;
-    sections.push(a);
+    p.dynamic.hasAffirmation = true;
   }
+
+  sections.push(p);
 
   // ── Prayers ────────────────────────────────────────────────────────
   const hasPrayers = form && (

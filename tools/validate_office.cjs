@@ -302,7 +302,7 @@ async function main() {
     invitatory: 'Gathering',
     responsory: 'Proclamation',
     canticle: 'Proclamation',
-    affirmation: 'Affirmation',
+    affirmation: 'Proclamation',
     intercessions: 'Prayers',
     litany: 'Prayers',
     seasonal_collects: 'Prayers',
