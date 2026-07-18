@@ -783,29 +783,34 @@ def _normalize_whitespace(offices: dict) -> dict:
     import copy, re
     offices = copy.deepcopy(offices)
 
+    # Sections where line breaks are intentional liturgical structure
+    # (affirmation verse text, canticle lines, doxology invocations).
+    # The line-join regex skips these to preserve intentional verse formatting.
+    _VERSE_SECTIONS = frozenset({'affirmation', 'canticle', 'doxology'})
+
     # Join mid-sentence line breaks from PDF column wrapping.
     # Rule 1: \n + lowercase → always join (no verse text starts lowercase).
     # Rule 2: \n + uppercase but no punctuation before \n → join
     #   (e.g., "power of the\nSpirit" vs "created;\nyou renew" which preserves ;).
     _LINE_JOIN = re.compile(r"(?<![.,;:!?])\n([a-zA-Z])")
 
-    def _fix(text, seg_type=None):
+    def _fix(text, seg_type=None, section_key=None):
         text = text.replace("Amen .", "Amen.")
         text = text.replace(" \n", "\n")
-        if seg_type in ("leader", "response"):
+        if seg_type in ("leader", "response") and section_key not in _VERSE_SECTIONS:
             text = _LINE_JOIN.sub(r" \1", text)
         return text
 
-    def _walk(segs):
+    def _walk(segs, section_key=None):
         for seg in segs:
             if seg.get("type") == "alternatives":
                 for g in seg.get("groups", []):
-                    _walk(g.get("segments", []))
+                    _walk(g.get("segments", []), section_key)
             elif "text" in seg:
-                seg["text"] = _fix(seg["text"], seg.get("type"))
+                seg["text"] = _fix(seg["text"], seg.get("type"), section_key)
 
     for office_key, form in offices.items():
-        if office_key.startswith("_"):
+        if office_key.startswith("_") and office_key != "_shared":
             continue
         for section_key, segs in form.items():
             if isinstance(segs, list):
