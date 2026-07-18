@@ -1,15 +1,26 @@
 import { describe, test, expect } from 'vitest';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import {
   formKey, officeFormSeason, renderSegments, renderSubsection, lessonHtml, filterSeasonalCollects,
   lessonsPickText, lessonsPickRubricHtml, renderOfficeJSON
 } from '../../web/render.js';
 
-const offices = JSON.parse(readFileSync(join(import.meta.dirname, '../../data/offices.json'), 'utf8'));
-const bounds  = JSON.parse(readFileSync(join(import.meta.dirname, '../../data/season_bounds.json'), 'utf8'));
-const shared  = offices._shared || {};
-const forms   = Object.entries(offices).filter(([k]) => !k.startsWith('_'));
+const DATA_DIR = join(import.meta.dirname, '../../data');
+const HAS_DATA = existsSync(join(DATA_DIR, 'offices.json'));
+
+function loadData() {
+  const offices = HAS_DATA
+    ? JSON.parse(readFileSync(join(DATA_DIR, 'offices.json'), 'utf8'))
+    : {};
+  const bounds = HAS_DATA
+    ? JSON.parse(readFileSync(join(DATA_DIR, 'season_bounds.json'), 'utf8'))
+    : {};
+  return { offices, bounds, shared: offices._shared || {},
+    forms: Object.entries(offices).filter(([k]) => !k.startsWith('_')) };
+}
+
+const { offices, bounds, shared, forms } = loadData();
 
 // ── Form selection ───────────────────────────────────────────────────────────────
 
@@ -26,7 +37,7 @@ describe('formKey', () => {
 });
 
 describe('officeFormSeason', () => {
-  test.each([
+  test.skipIf(!HAS_DATA).each([
     ['2026-06-17', 'OrdinaryTime'],
     ['2025-12-03', 'Advent'],
     ['2025-12-25', 'Christmas'],
@@ -42,7 +53,7 @@ describe('officeFormSeason', () => {
 
 // ── Form completeness (data-layer, duplicates pytest but faster) ─────────────
 
-describe('all forms have required sections as arrays', () => {
+describe.skipIf(!HAS_DATA)('all forms have required sections as arrays', () => {
   test.each(forms)('%s', (name, form) => {
     // lords_prayer_intro and dismissal must always be inline arrays (BUG-19 guard)
     for (const field of ['lords_prayer_intro', 'dismissal']) {
@@ -186,7 +197,7 @@ describe('verse rendering preserves leader line breaks', () => {
 
 // ── Sync test: renderOfficeJSON vs renderSegments ────────────────────────
 
-describe('renderOfficeJSON sync with renderSegments', () => {
+describe.skipIf(!HAS_DATA)('renderOfficeJSON sync with renderSegments', () => {
   const form = offices['ordinary-sunday-mp'];
   if (!form) { test.todo('ordinary-sunday-mp form missing'); return; }
 
