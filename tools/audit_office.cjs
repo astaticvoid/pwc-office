@@ -81,15 +81,24 @@ async function main() {
 
   for (const [groupName, groupForms] of Object.entries(groups)) {
     for (const metricName of metricNames) {
-      const values = groupForms.map(f => f[metricName]).filter(v => v > 0);
+      const values = groupForms.map(f => f[metricName]).filter(v => v !== undefined);
       if (values.length < 2) continue;
       const m = mean(values);
       const s = stddev(values, m);
-      if (s === 0) continue; // no variance
+      if (s === 0) continue;
 
       for (const form of groupForms) {
         const v = form[metricName];
-        if (v === 0 || v === undefined) continue;
+        if (v === undefined) continue;
+        // Zero values where peers have non-zero should be flagged
+        if (v === 0 && m > 0) {
+          outliers.push({
+            group: groupName, form: form.key, metric: metricName,
+            value: 0, peerMean: Math.round(m), zScore: '∞',
+          });
+          continue;
+        }
+        if (v === 0) continue;
         const z = Math.abs(v - m) / s;
         if (z > 2.0) {
           outliers.push({
@@ -142,7 +151,8 @@ async function main() {
   // Group by form
   const byForm = {};
   for (const o of outliers) {
-    byForm[o.form] = (byForm[o.form] || []).push(o) && byForm[o.form] || [o];
+    if (!byForm[o.form]) byForm[o.form] = [];
+    byForm[o.form].push(o);
   }
 
   console.log(`${outliers.length} outlier(s) across ${Object.keys(byForm).length} form(s):\n`);
@@ -161,4 +171,4 @@ async function main() {
   process.exit(1);
 }
 
-main().catch(e => { console.error(e.message); process.exit(1); });
+main().catch(e => { console.error(e); process.exit(1); });

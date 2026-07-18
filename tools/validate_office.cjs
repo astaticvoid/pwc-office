@@ -25,7 +25,10 @@ async function main() {
   rules.push({ name: 'dismissal-has-amen', check(form, formKey, items) {
     const dismissal = items.filter(i => i.section === 'dismissal');
     const amens = dismissal.filter(i => i.text.includes('Amen'));
-    const amenTexts = amens.map(i => i.text.slice(-20));
+    const amenTexts = amens.map(i => {
+      const idx = i.text.indexOf('Amen');
+      return idx >= 0 ? '...' + i.text.slice(Math.max(0, idx - 10), idx + 10) + '...' : i.text.slice(-30);
+    });
     return {
       pass: amens.length > 0,
       detail: amens.length ? `"${amenTexts[0]}"` : 'no Amen found in dismissal',
@@ -35,9 +38,9 @@ async function main() {
   // ── Rule 2: No orphan line breaks in PROSE leader/response segments ────
   rules.push({ name: 'no-prose-line-breaks', check(form, formKey, items) {
     // Sections where verse breaks are intentional liturgical structure
-    const verseSections = ['responsory', 'canticle', 'invitatory', 'phos_hilaron',
-      'thanksgiving_for_light', 'lords_prayer_intro', 'lords_prayer',
-      'intercessions', 'affirmation', 'litany'];
+    const verseSections = ['opening_responses', 'responsory', 'canticle', 'invitatory',
+      'phos_hilaron', 'thanksgiving_for_light', 'lords_prayer_intro',
+      'lords_prayer', 'intercessions', 'affirmation', 'litany', 'dismissal'];
     const proseItems = items.filter(i =>
       (i.type === 'leader' || i.type === 'response')
       && !verseSections.includes(i.section)
@@ -53,11 +56,8 @@ async function main() {
 
   // ── Rule 3: No stray "Amen ." or "... ." — space before period ──────────
   rules.push({ name: 'no-stray-space-before-period', check(form, formKey, items) {
-    // Match "Amen ." (space before period) but not " . . . " (liturgical ellipsis)
-    const stray = items.filter(i => {
-      const t = i.text;
-      return t.match(/Amen \./) || t.match(/[a-z] \.$/);
-    });
+    // Match "Amen ." or any word ending with " ." (space before period)
+    const stray = items.filter(i => /Amen \./.test(i.text) || /\w \.$/.test(i.text));
     return {
       pass: stray.length === 0,
       detail: stray.length ? `${stray.length} segments (first: "${stray[0].text.slice(-30)}")` : '',
@@ -136,4 +136,4 @@ async function main() {
   process.exit(1);
 }
 
-main().catch(e => { console.error(e.message); process.exit(1); });
+main().catch(e => { console.error(e); process.exit(1); });
