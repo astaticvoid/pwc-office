@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text check-casing check-book generate-golden serve serve-dist deploy test-web validate fetch-sources extract extract-rcl mobile-sync mobile-ios mobile-android
+.PHONY: test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text check-casing check-book generate-golden serve serve-dist deploy test-web validate fetch-sources extract extract-rcl mobile-sync mobile-ios mobile-android qa
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -23,7 +23,7 @@ extract:
 	git -C data/ add -A && git -C data/ commit -m "extraction $(shell date +%Y-%m-%d)" || true
 
 # Unit tests — no API key needed, always fast.
-test: test-unit test-tools
+test: test-unit test-tools qa
 
 test-unit:
 	npm test
@@ -92,6 +92,15 @@ check-text:
 # truth (pdfplumber lowercases the small-caps font; pdftotext decodes it right).
 check-casing:
 	python3 tools/check_casing.py
+
+# Liturgical quality gate — runs validators and coherence scorer.
+# Used by 'make test' so every PR checks liturgical coherence.
+qa:
+	@echo "=== Liturgical validation ==="
+	@node tools/validate_office.cjs --json > /tmp/pwc-validate.json
+	@node tools/audit_office.cjs --json > /tmp/pwc-audit.json
+	@COHERENCE_THRESHOLD=65 node tools/coherence_score.cjs /tmp/pwc-validate.json /tmp/pwc-audit.json
+	@rm -f /tmp/pwc-validate.json /tmp/pwc-audit.json
 
 # Validate extracted lectionary data against the ACC HTML source.
 # Requires network access; run manually before a data re-extraction.
@@ -166,6 +175,15 @@ test-staging:
 
 promote:
 	@test -f .deploy-latest || (echo "Run deploy-staging first"; exit 1)
+	@if [ -z "$$PROMOTE_FORCE" ]; then \
+	  echo "Checking coherence score..."; \
+	  node tools/validate_office.cjs --json > /tmp/pwc-promote-val.json 2>/dev/null; \
+	  node tools/audit_office.cjs --json > /tmp/pwc-promote-aud.json 2>/dev/null; \
+	  node tools/coherence_score.cjs --check-promote /tmp/pwc-promote-val.json /tmp/pwc-promote-aud.json \
+	    || (echo "Promotion blocked — score below 85. Fix issues or use PROMOTE_FORCE=1 to bypass."; \
+	        rm -f /tmp/pwc-promote-val.json /tmp/pwc-promote-aud.json; exit 1); \
+	  rm -f /tmp/pwc-promote-val.json /tmp/pwc-promote-aud.json; \
+	fi
 	@RELEASE=$$(cat .deploy-latest); \
 	aws cloudfront get-distribution-config --id $(CF_DISTRIBUTION_ID) \
 	  > /tmp/cf-config.json; \
