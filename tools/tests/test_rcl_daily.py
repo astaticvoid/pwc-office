@@ -10,6 +10,12 @@ import sys
 from datetime import date, timedelta
 from pathlib import Path
 
+import pytest
+
+# textutil is macOS-only. RCL Daily is FEATURE_RCL_DAILY=false in production.
+if sys.platform != 'darwin':
+    pytest.skip("RCL Daily extraction requires macOS textutil", allow_module_level=True)
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from extract_rcl_daily import (
