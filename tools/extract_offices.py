@@ -778,6 +778,35 @@ def _apply_text_patches(offices: dict) -> dict:
     return offices
 
 
+def _normalize_whitespace(offices: dict) -> dict:
+    """Fix common PyMuPDF whitespace artifacts across all forms."""
+    import copy
+    offices = copy.deepcopy(offices)
+
+    def _fix(text):
+        # "Amen ." → "Amen." (space between word and period)
+        text = text.replace("Amen .", "Amen.")
+        # Remove trailing spaces before newlines
+        text = text.replace(" \n", "\n")
+        return text
+
+    def _walk(segs):
+        for seg in segs:
+            if seg.get("type") == "alternatives":
+                for g in seg.get("groups", []):
+                    _walk(g.get("segments", []))
+            elif "text" in seg:
+                seg["text"] = _fix(seg["text"])
+
+    for office_key, form in offices.items():
+        if office_key.startswith("_"):
+            continue
+        for section_key, segs in form.items():
+            if isinstance(segs, list):
+                _walk(segs)
+    return offices
+
+
 def _add_reading_responses(offices: dict) -> dict:
     """
     Add reading_response to each office. The three alternatives are the same
@@ -1079,6 +1108,7 @@ def run():
     doc.close()
 
     offices = _dedup_shared(offices)
+    offices = _normalize_whitespace(offices)
     offices = _fix_shared_affirmation(offices)
     offices = _add_reading_responses(offices)
     offices = _apply_text_patches(offices)
