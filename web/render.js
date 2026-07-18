@@ -599,23 +599,14 @@ function flattenSegs(segs, shared) {
 }
 
 /**
- * Assemble a full office as structured JSON, mirroring the section
- * assembly in web/app.js:render(). Consumed by validators and audit tools.
+ * Assemble section structure for a complete office.
+ * Shared by renderOfficeJSON (validators) and app.js render() (browser HTML).
+ * Returns the same structure regardless of consumer.
  *
- * @param {Object} cfg
- * @param {Object} cfg.form       - office form from offices.json
- * @param {Object} cfg.shared     - offices._shared
- * @param {Object} cfg.officeData - morning|evening from lectionary
- * @param {string} cfg.officeType - 'mp' | 'ep'
- * @param {string} cfg.season     - liturgical season
- * @param {number} cfg.weekIdx    - week index within season
- * @param {Object} [cfg.fatsEntry] - optional FATS entry
- * @param {Object} [cfg.collects]  - collects.json data (for Occasional Prayer lookup)
- * @param {string} [cfg.collectRef] - BAS page ref from officeData.collect
- * @param {Object} [cfg.collectInline] - day-level {name,text} from collect_inline
- * @returns {Object} OfficeJSON
+ * @param {Object} cfg — see renderOfficeJSON for full schema
+ * @returns {{ meta: Object, sections: Array<Object> }}
  */
-export function renderOfficeJSON(cfg) {
+export function assembleSections(cfg) {
   const { form, shared, officeData, officeType, season, weekIdx,
           fatsEntry, collects, collectRef, collectInline } = cfg;
 
@@ -812,4 +803,12 @@ export function renderOfficeJSON(cfg) {
     },
     sections,
   };
+}
+
+/**
+ * Full office as structured JSON — thin wrapper around assembleSections
+ * for consumers that want the data directly (validators, audit tools).
+ */
+export function renderOfficeJSON(cfg) {
+  return assembleSections(cfg);
 }

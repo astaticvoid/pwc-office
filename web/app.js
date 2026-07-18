@@ -5,7 +5,7 @@ import {
   filterSeasonalCollects, renderAlternatives, renderSegments, renderSubsection,
   lessonHtml, lessonsPickRubricHtml, bindMidpoints, parseCitation,
   READING_RESPONSE, CANTICLE_SOURCE, SKIP_RUBRICS, SC_HEADER, SC_FOOTER,
-  collectSecondaryPage,
+  collectSecondaryPage, assembleSections,
 } from './render.js';
 
 // ── Data path ─────────────────────────────────────────────────────────────────
@@ -1035,6 +1035,13 @@ async function render(dateStr, officeType, translation) {
 
   const seasonalSegs = form ? filterSeasonalCollects(form.seasonal_collects || [], weekIdx) : [];
 
+  // Section visibility decisions shared with validators (ADR 0008).
+  const asm = form ? assembleSections({
+    form, shared, officeData: activeOfficeData, officeType, season, weekIdx,
+    fatsEntry, collects, collectRef: activeOfficeData.collect,
+    collectInline: day.collect_inline,
+  }) : { sections: [] };
+
   let html = renderObservanceCard(officeData, activeObs);
 
   // ── FATS biographical notice ───────────────────────────────────────────────
@@ -1058,7 +1065,7 @@ async function render(dateStr, officeType, translation) {
   }
 
   // ── Gathering ──────────────────────────────────────────────────────────────
-  if (form && (form.opening_responses || form.thanksgiving_for_light || form.phos_hilaron || form.invitatory)) {
+  if (asm.sections.some(s => s.name === 'Gathering')) {
     html += `<h2 class="office-section-title">The Gathering of the Community</h2>`;
     let openingResponses = form.opening_responses;
     if (openingResponses?.type === 'shared' && shared)
@@ -1093,7 +1100,7 @@ async function render(dateStr, officeType, translation) {
   }
 
   // Affirmation of Faith closes the Proclamation section (not Prayers).
-  if (form && form.affirmation && form.affirmation.length) {
+  if (asm.sections.some(s => s.name === 'Affirmation')) {
     const mpOrEp = (form.title || '').toLowerCase().startsWith('evening') ? 'Evening' : 'Morning';
     const hasLitany = form.litany && form.litany.length;
     const affirmTransition = hasLitany
@@ -1105,7 +1112,7 @@ async function render(dateStr, officeType, translation) {
   }
 
   // ── Prayers ────────────────────────────────────────────────────────────────
-  if (form && (form.intercessions || form.litany || form.lords_prayer_intro || (form.seasonal_collects && form.seasonal_collects.length) || officeData.collect || (fatsEntry && fatsEntry.collect))) {
+  if (asm.sections.some(s => s.name === 'Prayers')) {
     html += `<h2 class="office-section-title">The Prayers of the Community</h2>`;
     // Day-specific intercession prompts guide the free-prayer period before the formal litany.
     if (form.intercessions && form.intercessions.length)
@@ -1126,7 +1133,7 @@ async function render(dateStr, officeType, translation) {
   }
 
   // ── Sending ────────────────────────────────────────────────────────────────
-  if (form && form.dismissal && form.dismissal.length) {
+  if (asm.sections.some(s => s.name === 'Sending')) {
     html += `<h2 class="office-section-title">The Sending Forth of the Community</h2>`;
     html += `<h3 class="office-subsection-title">The Dismissal</h3>`;
     html += `<div class="liturgy">${renderSegments(form.dismissal, shared, true)}</div>`;
