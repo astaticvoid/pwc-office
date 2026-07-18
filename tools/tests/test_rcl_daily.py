@@ -316,6 +316,15 @@ class TestResolveDate:
 # ── End-to-end: run extraction and validate output ──────────────────────────
 
 class TestExtractionOutput:
+    @pytest.fixture(autouse=True)
+    def _skip_if_no_output(self):
+        output_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            "data", "rcl-daily"
+        )
+        if not os.path.isdir(output_dir):
+            pytest.skip("RCL Daily output not generated (FEATURE_RCL_DAILY=false)")
+
     def test_output_exists(self):
         output_dir = os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
