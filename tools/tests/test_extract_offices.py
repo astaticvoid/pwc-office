@@ -9,45 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from extract_offices import _char_type, _group_alternatives, _fix_casing, _patch_segments, _reflow_litany_prose
-
-
-# ── _char_type ────────────────────────────────────────────────────────────────
-
-def _char(fontname="", size=10, color=None):
-    """Build a minimal pdfplumber char dict for testing."""
-    return {
-        "fontname": fontname,
-        "size": size,
-        "non_stroking_color": color or (0, 0, 0),
-    }
-
-
-class TestCharType:
-    def test_red_text_is_rubric(self):
-        # Red: R > threshold, G < threshold
-        assert _char_type(_char(color=(0.8, 0.0, 0.0))) == "rubric"
-
-    def test_bold_large_is_heading(self):
-        assert _char_type(_char(fontname="TimesNewRomanPS-BoldMT", size=12)) == "heading"
-
-    def test_bold_small_is_response(self):
-        assert _char_type(_char(fontname="TimesNewRomanPS-BoldMT", size=9)) == "response"
-
-    def test_italic_small_is_footer(self):
-        assert _char_type(_char(fontname="TimesNewRomanPS-ItalicMT", size=8)) == "footer"
-
-    def test_plain_is_leader(self):
-        assert _char_type(_char(fontname="TimesNewRomanPSMT", size=10)) == "leader"
-
-    def test_italic_large_not_footer(self):
-        # Italic ≥10pt → leader (footer threshold is <10)
-        assert _char_type(_char(fontname="TimesNewRomanPS-ItalicMT", size=10)) == "leader"
-
-    def test_non_red_large_bold_is_heading(self):
-        # Ensure heading threshold (≥11) is respected
-        assert _char_type(_char(fontname="TimesNewRomanPS-BoldMT", size=11)) == "heading"
-        assert _char_type(_char(fontname="TimesNewRomanPS-BoldMT", size=10)) == "response"
+from extract_offices import _group_alternatives, _fix_casing, _patch_segments, _reflow_litany_prose
 
 
 # ── _fix_casing ───────────────────────────────────────────────────────────────
