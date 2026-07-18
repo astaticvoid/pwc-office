@@ -534,7 +534,7 @@ function psalmWithGloria(citation, shared) {
 
 function gloriaHtml(shared) {
   if (!shared || !shared.doxology) return '';
-  return `<p class="seg-rubric">At the end of the Psalm one of the following may be said or sung.</p>`
+  return `<p class="seg-rubric rubric-book-only">At the end of the Psalm one of the following may be said or sung.</p>`
        + `<div class="psalm-gloria">${renderAlternatives(shared.doxology, shared, 'doxology')}</div>`;
 }
 
@@ -559,7 +559,7 @@ function psalmHtml(officeData, shared) {
     );
     const label = setLabels.join(' or ');
     html += `<h3 class="psalm-heading">${officeLabel}Psalm${allFlat.length > 1 ? 's' : ''}: ${esc(label)}</h3>`;
-    html += `<p class="seg-rubric">A Psalm from the appointed lectionary is said or sung.</p>`;
+    html += `<p class="seg-rubric rubric-book-only">A Psalm from the appointed lectionary is said or sung.</p>`;
     const stateKey = 'pwc-psalmset-' + allFlat.map(p => typeof p === 'object' ? p.citation : p).join('-');
     const idBase = stateKey.replace(/[^a-zA-Z0-9-]/g, '_');
     const saved = parseInt(storageGet(stateKey) || '0');
@@ -590,7 +590,7 @@ function psalmHtml(officeData, shared) {
     const label = psalms.map(p => typeof p === 'object' ? p.citation : p).join(', ');
     html += `<h3 class="psalm-heading">${officeLabel}Psalm${psalms.length > 1 ? 's' : ''}: ${esc(label)}</h3>`;
     if (psalms.length === 1) {
-      html += `<p class="seg-rubric">The following Psalm from the appointed lectionary is said or sung.</p>`;
+      html += `<p class="seg-rubric rubric-book-only">The following Psalm from the appointed lectionary is said or sung.</p>`;
       html += psalmWithGloria(psalms[0], shared);
     } else {
       // Multiple appointed psalms — all said in sequence; tabs let you focus on one.
@@ -1111,7 +1111,7 @@ async function render(dateStr, officeType, translation) {
     const affirmTransition = hasLitany
       ? `${mpOrEp} Prayer continues with an Affirmation of Faith or the Litany.`
       : `${mpOrEp} Prayer continues with the Affirmation of Faith.`;
-    html += `<p class="seg-rubric">${esc(affirmTransition)}</p>`;
+    html += `<p class="seg-rubric rubric-book-only">${esc(affirmTransition)}</p>`;
     html += `<h3 class="office-subsection-title">Affirmation of Faith</h3>`;
     html += `<div class="liturgy">${renderSegments(form.affirmation, shared)}</div>`;
   }
@@ -1125,7 +1125,7 @@ async function render(dateStr, officeType, translation) {
     if (form.litany && form.litany.length) {
       if (form.affirmation && form.affirmation.length) {
         const mpOrEp2 = (form.title || '').toLowerCase().startsWith('evening') ? 'Evening' : 'Morning';
-        html += `<p class="seg-rubric">${esc(mpOrEp2 + ' Prayer continues with the Litany.')}</p>`;
+        html += `<p class="seg-rubric rubric-book-only">${esc(mpOrEp2 + ' Prayer continues with the Litany.')}</p>`;
       }
       html += renderSubsection('The Litany', form.litany, shared);
     }
