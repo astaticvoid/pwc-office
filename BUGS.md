@@ -46,7 +46,6 @@ Now we need to guarantee the rendered output is liturgically right.
 
 - RCL Daily lectionary (feature-gated, data from Nov 2026)
 - Mobile Capacitor build
-- Golden rendering snapshots (defer until rule suite is comprehensive)
 
 ---
 
