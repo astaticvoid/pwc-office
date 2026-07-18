@@ -21,7 +21,9 @@ extract:
 	python3 tools/apply_corrections.py
 	python3 tools/convert_lectionary.py --window 12
 	python3 tools/update_extract_manifest.py
-	git -C data/ add -A && git -C data/ commit -m "extraction $(shell date +%Y-%m-%d)" || true
+	@if [ -z "$$CI" ] && git -C data/ rev-parse --git-dir >/dev/null 2>&1; then \
+	  git -C data/ add -A && git -C data/ commit -m "extraction $(shell date +%Y-%m-%d)" || true; \
+	fi
 
 # Unit tests — no API key needed, always fast.
 test: test-unit test-tools qa
