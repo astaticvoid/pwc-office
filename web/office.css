@@ -572,11 +572,11 @@ body.book-mode .scripture-block sup { display: inline; }
 
 .observance-card {
   display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
-  background: rgba(0,0,0,0.03); border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border); border-left: 3px solid var(--color-accent);
   border-radius: 6px; padding: 0.6rem 0.9rem; margin-bottom: 1.25rem;
   font-family: var(--font-ui); font-size: 0.8rem;
 }
-[data-theme="dark"] .observance-card { background: rgba(255,255,255,0.04); }
 .observance-card-label {
   color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.7rem;
 }
@@ -594,10 +594,10 @@ body.book-mode .scripture-block sup { display: inline; }
 /* ── FATS biographical notice ───────────────────────────────────────────────── */
 .fats-bio {
   margin-bottom: 1.25rem;
-  border: 1px solid var(--color-border); border-radius: 6px;
-  background: rgba(0,0,0,0.02);
+  border: 1px solid var(--color-border); border-left: 3px solid var(--color-accent);
+  border-radius: 6px;
+  background: var(--color-surface);
 }
-[data-theme="dark"] .fats-bio { background: rgba(255,255,255,0.03); }
 .fats-bio-toggle {
   display: block; width: 100%; padding: 0.55rem 0.9rem;
   font-family: var(--font-ui); font-size: 0.8rem; font-weight: 500;
