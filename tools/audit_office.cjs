@@ -6,7 +6,9 @@
  * and flags outliers within peer groups (seasonal MP, seasonal EP,
  * ordinary MP, ordinary EP).
  *
- * Usage: node tools/audit_office.cjs
+ * Usage: node tools/audit_office.cjs [--json]
+ *   Without --json: human-readable output, exits 0 (report only).
+ *   With --json:    JSON to stdout, always exits 0.
  */
 
 const { readFileSync } = require('fs');
@@ -24,6 +26,7 @@ async function main() {
   const { segmentsToJSON } = await import('../web/render.js');
   const offices = JSON.parse(readFileSync(join(root, 'data/offices.json'), 'utf8'));
   const shared  = offices._shared || {};
+  const useJson = process.argv.includes('--json');
 
   const formKeys = Object.keys(offices).filter(k => !k.startsWith('_'));
 
@@ -90,7 +93,6 @@ async function main() {
       for (const form of groupForms) {
         const v = form[metricName];
         if (v === undefined) continue;
-        // Zero values where peers have non-zero should be flagged
         if (v === 0 && m > 0) {
           outliers.push({
             group: groupName, form: form.key, metric: metricName,
@@ -123,7 +125,6 @@ async function main() {
     for (const metricName of boolMetrics) {
       const trues = groupForms.filter(f => f[metricName]).length;
       const falses = groupForms.length - trues;
-      // Flag if minority behavior exists (1-2 forms differ from majority)
       if (trues > 0 && falses > 0 && Math.min(trues, falses) <= 2) {
         const minority = groupForms.filter(f => f[metricName] !== (trues > falses));
         for (const form of minority) {
@@ -140,7 +141,27 @@ async function main() {
     }
   }
 
-  // ── Report ───────────────────────────────────────────────────────────
+  // ── Output ───────────────────────────────────────────────────────────
+  if (useJson) {
+    console.log(JSON.stringify({
+      forms_checked: formKeys.length,
+      groups: Object.entries(groups).map(([name, g]) => ({ name, count: g.length })),
+      outliers: outliers.map(o => ({
+        group: o.group,
+        form: o.form,
+        metric: o.metric,
+        value: o.value,
+        peerMean: o.peerMean,
+        peerStddev: o.peerStddev,
+        zScore: o.zScore,
+        detail: o.detail,
+      })),
+      outlier_count: outliers.length,
+    }, null, 2));
+    process.exit(0);
+  }
+
+  // Human-readable output
   console.log(`Cross-form audit: ${formKeys.length} forms, ${Object.keys(groups).length} peer groups, ${metricNames.length + boolMetrics.length} metrics\n`);
 
   if (outliers.length === 0) {
@@ -148,7 +169,6 @@ async function main() {
     return;
   }
 
-  // Group by form
   const byForm = {};
   for (const o of outliers) {
     if (!byForm[o.form]) byForm[o.form] = [];
@@ -167,8 +187,6 @@ async function main() {
     }
     console.log();
   }
-
-  process.exit(1);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

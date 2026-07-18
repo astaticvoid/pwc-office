@@ -1,0 +1,13 @@
+{
+  "_comment": "Expected structural variance — forms that are structurally different from peers by design, not error.",
+  "expected_outliers": [
+    { "form": "ordinary-saturday-ep", "metric": "totalSegments", "reason": "Saturday EP has extra liturgical content (longer structure)" },
+    { "form": "ordinary-saturday-ep", "metric": "leaderCount", "reason": "Saturday EP has additional leader segments" },
+    { "form": "ordinary-saturday-ep", "metric": "litanySegments", "reason": "Saturday EP litany is longer than weekday EPs" },
+    { "form": "ordinary-sunday-mp", "metric": "rubricCount", "reason": "Sunday MP has additional navigation rubrics" },
+    { "form": "easter-mp", "metric": "rubricCount", "reason": "Easter MP has seasonal liturgical variations" },
+    { "form": "easter-ep", "metric": "rubricCount", "reason": "Easter EP has seasonal liturgical variations" },
+    { "form": "allsaints-mp", "metric": "litanySegments", "reason": "All Saints litany is longer than other seasonal MP forms" },
+    { "form": "pentecost-ep", "metric": "responseCount", "reason": "Pentecost EP has additional seasonal responses" }
+  ]
+}
