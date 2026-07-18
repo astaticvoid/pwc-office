@@ -1,0 +1,80 @@
+name: Nightly Mobile
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # daily at 06:00 UTC
+  workflow_dispatch:       # manual trigger
+
+jobs:
+  android-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Install dependencies
+        run: |
+          npm install
+          python3 -m pip install pymupdf
+
+      - name: Fetch sources
+        run: make fetch-sources
+
+      - name: Extract data
+        run: make extract
+
+      - name: Run full test suite
+        run: make test
+
+      - name: Build dist
+        run: make build
+
+      - name: Setup Android SDK
+        run: |
+          mkdir -p $HOME/Android/cmdline-tools
+          curl -sL https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip -o /tmp/cmdline.zip
+          unzip -qo /tmp/cmdline.zip -d /tmp/cmdline-tools
+          mv /tmp/cmdline-tools/cmdline-tools $HOME/Android/cmdline-tools/latest
+          chmod +x $HOME/Android/cmdline-tools/latest/bin/sdkmanager
+          echo "ANDROID_SDK_ROOT=$HOME/Android" >> $GITHUB_ENV
+          yes | $HOME/Android/cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/Android \
+            "platforms;android-36" "build-tools;36.1.0" "platform-tools" 2>&1 | tail -1
+
+      - name: Capacitor sync
+        run: npx cap sync android
+
+      - name: Build Android APK
+        env:
+          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
+        run: ./gradlew assembleDebug
+        working-directory: android
+
+      - name: Verify APK
+        run: |
+          APK=$(find android/app/build/outputs -name "app-debug.apk" 2>/dev/null | head -1)
+          if [ -f "$APK" ]; then
+            echo "APK built: $(ls -lh $APK | awk '{print $5}')"
+          else
+            echo "ERROR: APK not found"
+            exit 1
+          fi
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-office-nightly
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
