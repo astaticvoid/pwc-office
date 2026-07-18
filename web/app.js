@@ -826,10 +826,10 @@ async function render(dateStr, officeType, translation) {
   else { prevEl.href = hashFor(prevDate, officeType); prevEl.classList.remove('nav-disabled'); }
   if (nextDate > boundsMax) { nextEl.removeAttribute('href'); nextEl.classList.add('nav-disabled'); }
   else { nextEl.href = hashFor(nextDate, officeType); nextEl.classList.remove('nav-disabled'); }
-  document.getElementById('nav-mp').href    = hashFor(dateStr, 'mp');
-  document.getElementById('nav-ep').href    = hashFor(dateStr, 'ep');
-  document.getElementById('nav-mp').classList.toggle('nav-active', officeType === 'mp');
-  document.getElementById('nav-ep').classList.toggle('nav-active', officeType === 'ep');
+  document.getElementById('nav-mp')?.href != null && (document.getElementById('nav-mp').href = hashFor(dateStr, 'mp'));
+  document.getElementById('nav-ep')?.href != null && (document.getElementById('nav-ep').href = hashFor(dateStr, 'ep'));
+  document.getElementById('nav-mp')?.classList.toggle('nav-active', officeType === 'mp');
+  document.getElementById('nav-ep')?.classList.toggle('nav-active', officeType === 'ep');
   document.getElementById('nav-translation').value = translation;
 
   // Header
