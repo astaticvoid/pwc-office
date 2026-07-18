@@ -67,6 +67,20 @@ async function renderOffice(browser, url) {
     }
     walk(content, '');
 
+    // Check elements outside office-content that shouldn't be visible
+    const debugLog = document.getElementById('debug-log');
+    if (debugLog && window.getComputedStyle(debugLog).display !== 'none') {
+      warnings.push('Debug-log panel is visible (should be hidden): ' + debugLog.textContent.trim().slice(0, 120));
+    }
+    // Check for any fixed/sticky elements at page bottom
+    const allFixed = [...document.querySelectorAll('[style*="position:fixed"], [style*="position: sticky"]')];
+    for (const el of allFixed) {
+      const s = window.getComputedStyle(el);
+      if (s.bottom === '0px' && el.id !== 'nav' && el.id !== 'settings-sheet' && el.id !== 'debug-log') {
+        warnings.push('Fixed element at page bottom: id=' + (el.id||'none') + ' ' + el.textContent.trim().slice(0, 80));
+      }
+    }
+
     return { title, errors, lines, warnings };
   });
 
