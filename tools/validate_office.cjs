@@ -188,7 +188,7 @@ async function main() {
           for (let i = 0; i < lines.length - 1; i++) {
             const line = lines[i];
             const trimmed = line.trimEnd();
-            if (trimmed && !/[.?!:]\s*$/.test(trimmed)) {
+            if (trimmed && !/[.,;:!?]\s*$/.test(trimmed)) {
               dumpTexts.push(seg.text.slice(0, 60));
             }
           }
