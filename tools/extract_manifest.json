@@ -1,5 +1,5 @@
 {
-  "extracted_at": "2026-07-18T16:43:54Z",
+  "extracted_at": "2026-07-18T16:47:44Z",
   "tool_versions": {
     "fitz": [
       "1.27.2.3",
@@ -22,7 +22,7 @@
       "entries": 150
     },
     "data/fats/saints.json": {
-      "sha256": "a5eb72082be21e57c45e48e11fe73012525107813d43be837807e5c9d20d2092",
+      "sha256": "76620d88e91d2dd4034736a46e8b755616d7552f526b8ac4f1d54a19a1546148",
       "entries": 173
     },
     "data/lectionary": {
