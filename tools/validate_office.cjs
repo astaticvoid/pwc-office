@@ -37,7 +37,7 @@ async function main() {
     // Sections where verse breaks are intentional liturgical structure
     const verseSections = ['responsory', 'canticle', 'invitatory', 'phos_hilaron',
       'thanksgiving_for_light', 'lords_prayer_intro', 'lords_prayer',
-      'intercessions'];
+      'intercessions', 'affirmation', 'litany'];
     const proseItems = items.filter(i =>
       (i.type === 'leader' || i.type === 'response')
       && !verseSections.includes(i.section)
