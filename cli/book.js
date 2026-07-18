@@ -163,7 +163,7 @@ B.push(text(form.responsory));
 if (lessons[1]) B.push(renderLesson(lessons[1]));
 
 B.push('The Canticle');
-B.push(text(form.canticle, { showLabel: true }));
+B.push(text(form.canticle, { showLabel: true, verse: true }));
 
 // Affirmation
 B.push('Affirmation of Faith');
