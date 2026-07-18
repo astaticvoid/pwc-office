@@ -1,171 +1,84 @@
-# PWC — Bug Tracker
+# PWC — Tracker
 
-_Last updated: 2026-07-11 (36 bugs closed; 0 open)_
+_Last updated: 2026-07-18_
 
-Severity scale: **P0** = data corruption / silent wrong output · **P1** = incorrect content shown to user · **P2** = missing content / broken feature · **P3** = UX issue / cosmetic
+## Active plan
+
+The near-term goal is liturgical quality — ensuring every rendered office is coherent
+and correct for a worshipper. We fixed extraction quality (PyMuPDF replacing pdfplumber).
+Now we need to guarantee the rendered output is liturgically right.
+
+### Done (this session)
+
+- PyMuPDF replaces pdfplumber — single PDF dependency, 85 lines of heuristic code deleted
+- Content-based page detection — no hardcoded page numbers
+- Unified renderer — `render.js` has HTML + text + JSON output modes
+- Correction consolidation — single `corrections.json` (1 active entry)
+- Versioned deploy pipeline — `deploy-staging` → `test-staging` → `promote` → `rollback`
+- Staging on `office-staging.k-sprawl.net`, production on `office.k-sprawl.net`
+- Basic auth with persistent cookie (no per-refresh login)
+- QA tools: `validate_office.cjs` (6 rules), `audit_office.cjs` (14 metrics, 4 peer groups)
+- Compare tool: `compare_staging.cjs` — A/B diff before promotion
+- Review tool: `review_form.cjs` — line-numbered text renderer
+- Systemic fixes: "Amen ." (28/30 forms), Friday EP Phos Hilaron, rubric leakage in office mode
+- NRSVUE fetcher (private repo)
+- Stale docs cleaned: API.Bible, Go, SW caching references removed
+
+### Next
+
+- Structured output for liturgical validators — emit parseable JSON alongside HTML (ADR pattern)
+- Expand rule suite — canticle verse breaks, collect formatting, seasonal coherence
+- Coherence scoring — single number for go/no-go on promote
+- CI gate — wire `validate_office.cjs` + `audit_office.cjs` into `make test`
+- Promote staging to production (user testing in progress)
+
+### Parked
+
+- RCL Daily lectionary (feature-gated, data from Nov 2026)
+- Mobile Capacitor build
+- Golden rendering snapshots (defer until rule suite is comprehensive)
 
 ---
 
-## Field observations — inbox
+## Open issues
 
-_Drop dated observations from real use here; they get triaged into numbered bugs next session. (June 21/23/24 observations triaged 2026-07-05 → BUG-25…31.)_
+### Rendering
 
-_(empty)_
+- Mid-line breaks in prose collects from PDF column layout (affects ~14 dismissal blessings)
+- "N" placeholder renders as bare text in CLI text mode (HTML mode italicises via `render.js`)
+- Canticle verses join with spaces instead of line breaks in text mode
+
+### Extraction
+
+- BAS collect page 281: Ash Wednesday overlaps with Epiphany content (pre-existing)
+- BAS collect page 407: Saint Matthias date parsing (pre-existing)
+
+### Infrastructure
+
+- Staging cache headers need `make build` integration (currently manual S3 upload)
+- Production still on pre-rubric-fix release (user testing staging)
+- No CI — tests are local only
 
 ---
 
-## Open
+## Deploy workflow
 
-### P1 — Incorrect content shown to user
-
-
-### P2 — Missing content / broken feature
-
-### P3 — UX / cosmetic
+```bash
+make deploy-staging          # upload to releases/vTIMESTAMP/ + staging/
+make test-staging             # Playwright smoke
+node tools/compare_staging.cjs [date] [mp|ep]  # eyeball diff
+make promote                  # CloudFront origin-path swap
+make rollback                 # revert to previous release
+```
 
 ---
 
----
+## QA gates
 
-## Closed
-
-**BUG-35: Legacy Playwright E2E suite (`tests/e2e/office.spec.js`) had ~12 stale failures**  
-Fixed 2026-07-09. The nav was redesigned since these tests were written: the ← → arrows are hidden (keyboard-only), `#nav-today` became the brand logo, the MP/EP toggle and observance switch moved into `#day-office-controls` (`.day-ctrl-btn` / `.day-ctrl-seg--obs`), and the observance link now navigates via a `…/alternate` hash. Refreshed the Navigation (date-picker, brand-logo, MP/EP toggle), Alternatives/Translation persistence (visible controls / URL nav), and Observance tests to the current DOM; scoped the reading-response `.alt-tab` count to its own block instead of the whole page. `make test-web` now runs standalone: **104 passed, 4 skipped (desktop-only keyboard on mobile), 0 failed** across chromium + mobile.  
-_Files:_ `tests/e2e/office.spec.js`
-
-**BUG-36: God's Spirit lowercased in 4 responses (found by the casing oracle)**  
-Found & fixed 2026-07-09 by `tools/check_casing.py` (Batch 19.1) on its first run. Four responses read "your spirit" where the PDF (pdftotext ground truth) has "your **Spirit**" (God's Spirit): `lent-mp` opening responses, `pentecost-ep` responsory (×2, Ps 104:30), `ordinary-thursday-ep` litany. `_DIVINE_FIXES` has no standalone `spirit → Spirit` rule (human "spirit" must stay lowercase), so each was added to `_TEXT_PATCHES`. Also extended `_apply_text_patches` to recurse into `alternatives` groups (the lent-mp response lives inside a I/II/III group). Oracle now reports 0 internal mismatches. 3 new pytests.  
-_Files:_ `tools/extract_offices.py`, `tools/tests/test_extract_offices.py`
-
-**BUG-34: `cli/book.js` crashes on the 7 seasonal EP forms**  
-Fixed 2026-07-06. Pre-existing since BUG-23 (confirmed by stashing all Batch-18 work — still crashed): `book.js:215` called `.some` on `form.opening_responses`, which the 7 seasonal EP forms hold as a `{type:"shared"}` object, not an array. Now resolves the whole-field shared ref before use. All 31 forms pass `make check-book` again (which also re-confirms Fix G's reflow caused no collect regression).  
-_Files:_ `cli/book.js`
-
-**BUG-31: MP→EP default switches at 17:00; should be 15:00**  
-Fixed 2026-07-06 (Batch 18 Fix I). `defaultOffice()` at `web/app.js:26` now returns `ep` from `getHours() >= 15`. No test pinned 17.  
-_Files:_ `web/app.js`
-
-**BUG-30: Litany placeholder "N" renders as bare literal**  
-Fixed 2026-07-06 (Batch 18 Fix H). `italicisePlaceholderN` in `render.js` wraps standalone `N` (`\bN\b(?=[ ,.])`) as `<em>N</em>` in already-escaped leader/response HTML only. Renders italic in exactly the 2 instances (ordinary-tuesday-mp and ordinary-saturday-ep litanies); does not touch N inside words. 2 new Vitest cases.  
-_Files:_ `web/render.js`, `tests/unit/render.test.js`
-
-**BUG-29: Collect prose renders with PDF column-width line breaks**  
-Fixed 2026-07-06 (Batch 18 Fix G). Reflowed prose at extraction: `_reflow_leader_prose` joins internal line breaks in `seasonal_collects` leader segments (recursing into alternatives groups; rubric/response lineation preserved), and `extract_collects.py` joins every collect `text`. Collects with internal newlines: 0; seasonal-collect leaders with newlines: 0. Also joined the `\n` in the 8 affected `data/patches.json` entries' `old`/`new` values so they still match post-reflow collects.json and no longer re-introduce wraps. All 31 forms regenerate goldens cleanly (24 pass check-book; the 7 seasonal EP forms hit a pre-existing unrelated crash tracked as BUG-34).  
-_Files:_ `tools/extract_offices.py`, `tools/extract_collects.py`, `data/patches.json`
-
-**BUG-33: "O Antiphon" emitted as a pseudo-lesson on Dec 17–23 evenings**  
-Fixed 2026-07-06 (Batch 18 Fix F). `parse_single_office` now drops any lesson whose citation is exactly "O Antiphon" (RE_O_ANTIPHON), alongside the existing Coll filter. Removed 14 pseudo-lessons across 2025-12 and 2026-12; the antiphons remain as typed `o_antiphon` notes. 1 new pytest.  
-_Files:_ `tools/convert_lectionary.py`, `tools/tests/test_convert_lectionary.py`
-
-**BUG-32: 2026-09-27 EP first lesson is a merged citation**  
-Fixed 2026-07-06 (Batch 18 Fix E). Added `LESSON_FIXES[("2026-09-27","evening")]` splitting `"(2 Kgs 17:1-18), Mt 13:44-52"` into an optional 2 Kgs citation + required Mt (CSV confirmed only two items). Verified after re-extract.  
-_Files:_ `tools/convert_lectionary.py`
-
-**BUG-28: `lessons_pick` unimplemented — "two of the following three readings" shows all 3 with no rubric**  
-Fixed 2026-07-06 (Batch 18 Fix D). Added `lessonsPickText`/`lessonsPickRubricHtml` to `render.js` (number-word generated, e.g. "Two of the following three readings are read."). Wired into `proclamationHtml` (app), `cli/book.js`, and `cli/office.js` — emitted before the first lesson when `lessons_pick < lessons.length`. Uses `seg-rubric` (load-bearing, NOT book-only) since the app has no pick-interaction. Render-only, no data change (12 files / 21 occurrences unchanged). 3 new Vitest cases.  
-_Files:_ `web/render.js`, `web/app.js`, `cli/book.js`, `cli/office.js`, `tests/unit/render.test.js`
-
-**BUG-27: Special-day propers Collect never surfaced**  
-Fixed 2026-07-06 (Batch 18 Fix C). `convert_lectionary.py` now extracts the "Collect of the Day" from the propers `eucharist` blob (RE_COLLECT_OF_DAY) for any day whose offices referenced it via "Coll above/below", and attaches it as a day-level `collect_inline: {name, text}`. A "Coll below" eve resolves the collect from the *next* day's blob (2026-06-20 EP → 2026-06-21 propers, verified). `collectToggleHtml()` renders `collect_inline` as the Collect of the Day when no BAS collect ref exists; `cli/office.js` prints it too. Scope held to the collect only — a general propers/`eucharist` surface, and a consumer for the `observances` field, remain parked (ASSESSMENT §6).  
-_Files:_ `tools/convert_lectionary.py`, `web/app.js`, `cli/office.js`
-
-**BUG-26: "Coll above"/"Coll below" rendered as lesson citations**  
-Fixed 2026-07-05 (Batch 18 Fix B). `parse_single_office` now drops any lesson matching `^Coll (above|below)\b` (RE_COLL_REF) before it reaches the lessons list. Removed the pseudo-lessons from 2026-06-20 EP and 2026-06-21 MP/EP; the collect they point at is surfaced by Fix C (BUG-27). 2 new pytest tests.  
-_Files:_ `tools/convert_lectionary.py`, `tools/tests/test_convert_lectionary.py`
-
-**BUG-25: "Holy One" divine title lowercased in 22 litany responses (incl. wrong BUG-18 "fix")**  
-Fixed 2026-07-05 (Batch 18 Fix A). Added `holy one → Holy One` to `_DIVINE_FIXES` (response segments only); deleted BUG-18's wrong MP lowercasing tuple from `_TEXT_PATCHES` (its four EP continuation tuples stand — pdftotext-verified). Re-extracted; all 22 instances now "Holy One" (grep counts 8/4/5/5, zero lowercase). 2 new pytest tests. Root cause and lesson recorded in `docs/CORRECTNESS.md` (BUG-18 note).  
-_Files:_ `tools/extract_offices.py`, `tools/tests/test_extract_offices.py`
-
-**BUG-02: Season bounds detection uses brittle keyword matching**  
-Fixed 2026-06-14. Added `CANONICAL_BOUNDS_PHRASES` dict; `detect_bounds()` now matches exactly first and emits a `sys.stderr` warning on fuzzy fallback. 4 new pytest tests added. 147 total tool tests passing.  
-_Commits:_ `tools/convert_lectionary.py`, `tools/tests/`
-
-**BUG-09: No offline download UI**  
-Closed 2026-06-14. Won't fix for Synod private beta — SW auto-caches upcoming months; manual download UI not needed at this stage.
-
-**BUG-04: Occasional Prayer alternate collect not displayed**  
-Closed 2026-06-14. Already fixed — `collectSecondaryPage()` and `collectToggleHtml()` in `app.js` already parse "or N, PAGE" refs and display the Occasional Prayer as an additional tab. Data (`collects.json`) and UI both implemented. Bug description was stale.
-
-**BUG-14: EP `opening_responses` duplicated in JSON across 7 seasonal offices**  
-Closed 2026-06-14. Fixed as part of BUG-23 — `_dedup_shared()` extended; all 7 seasonal EP forms now reference `_shared.opening_responses_ep_seasonal`.
-
-**BUG-15: Lectionary notes audit incomplete (pre-2025 years)**  
-Closed 2026-06-14. Won't fix — pre-2025 lectionary data removed from the app. Rolling window starts at 2025-06.
-
-**BUG-05: Cross-reference notes audit (pre-2025 years)**  
-Closed 2026-06-14. Won't fix — same reason as BUG-15. Pre-2025 data no longer exists.
-
-**BUG-13: No first-run preference wizard**  
-Closed 2026-06-14. Won't fix — not applicable. NRSVUE is the standard for this Synod private beta; no translation choice needed on first launch.
-
-**BUG-24: Node CLI silently drops Psalm on feast days with `psalm_sets`**  
-Fixed 2026-06-14. Feast-day morning psalms use `psalm_sets` (array of arrays); CLI now falls back to `psalm_sets?.[0]` when `psalms` is absent.  
-_Commits:_ `cli/office.js`
-
-**BUG-23: All 7 seasonal EP forms silently missing Opening Responses**  
-Fixed 2026-06-14. BUG-14's deduplication stored `opening_responses` as a shared ref dict; `app.js` `.length` check returned undefined → falsy → section skipped. Added shared-ref resolution in `app.js` and `cli/office.js`. Added render-level Vitest tests and pytest regression for all shared-ref fields. All 30 forms now pass correctness audit.  
-_Commits:_ `web/app.js`, `cli/office.js`, `tests/unit/render.test.js`, `tools/tests/test_form_completeness.py`
-
-**BUG-22: Service worker caches stale `index.html` on deploy → blank page**  
-Fixed 2026-06-14. Removed `self.skipWaiting()`; removed `'/'` from SHELL precache; SW never intercepts index.html; removed `controllerchange` reload from `app.js`.  
-_Commits:_ `web/sw.js`, `web/app.js`
-
-**BUG-14: EP `opening_responses` duplicated in JSON across 7 seasonal offices**  
-Fixed 2026-06-14. Extended `_dedup_shared()` to detect and deduplicate identical section-level arrays; all 7 seasonal EP forms now reference `_shared.opening_responses_ep_seasonal`.  
-_Commits:_ `tools/normalize_offices.py`, `data/offices.json`, `tools/extract_manifest.json`
-
-**BUG-21: Node CLI uses wrong lectionary field names**  
-Fixed 2026-06-14. Updated `cli/office.js` to use `psalms`/`lessons` arrays and call `lessonHtml()` per lesson.  
-_Commits:_ `cli/office.js`
-
-**BUG-19: `normalize_offices.py` breaks reading response (all forms) and Lord's Prayer (ordinary-time), and crashes Go CLI**  
-Fixed 2026-06-14. Removed lords_prayer_ordinary normalization block from `normalize_offices.py`; restored `lords_prayer_intro` as inline array in all ordinary-time forms (fixes Go CLI crash and Lord's Prayer rendering). Added shared-ref resolution in `lessonHtml()` / `render.js` before `renderAlternatives()` call (fixes reading response on all forms). Re-extracted data. Added pytest form completeness test and Playwright regression tests.  
-_Commits:_ `tools/normalize_offices.py`, `web/render.js`, `data/offices.json`, `tools/tests/test_form_completeness.py`, `tests/e2e/office.spec.js`
-
-**BUG-20: "Morning Prayer continues" shown in Evening Prayer**  
-Fixed 2026-06-07. `_shared.doxology` segments contained hardcoded "Morning Prayer continues with…" rubrics (PDF artifact). These showed 3× verbatim in EP. Broadened `SKIP_RUBRICS` from `continues with the Lit` to `continues with` so all such navigational rubrics from raw data are stripped. Transitions are emitted programmatically with the correct office name at app.js:1080 and 1096.  
-_Commits:_ `web/app.js`
-
-**BUG-18: Wednesday litany response capitalisation**  
-Fixed 2026-06-07. `_fix_casing` was uppercasing responses that are intentionally lowercase in the PDF. Added `_TEXT_PATCHES` table and `_apply_text_patches()` to `extract_offices.py`; Wednesday MP (×8) and EP (×4) responses corrected. Noted in CORRECTNESS.md.  
-_Commits:_ `tools/extract_offices.py`, `CORRECTNESS.md`
-
-**BUG-12: Python extraction tools had no unit tests**  
-Fixed 2026-06-07. Created `tools/tests/` with 53 pytest tests covering `parse_name_meta`, `parse_psalm_field`, `parse_lesson`, `detect_bounds`, `_char_type`, `_fix_casing`, `_group_alternatives`. Added `make test-tools` target.  
-_Commits:_ `tools/tests/`, `Makefile`
-
-**BUG-11: `validate_lectionary.py` not wired into make**  
-Fixed 2026-06-07. Added `make validate` target.  
-_Commits:_ `Makefile`
-
-**BUG-10: `_BLOCK_SEP_ONLY` consumed canticle doxology intro rubric**  
-Fixed 2026-06-07. `_group_alternatives` now emits the canticle doxology intro as a plain rubric segment before starting the unnamed groups. Removed the `_dedup_shared` workaround that re-inserted hardcoded text.  
-_Commits:_ `tools/extract_offices.py`
-
-**BUG-07: Lectionary notes not rendered by type**  
-Fixed 2026-06-07. O Antiphons render as a liturgical block with Latin title accent and italic body. Civil day and week-of-prayer notes render as muted informational rows with bold day name. Other types use the existing expand-on-read behaviour.  
-_Commits:_ `web/app.js`, `web/office.css`
-
-**BUG-01: JS/Go season logic could diverge silently**  
-Fixed 2026-06-07. Added `TestFormSeasonOf` (24 boundary dates, `season_test.go`) using `fullBounds2026` mirroring `data/season_bounds.json`. Added 11 Playwright `data-season` checks for the same dates. Any future divergence fails whichever side changed.  
-_Commits:_ `season_test.go`, `tests/e2e/office.spec.js`
-
-**BUG-08: Print mode showed only active alt panel**  
-Fixed 2026-06-06. Added `@media print` rules: `.alt-panel-hidden { display: block !important }`, tabs hidden, interactive chrome suppressed.  
-_Commits:_ `web/office.css`
-
-**BUG-17: CANTICLE_SOURCE gaps were silent**  
-Fixed 2026-06-06. Added `console.warn` in `renderAlternatives()` when a named canticle label has no entry in `CANTICLE_SOURCE`.  
-_Commits:_ `web/app.js`
-
-**BUG-16: `boneyard/` directory in repo root**  
-Removed 2026-06-06. Was local-only (not git-tracked).
-
-**BUG-03: READING_RESPONSE fallback used seasonal wording**  
-Fixed 2026-06-06. Group III changed to ordinary-time form. Added `console.warn` for future regression visibility.  
-_Commits:_ `web/app.js`
-
-**BUG-02: Season bounds detection had no validation**  
-Fixed 2026-06-06. Added assertion after `detect_bounds()` — exits loudly if any of 8 required keys are missing.  
-_Commits:_ `tools/convert_lectionary.py`
+```bash
+node tools/validate_office.cjs   # 6 liturgical rules (0 failures expected)
+node tools/audit_office.cjs      # cross-form outlier detection (8 legit outliers)
+make test                         # Vitest (117 tests)
+make test-full                    # 794 structural checks
+make check-integrity              # SHA-256 data integrity
+```
