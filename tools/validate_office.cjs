@@ -143,6 +143,9 @@ async function main() {
 
   // ── Tier 2: Format (penalty: -3) ────────────────────────────────────
 
+  // Sections whose line breaks are intentional liturgical structure.
+  // The no-prose-line-breaks rule skips these.  Must stay in sync with
+  // _VERSE_SECTIONS in tools/extract_offices.py (line ~789).
   const VERSE_SECTIONS = ['opening_responses', 'responsory', 'canticle', 'invitatory',
     'phos_hilaron', 'thanksgiving_for_light', 'lords_prayer_intro', 'lords_prayer',
     'intercessions', 'affirmation', 'litany', 'dismissal'];
@@ -171,6 +174,28 @@ async function main() {
     // Doxology leaders at the end are single-line invocations — fine.
     // Only fail if NO leader has verse breaks.
     return { pass: hasBreaks, detail: hasBreaks ? '' : 'all canticle text is prose-joined (no verse breaks)' };
+  }});
+
+  // Minimum line count per phos_hilaron hymn (including stanza-break blank lines).
+  // A drop indicates _LINE_JOIN in extract_offices.py is incorrectly joining
+  // poetic lines.  Must stay in sync with VERSE_SECTIONS in extract_offices.py
+  // and with the Vitest unit test in tests/unit/render.test.js.
+  const PHOS_MIN_LINES = {
+    'ordinary-sunday-ep':    11, 'ordinary-monday-ep':  14, 'ordinary-tuesday-ep':   9,
+    'ordinary-wednesday-ep': 14, 'ordinary-thursday-ep': 24, 'ordinary-friday-ep':   14,
+    'ordinary-saturday-ep':  19,
+  };
+  rules.push({ name: 'phos-hilaron-line-count', tier: 2, check(form, formKey, data) {
+    const expected = PHOS_MIN_LINES[formKey];
+    if (expected == null) return { pass: true, detail: 'no phos hilaron' };
+    const phos = form.phos_hilaron;
+    if (!phos || !phos.length) return { pass: true, detail: 'no phos hilaron' };
+    for (const seg of phos) {
+      if (seg.type !== 'leader') continue;
+      const count = seg.text.split('\n').length;
+      return { pass: count >= expected, detail: count >= expected ? '' : `${count} lines (expected >= ${expected})` };
+    }
+    return { pass: true, detail: 'no leader segment' };
   }});
 
   rules.push({ name: 'collect-and-dismissal-no-orphan-breaks', tier: 2, check(form, formKey, data) {

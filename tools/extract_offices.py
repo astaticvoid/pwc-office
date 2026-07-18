@@ -786,7 +786,10 @@ def _normalize_whitespace(offices: dict) -> dict:
     # Sections where line breaks are intentional liturgical structure
     # (affirmation verse text, canticle lines, doxology invocations).
     # The line-join regex skips these to preserve intentional verse formatting.
-    _VERSE_SECTIONS = frozenset({'affirmation', 'canticle', 'doxology'})
+    # Keep in sync with: validate_office.cjs VERSE_SECTIONS (line ~146),
+    # validate_office.cjs PHOS_MIN_LINES (line ~177), and the Vitest unit test
+    # phos_hilaron line-count assertion in tests/unit/render.test.js.
+    _VERSE_SECTIONS = frozenset({'affirmation', 'canticle', 'doxology', 'phos_hilaron'})
 
     # Join mid-sentence line breaks from PDF column wrapping.
     # Rule 1: \n + lowercase → always join (no verse text starts lowercase).
@@ -834,6 +837,21 @@ def _normalize_whitespace(offices: dict) -> dict:
                 out.append(s)
         return '\n'.join(out)
 
+    def _fix_phos_hilaron(text):
+        """Insert stanza breaks in Phos Hilaron hymn text (4-line stanzas).
+
+        Insert an extra newline before every 4th line (1-indexed) so stanzas
+        have a visible separation when rendered.  Lines that end with . but are
+        not at a stanza boundary (e.g. line 2 of a 4-line stanza) are left alone.
+        """
+        lines = text.split('\n')
+        out = []
+        for i, line in enumerate(lines):
+            if i > 0 and i % 4 == 0:
+                out.append('')
+            out.append(line)
+        return '\n'.join(out)
+
     def _fix(text, seg_type=None, section_key=None):
         text = text.replace("Amen .", "Amen.")
         text = text.replace(" \n", "\n")
@@ -841,6 +859,8 @@ def _normalize_whitespace(offices: dict) -> dict:
             text = _LINE_JOIN.sub(r" \1", text)
         if seg_type == "leader" and section_key == "canticle":
             text = _fix_canticle_breaks(text)
+        if seg_type == "leader" and section_key == "phos_hilaron":
+            text = _fix_phos_hilaron(text)
         return text
 
     def _walk(segs, section_key=None):
