@@ -157,6 +157,15 @@ Capacitor wraps `dist/` as a native app (`capacitor.config.json`, `webDir: dist`
 
 - **Never edit `data/*.json` directly.** All corrections go through `data/corrections.json` (committed single manifest) or the extraction pipeline. `make check-integrity` validates this — it fails if any data file was touched outside the pipeline.
 - **One logical change per commit.** Push after each commit — don't batch.
+  Each commit should contain a single atomic change that can be understood,
+  reverted, and tested independently. Group related files by concern:
+  - Docs (ADRs, specs) in their own commit
+  - Shared code changes (render.js) with their consumers
+  - Tooling changes in their own commit
+  - Configuration (Makefile) in its own commit
+  - Data pipeline changes (extractor, manifest) in their own commit
+  Never accumulate unrelated changes into a "ball of mud" commit. Each commit
+  message should explain what changed at the concern level, not file-by-file.
 - **Subagent code review before commit.** Every change must be reviewed by a hostile subagent before committing. The subagent checks for bugs, edge cases, silent failures, performance issues, and integration problems. Fix all high-severity findings before committing.
 - **Deploy requires user go-ahead.** Never run `make promote` unprompted. Staging deploys are always safe.
 - **Systemic fixes over patches.** When a bug is found, categorize it: systemic (fix in extractor/renderer), pattern (multiple forms), or data (single form). Fix the root cause so all instances are resolved, not just the one found.
