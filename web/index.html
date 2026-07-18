@@ -132,10 +132,8 @@
     function dbg(m) { dlog.style.display='block'; dlog.textContent += m + '\n'; }
     window.onerror = function(m,s,l,c,e) { dbg('ERROR: '+m+' at '+s+':'+l+':'+c); };
     window.addEventListener('unhandledrejection', function(e) { dbg('PROMISE: '+e.reason); });
-    dbg('index.html loaded');
   </script>
   <script src="capacitor-plugins.js"></script>
-  <script>dbg('plugins loaded, isNative='+!!(window.__pwcPlugins?.Capacitor?.isNativePlatform?.()));</script>
   <script type="module" src="app.js"></script>
 </body>
 </html>
