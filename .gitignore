@@ -70,3 +70,4 @@ tools/.daily_cache/
 # Generated audit artefacts — CLI run outputs and comparison reports
 audit/
 tools/extract_audit_report.txt
+.deploy-latest
