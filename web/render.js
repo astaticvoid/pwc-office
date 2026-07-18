@@ -494,7 +494,9 @@ export function renderSegmentsText(segs, shared, opts = {}) {
       blocks.push({ type: 'label', text });
     } else {
       // leader or response
-      const formatted = opts.verse ? text : text.replace(/\n/g, ' ');
+      let formatted = opts.verse ? text : text.replace(/\n/g, ' ');
+      // Italicise the liturgical "N" placeholder (Name) in text mode
+      formatted = formatted.replace(/\bN\b(?=[ ,.])/g, '(N)');
       blocks.push({ type: 'para', text: formatted });
     }
   }
