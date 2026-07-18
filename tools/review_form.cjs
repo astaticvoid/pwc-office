@@ -89,6 +89,8 @@ if (!form) {
     section('Seasonal Collects', form.seasonal_collects, { joinLines: true });
   }
 
+  if (form.reading_response) section('Reading Response', form.reading_response);
+
   section('Lord\'s Prayer Intro', form.lords_prayer_intro);
   section('Dismissal', form.dismissal);
 
