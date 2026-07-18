@@ -4,7 +4,7 @@
   --font-liturgy: 'EB Garamond', Georgia, 'Times New Roman', serif;
   --font-ui: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
   --line-height: 1.65;
-  --indent: 1.35rem;
+  --indent: 0;
 
   /* ACC / PWC palette */
   --color-bg:          #F4EEDF;
@@ -68,7 +68,6 @@
   --color-brass-on-nav:#D8B968;
 }
 @media (max-width: 520px) {
-  :root { --indent: 0; }
   .seg-leader, .seg-response { line-height: 1.7; }
 }
 
@@ -314,9 +313,8 @@ body {
   transform: translateY(100%);
   transition: transform 0.28s cubic-bezier(0.32,0.72,0,1);
   max-width: 480px; margin: 0 auto;
-  box-shadow: 0 -12px 40px rgba(0,0,0,0.22);
 }
-.settings-sheet[aria-hidden="false"] .settings-panel { transform: translateY(0); }
+.settings-sheet[aria-hidden="false"] .settings-panel { transform: translateY(0); box-shadow: 0 -12px 40px rgba(0,0,0,0.22); }
 
 /* Grip handle */
 .settings-panel::before {
@@ -453,8 +451,7 @@ body {
 .rubric-book-only { display: none; }
 body.book-mode .rubric-book-only { display: block; }
 
-/* Book mode */
-body.book-mode .alt-tabs          { display: none !important; }
+body.book-mode .verse-num { display: inline; }
 body.book-mode .alt-panel         { display: block !important; }
 body.book-mode .alt-panel-hidden  { display: block !important; }
 body.book-mode .alt-panel + .alt-panel::before {
@@ -583,6 +580,9 @@ body.book-mode .alt-panel + .alt-panel::before {
   margin: 0; white-space: pre-wrap;
   font-family: var(--font-liturgy); font-size: 1.12rem; line-height: var(--line-height);
 }
+.psalm-block sup, .scripture-block sup { display: none; }
+body.book-mode .psalm-block sup,
+body.book-mode .scripture-block sup { display: inline; }
 .verse-num {
   font-size: 0.68em; color: var(--color-brass-ink);
   font-family: var(--font-ui);

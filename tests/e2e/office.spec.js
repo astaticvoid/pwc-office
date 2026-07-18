@@ -40,8 +40,8 @@ test.describe('Office loads', () => {
     await expect(page.locator('.psalm-title').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
     // Psalm title should include "Psalm N"
     await expect(page.locator('.psalm-title').first()).toContainText('Psalm');
-    // At least one verse should be rendered
-    await expect(page.locator('.psalm-block sup').first()).toBeVisible();
+    // At least one verse should be rendered (verse numbers hidden in non-book mode)
+    await expect(page.locator('.psalm-block').first()).not.toBeEmpty();
   });
 
   test('morning prayer: no loading spinners remain', async ({ page }) => {
@@ -53,7 +53,7 @@ test.describe('Office loads', () => {
 
   test('morning prayer: scripture fills in without errors', async ({ page }) => {
     await page.goto(MP);
-    await expect(page.locator('.scripture-placeholder sup').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
+    await expect(page.locator('.scripture-block').first()).not.toBeEmpty({ timeout: CONTENT_TIMEOUT });
     await expect(page.locator('.error-msg')).toHaveCount(0);
   });
 
@@ -112,7 +112,7 @@ test.describe('Office loads', () => {
   test('evening prayer loads', async ({ page }) => {
     await page.goto(EP);
     await expect(page).toHaveTitle(/Evening Prayer/);
-    await expect(page.locator('.psalm-block sup').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
+    await expect(page.locator('.psalm-block').first()).not.toBeEmpty({ timeout: CONTENT_TIMEOUT });
     await expect(page.locator('.error-msg')).toHaveCount(0);
   });
 
@@ -374,7 +374,7 @@ test.describe('Date picker', () => {
 test.describe('Translation switch', () => {
   test('switching to KJV re-renders scripture', async ({ page }) => {
     await page.goto(MP);
-    await expect(page.locator('.scripture-placeholder sup').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
+    await expect(page.locator('.scripture-block').first()).not.toBeEmpty({ timeout: CONTENT_TIMEOUT });
     const before = await page.locator('.scripture-placeholder').first().textContent();
 
     await page.locator('#nav-translation').selectOption('kjv');
@@ -387,12 +387,12 @@ test.describe('Translation switch', () => {
 
   test('translation preference persists across navigation', async ({ page }) => {
     await page.goto(MP);
-    await expect(page.locator('.scripture-placeholder sup').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
+    await expect(page.locator('.scripture-block').first()).not.toBeEmpty({ timeout: CONTENT_TIMEOUT });
     await page.locator('#nav-translation').selectOption('kjv');
 
     // Navigate to the next day (arrows are keyboard-only now; go by URL).
     await page.goto('/#/2026-05-18/mp');
-    await expect(page.locator('.scripture-placeholder sup').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
+    await expect(page.locator('.scripture-block').first()).not.toBeEmpty({ timeout: CONTENT_TIMEOUT });
     await expect(page.locator('#nav-translation')).toHaveValue('kjv');
     await expect(page.locator('#scripture-attr')).toContainText('KJV');
   });
