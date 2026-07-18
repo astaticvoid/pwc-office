@@ -284,23 +284,36 @@ def _feast_name_from_page(text: str) -> str:
 def _special_service_heading(text: str) -> str:
     """Detect feast names on special-service pages (no Sentence in standard position)."""
     lines = [l.strip() for l in text.strip().splitlines() if l.strip()]
-    if not lines:
-        return ""
-    first = lines[0]
-    if re.search(r'\b\d{3}\b', first):
-        first = lines[1] if len(lines) > 1 else ""
-    if not first:
-        return ""
-
     if len(lines) < 2:
         return ""
-    second = lines[1]
-    if re.match(
-        r'^(?:This liturgy|On this day|The glory|When the congregation|The Celebration|With the Liturgy)',
-        second,
-    ):
-        if first and not _NOT_HEADING.match(first) and not re.search(r'\b\d{3}\b', first) and len(first) < 80:
-            return first
+
+    desc_pattern = re.compile(
+        r'^(?:This liturgy|On this day|The glory|When the congregation|The Celebration|With the Liturgy)'
+    )
+
+    for i in range(len(lines)):
+        if not desc_pattern.match(lines[i]):
+            continue
+        for j in range(i - 1, -1, -1):
+            candidate = lines[j]
+            if re.search(r'\b\d{3}\b', candidate):
+                continue
+            if candidate[0].islower():
+                continue
+            if candidate[0].isdigit():
+                continue
+            if candidate.endswith(('.', ',')):
+                continue
+            if re.search(r'\b(?:instead of|or to the|or those of|assigned for|may be read)\b', candidate):
+                continue
+            if re.search(r'\w\. [A-Z]', candidate):
+                continue
+            if _NOT_HEADING.match(candidate):
+                continue
+            if len(candidate) > 80:
+                continue
+            return candidate.rstrip(':').rstrip()
+        break
     return ""
 
 
@@ -359,6 +372,16 @@ def date_from_name(name: str) -> str:
     # Exclude dates that are the upper bound of a "between X and Y Month" range.
     m = re.search(rf'(?<! and )\b(\d{{1,2}} (?:{_MONTHS}))\b', name)
     return m.group(1) if m else ""
+
+
+def _date_from_page(text: str) -> str:
+    m = re.search(r'^Sentence$', text, re.MULTILINE)
+    if not m:
+        return ""
+    before = text[: m.start()]
+    last_line = before.strip().rsplit('\n', 1)[-1].strip()
+    dm = re.search(rf'\b(\d{{1,2}} (?:{_MONTHS}))\b', last_line)
+    return dm.group(1) if dm else ""
 
 
 # ── Occasional Prayers extraction ─────────────────────────────────────────────
@@ -433,6 +456,7 @@ def run():
     txt_fallbacks: list[int] = []
 
     current_name = ""
+    current_date = ""
 
     with fitz.open(pdf_path) as pdf:
         total = len(pdf)
@@ -448,6 +472,11 @@ def run():
                 candidate = _special_service_heading(text)
             if candidate:
                 current_name = candidate
+
+            # ── Update current date from page text ────────────────────────
+            page_date = _date_from_page(text)
+            if page_date:
+                current_date = page_date
 
             # ── Extract collect text ──────────────────────────────────────
             collect_text = ""
@@ -465,7 +494,7 @@ def run():
 
             if collect_text:
                 proper = proper_from_name(current_name)
-                date   = date_from_name(current_name)
+                date   = date_from_name(current_name) or current_date
                 entry: dict = {
                     "name":    current_name,
                     "section": section_from_page(book_page),
