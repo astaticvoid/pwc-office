@@ -1,0 +1,17 @@
+[
+  { "date": "2025-12-07", "forms": ["advent-mp", "advent-ep"] },
+  { "date": "2025-12-25", "forms": ["christmas-mp", "christmas-ep"] },
+  { "date": "2026-01-11", "forms": ["epiphany-mp", "epiphany-ep"] },
+  { "date": "2026-03-08", "forms": ["lent-mp", "lent-ep"] },
+  { "date": "2026-03-22", "forms": ["passiontide-mp", "passiontide-ep"] },
+  { "date": "2026-04-12", "forms": ["easter-mp", "easter-ep"] },
+  { "date": "2026-05-31", "forms": ["pentecost-mp", "pentecost-ep"] },
+  { "date": "2025-11-01", "forms": ["allsaints-mp", "allsaints-ep"] },
+  { "date": "2026-07-12", "forms": ["ordinary-sunday-mp", "ordinary-sunday-ep"] },
+  { "date": "2026-07-13", "forms": ["ordinary-monday-mp", "ordinary-monday-ep"] },
+  { "date": "2026-07-14", "forms": ["ordinary-tuesday-mp", "ordinary-tuesday-ep"] },
+  { "date": "2026-07-15", "forms": ["ordinary-wednesday-mp", "ordinary-wednesday-ep"] },
+  { "date": "2026-07-16", "forms": ["ordinary-thursday-mp", "ordinary-thursday-ep"] },
+  { "date": "2026-07-17", "forms": ["ordinary-friday-mp", "ordinary-friday-ep"] },
+  { "date": "2026-07-18", "forms": ["ordinary-saturday-mp", "ordinary-saturday-ep"] }
+]
