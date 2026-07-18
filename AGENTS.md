@@ -149,6 +149,10 @@ Capacitor wraps `dist/` as a native app (`capacitor.config.json`, `webDir: dist`
 
 ---
 
+## Bug tracking
+
+`BUGS.md` is the active tracker for open issues, near-term plan, and parked items. When triaging bugs, note findings there with a date. The "Field observations" inbox section (top of file) is for user reports that need later triage. Batch specs live in `docs/HANDOFF.md`.
+
 ## Hard constraints
 
 - **Never edit `data/*.json` directly.** All corrections go through `data/corrections.json` (committed single manifest) or the extraction pipeline. `make check-integrity` validates this — it fails if any data file was touched outside the pipeline.

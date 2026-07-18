@@ -9,6 +9,8 @@
 | [0005](./0005-single-correction-manifest.md) | Single versioned manifest for all data corrections | Proposed |
 | [0006](./0006-versioned-atomic-deploys.md) | Versioned directory deploys with staged promotion | Proposed |
 | [0007](./0007-service-worker-offline-support.md) | Browser cache and Capacitor bundle for offline support | Proposed |
+| [0008](./0008-full-office-structured-output.md) | Full-office structured JSON output for validators | Proposed |
+| [0009](./0009-automated-liturgical-quality-gating.md) | Automated liturgical quality gating with coherence scoring | Proposed |
 
 ## Status values
 - **Proposed** — decision documented, awaiting review/adoption
@@ -28,9 +30,8 @@ Once Accepted, an ADR can be superseded by a later ADR that explicitly
 references it. Superseded ADRs remain in the repository for historical context.
 Deprecated ADRs are still in effect but are flagged for replacement.
 
-The review gate is: **all 7 Proposed ADRs must become Accepted before
+The review gate is: **all Proposed ADRs must become Accepted before
 implementation of any ADR begins.** This ensures no ADR is implemented against
 the intent of another.
-
 ## Template
 See [0000-template.md](./0000-template.md).
