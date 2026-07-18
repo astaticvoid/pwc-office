@@ -404,7 +404,7 @@ async function renderPsalm(citStr) {
   const titleHtml = `<p class="psalm-title">Psalm ${data.number}${data.title ? ` — ${data.title}` : ''}</p>`;
   const versesHtml = filtered.map(v => {
     const txt = bindMidpoints(esc(v.text));
-    return `<sup>${v.num}</sup> ${txt}`;
+    return `<sup>${v.num} </sup>${txt}`;
   }).join('<br>');
   return `${titleHtml}<p class="psalm-block">${versesHtml}</p>`;
 }
@@ -516,10 +516,6 @@ function renderObservanceCard(officeData, currentObservance) {
 
 // ── Office HTML building ──────────────────────────────────────────────────────
 
-function psalmWithGloria(citation, shared) {
-  return psalmPlaceholder(citation) + gloriaHtml(shared);
-}
-
 function gloriaHtml(shared) {
   if (!shared || !shared.doxology) return '';
   return `<p class="seg-rubric rubric-book-only">At the end of the Psalm one of the following may be said or sung.</p>`
@@ -527,8 +523,8 @@ function gloriaHtml(shared) {
 }
 
 /**
- * Render the psalm section: heading, rubric, and tab panels (All + individual).
- * Handles both psalm_sets (alternative groups) and plain psalms (sequential + multi-tab).
+ * Render the psalm section: heading, rubric, and all psalms in sequence.
+ * Handles both psalm_sets (alternative groups) and plain psalms.
  * @param {object} officeData - morning|evening office object from lectionary JSON
  * @param {object} shared - offices._shared
  * @returns {string} HTML string
@@ -539,8 +535,6 @@ function psalmHtml(officeData, shared) {
   const officeLabel = officeData.label ? `${esc(officeData.label)} — ` : '';
   let html = '';
   if (psalmSets && psalmSets.length) {
-    // psalm_sets: alternative groups (e.g. [59, 60] or 19, 46).
-    // Add an "All" tab so the user can see every psalm; individual set tabs follow.
     const allFlat = psalmSets.flat();
     const setLabels = psalmSets.map(set =>
       set.map(p => { const c = typeof p === 'object' ? p.citation : p; return (typeof p === 'object' && p.optional) ? `[${c}]` : c; }).join(', ')
@@ -548,67 +542,18 @@ function psalmHtml(officeData, shared) {
     const label = setLabels.join(' or ');
     html += `<h3 class="psalm-heading">${officeLabel}Psalm${allFlat.length > 1 ? 's' : ''}: ${esc(label)}</h3>`;
     html += `<p class="seg-rubric rubric-book-only">A Psalm from the appointed lectionary is said or sung.</p>`;
-    const stateKey = 'pwc-psalmset-' + allFlat.map(p => typeof p === 'object' ? p.citation : p).join('-');
-    const idBase = stateKey.replace(/[^a-zA-Z0-9-]/g, '_');
-    const saved = parseInt(storageGet(stateKey) || '0');
-    const active = Math.min(Math.max(0, saved), psalmSets.length); // 0 = All
-    const tabsHtml = [
-      `<button class="alt-tab${active === 0 ? ' alt-tab-active' : ''}" role="tab" aria-selected="${active === 0}" aria-controls="${idBase}-panel-0" id="${idBase}-tab-0" data-idx="0" data-key="${esc(stateKey)}">All</button>`
-    ].concat(psalmSets.map((set, si) => {
-      const lbl = setLabels[si];
-      const i = si + 1;
-      return `<button class="alt-tab${i === active ? ' alt-tab-active' : ''}" role="tab" aria-selected="${i === active}" aria-controls="${idBase}-panel-${i}" id="${idBase}-tab-${i}" data-idx="${i}" data-key="${esc(stateKey)}">${esc(lbl)}</button>`;
-    })).join('');
-    // Panel 0: all psalms in sequence
-    let allHtml = '';
-    allFlat.forEach(p => { allHtml += psalmPlaceholder(p); });
-    allHtml += gloriaHtml(shared);
-    html += `<div class="alt-block"><div class="alt-tabs" role="tablist">${tabsHtml}</div>`;
-    html += `<div class="alt-panel${active !== 0 ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-0" aria-labelledby="${idBase}-tab-0" data-idx="0">${allHtml}</div>`;
-    // Panels 1…N: individual sets
-    psalmSets.forEach((set, si) => {
-      const i = si + 1;
-      let setHtml = '';
-      set.forEach(p => { setHtml += psalmPlaceholder(p); });
-      setHtml += gloriaHtml(shared);
-      html += `<div class="alt-panel${i !== active ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-${i}" aria-labelledby="${idBase}-tab-${i}" data-idx="${i}">${setHtml}</div>`;
-    });
-    html += `</div>`;
+    allFlat.forEach(p => { html += psalmPlaceholder(p); });
+    html += gloriaHtml(shared);
   } else if (psalms.length) {
     const label = psalms.map(p => typeof p === 'object' ? p.citation : p).join(', ');
     html += `<h3 class="psalm-heading">${officeLabel}Psalm${psalms.length > 1 ? 's' : ''}: ${esc(label)}</h3>`;
-    if (psalms.length === 1) {
-      html += `<p class="seg-rubric rubric-book-only">The following Psalm from the appointed lectionary is said or sung.</p>`;
-      html += psalmWithGloria(psalms[0], shared);
-    } else {
-      // Multiple appointed psalms — all said in sequence; tabs let you focus on one.
-      const stateKey = 'pwc-psalm-' + psalms.map(p => typeof p === 'object' ? p.citation : p).join('-');
-      const idBase = stateKey.replace(/[^a-zA-Z0-9-]/g, '_');
-      const saved = parseInt(storageGet(stateKey) || '0');
-      const active = Math.min(Math.max(0, saved), psalms.length); // 0 = All
-      const tabsHtml = [
-        `<button class="alt-tab${active === 0 ? ' alt-tab-active' : ''}" role="tab" aria-selected="${active === 0}" aria-controls="${idBase}-panel-0" id="${idBase}-tab-0" data-idx="0" data-key="${esc(stateKey)}">All</button>`
-      ].concat(psalms.map((p, i) => {
-        const c = typeof p === 'object' ? p.citation : p;
-        const tabIdx = i + 1;
-        return `<button class="alt-tab${tabIdx === active ? ' alt-tab-active' : ''}" role="tab" aria-selected="${tabIdx === active}" aria-controls="${idBase}-panel-${tabIdx}" id="${idBase}-tab-${tabIdx}" data-idx="${tabIdx}" data-key="${esc(stateKey)}">Psalm ${esc(c)}</button>`;
-      })).join('');
+    if (psalms.length > 1) {
       html += `<p class="seg-rubric rubric-book-only">The following Psalms from the appointed lectionary are said or sung.</p>`;
-      html += `<div class="alt-block"><div class="alt-tabs" role="tablist">${tabsHtml}</div>`;
-      // Panel 0: all psalms in sequence
-      let allHtml = '';
-      psalms.forEach(p => { allHtml += psalmPlaceholder(p); });
-      allHtml += gloriaHtml(shared);
-      html += `<div class="alt-panel${active !== 0 ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-0" aria-labelledby="${idBase}-tab-0" data-idx="0">${allHtml}</div>`;
-      // Panels 1…N: individual psalms
-      psalms.forEach((p, i) => {
-        const tabIdx = i + 1;
-        html += `<div class="alt-panel${tabIdx !== active ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-${tabIdx}" aria-labelledby="${idBase}-tab-${tabIdx}" data-idx="${tabIdx}">`;
-        html += psalmWithGloria(p, shared);
-        html += `</div>`;
-      });
-      html += `</div>`;
+    } else {
+      html += `<p class="seg-rubric rubric-book-only">The following Psalm from the appointed lectionary is said or sung.</p>`;
     }
+    psalms.forEach(p => { html += psalmPlaceholder(p); });
+    html += gloriaHtml(shared);
   }
   return html;
 }
@@ -1212,7 +1157,7 @@ function fillScripture(root, translation) {
 
       const allVerses = ranges.flatMap(r => extractVerses(bookData, r));
       const versesHtml = allVerses.map(({ v, text }) =>
-        `<sup>${v}</sup> ${esc(text)}`
+        `<sup>${v} </sup>${esc(text)}`
       ).join('<br>');
       el.innerHTML = `<p class="scripture-block">${versesHtml}</p>`;
       // UX-08: Inform the user when the preferred translation was unavailable.
