@@ -30,16 +30,7 @@ jobs:
         run: make fetch-sources
 
       - name: Extract data
-        run: |
-          python3 tools/extract_offices.py
-          python3 tools/normalize_offices.py
-          python3 tools/extract_psalter.py
-          python3 tools/extract_collects.py || true
-          python3 tools/validate_corrections.py
-          python3 tools/apply_corrections.py
-          python3 tools/convert_lectionary.py --window 12
-          python3 tools/update_extract_manifest.py
-        # extract_collects has known failures (BUGS.md): Ash Wednesday p.281, Matthias p.407
+        run: make extract
 
       - name: Full test suite
         run: make test
