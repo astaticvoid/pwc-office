@@ -76,11 +76,11 @@ export const CANTICLE_SOURCE = {
 
 // Rubrics that are section-navigation cues in the printed book but are either
 // rendered as explicit headings or added programmatically as inter-section transitions.
-export const SKIP_RUBRICS = /^(Affirmation of Faith|[Tt]he Lord'?s Prayer)\.?\s*$|may conclude with|^The (Responsory|Litany) is said or sung\./i;
+export const SKIP_RUBRICS = /^(Affirmation of Faith|[Tt]he Lord['\u2019]?s Prayer)\.?\s*$|may conclude with|^The (Responsory|Litany) is said or sung\./i;
 
 // Rubrics that are book-navigation instructions (pick one, introduces a section,
 // etc.) — noisy in the interactive app but needed in flat book mode.
-export const BOOK_ONLY_RUBRICS = /one of the following may be said or sung|the following psalms|at the end of the (psalm|canticle)|after the (psalm|canticle)|may be said or sung\.|one of the following affirmations|continues with|Evening Prayer continues/i;
+export const BOOK_ONLY_RUBRICS = /one of the following may be said or sung|the following psalms|at the end of the (psalm|canticle)|after the (psalm|canticle)|may be said or sung\.|one of the following affirmations|continues with|Evening Prayer continues|The community may offer|may be offered silently/i;
 
 // Exported so app.js can use them in collectToggleHtml without re-declaration.
 export const SC_HEADER = /^Additional\s+intercessions/i;
@@ -557,4 +557,259 @@ export function segmentsToJSON(form, shared) {
     }
   }
   return items;
+}
+
+/**
+ * Extracts the Occasional Prayer page number from collect refs like:
+ *   "344 or 8, 677 (The King)"     → "677"  (prayer-number,page format)
+ *   "378 or 17, 680 (Labour Day)"  → "680"
+ *   "365 or 413 or FAS 211"        → "413"  (bare page before another or/FAS)
+ * Returns null when no secondary page is present.
+ */
+export function collectSecondaryPage(ref) {
+  const s = ref.replace(/\([^)]*\)/g, '');
+  let m = /\bor\s+\d+,\s+(\d+)/.exec(s);
+  if (m) return m[1];
+  m = /\bor\s+(\d{3,})\b/.exec(s);
+  return m ? m[1] : null;
+}
+
+// ── Full-office structured output ─────────────────────────────────────────
+
+function resolveSharedRef(field, shared) {
+  if (field && typeof field === 'object' && field.type === 'shared' && shared)
+    return shared[field.key] || field;
+  return field;
+}
+
+function flattenSegs(segs, shared) {
+  if (!segs) return [];
+  const resolved = resolveSharedRef(segs, shared);
+  const arr = Array.isArray(resolved) ? resolved : [];
+  const items = [];
+  for (const event of walkSegments(arr, shared)) {
+    if (event.type === 'segment') {
+      const seg = event.seg;
+      if (seg.text && seg.text.trim()) {
+        items.push({ section: '', type: seg.type, text: seg.text.trim() });
+      }
+    }
+  }
+  return items;
+}
+
+/**
+ * Assemble a full office as structured JSON, mirroring the section
+ * assembly in web/app.js:render(). Consumed by validators and audit tools.
+ *
+ * @param {Object} cfg
+ * @param {Object} cfg.form       - office form from offices.json
+ * @param {Object} cfg.shared     - offices._shared
+ * @param {Object} cfg.officeData - morning|evening from lectionary
+ * @param {string} cfg.officeType - 'mp' | 'ep'
+ * @param {string} cfg.season     - liturgical season
+ * @param {number} cfg.weekIdx    - week index within season
+ * @param {Object} [cfg.fatsEntry] - optional FATS entry
+ * @param {Object} [cfg.collects]  - collects.json data (for Occasional Prayer lookup)
+ * @param {string} [cfg.collectRef] - BAS page ref from officeData.collect
+ * @param {Object} [cfg.collectInline] - day-level {name,text} from collect_inline
+ * @returns {Object} OfficeJSON
+ */
+export function renderOfficeJSON(cfg) {
+  const { form, shared, officeData, officeType, season, weekIdx,
+          fatsEntry, collects, collectRef, collectInline } = cfg;
+
+  // Shared refs used across sections
+  const doxology = shared && shared.doxology;
+  const readingResponse = form && form.reading_response;
+
+  const sections = [];
+
+  // ── Gathering ──────────────────────────────────────────────────────
+  const hasGathering = form && (
+    form.opening_responses ||
+    (form.thanksgiving_for_light && form.thanksgiving_for_light.length) ||
+    (form.phos_hilaron && form.phos_hilaron.length) ||
+    (form.invitatory && form.invitatory.length)
+  );
+
+  if (hasGathering) {
+    const g = { name: 'Gathering', visible: true, subsections: [], dynamic: {} };
+
+    const openingResolved = resolveSharedRef(form.opening_responses, shared);
+    if (Array.isArray(openingResolved) && openingResolved.length) {
+      g.subsections.push({
+        label: 'Introductory Responses',
+        segments: flattenSegs(form.opening_responses, shared),
+      });
+    }
+
+    if (form.thanksgiving_for_light && form.thanksgiving_for_light.length) {
+      g.subsections.push({
+        label: 'Thanksgiving for Light',
+        segments: flattenSegs(form.thanksgiving_for_light, shared),
+      });
+      g.dynamic.thanksgivingForLightPresent = true;
+    }
+
+    if (form.phos_hilaron && form.phos_hilaron.length) {
+      const items = flattenSegs(form.phos_hilaron, shared);
+      g.subsections.push({ label: 'Phos Hilaron', segments: items });
+      g.dynamic.phosHilaronPresent = true;
+    }
+
+    if (form.invitatory && form.invitatory.length) {
+      g.subsections.push({
+        label: 'Invitatory Psalm',
+        segments: flattenSegs(form.invitatory, shared),
+      });
+      g.dynamic.invitatory = { citation: form.invitatory[0] ? (form.invitatory[0].text || '').slice(0, 80) : '' };
+    }
+
+    sections.push(g);
+  }
+
+  // ── Proclamation ───────────────────────────────────────────────────
+  const lessons = officeData.lessons || [];
+  const psalms = officeData.psalms || [];
+  const psalmSets = officeData.psalm_sets;
+
+  const p = { name: 'Proclamation', visible: true, subsections: [], dynamic: {} };
+
+  p.dynamic.psalms = psalms.length ? psalms.map(c => typeof c === 'object' ? c : { citation: c }) : undefined;
+  p.dynamic.psalmSets = psalmSets
+    ? psalmSets.map(set => set.map(c => typeof c === 'object' ? c : { citation: c }))
+    : undefined;
+  p.dynamic.psalmDoxologyPresent = !!(doxology && (psalms.length || (psalmSets && psalmSets.length)));
+  p.dynamic.readings = lessons.map(l => ({
+    citation: typeof l === 'object' ? l.citation : l,
+    optional: !!(typeof l === 'object' && l.optional),
+  }));
+  p.dynamic.readingResponsePresent = !!(readingResponse);
+  if (officeData.lessons_pick)
+    p.dynamic.lessonsPick = { pick: officeData.lessons_pick, total: lessons.length };
+
+  // Responsory
+  if (form && form.responsory) {
+    p.subsections.push({
+      label: 'The Responsory',
+      segments: flattenSegs(form.responsory, shared),
+    });
+  }
+
+  // Canticle
+  if (form && form.canticle) {
+    p.subsections.push({
+      label: 'The Canticle',
+      segments: flattenSegs(form.canticle, shared),
+    });
+    // Extract the canticle label from the alternatives structure
+    const canticleResolved = resolveSharedRef(form.canticle, shared);
+    if (Array.isArray(canticleResolved) && canticleResolved.length) {
+      const alt = canticleResolved.find(s => s.type === 'alternatives');
+      if (alt && alt.groups && alt.groups[0]) {
+        p.dynamic.canticleLabel = alt.groups[0].label || null;
+      }
+    }
+  }
+
+  sections.push(p);
+
+  // ── Affirmation ────────────────────────────────────────────────────
+  if (form && form.affirmation && form.affirmation.length) {
+    const a = { name: 'Affirmation', visible: true, subsections: [], dynamic: {} };
+    a.subsections.push({
+      label: 'Affirmation of Faith',
+      segments: flattenSegs(form.affirmation, shared),
+    });
+    a.dynamic.hasAffirmation = true;
+    sections.push(a);
+  }
+
+  // ── Prayers ────────────────────────────────────────────────────────
+  const hasPrayers = form && (
+    (form.intercessions && form.intercessions.length) ||
+    (form.litany && form.litany.length) ||
+    (form.lords_prayer_intro && form.lords_prayer_intro.length) ||
+    (form.seasonal_collects && form.seasonal_collects.length) ||
+    officeData.collect ||
+    (fatsEntry && fatsEntry.collect) ||
+    collectInline
+  );
+
+  if (hasPrayers) {
+    const pr = { name: 'Prayers', visible: true, subsections: [], dynamic: {} };
+
+    // Intercessions
+    if (form.intercessions && form.intercessions.length) {
+      const items = flattenSegs(form.intercessions, shared);
+      pr.subsections.push({ label: 'Intercessions and Thanksgivings', segments: items });
+      pr.dynamic.intercessionsCount = items.length;
+    }
+
+    // Litany
+    if (form.litany && form.litany.length) {
+      const items = flattenSegs(form.litany, shared);
+      pr.subsections.push({ label: 'The Litany', segments: items });
+      pr.dynamic.litanyLeaderCount = items.filter(i => i.type === 'leader').length;
+      pr.dynamic.litanyResponseCount = items.filter(i => i.type === 'response').length;
+    }
+
+    // Collect
+    const seasonalSegs = form.seasonal_collects
+      ? filterSeasonalCollects(form.seasonal_collects, weekIdx || 0)
+      : [];
+    const seasonalItems = flattenSegs(seasonalSegs, shared);
+    pr.dynamic.collectSeasonalItems = seasonalItems;
+
+    if (collectRef) {
+      pr.dynamic.collectRef = collectRef;
+      // Occasional Prayer alternate from collect ref (e.g. "344 or 8, 677")
+      const occPage = collectSecondaryPage(collectRef);
+      if (occPage && collects && collects[occPage]) {
+        pr.dynamic.collectOccasional = {
+          page: parseInt(occPage),
+          name: collects[occPage].name || '',
+          text: collects[occPage].text || '',
+        };
+      }
+    }
+    if (collectInline) {
+      pr.dynamic.collectInline = { name: collectInline.name, text: collectInline.text };
+    }
+    if (fatsEntry && fatsEntry.collect) {
+      pr.dynamic.collectFatsFallback = true;
+    }
+
+    // Lord's Prayer
+    if (form.lords_prayer_intro && form.lords_prayer_intro.length) {
+      pr.subsections.push({
+        label: "The Lord's Prayer",
+        segments: flattenSegs(form.lords_prayer_intro, shared),
+      });
+      pr.dynamic.lordsPrayerPresent = true;
+    }
+
+    sections.push(pr);
+  }
+
+  // ── Sending ────────────────────────────────────────────────────────
+  if (form && form.dismissal && form.dismissal.length) {
+    const s = { name: 'Sending', visible: true, subsections: [], dynamic: {} };
+    const items = flattenSegs(form.dismissal, shared);
+    s.subsections.push({ label: 'The Dismissal', segments: items });
+    s.dynamic.dismissalContainsAmen = items.some(i => i.text.includes('Amen'));
+    sections.push(s);
+  }
+
+  return {
+    meta: {
+      officeType: officeType,
+      season: season,
+      formKey: form._key || '',
+      weekIdx: weekIdx || 0,
+      hasAlternateObservance: !!(officeData.alternate),
+    },
+    sections,
+  };
 }

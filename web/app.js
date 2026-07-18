@@ -5,6 +5,7 @@ import {
   filterSeasonalCollects, renderAlternatives, renderSegments, renderSubsection,
   lessonHtml, lessonsPickRubricHtml, bindMidpoints, parseCitation,
   READING_RESPONSE, CANTICLE_SOURCE, SKIP_RUBRICS, SC_HEADER, SC_FOOTER,
+  collectSecondaryPage,
 } from './render.js';
 
 // ── Data path ─────────────────────────────────────────────────────────────────
@@ -275,19 +276,6 @@ function rclDayToOffice(rclDay, track) {
 function collectPageNum(ref) {
   const m = /\d+/.exec(ref);
   return m ? m[0] : null;
-}
-
-// Extracts the Occasional Prayer page number from refs like:
-//   "344 or 8, 677 (The King)"     → "677"  (prayer-number,page format)
-//   "378 or 17, 680 (Labour Day)"  → "680"
-//   "365 or 413 or FAS 211"        → "413"  (bare page before another or/FAS)
-// Returns null when no secondary page is present.
-function collectSecondaryPage(ref) {
-  const s = ref.replace(/\([^)]*\)/g, ''); // strip (Com: ...) and similar asides
-  let m = /\bor\s+\d+,\s+(\d+)/.exec(s);
-  if (m) return m[1];
-  m = /\bor\s+(\d{3,})\b/.exec(s);
-  return m ? m[1] : null;
 }
 
 function lookupCollect(collects, ref) {

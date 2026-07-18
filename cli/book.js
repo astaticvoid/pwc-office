@@ -181,10 +181,12 @@ B.push('The Collect');
 B.push(`[Collect of the Day: ${dateStr}]`);
 B.push(text(form.seasonal_collects, { joinLines: true }));
 
-// Sending Forth
-B.push('The Sending Forth of the Community');
+// Lord's Prayer (within Prayers, matching web app structure)
 B.push("The Lord's Prayer");
 B.push(text(form.lords_prayer_intro));
+
+// Sending Forth
+B.push('The Sending Forth of the Community');
 B.push('The Dismissal');
 B.push(text(form.dismissal));
 

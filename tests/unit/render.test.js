@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
   formKey, officeFormSeason, renderSegments, renderSubsection, lessonHtml, filterSeasonalCollects,
-  lessonsPickText, lessonsPickRubricHtml
+  lessonsPickText, lessonsPickRubricHtml, renderOfficeJSON
 } from '../../web/render.js';
 
 const offices = JSON.parse(readFileSync(join(import.meta.dirname, '../../data/offices.json'), 'utf8'));
@@ -181,5 +181,106 @@ describe('verse rendering preserves leader line breaks', () => {
     expect(html).toContain('light<br>of Christ');
     expect(html).toContain('seg-response');
     expect(html).toContain('Amen.');
+  });
+});
+
+// ── Sync test: renderOfficeJSON vs renderSegments ────────────────────────
+
+describe('renderOfficeJSON sync with renderSegments', () => {
+  const form = offices['ordinary-sunday-mp'];
+  if (!form) { test.todo('ordinary-sunday-mp form missing'); return; }
+
+  const cfg = {
+    form,
+    shared,
+    officeData: { psalms: [{ citation: '145' }], lessons: [{ citation: 'Isaiah 55:1-5' }] },
+    officeType: 'mp',
+    season: 'OrdinaryTime',
+    weekIdx: 0,
+  };
+
+  const json = renderOfficeJSON(cfg);
+
+  test('produces expected sections', () => {
+    const names = json.sections.map(s => s.name);
+    expect(names).toContain('Gathering');
+    expect(names).toContain('Proclamation');
+    expect(names).toContain('Prayers');
+    expect(names).toContain('Sending');
+    // Ordinary Sunday MP has no Affirmation
+  });
+
+  test('subsection segments render to HTML without errors', () => {
+    // The JSON path extracts leaf segments via walkSegments.
+    // The HTML path renders the original form segment arrays via renderSegments.
+    // We verify: for every subsection in the JSON, the same form field
+    // produces non-empty HTML when rendered.
+    const fieldToLabel = {
+      opening_responses: 'Introductory Responses',
+      responsory: 'The Responsory',
+      canticle: 'The Canticle',
+      intercessions: 'Intercessions and Thanksgivings',
+      litany: 'The Litany',
+      lords_prayer_intro: "The Lord's Prayer",
+      dismissal: 'The Dismissal',
+      phos_hilaron: 'Phos Hilaron',
+      invitatory: 'Invitatory Psalm',
+      thanksgiving_for_light: 'Thanksgiving for Light',
+      affirmation: 'Affirmation of Faith',
+    };
+
+    for (const section of json.sections) {
+      for (const sub of section.subsections) {
+        // Find the corresponding form field
+        const field = Object.entries(fieldToLabel).find(([, label]) => label === sub.label);
+        if (!field) continue;
+        const formField = form[field[0]];
+        if (!formField || !formField.length) continue;
+        const verse = ['The Responsory', 'The Canticle', 'The Dismissal',
+          'Invitatory Psalm', 'Thanksgiving for Light', 'Phos Hilaron',
+          "The Lord's Prayer"].includes(sub.label);
+        const html = renderSegments(formField, shared, verse);
+        // Verify HTML is non-empty
+        expect(html.length).toBeGreaterThan(0);
+        // Verify the JSON segment count is within 2 of HTML paragraph count
+        // (Amen splitting can add paragraphs in HTML)
+        const paraCount = (html.match(/<p\b/g) || []).length;
+        expect(paraCount).toBeGreaterThan(0);
+        // Loose check: both paths produce similar amounts of content
+        expect(Math.abs(paraCount - sub.segments.length)).toBeLessThanOrEqual(3);
+      }
+    }
+  });
+
+  test('dynamic fields populated', () => {
+    const proc = json.sections.find(s => s.name === 'Proclamation');
+    expect(proc.dynamic.readings).toHaveLength(1);
+    expect(proc.dynamic.readings[0].citation).toBe('Isaiah 55:1-5');
+    expect(proc.dynamic.psalms).toHaveLength(1);
+    expect(proc.dynamic.psalmDoxologyPresent).toBe(true);
+    expect(proc.dynamic.readingResponsePresent).toBe(true);
+  });
+
+  test('meta fields', () => {
+    expect(json.meta.officeType).toBe('mp');
+    expect(json.meta.season).toBe('OrdinaryTime');
+    expect(json.meta.hasAlternateObservance).toBe(false);
+  });
+
+  test('dismissal has amen', () => {
+    const sending = json.sections.find(s => s.name === 'Sending');
+    expect(sending.dynamic.dismissalContainsAmen).toBe(true);
+  });
+
+  test('EP has light section', () => {
+    const epForm = offices['ordinary-sunday-ep'];
+    if (!epForm) return;
+    const epJson = renderOfficeJSON({
+      form: epForm, shared,
+      officeData: {},
+      officeType: 'ep', season: 'OrdinaryTime', weekIdx: 0,
+    });
+    const gath = epJson.sections.find(s => s.name === 'Gathering');
+    expect(gath.dynamic.phosHilaronPresent || gath.dynamic.thanksgivingForLightPresent).toBe(true);
   });
 });
