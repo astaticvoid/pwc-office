@@ -1,5 +1,5 @@
 {
-  "extracted_at": "2026-07-18T17:24:21Z",
+  "extracted_at": "2026-07-18T17:42:04Z",
   "tool_versions": {
     "fitz": [
       "1.27.2.3",
@@ -26,7 +26,7 @@
       "entries": 173
     },
     "data/lectionary": {
-      "sha256": "bc66faae39e788e9977b353af0b5b36229f723bfd9c453334dfd9bf479160f65",
+      "sha256": "fef87072e220b26457eb41d698be36a301e4e535906f329976f326aa17d38912",
       "months": 14
     }
   }
