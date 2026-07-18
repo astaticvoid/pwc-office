@@ -520,3 +520,41 @@ export function blocksToString(blocks) {
   }
   return parts.join('\n\n');
 }
+
+// ── Structured output for validation ───────────────────────────────────────
+
+/**
+ * Walk segments and emit a flat JSON array of annotated leaf items.
+ * Each item has { type, text, section } — parseable without HTML.
+ * Validators consume this output instead of parsing rendered HTML.
+ *
+ * @param {Object} form - office form data (from offices.json)
+ * @param {Object} shared - _shared reference map
+ * @returns {Array<{section:string, type:string, text:string}>}
+ */
+export function segmentsToJSON(form, shared) {
+  const items = [];
+  for (const [sectionKey, segs] of Object.entries(form)) {
+    if (sectionKey.startsWith('_')) continue;
+    if (sectionKey === 'title' || sectionKey === 'subtitle') continue;
+    // Resolve shared refs at the top level (EP forms store opening_responses as {type:'shared',key:'...'})
+    let resolved = segs;
+    if (segs && typeof segs === 'object' && segs.type === 'shared' && shared) {
+      resolved = shared[segs.key] || segs;
+    }
+    if (!Array.isArray(resolved)) continue;
+    for (const event of walkSegments(resolved, shared)) {
+      if (event.type === 'segment') {
+        const seg = event.seg;
+        if (seg.text && seg.text.trim()) {
+          items.push({
+            section: sectionKey,
+            type: seg.type,
+            text: seg.text.trim(),
+          });
+        }
+      }
+    }
+  }
+  return items;
+}
