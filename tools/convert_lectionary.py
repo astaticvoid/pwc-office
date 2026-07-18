@@ -610,6 +610,9 @@ RE_COLL_REF = re.compile(r"^Coll (above|below)\b")
 # "O Antiphon" leaks from the CSV into the lessons array on Dec 17–23 (BUG-33);
 # the antiphon is already delivered as a typed o_antiphon note. Not a lesson.
 RE_O_ANTIPHON = re.compile(r"^O Antiphon$")
+# "Preface of a Saint" / "Preface of a Martyr" etc. — Eucharistic rubrics that
+# occasionally leak into the lessons array via the Br/Or alternative separator.
+RE_PREFACE = re.compile(r"(?i)^Preface of")
 
 # Collect of the Day inside a eucharist propers blob (BUG-27). The blob runs
 # "… Collect of the Day: <text> Amen <next heading>: …".
@@ -663,7 +666,7 @@ def parse_single_office(text: str) -> dict:
         lesson = parse_lesson(field)
         if lesson is not None:
             citation = lesson if isinstance(lesson, str) else lesson.get("citation", "")
-            if RE_COLL_REF.match(citation) or RE_O_ANTIPHON.match(citation):
+            if RE_COLL_REF.match(citation) or RE_O_ANTIPHON.match(citation) or RE_PREFACE.match(citation):
                 continue
             lessons.append(lesson)
 
