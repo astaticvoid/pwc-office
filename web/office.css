@@ -332,7 +332,8 @@ body {
 
 #day-header {
   padding: 1rem 0 1.25rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--color-border);
   text-align: center;
 }
 #day-meta { justify-content: center; }
@@ -451,8 +452,8 @@ body.book-mode .alt-panel + .alt-panel::before {
 /* ── Form header ────────────────────────────────────────────────────────────── */
 
 .form-header {
-  margin-bottom: 2rem; padding-bottom: 0;
-  text-align: center;
+  margin-bottom: 1.5rem; padding-bottom: 1rem;
+  border-bottom: 1px solid var(--color-border);
 }
 .form-title {
   font-family: var(--font-liturgy); font-size: 1.25rem; font-weight: 600;
@@ -466,20 +467,20 @@ body.book-mode .alt-panel + .alt-panel::before {
 /* ── Section headings ───────────────────────────────────────────────────────── */
 
 .office-section-title {
-  font-family: var(--font-liturgy);
-  font-size: 0.82rem; font-weight: 600;
-  letter-spacing: 0.14em; text-transform: uppercase;
+  font-family: var(--font-ui);
+  font-size: 0.76rem; font-weight: 700;
+  letter-spacing: 0.16em; text-transform: uppercase;
   color: var(--color-heading);
-  margin: 1.25rem 0 0.75rem;
-  text-align: center;
+  margin: 2rem 0 1.25rem;
+  padding-top: 1rem;
+  border-top: 1.5px solid var(--color-accent);
 }
 
 .office-subsection-title {
   font-family: var(--font-liturgy);
   font-size: 1.14rem; font-weight: 600; letter-spacing: 0.005em;
   color: var(--color-heading);
-  margin: 1.25rem 0 0.5rem;
-  text-align: center;
+  margin: 1.4rem 0 0.6rem;
 }
 
 .observance-label {
@@ -526,15 +527,13 @@ body.book-mode .alt-panel + .alt-panel::before {
 /* ── Psalm text ─────────────────────────────────────────────────────────────── */
 
 .psalm-heading {
-  font-family: var(--font-liturgy);
-  font-size: 0.82rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--color-muted); margin: 1.25rem 0 0.5rem;
-  text-align: center;
+  font-family: var(--font-ui);
+  font-size: 0.76rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--color-muted); margin: 1.5rem 0 0.5rem;
 }
 .psalm-title {
   font-family: var(--font-liturgy); font-size: 0.9rem; font-style: italic;
   color: var(--color-muted); margin: 0 0 0.7rem 0;
-  text-align: center;
 }
 .psalm-set-divider {
   font-family: var(--font-ui); font-size: 0.75rem; font-style: italic;
@@ -543,20 +542,26 @@ body.book-mode .alt-panel + .alt-panel::before {
 
 .psalm-block {
   margin: 0;
-  font-family: var(--font-liturgy); font-size: 1.12rem; line-height: 1.5;
+  font-family: var(--font-liturgy); font-size: 1.12rem; line-height: var(--line-height);
   white-space: pre-wrap;
 }
 .scripture-block {
-  margin: 0.8rem 0;
-  font-family: var(--font-liturgy); font-size: 1.2rem; line-height: 1.8;
+  margin: 0.65em 0;
+  font-family: var(--font-liturgy); font-size: 1.12rem; line-height: var(--line-height);
 }
-.psalm-block sup, .scripture-block sup { display: none; }
-body.book-mode .psalm-block sup,
-body.book-mode .scripture-block sup { display: inline; }
+.scripture-ch-num {
+  font-family: var(--font-liturgy);
+  font-size: 1.6em; font-weight: 700; line-height: 0.85;
+  color: var(--color-heading);
+  padding-right: 0.25em;
+}
+.psalm-block sup { display: none; }
+body.book-mode .psalm-block sup { display: inline; }
 .verse-num {
   font-size: 0.68em; color: var(--color-brass-ink);
   font-family: var(--font-ui);
   user-select: none; font-weight: 600;
+  padding-right: 0.15em;
 }
 .verse-text { display: inline; white-space: pre-wrap; }
 .midpoint { color: var(--color-brass-ink); font-style: normal; }
@@ -571,10 +576,11 @@ body.book-mode .scripture-block sup { display: inline; }
 /* ── Scripture reading ──────────────────────────────────────────────────────── */
 
 .reading-heading {
-  font-family: var(--font-liturgy);
-  font-size: 0.82rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--color-muted); margin: 1.25rem 0 0.5rem;
-  text-align: center;
+  font-family: var(--font-ui);
+  font-size: 0.76rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--color-muted); margin: 1.5rem 0 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
 }
 .scripture-attr {
   font-family: var(--font-ui); font-size: 0.75rem; color: var(--color-muted);
@@ -611,7 +617,7 @@ body.book-mode .scripture-block sup { display: inline; }
   color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.7rem;
 }
 .observance-card-name { color: var(--color-text); font-weight: 500; flex: 1; }
-.observance-card-link { color: var(--color-accent); text-decoration: none; white-space: nowrap; }
+.observance-card-link { background: none; border: none; padding: 0; cursor: pointer; font: inherit; color: var(--color-accent); white-space: nowrap; }
 .observance-card-link:hover { text-decoration: underline; }
 @media (max-width: 520px) {
   .observance-card { flex-wrap: wrap; }
@@ -653,7 +659,7 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
   margin: 0.2rem 0 0.4rem;
 }
 .alt-block { margin: 0.75rem 0; }
-.alt-tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.35rem; margin-bottom: 0.65rem; }
+.alt-tabs { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.65rem; }
 .alt-tab {
   font-family: var(--font-ui); font-size: 0.76rem; font-weight: 500;
   letter-spacing: 0.03em; color: var(--color-muted);
@@ -729,8 +735,8 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 .day-ctrl-btn {
   flex: 1; text-align: center; padding: 0.55rem 0.5rem; border-radius: 8px;
   font-family: var(--font-ui); font-size: 0.82rem; font-weight: 500; letter-spacing: 0.01em;
-  color: var(--color-muted); text-decoration: none; display: block;
-  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  color: var(--color-muted); background: none; border: none; cursor: pointer;
+  display: block; transition: background 0.15s, color 0.15s, box-shadow 0.15s;
 }
 .day-ctrl-btn:hover { color: var(--color-text); }
 .day-ctrl-btn.is-active {
@@ -776,7 +782,6 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 }
 .out-of-range-title { font-weight: 600; font-size: 1.2rem; margin-bottom: 0.75rem; }
 .out-of-range-note  { font-style: italic; color: var(--color-muted); margin-top: 0.5rem; }
-.out-of-range-msg a { color: var(--color-link); margin-top: 1.25rem; display: inline-block; }
 
 /* ── Evaluation banner ──────────────────────────────────────────────────────── */
 
@@ -791,25 +796,6 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
   font-size: 1.1rem; line-height: 1; padding: 0; flex-shrink: 0; opacity: 0.6;
 }
 .eval-banner-dismiss:hover { opacity: 1; }
-
-/* ── Stale-date banner ──────────────────────────────────────────────────────── */
-
-.stale-banner {
-  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
-  padding: 0.5rem 0.75rem; margin-bottom: 1.5rem;
-  background: var(--color-surface); border-left: 2px solid var(--color-brass);
-  font-family: var(--font-ui); font-size: 0.8rem; color: var(--color-muted);
-}
-/* display:flex above would override the UA-stylesheet [hidden]{display:none} — make it explicit */
-.stale-banner[hidden] { display: none; }
-.stale-sep { opacity: 0.45; }
-.stale-today { color: var(--color-link); text-decoration: none; white-space: nowrap; }
-.stale-today:hover { text-decoration: underline; }
-.stale-close {
-  background: none; border: none; cursor: pointer; color: var(--color-muted);
-  font-size: 1.1rem; line-height: 1; padding: 0; margin-left: auto; flex-shrink: 0; opacity: 0.6;
-}
-.stale-close:hover { opacity: 1; }
 
 /* ── Desktop layout ─────────────────────────────────────────────────────────── */
 
