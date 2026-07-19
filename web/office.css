@@ -777,11 +777,15 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 /* ── Desktop layout ─────────────────────────────────────────────────────────── */
 
 @media (min-width: 820px) {
-  :root { --content-max: 58rem; }
+  [data-font-size="medium"] { font-size: 125%; }
+  [data-font-size="large"]  { font-size: 140%; }
+  :root { --content-max: 55ch; }
   #day-title { font-size: 2rem; }
   #day-office-controls { align-items: center; }
   .day-ctrl-seg--pills { display: none; }
-  .office-dropdown { display: inline-block; }
+  .office-dropdown { display: inline-block; width: 18rem; }
+  #main { padding: 1.25rem 2rem calc(3rem + var(--safe-bottom)); }
+  .office-section-title { margin: 2rem 0 1rem; }
 }
 
 /* ── Print ──────────────────────────────────────────────────────────────────── */
