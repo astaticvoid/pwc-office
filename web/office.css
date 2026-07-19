@@ -134,7 +134,7 @@ body {
   gap: 0.5rem;
   font-size: 0.85rem;
 }
-.nav-top { justify-content: center; gap: 0.5rem; }
+.nav-top { justify-content: center; gap: 0.5rem; position: relative; }
 #nav-brand {
   display: flex;
   align-items: center;
@@ -158,6 +158,15 @@ body {
 @media (max-width: 520px) {
   .nav-brand-name { font-size: 1rem; }
 }
+.nav-settings-btn {
+  position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer;
+  color: var(--color-brass-on-nav); opacity: 0.7;
+  padding: 0.25rem; border-radius: 4px;
+  display: flex; align-items: center;
+  transition: opacity 0.1s;
+}
+.nav-settings-btn:hover { opacity: 1; }
 
 /* Date navigation — secondary, compact */
 .nav-date-nav {
@@ -323,18 +332,26 @@ body {
 
 #day-header {
   padding: 1rem 0 1.25rem;
-  margin-bottom: 2rem;
+  margin-bottom: 0.75rem;
   text-align: center;
 }
 #day-meta { justify-content: center; }
 
 #day-office-name {
   font-family: var(--font-ui);
-  font-size: 0.7rem; font-weight: 600;
+  font-size: 0.82rem; font-weight: 600;
   letter-spacing: 0.16em; text-transform: uppercase;
   color: var(--color-accent);
   margin-bottom: 0.4rem;
+  cursor: pointer; user-select: none;
+  display: inline-block; position: relative; padding: 0 0.9em;
 }
+#day-office-name::after {
+  content: '▾'; font-size: 0.55em; opacity: 0.45;
+  position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+  line-height: 1;
+}
+#day-office-name:hover { opacity: 0.8; }
 
 #day-title {
   font-family: var(--font-liturgy);
@@ -348,21 +365,13 @@ body {
   color: var(--color-text);
   margin-bottom: 0.25rem;
 }
+#day-subtitle:empty { display: none; }
 
 /* Date navigation: ← [date] → ⚙ */
 #day-date-nav {
-  display: flex; justify-content: center; align-items: center; gap: 0.4rem;
+  display: flex; justify-content: center; align-items: center;
   margin-bottom: 0.5rem;
 }
-.day-nav-arrow {
-  background: none; border: none; cursor: pointer;
-  font-family: var(--font-ui); font-size: 0.85rem;
-  color: var(--color-muted); padding: 0.2rem 0.4rem;
-  border-radius: 4px; transition: color 0.1s, background 0.1s;
-  line-height: 1;
-}
-.day-nav-arrow:hover { color: var(--color-text); background: var(--color-surface); }
-.day-nav-arrow:disabled { opacity: 0.25; cursor: default; }
 #day-date-btn {
   position: relative; background: none; border: none; cursor: pointer;
   font-family: var(--font-liturgy); font-size: 0.95rem; font-style: italic;
@@ -370,20 +379,10 @@ body {
   transition: background 0.1s;
 }
 #day-date-btn:hover { background: var(--color-surface); }
-#day-date-label::after {
-  content: ' ▾'; font-size: 0.65em; opacity: 0.35; vertical-align: middle;
-}
 #day-date-picker {
   position: absolute; inset: 0; width: 100%; height: 100%;
   opacity: 0; cursor: pointer; border: none; padding: 0;
 }
-#day-settings-btn {
-  background: none; border: none; cursor: pointer;
-  color: var(--color-muted); padding: 0.25rem;
-  border-radius: 4px; transition: color 0.1s, background 0.1s;
-  display: flex; align-items: center;
-}
-#day-settings-btn:hover { color: var(--color-text); background: var(--color-surface); }
 
 #day-meta {
   display: flex; align-items: center; gap: 0.5rem 0.8rem;
@@ -471,7 +470,7 @@ body.book-mode .alt-panel + .alt-panel::before {
   font-size: 0.82rem; font-weight: 600;
   letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--color-heading);
-  margin: 2.5rem 0 1.5rem;
+  margin: 1.25rem 0 0.75rem;
   text-align: center;
 }
 
@@ -479,7 +478,7 @@ body.book-mode .alt-panel + .alt-panel::before {
   font-family: var(--font-liturgy);
   font-size: 1.14rem; font-weight: 600; letter-spacing: 0.005em;
   color: var(--color-heading);
-  margin: 1.6rem 0 0.6rem;
+  margin: 1.25rem 0 0.5rem;
   text-align: center;
 }
 
@@ -529,7 +528,7 @@ body.book-mode .alt-panel + .alt-panel::before {
 .psalm-heading {
   font-family: var(--font-liturgy);
   font-size: 0.82rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--color-muted); margin: 1.75rem 0 0.75rem;
+  color: var(--color-muted); margin: 1.25rem 0 0.5rem;
   text-align: center;
 }
 .psalm-title {
@@ -574,7 +573,7 @@ body.book-mode .scripture-block sup { display: inline; }
 .reading-heading {
   font-family: var(--font-liturgy);
   font-size: 0.82rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--color-muted); margin: 2rem 0 0.75rem;
+  color: var(--color-muted); margin: 1.25rem 0 0.5rem;
   text-align: center;
 }
 .scripture-attr {
@@ -654,7 +653,7 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
   margin: 0.2rem 0 0.4rem;
 }
 .alt-block { margin: 0.75rem 0; }
-.alt-tabs { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.65rem; }
+.alt-tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.35rem; margin-bottom: 0.65rem; }
 .alt-tab {
   font-family: var(--font-ui); font-size: 0.76rem; font-weight: 500;
   letter-spacing: 0.03em; color: var(--color-muted);
@@ -708,8 +707,9 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 /* ── Office & Observance controls in day header ────────────────────────────── */
 
 #day-office-controls { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.7rem; }
+#day-office-controls[style*="display: none"] { margin-top: 0; }
 
-.day-ctrl-group { display: flex; flex-direction: column; gap: 0.38rem; }
+.day-ctrl-group { display: flex; flex-direction: column; gap: 0.38rem; align-items: center; }
 
 .day-ctrl-cap {
   font-family: var(--font-ui);
@@ -722,6 +722,8 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
   display: flex; gap: 4px; padding: 4px;
   background: var(--color-surface); border: 1px solid var(--color-border);
   border-radius: 12px;
+  width: calc(100% - 2rem); min-width: 16rem; max-width: 24rem;
+  align-self: center;
 }
 
 .day-ctrl-btn {
@@ -820,7 +822,7 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
   .day-ctrl-seg--pills { display: none; }
   .office-dropdown { display: inline-block; width: 18rem; }
   #main { padding: 1.25rem 2rem calc(3rem + var(--safe-bottom)); }
-  .office-section-title { margin: 2rem 0 1rem; }
+  .office-section-title { margin: 1.25rem 0 0.75rem; }
 }
 
 /* ── Print ──────────────────────────────────────────────────────────────────── */
