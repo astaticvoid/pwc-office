@@ -324,9 +324,10 @@ body {
 
 #day-header {
   padding: 1rem 0 1.25rem;
-  margin-bottom: 1.5rem;
-  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 2rem;
+  text-align: center;
 }
+#day-meta { justify-content: center; }
 
 #day-office-name {
   font-family: var(--font-ui);
@@ -416,8 +417,8 @@ body.book-mode .alt-panel + .alt-panel::before {
 /* ── Form header ────────────────────────────────────────────────────────────── */
 
 .form-header {
-  margin-bottom: 1.5rem; padding-bottom: 1rem;
-  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 2rem; padding-bottom: 0;
+  text-align: center;
 }
 .form-title {
   font-family: var(--font-liturgy); font-size: 1.25rem; font-weight: 600;
@@ -431,20 +432,20 @@ body.book-mode .alt-panel + .alt-panel::before {
 /* ── Section headings ───────────────────────────────────────────────────────── */
 
 .office-section-title {
-  font-family: var(--font-ui);
-  font-size: 0.76rem; font-weight: 700;
-  letter-spacing: 0.16em; text-transform: uppercase;
+  font-family: var(--font-liturgy);
+  font-size: 0.82rem; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--color-heading);
-  margin: 2rem 0 1.25rem;
-  padding-top: 1rem;
-  border-top: 1.5px solid var(--color-accent);
+  margin: 2.5rem 0 1.5rem;
+  text-align: center;
 }
 
 .office-subsection-title {
   font-family: var(--font-liturgy);
   font-size: 1.14rem; font-weight: 600; letter-spacing: 0.005em;
   color: var(--color-heading);
-  margin: 1.4rem 0 0.6rem;
+  margin: 1.6rem 0 0.6rem;
+  text-align: center;
 }
 
 .observance-label {
@@ -491,13 +492,15 @@ body.book-mode .alt-panel + .alt-panel::before {
 /* ── Psalm text ─────────────────────────────────────────────────────────────── */
 
 .psalm-heading {
-  font-family: var(--font-ui);
-  font-size: 0.76rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--color-muted); margin: 1.5rem 0 0.5rem;
+  font-family: var(--font-liturgy);
+  font-size: 0.82rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--color-muted); margin: 1.75rem 0 0.75rem;
+  text-align: center;
 }
 .psalm-title {
   font-family: var(--font-liturgy); font-size: 0.9rem; font-style: italic;
   color: var(--color-muted); margin: 0 0 0.7rem 0;
+  text-align: center;
 }
 .psalm-set-divider {
   font-family: var(--font-ui); font-size: 0.75rem; font-style: italic;
@@ -506,12 +509,12 @@ body.book-mode .alt-panel + .alt-panel::before {
 
 .psalm-block {
   margin: 0;
-  font-family: var(--font-liturgy); font-size: 1.12rem; line-height: var(--line-height);
+  font-family: var(--font-liturgy); font-size: 1.12rem; line-height: 1.5;
   white-space: pre-wrap;
 }
 .scripture-block {
-  margin: 0; white-space: pre-wrap;
-  font-family: var(--font-liturgy); font-size: 1.12rem; line-height: var(--line-height);
+  margin: 0.8rem 0; white-space: pre-wrap;
+  font-family: var(--font-liturgy); font-size: 1.2rem; line-height: 1.8;
 }
 .psalm-block sup, .scripture-block sup { display: none; }
 body.book-mode .psalm-block sup,
@@ -534,11 +537,10 @@ body.book-mode .scripture-block sup { display: inline; }
 /* ── Scripture reading ──────────────────────────────────────────────────────── */
 
 .reading-heading {
-  font-family: var(--font-ui);
-  font-size: 0.76rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--color-muted); margin: 1.5rem 0 0.5rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--color-border);
+  font-family: var(--font-liturgy);
+  font-size: 0.82rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--color-muted); margin: 2rem 0 0.75rem;
+  text-align: center;
 }
 .scripture-attr {
   font-family: var(--font-ui); font-size: 0.75rem; color: var(--color-muted);
