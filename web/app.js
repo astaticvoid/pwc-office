@@ -431,6 +431,63 @@ function consumeLeadingRef(s) {
 }
 
 /**
+ * Extract verse objects with chapter info for a single range from a loaded book JSON.
+ * @returns {Array<{ch:number, v:number, text:string}>}
+ */
+function extractVersesWithChapter(book, range) {
+  const lines = [];
+  for (let ch = range.startCh; ch <= range.endCh; ch++) {
+    const chData = book[String(ch)];
+    if (!chData) continue;
+    const startV = ch === range.startCh ? range.startV : 1;
+    const maxV = Math.max(...Object.keys(chData).map(Number));
+    const endV = ch === range.endCh ? range.endV : maxV;
+    for (let v = startV; v <= endV; v++) {
+      if (chData[String(v)] !== undefined) lines.push({ ch, v, text: chData[String(v)] });
+    }
+  }
+  return lines;
+}
+
+/**
+ * Build HTML for verses grouped by paragraph boundaries.
+ * @param {Array<{ch:number, v:number, text:string}>} verses
+ * @param {Object} paraMap - book-level map: {chapter: [firstVerseOfEachParagraph]}
+ * @returns {string} HTML
+ */
+function buildParagraphHtml(verses, paraMap) {
+  // Group verses by chapter
+  const byChapter = {};
+  for (const v of verses) {
+    (byChapter[v.ch] || (byChapter[v.ch] = [])).push(v);
+  }
+
+  const blocks = [];
+  for (const [chStr, chVerses] of Object.entries(byChapter)) {
+    const breaks = paraMap[chStr];
+    if (!breaks || breaks.length === 0) {
+      // No paragraph data — render as single paragraph
+      const html = chVerses.map(v => `<sup>${v.v} </sup>${esc(v.text)}`).join(' ');
+      blocks.push(`<p class="scripture-block">${html}</p>`);
+      continue;
+    }
+
+    // Build paragraphs from break points
+    const sortedBreaks = [...breaks].sort((a, b) => a - b);
+    for (let i = 0; i < sortedBreaks.length; i++) {
+      const paraStart = sortedBreaks[i];
+      const paraEnd = i + 1 < sortedBreaks.length ? sortedBreaks[i + 1] - 1 : Infinity;
+      const paraVerses = chVerses.filter(v => v.v >= paraStart && v.v <= paraEnd);
+      if (paraVerses.length > 0) {
+        const html = paraVerses.map(v => `<sup>${v.v} </sup>${esc(v.text)}`).join(' ');
+        blocks.push(`<p class="scripture-block">${html}</p>`);
+      }
+    }
+  }
+  return blocks.join('\n');
+}
+
+/**
  * Extract verse objects for a single range from a loaded book JSON.
  * @param {object} book - book JSON keyed by chapter → verse → text
  * @param {{startCh, startV, endCh, endV}} range - from parseRanges()
@@ -1080,12 +1137,21 @@ function fillScripture(root, translation) {
         return;
       }
 
-      const allVerses = ranges.flatMap(r => extractVerses(bookData, r));
-      const versesHtml = allVerses.map(({ v, text }) =>
-        `<sup>${v} </sup>${esc(text)}`
-      ).join('<br>');
-      el.innerHTML = `<p class="scripture-block">${versesHtml}</p>`;
-      // UX-08: Inform the user when the preferred translation was unavailable.
+      const allVerses = ranges.flatMap(r => extractVersesWithChapter(bookData, r));
+      const paragraphs = await fetchOnce('paragraphs', `${DATA}/paragraphs.json`).catch(() => null);
+      const paraMap = paragraphs ? (paragraphs[parsed.file] || null) : null;
+
+      let html;
+      if (paraMap) {
+        html = buildParagraphHtml(allVerses, paraMap);
+      } else {
+        const versesHtml = allVerses.map(({ v, text }) =>
+          `<sup>${v} </sup>${esc(text)}`
+        ).join('<br>');
+        html = `<p class="scripture-block">${versesHtml}</p>`;
+      }
+      el.innerHTML = html;
+
       if (usedTranslation !== translation) {
         el.innerHTML += `<p class="scripture-fallback-note">[${usedTranslation.toUpperCase()} shown — ${translation.toUpperCase()} unavailable for this reading]</p>`;
       }
@@ -1376,6 +1442,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   fetchOnce('collects', `${DATA}/collects.json`);
   fetchOnce('bounds',   `${DATA}/season_bounds.json`);
   fetchOnce('psalter',  `${DATA}/psalter.json`);
+  fetchOnce('paragraphs', `${DATA}/paragraphs.json`).catch(() => {});
 
   // MP/EP toggle via office name label
   document.getElementById('day-office-name').addEventListener('click', () => {
