@@ -413,12 +413,3 @@ Extract `assembleSections()` from the proven `renderOfficeJSON`. Refactor
 3. Refactor `renderOfficeJSON()` to call the same `assembleSections()`
 4. Delete the ~200-line duplication in `renderOfficeJSON`
 5. Keep the sync test — it still passes after refactor
-
-### Phase 3 — RCL Daily (Nov 2026+)
-
-When `FEATURE_RCL_DAILY` becomes true and data is available:
-
-1. Add RCL dates to `qa_dates.json`
-2. Add `rclDayToOffice()` adapter at the call site (validate_office.cjs)
-3. Add RCL-specific rules to the rule suite
-4. Extend `OfficeJSON.meta` with lectionary source field

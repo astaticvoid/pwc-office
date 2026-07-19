@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text check-casing check-book generate-golden serve serve-dist deploy test-web validate fetch-sources extract extract-rcl mobile-sync mobile-ios mobile-android qa
+.PHONY: test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text check-casing check-book generate-golden serve serve-dist deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -120,14 +120,6 @@ qa:
 # Requires network access; run manually before a data re-extraction.
 validate: check-text check-casing
 	python3 tools/validate_lectionary.py
-
-# Extract RCL Daily Readings from RTF source → data/rcl-daily/
-extract-rcl:
-	python3 tools/extract_rcl_daily.py
-
-# Validate RCL Daily extraction output
-validate-rcl:
-	python3 tools/validate_rcl_daily.py --strict
 
 # Run E2E tests locally against web/ (default — no bandwidth cost).
 test-web:

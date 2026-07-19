@@ -81,7 +81,7 @@ code (~200 lines for JSON output).
   - Section ordering: Gathering → Proclamation → Affirmation → Prayers → Sending
 - Produces `OfficeJSON` — a typed object with sections, subsections, segment
   arrays, and dynamic metadata (see `docs/qa-strategy-spec.md` for full schema).
-- Does **not** load psalter text, scripture text, or RCL Daily data. Psalm
+- Does **not** load psalter text or scripture text. Psalm
   citations and reading citations are captured as references.
 
 ### What `renderOfficeJSON` does NOT change
@@ -92,13 +92,6 @@ code (~200 lines for JSON output).
 - `cli/book.js`, `cli/office.js` — untouched.
 - Browser bundle — `renderOfficeJSON` compiles fine in browser context (no DOM
   deps) but is not called there. Modern bundlers tree-shake unused exports.
-
-### RCL Daily scope
-
-`FEATURE_RCL_DAILY` is `false`. `renderOfficeJSON` validates BAS lectionary
-data only. When RCL Daily becomes active (Nov 2026), the function's call site
-(validator/auditor) will apply the `rclDayToOffice()` transformation before
-passing `officeData` to `renderOfficeJSON`. The adapter lives outside the
 function.
 
 ## Consequences
