@@ -876,10 +876,14 @@ async function render(dateStr, officeType, translation) {
   const ctrlEl = document.getElementById('day-office-controls');
   if (ctrlEl) {
     let ctrlHtml = `<div class="day-ctrl-group">
-      <div class="day-ctrl-seg">
+      <div class="day-ctrl-seg day-ctrl-seg--pills">
         <a href="${hashFor(dateStr, 'mp')}" class="day-ctrl-btn${officeType === 'mp' ? ' is-active' : ''}">Morning Prayer</a>
         <a href="${hashFor(dateStr, 'ep')}" class="day-ctrl-btn${officeType === 'ep' ? ' is-active' : ''}">Evening Prayer</a>
-      </div></div>`;
+      </div>
+      <select class="office-dropdown" aria-label="Office" onchange="location.hash=this.value">
+        <option value="${hashFor(dateStr, 'mp')}" ${officeType === 'mp' ? 'selected' : ''}>Morning Prayer</option>
+        <option value="${hashFor(dateStr, 'ep')}" ${officeType === 'ep' ? 'selected' : ''}>Evening Prayer</option>
+      </select></div>`;
     if (officeData.alternate) {
       const altLabel = officeData.alternate.label || 'Alternate';
       const primaryLabel = day.name.length > 26 ? day.name.slice(0,24)+'\u2026' : day.name;

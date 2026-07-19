@@ -700,6 +700,20 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
   background: var(--color-nav-bg); color: var(--color-nav-text);
   box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
+/* MP/EP dropdown (desktop) */
+.office-dropdown {
+  display: none;
+  font-family: var(--font-ui); font-size: 0.78rem; font-weight: 500;
+  letter-spacing: 0.08em; color: var(--color-text);
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: 8px; padding: 0.5rem 2rem 0.5rem 0.75rem; cursor: pointer;
+  -webkit-appearance: none; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237B7460' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 0.65rem center;
+  transition: border-color 0.15s;
+}
+.office-dropdown:hover { border-color: var(--color-muted); }
+.office-dropdown:focus { outline: none; border-color: var(--color-accent); }
 /* Observance seg: brass outline style (distinct category from time-of-day) */
 .day-ctrl-seg--obs { background: transparent; border-color: color-mix(in oklab, var(--color-brass) 40%, var(--color-border)); }
 .day-ctrl-seg--obs .day-ctrl-btn.is-active {
@@ -765,6 +779,9 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 @media (min-width: 820px) {
   :root { --content-max: 58rem; }
   #day-title { font-size: 2rem; }
+  #day-office-controls { align-items: center; }
+  .day-ctrl-seg--pills { display: none; }
+  .office-dropdown { display: inline-block; }
 }
 
 /* ── Print ──────────────────────────────────────────────────────────────────── */
