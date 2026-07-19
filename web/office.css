@@ -336,6 +336,12 @@ body {
   color: var(--color-accent);
   margin-bottom: 0.4rem;
 }
+.day-alt-office {
+  color: var(--color-muted); font-weight: 400;
+  text-decoration: none; transition: color 0.15s;
+}
+.day-alt-office:hover { color: var(--color-text); }
+.day-office-sep { color: var(--color-border); font-weight: 300; }
 
 #day-title {
   font-family: var(--font-liturgy);
@@ -673,6 +679,7 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 /* ── Office & Observance controls in day header ────────────────────────────── */
 
 #day-office-controls { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.7rem; }
+#day-office-controls:empty { display: none; }
 
 .day-ctrl-group { display: flex; flex-direction: column; gap: 0.38rem; }
 
