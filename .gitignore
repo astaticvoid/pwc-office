@@ -72,3 +72,4 @@ tools/.daily_cache/
 audit/
 tools/extract_audit_report.txt
 .deploy-latest
+.server-pid

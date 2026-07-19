@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text check-casing check-book generate-golden serve serve-dist deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa
+.PHONY: test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text check-casing check-book generate-golden serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -61,18 +61,45 @@ build:
 check-dist: build test-unit
 	@python3 tools/check_dist.py
 
-# Serve web/ directly for local development (http://localhost:$(PORT)/).
-# No build step — web/data symlink is followed live.
+# Local server management (http://localhost:$(PORT)/).
 # Override port: make serve PORT=9000
+PID_FILE = .server-pid
+
 serve:
-	-lsof -ti:$(PORT) | xargs kill -9 2>/dev/null; true
+	@$(MAKE) stop --no-print-directory 2>/dev/null; true
+	@nohup python3 -m http.server $(PORT) --directory web > /tmp/pwc-server.log 2>&1 & echo $$! > $(PID_FILE)
+	@sleep 0.5
+	@if kill -0 $$(cat $(PID_FILE)) 2>/dev/null; then \
+	  echo "Server started: http://localhost:$(PORT) (pid $$(cat $(PID_FILE)))"; \
+	else \
+	  echo "Server failed to start — check /tmp/pwc-server.log"; \
+	fi
+
+stop:
+	@if [ -f $(PID_FILE) ]; then kill $$(cat $(PID_FILE)) 2>/dev/null && rm -f $(PID_FILE) && echo "Server stopped (port $(PORT))" || true; fi
+	@fuser -k $(PORT)/tcp 2>/dev/null; true
+
+status:
+	@if [ -f $(PID_FILE) ] && kill -0 $$(cat $(PID_FILE)) 2>/dev/null; then \
+	  echo "Server running: http://localhost:$(PORT) (pid $$(cat $(PID_FILE)))"; \
+	else \
+	  echo "Server not running on port $(PORT)"; \
+	  rm -f $(PID_FILE); \
+	fi
+
+restart: stop serve
+
+# Serve web/ directly for local development — foreground mode (for debugging).
+# Override port: make serve-fg PORT=9000
+serve-fg:
+	@fuser -k $(PORT)/tcp 2>/dev/null; sleep 0.3
 	python3 -m http.server $(PORT) --directory web
 
 # Build and serve dist/ as it will appear when deployed (http://localhost:$(PORT_DIST)/).
 # Required for E2E tests and pre-deploy checks.
 # Override port: make serve-dist PORT_DIST=9001
 serve-dist: check-dist
-	-lsof -ti:$(PORT_DIST) | xargs kill -9 2>/dev/null; true
+	@fuser -k $(PORT_DIST)/tcp 2>/dev/null; sleep 0.3
 	python3 -m http.server $(PORT_DIST) --directory dist
 
 # Unit tests for Python extraction tools (requires pytest: brew install pytest).
