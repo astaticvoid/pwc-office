@@ -94,7 +94,7 @@ function initNativeFeatures() {
   window.__pwcPlugins.Network.addListener('networkStatusChange', status => {
     window.__pwcOffline = !status.connected;
     if (status.connected && window.__pwcLastRoute) {
-      handleHashChange();
+      initPage();
     }
   });
 
@@ -293,14 +293,22 @@ function todayStr() {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-function parseHash(hash) {
-  const m = /^#\/(\d{4}-\d{2}-\d{2})\/(mp|ep)(?:\/(primary|alternate))?$/.exec(hash);
-  return m ? { date: m[1], office: m[2], observance: m[3] || 'primary' } : null;
+// ── Navigation ────────────────────────────────────────────────────────────────
+// All navigation stays at the root URL — no hash-based routing.
+// Refreshing always returns to today with the default office.
+
+function navigateTo(date, office, observance) {
+  state.date = date;
+  state.office = office;
+  state.observance = observance || state.observance || 'primary';
+  render(state.date, state.office, state.translation);
 }
 
-function hashFor(date, office, observance) {
-  const obs = observance && observance !== 'primary' ? '/' + observance : '';
-  return `#/${date}/${office}${obs}`;
+function initPage() {
+  state.date = todayStr();
+  state.office = defaultOffice();
+  state.observance = 'primary';
+  render(state.date, state.office, state.translation);
 }
 
 function offsetDate(dateStr, days) {
@@ -450,13 +458,46 @@ function extractVersesWithChapter(book, range) {
 }
 
 /**
+ * Render a chapter's verses as HTML paragraphs.
+ * @param {Array<{v:number, text:string}>} chVerses - verses in chapter order
+ * @param {number} chNum - chapter number
+ * @param {Array<number>|null} breaks - sorted first-verse of each paragraph
+ * @returns {string} HTML paragraphs
+ */
+function renderChapterHtml(chVerses, chNum, breaks) {
+  const firstV = chVerses[0].v;
+  const renderVerse = (v) => {
+    const num = (v.v === 1 && firstV === 1) ? '' : `<sup class="verse-num">${v.v}</sup> `;
+    return `${num}${esc(v.text)}`;
+  };
+  const chDrop = `<span class="scripture-ch-num">${chNum}</span>`;
+  const blocks = [];
+
+  if (!breaks || breaks.length === 0) {
+    blocks.push(`<p class="scripture-block">${chDrop} ${chVerses.map(renderVerse).join(' ')}</p>`);
+    return blocks.join('\n');
+  }
+
+  const sortedBreaks = [...breaks].sort((a, b) => a - b);
+  for (let i = 0; i < sortedBreaks.length; i++) {
+    const paraStart = sortedBreaks[i];
+    const paraEnd = i + 1 < sortedBreaks.length ? sortedBreaks[i + 1] - 1 : Infinity;
+    const paraVerses = chVerses.filter(v => v.v >= paraStart && v.v <= paraEnd);
+    if (paraVerses.length > 0) {
+      const prefix = i === 0 ? chDrop + ' ' : '';
+      blocks.push(`<p class="scripture-block">${prefix}${paraVerses.map(renderVerse).join(' ')}</p>`);
+    }
+  }
+  return blocks.join('\n');
+}
+
+/**
  * Build HTML for verses grouped by paragraph boundaries.
  * @param {Array<{ch:number, v:number, text:string}>} verses
  * @param {Object} paraMap - book-level map: {chapter: [firstVerseOfEachParagraph]}
  * @returns {string} HTML
  */
 function buildParagraphHtml(verses, paraMap) {
-  // Group verses by chapter
   const byChapter = {};
   for (const v of verses) {
     (byChapter[v.ch] || (byChapter[v.ch] = [])).push(v);
@@ -464,25 +505,7 @@ function buildParagraphHtml(verses, paraMap) {
 
   const blocks = [];
   for (const [chStr, chVerses] of Object.entries(byChapter)) {
-    const breaks = paraMap[chStr];
-    if (!breaks || breaks.length === 0) {
-      // No paragraph data — render as single paragraph
-      const html = chVerses.map(v => `<sup>${v.v} </sup>${esc(v.text)}`).join(' ');
-      blocks.push(`<p class="scripture-block">${html}</p>`);
-      continue;
-    }
-
-    // Build paragraphs from break points
-    const sortedBreaks = [...breaks].sort((a, b) => a - b);
-    for (let i = 0; i < sortedBreaks.length; i++) {
-      const paraStart = sortedBreaks[i];
-      const paraEnd = i + 1 < sortedBreaks.length ? sortedBreaks[i + 1] - 1 : Infinity;
-      const paraVerses = chVerses.filter(v => v.v >= paraStart && v.v <= paraEnd);
-      if (paraVerses.length > 0) {
-        const html = paraVerses.map(v => `<sup>${v.v} </sup>${esc(v.text)}`).join(' ');
-        blocks.push(`<p class="scripture-block">${html}</p>`);
-      }
-    }
+    blocks.push(renderChapterHtml(chVerses, parseInt(chStr), paraMap[chStr] || null));
   }
   return blocks.join('\n');
 }
@@ -517,13 +540,13 @@ function renderObservanceCard(officeData, currentObservance) {
   if (isUsingAlt) {
     return `<div class="observance-card observance-card--alt">
       <span class="observance-card-name">${esc(alt.label)}</span>
-      <a href="${hashFor(state.date, state.office, 'primary')}" class="observance-card-link">← Primary observance</a>
+      <button class="observance-card-link" data-navigate="${esc(dateStr)}|${esc(officeType)}|primary">← Primary observance</button>
     </div>`;
   }
   return `<div class="observance-card">
     <span class="observance-card-label">Also observed</span>
     <span class="observance-card-name">${esc(alt.label)}</span>
-    <a href="${hashFor(state.date, state.office, 'alternate')}" class="observance-card-link">Use this observance →</a>
+    <button class="observance-card-link" data-navigate="${esc(dateStr)}|${esc(officeType)}|alternate">Use this observance →</button>
   </div>`;
 }
 
@@ -766,7 +789,6 @@ async function render(dateStr, officeType, translation) {
       <p class="out-of-range-title">Readings not yet available</p>
       <p>Coverage extends through <strong>${esc(fmtFullDate(boundsMax))}</strong>.</p>
       <p class="out-of-range-note">Year A readings (Advent 2026 and beyond) are in preparation.</p>
-      <p><a href="${hashFor(todayStr(), defaultOffice())}">Return to today</a></p>
     </div>`;
     return;
   }
@@ -774,7 +796,6 @@ async function render(dateStr, officeType, translation) {
     contentEl.innerHTML = `<div class="out-of-range-msg">
       <p class="out-of-range-title">Outside coverage</p>
       <p>Daily Office data begins with ${esc(fmtFullDate(boundsMin))}.</p>
-      <p><a href="${hashFor(todayStr(), defaultOffice())}">Return to today</a></p>
     </div>`;
     return;
   }
@@ -867,10 +888,10 @@ async function render(dateStr, officeType, translation) {
       ctrlHtml += `<div class="day-ctrl-group day-ctrl-group--obs">
         <div class="day-ctrl-cap">Observance \u00b7 whose readings <span class="day-ctrl-obs-mark">\u25c6</span></div>
         <div class="day-ctrl-seg day-ctrl-seg--obs">
-          <a href="${hashFor(dateStr, officeType, 'primary')}" class="day-ctrl-btn${activeObs === 'primary' ? ' is-active' : ''}">
-            ${esc(primaryLabel)}</a>
-          <a href="${hashFor(dateStr, officeType, 'alternate')}" class="day-ctrl-btn${activeObs === 'alternate' ? ' is-active' : ''}">
-            ${esc(altLabel)}</a>
+          <button data-navigate="${esc(dateStr)}|${esc(officeType)}|primary" class="day-ctrl-btn${activeObs === 'primary' ? ' is-active' : ''}">
+            ${esc(primaryLabel)}</button>
+          <button data-navigate="${esc(dateStr)}|${esc(officeType)}|alternate" class="day-ctrl-btn${activeObs === 'alternate' ? ' is-active' : ''}">
+            ${esc(altLabel)}</button>
         </div></div>`;
     }
     ctrlEl.innerHTML = ctrlHtml;
@@ -1145,10 +1166,15 @@ function fillScripture(root, translation) {
       if (paraMap) {
         html = buildParagraphHtml(allVerses, paraMap);
       } else {
-        const versesHtml = allVerses.map(({ v, text }) =>
-          `<sup>${v} </sup>${esc(text)}`
-        ).join('<br>');
-        html = `<p class="scripture-block">${versesHtml}</p>`;
+        const byChapter = {};
+        for (const v of allVerses) {
+          (byChapter[v.ch] || (byChapter[v.ch] = [])).push(v);
+        }
+        const blocks = [];
+        for (const [chStr, chVerses] of Object.entries(byChapter)) {
+          blocks.push(renderChapterHtml(chVerses, parseInt(chStr), null));
+        }
+        html = blocks.join('\n');
       }
       el.innerHTML = html;
 
@@ -1176,41 +1202,6 @@ function switchTranslation(newTranslation) {
   fillScripture(root, newTranslation);
 }
 
-// ── Stale-date banner ─────────────────────────────────────────────────────────
-
-function showStaleBanner(date) {
-  if (sessionStorage.getItem('pwc-stale-banner-dismissed-' + date)) return;
-  let banner = document.getElementById('stale-banner');
-  if (!banner) {
-    banner = document.createElement('div');
-    banner.id = 'stale-banner';
-    banner.className = 'stale-banner';
-    const contentEl = document.getElementById('office-content');
-    contentEl.parentNode.insertBefore(banner, contentEl);
-  }
-  banner.innerHTML = `<span>Viewing ${esc(fmtFullDate(date))}</span>`
-    + ` <span class="stale-sep" aria-hidden="true">·</span> `
-    + `<a class="stale-today" href="#">Jump to today →</a>`
-    + `<button class="stale-close" aria-label="Dismiss">×</button>`;
-  banner.hidden = false;
-  banner.querySelector('.stale-today').addEventListener('click', e => {
-    e.preventDefault();
-    sessionStorage.setItem('pwc-stale-banner-dismissed-' + date, '1');
-    hideStaleBanner();
-    history.pushState({}, '', location.pathname);
-    handleHashChange();
-  });
-  banner.querySelector('.stale-close').addEventListener('click', () => {
-    sessionStorage.setItem('pwc-stale-banner-dismissed-' + date, '1');
-    hideStaleBanner();
-  });
-}
-
-function hideStaleBanner() {
-  const banner = document.getElementById('stale-banner');
-  if (banner) banner.hidden = true;
-}
-
 // ── Evaluation banner ─────────────────────────────────────────────────────────
 
 function initEvalBanner() {
@@ -1225,34 +1216,6 @@ function initEvalBanner() {
     storageSet('pwc-eval-dismissed', '1');
     banner.remove();
   });
-}
-
-// ── Navigation ────────────────────────────────────────────────────────────────
-
-function handleHashChange() {
-  const parsed = parseHash(location.hash);
-  const prevDate = state.date;
-  if (parsed) {
-    state.date = parsed.date;
-    state.office = parsed.office;
-    state.observance = parsed.observance;
-  } else {
-    // No valid hash — render today in place without modifying the URL.
-    state.date = todayStr();
-    state.office = defaultOffice();
-    state.observance = 'primary';
-  }
-  if (parsed && parsed.date < todayStr()) {
-    showStaleBanner(parsed.date);
-  } else {
-    // Navigating to today or future — clear any sessionStorage dismissal for the
-    // previous stale date so the banner resets on the next visit to that date.
-    if (prevDate && prevDate < todayStr()) {
-      sessionStorage.removeItem('pwc-stale-banner-dismissed-' + prevDate);
-    }
-    hideStaleBanner();
-  }
-  render(state.date, state.office, state.translation);
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -1296,8 +1259,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('nav-brand').addEventListener('click', e => {
     e.preventDefault();
-    history.pushState({}, '', location.pathname);
-    handleHashChange();
+    navigateTo(todayStr(), defaultOffice());
   });
 
   // Settings sheet
@@ -1383,7 +1345,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const picker = document.getElementById('day-date-picker');
   picker.addEventListener('click', () => { try { picker.showPicker(); } catch (_) {} });
   picker.addEventListener('change', e => {
-    if (e.target.value) location.hash = hashFor(e.target.value, state.office);
+    if (e.target.value) navigateTo(e.target.value, state.office);
     picker.blur();
   });
   // Dismiss without selecting (Escape / tap-outside) — remove focus ring immediately.
@@ -1425,15 +1387,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.addEventListener('keydown', e => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.isContentEditable) return;
-    // Update state synchronously so rapid keypresses see the latest date.
-    if (e.key === 'ArrowLeft'  || e.key === 'h') { state.date = offsetDate(state.date, -1); location.hash = hashFor(state.date, state.office); }
-    if (e.key === 'ArrowRight' || e.key === 'l') { state.date = offsetDate(state.date, +1); location.hash = hashFor(state.date, state.office); }
-    if (e.key === 'm') { state.office = 'mp'; location.hash = hashFor(state.date, 'mp'); }
-    if (e.key === 'e') { state.office = 'ep'; location.hash = hashFor(state.date, 'ep'); }
-    if (e.key === 't') { history.pushState({}, '', location.pathname); handleHashChange(); }
+    if (e.key === 'ArrowLeft'  || e.key === 'h') { navigateTo(offsetDate(state.date, -1), state.office); }
+    if (e.key === 'ArrowRight' || e.key === 'l') { navigateTo(offsetDate(state.date, +1), state.office); }
+    if (e.key === 'm') { navigateTo(state.date, 'mp'); }
+    if (e.key === 'e') { navigateTo(state.date, 'ep'); }
+    if (e.key === 't') { navigateTo(todayStr(), defaultOffice()); }
   });
-
-  window.addEventListener('hashchange', handleHashChange);
 
   initEvalBanner();
 
@@ -1447,10 +1406,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   // MP/EP toggle via office name label
   document.getElementById('day-office-name').addEventListener('click', () => {
     const next = state.office === 'mp' ? 'ep' : 'mp';
-    state.office = next;
-    location.hash = hashFor(state.date, next);
+    navigateTo(state.date, next);
   });
 
-  handleHashChange();
+  // Global navigation delegation — buttons with data-navigate="date|office|observance"
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('[data-navigate]');
+    if (!btn) return;
+    e.preventDefault();
+    const parts = btn.dataset.navigate.split('|');
+    navigateTo(parts[0], parts[1], parts[2]);
+  });
+
+  // Strip old hash routes — redirect bookmarked #/DATE/OFFICE to root
+  if (location.hash) {
+    history.replaceState({}, '', location.pathname);
+  }
+
+  initPage();
 
 });
