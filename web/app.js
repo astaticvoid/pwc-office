@@ -834,22 +834,13 @@ async function render(dateStr, officeType, translation) {
 
   // Header
   const officeName = officeType === 'mp' ? 'Morning Prayer' : 'Evening Prayer';
-  const altType = officeType === 'mp' ? 'ep' : 'mp';
-  const altName  = officeType === 'mp' ? 'Evening Prayer' : 'Morning Prayer';
   const activeObs = state.observance === 'alternate' && officeData.alternate ? 'alternate' : 'primary';
   const activeOfficeData = activeObs === 'alternate' ? officeData.alternate : officeData;
   const activeName = activeObs === 'alternate'
     ? (officeData.alternate.label || officeData.alternate.name || day.name)
     : day.name;
   document.title = `${officeName} — ${activeName}`;
-  document.getElementById('day-office-name').innerHTML =
-    (officeType === 'ep'
-      ? `<a href="${hashFor(dateStr, 'mp')}" class="day-alt-office">Morning Prayer</a> `
-      : `Morning Prayer `)
-    + `<span class="day-office-sep">&middot;</span> `
-    + (officeType === 'mp'
-      ? `<a href="${hashFor(dateStr, 'ep')}" class="day-alt-office">Evening Prayer</a>`
-      : `Evening Prayer`);
+  document.getElementById('day-office-name').textContent = officeName;
   document.getElementById('day-title').textContent = activeName;
   document.getElementById('day-subtitle').textContent = fmtFullDate(dateStr);
 
@@ -881,10 +872,14 @@ async function render(dateStr, officeType, translation) {
 
   document.querySelectorAll('.day-note, .day-note-details').forEach(el => el.remove());
 
-  // ── Observance controls in day header ─────────────────────────────────────
+  // ── Office + Observance controls in day header ────────────────────────────
   const ctrlEl = document.getElementById('day-office-controls');
   if (ctrlEl) {
-    let ctrlHtml = '';
+    let ctrlHtml = `<div class="day-ctrl-group">
+      <div class="day-ctrl-seg">
+        <a href="${hashFor(dateStr, 'mp')}" class="day-ctrl-btn${officeType === 'mp' ? ' is-active' : ''}">Morning Prayer</a>
+        <a href="${hashFor(dateStr, 'ep')}" class="day-ctrl-btn${officeType === 'ep' ? ' is-active' : ''}">Evening Prayer</a>
+      </div></div>`;
     if (officeData.alternate) {
       const altLabel = officeData.alternate.label || 'Alternate';
       const primaryLabel = day.name.length > 26 ? day.name.slice(0,24)+'\u2026' : day.name;
