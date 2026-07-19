@@ -742,7 +742,8 @@ async function render(dateStr, officeType, translation) {
 
   // Update nav date immediately (even for out-of-range dates, so the user
   // sees the date they navigated to, not the previous page's date).
-  document.getElementById('nav-date').textContent = fmtNavDate(dateStr);
+  const navDate = document.getElementById('nav-date');
+  if (navDate) navDate.textContent = fmtNavDate(dateStr);
 
   // Bounds enforcement before attempting to fetch the day file.
   // For RCL, use the RCL coverage range (church year starting Advent 2026).
@@ -786,7 +787,7 @@ async function render(dateStr, officeType, translation) {
   const shared = offices._shared || {};
 
   // Sync date picker. Min = 12 months ago (rolling window matches lectionary coverage).
-  const picker = document.getElementById('nav-date-picker');
+  const picker = document.getElementById('day-date-picker');
   if (picker) {
     const today = new Date();
     const twelveMonthsAgo = new Date(today.getFullYear() - 1, today.getMonth(), 1);
@@ -817,19 +818,15 @@ async function render(dateStr, officeType, translation) {
 
   const officeData = officeType === 'mp' ? (day.morning || {}) : (day.evening || {});
 
-  // Nav
-  const prevEl = document.getElementById('nav-prev');
-  const nextEl = document.getElementById('nav-next');
+  // Nav — prev/next day buttons
+  const prevEl = document.getElementById('day-prev');
+  const nextEl = document.getElementById('day-next');
   const prevDate = offsetDate(dateStr, -1);
   const nextDate = offsetDate(dateStr, +1);
-  if (prevDate < boundsMin) { prevEl.removeAttribute('href'); prevEl.classList.add('nav-disabled'); }
-  else { prevEl.href = hashFor(prevDate, officeType); prevEl.classList.remove('nav-disabled'); }
-  if (nextDate > boundsMax) { nextEl.removeAttribute('href'); nextEl.classList.add('nav-disabled'); }
-  else { nextEl.href = hashFor(nextDate, officeType); nextEl.classList.remove('nav-disabled'); }
-  document.getElementById('nav-mp')?.href != null && (document.getElementById('nav-mp').href = hashFor(dateStr, 'mp'));
-  document.getElementById('nav-ep')?.href != null && (document.getElementById('nav-ep').href = hashFor(dateStr, 'ep'));
-  document.getElementById('nav-mp')?.classList.toggle('nav-active', officeType === 'mp');
-  document.getElementById('nav-ep')?.classList.toggle('nav-active', officeType === 'ep');
+  if (prevDate < boundsMin) { prevEl.disabled = true; }
+  else { prevEl.disabled = false; prevEl.setAttribute('data-hash', hashFor(prevDate, officeType)); }
+  if (nextDate > boundsMax) { nextEl.disabled = true; }
+  else { nextEl.disabled = false; nextEl.setAttribute('data-hash', hashFor(nextDate, officeType)); }
   document.getElementById('nav-translation').value = translation;
 
   // Header
@@ -842,7 +839,7 @@ async function render(dateStr, officeType, translation) {
   document.title = `${officeName} — ${activeName}`;
   document.getElementById('day-office-name').textContent = officeName;
   document.getElementById('day-title').textContent = activeName;
-  document.getElementById('day-subtitle').textContent = fmtFullDate(dateStr);
+  document.getElementById('day-date-label').textContent = fmtFullDate(dateStr);
 
   const hexes = colourHexes(day.colour);
   const firstHex = hexes[0] || '#b5a882';
@@ -875,15 +872,7 @@ async function render(dateStr, officeType, translation) {
   // ── Office + Observance controls in day header ────────────────────────────
   const ctrlEl = document.getElementById('day-office-controls');
   if (ctrlEl) {
-    let ctrlHtml = `<div class="day-ctrl-group">
-      <div class="day-ctrl-seg day-ctrl-seg--pills">
-        <a href="${hashFor(dateStr, 'mp')}" class="day-ctrl-btn${officeType === 'mp' ? ' is-active' : ''}">Morning Prayer</a>
-        <a href="${hashFor(dateStr, 'ep')}" class="day-ctrl-btn${officeType === 'ep' ? ' is-active' : ''}">Evening Prayer</a>
-      </div>
-      <select class="office-dropdown" aria-label="Office" onchange="location.hash=this.value">
-        <option value="${hashFor(dateStr, 'mp')}" ${officeType === 'mp' ? 'selected' : ''}>Morning Prayer</option>
-        <option value="${hashFor(dateStr, 'ep')}" ${officeType === 'ep' ? 'selected' : ''}>Evening Prayer</option>
-      </select></div>`;
+    let ctrlHtml = '';
     if (officeData.alternate) {
       const altLabel = officeData.alternate.label || 'Alternate';
       const primaryLabel = day.name.length > 26 ? day.name.slice(0,24)+'\u2026' : day.name;
@@ -1315,7 +1304,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Settings sheet
   const settingsSheet = document.getElementById('settings-sheet');
-  const settingsBtn = document.getElementById('nav-settings-btn');
+  const settingsBtn = document.getElementById('day-settings-btn');
   const settingsClose = document.getElementById('settings-close-btn');
   const settingsBackdrop = document.getElementById('settings-backdrop');
 
@@ -1452,7 +1441,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     syncTrackUI();
   }
 
-  const picker = document.getElementById('nav-date-picker');
+  const picker = document.getElementById('day-date-picker');
   picker.addEventListener('click', () => { try { picker.showPicker(); } catch (_) {} });
   picker.addEventListener('change', e => {
     if (e.target.value) location.hash = hashFor(e.target.value, state.office);
@@ -1460,6 +1449,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   // Dismiss without selecting (Escape / tap-outside) — remove focus ring immediately.
   picker.addEventListener('cancel', () => { picker.blur(); });
+
+  document.getElementById('day-prev').addEventListener('click', function () {
+    const h = this.getAttribute('data-hash');
+    if (h) location.hash = h;
+  });
+  document.getElementById('day-next').addEventListener('click', function () {
+    const h = this.getAttribute('data-hash');
+    if (h) location.hash = h;
+  });
 
   document.getElementById('day-meta').addEventListener('click', e => {
     const chip = e.target.closest('.colour-chip-toggle');
