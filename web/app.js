@@ -760,16 +760,6 @@ async function render(dateStr, officeType, translation) {
   document.documentElement.setAttribute('data-season', season);
 
   const officeData = officeType === 'mp' ? (day.morning || {}) : (day.evening || {});
-
-  // Nav — prev/next day buttons
-  const prevEl = document.getElementById('day-prev');
-  const nextEl = document.getElementById('day-next');
-  const prevDate = offsetDate(dateStr, -1);
-  const nextDate = offsetDate(dateStr, +1);
-  if (prevDate < boundsMin) { prevEl.disabled = true; }
-  else { prevEl.disabled = false; prevEl.setAttribute('data-hash', hashFor(prevDate, officeType)); }
-  if (nextDate > boundsMax) { nextEl.disabled = true; }
-  else { nextEl.disabled = false; nextEl.setAttribute('data-hash', hashFor(nextDate, officeType)); }
   document.getElementById('nav-translation').value = translation;
 
   // Header
@@ -1246,7 +1236,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Settings sheet
   const settingsSheet = document.getElementById('settings-sheet');
-  const settingsBtn = document.getElementById('day-settings-btn');
+  const settingsBtn = document.getElementById('nav-settings-btn');
   const settingsClose = document.getElementById('settings-close-btn');
   const settingsBackdrop = document.getElementById('settings-backdrop');
 
@@ -1333,15 +1323,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Dismiss without selecting (Escape / tap-outside) — remove focus ring immediately.
   picker.addEventListener('cancel', () => { picker.blur(); });
 
-  document.getElementById('day-prev').addEventListener('click', function () {
-    const h = this.getAttribute('data-hash');
-    if (h) location.hash = h;
-  });
-  document.getElementById('day-next').addEventListener('click', function () {
-    const h = this.getAttribute('data-hash');
-    if (h) location.hash = h;
-  });
-
   document.getElementById('day-meta').addEventListener('click', e => {
     const chip = e.target.closest('.colour-chip-toggle');
     if (!chip) return;
@@ -1395,6 +1376,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   fetchOnce('collects', `${DATA}/collects.json`);
   fetchOnce('bounds',   `${DATA}/season_bounds.json`);
   fetchOnce('psalter',  `${DATA}/psalter.json`);
+
+  // MP/EP toggle via office name label
+  document.getElementById('day-office-name').addEventListener('click', () => {
+    const next = state.office === 'mp' ? 'ep' : 'mp';
+    state.office = next;
+    location.hash = hashFor(state.date, next);
+  });
 
   handleHashChange();
 

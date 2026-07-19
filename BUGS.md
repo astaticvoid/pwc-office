@@ -40,6 +40,7 @@ Now we need to guarantee the rendered output is liturgically right.
 
 ### Next
 
+- Paragraph-break aware scripture rendering — extract boundaries from ESV XML / Bible Gateway, apply to KJV + NRSVUE (needs Apocrypha source)
 - Promote staging to production (user testing in progress)
 
 ### Parked
