@@ -20,6 +20,7 @@ data/translations/*
 !data/translations/kjv/
 !data/patches.json
 !data/corrections.json
+!data/paragraphs.json
 
 boneyard/data/
 

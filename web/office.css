@@ -547,7 +547,7 @@ body.book-mode .alt-panel + .alt-panel::before {
   white-space: pre-wrap;
 }
 .scripture-block {
-  margin: 0.8rem 0; white-space: pre-wrap;
+  margin: 0.8rem 0;
   font-family: var(--font-liturgy); font-size: 1.2rem; line-height: 1.8;
 }
 .psalm-block sup, .scripture-block sup { display: none; }
