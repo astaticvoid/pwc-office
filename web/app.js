@@ -826,10 +826,10 @@ async function render(dateStr, officeType, translation) {
   else { prevEl.href = hashFor(prevDate, officeType); prevEl.classList.remove('nav-disabled'); }
   if (nextDate > boundsMax) { nextEl.removeAttribute('href'); nextEl.classList.add('nav-disabled'); }
   else { nextEl.href = hashFor(nextDate, officeType); nextEl.classList.remove('nav-disabled'); }
-  const mpEl = document.getElementById('nav-mp');
-  const epEl = document.getElementById('nav-ep');
-  if (mpEl) { mpEl.href = hashFor(dateStr, 'mp'); mpEl.classList.toggle('nav-office-pill--active', officeType === 'mp'); }
-  if (epEl) { epEl.href = hashFor(dateStr, 'ep'); epEl.classList.toggle('nav-office-pill--active', officeType === 'ep'); }
+  document.getElementById('nav-mp')?.href != null && (document.getElementById('nav-mp').href = hashFor(dateStr, 'mp'));
+  document.getElementById('nav-ep')?.href != null && (document.getElementById('nav-ep').href = hashFor(dateStr, 'ep'));
+  document.getElementById('nav-mp')?.classList.toggle('nav-active', officeType === 'mp');
+  document.getElementById('nav-ep')?.classList.toggle('nav-active', officeType === 'ep');
   document.getElementById('nav-translation').value = translation;
 
   // Header
@@ -872,10 +872,14 @@ async function render(dateStr, officeType, translation) {
 
   document.querySelectorAll('.day-note, .day-note-details').forEach(el => el.remove());
 
-  // ── Observance controls in day header ─────────────────────────────────────
+  // ── Office + Observance controls in day header ────────────────────────────
   const ctrlEl = document.getElementById('day-office-controls');
   if (ctrlEl) {
-    let ctrlHtml = '';
+    let ctrlHtml = `<div class="day-ctrl-group">
+      <div class="day-ctrl-seg">
+        <a href="${hashFor(dateStr, 'mp')}" class="day-ctrl-btn${officeType === 'mp' ? ' is-active' : ''}">Morning Prayer</a>
+        <a href="${hashFor(dateStr, 'ep')}" class="day-ctrl-btn${officeType === 'ep' ? ' is-active' : ''}">Evening Prayer</a>
+      </div></div>`;
     if (officeData.alternate) {
       const altLabel = officeData.alternate.label || 'Alternate';
       const primaryLabel = day.name.length > 26 ? day.name.slice(0,24)+'\u2026' : day.name;

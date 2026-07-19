@@ -168,25 +168,6 @@ body {
   flex-shrink: 0;
 }
 
-/* MP/EP pill toggles in nav bar */
-.nav-office-pills {
-  display: flex; gap: 3px; padding: 2px;
-  background: rgba(255,255,255,0.08);
-  border-radius: 8px; flex-shrink: 0;
-}
-.nav-office-pill {
-  font-family: var(--font-ui); font-size: 0.68rem; font-weight: 600;
-  letter-spacing: 0.06em; text-transform: uppercase;
-  color: var(--color-nav-text); text-decoration: none;
-  padding: 0.25rem 0.55rem; border-radius: 6px;
-  opacity: 0.6; transition: opacity 0.1s, background 0.15s;
-}
-.nav-office-pill:hover { opacity: 0.85; }
-.nav-office-pill--active {
-  background: var(--color-nav-text); color: var(--color-nav-bg);
-  opacity: 1;
-}
-
 .obs-nav-btn {
   font-family: var(--font-ui);
   font-size: 0.8rem;
