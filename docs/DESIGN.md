@@ -209,34 +209,7 @@ Pure static hosting. `make build` assembles `dist/` from `web/` (dereferencing t
 
 ---
 
-## 8. Alternate Lectionary Support (Design Target)
-
-**Scope: RCL Daily Readings only.** BCP 1979 and BCP 2019 are explicitly out of scope. The ACC-authorized alternative to the BAS daily office lectionary is the CCT 2005 "Revised Common Lectionary Daily Readings" (GS2023 Resolution A124). That is the only alternate lectionary being implemented.
-
-The current system is tightly coupled to the ACC BAS lectionary CSV format. Adding the RCL daily lectionary requires:
-
-### Data layer
-- Monthly JSON files at `data/rcl-daily/YYYY-MM.json` (gitignored; private evaluation pending ACC rights resolution)
-- Source: `tools/extract_rcl_daily.py` parses RTF/DOC files downloaded from `commontexts.org/publications/`
-- Citation format is the same as BAS (`book chapter:verse`) — no schema changes needed
-- No separate `season_bounds.json` required — BAS bounds govern seasonal colouring; RCL weeks follow the same Christian year
-
-### App layer
-- `fetchDay()` branches on `localStorage` preference `pwc-lectionary` (`bas` | `rcl`)
-- When `rcl`, loads from `data/rcl-daily/YYYY-MM.json` instead of `data/lectionary/YYYY-MM.json`
-- All RCL code is behind `const FEATURE_RCL_DAILY = false` — setting false is a clean removal
-- Track preference (`pwc-rcl-track`: `1` | `2`) selects semicontinuous vs. complementary in ordinary time
-
-### Office forms
-- PWC office forms (BAS/PWC) are unchanged — RCL provides only the readings (psalm + two lessons), not the liturgical form
-- MP uses: psalm + first reading; EP uses: same psalm + second reading
-
-### Full spec
-See `docs/HANDOFF.md` — "RCL Daily Lectionary (P1, feature-gated)"
-
----
-
-## 9. Book of Alternative Services Extension
+## 8. Book of Alternative Services Extension
 
 BAS extends and supplements PWC for special occasions (e.g., Reconciliation, Marriage, Burial). The current app focuses exclusively on Daily Office. BAS extension means:
 
@@ -249,7 +222,7 @@ A BAS extension would require re-running `extract_offices.py` against the BAS PD
 
 ---
 
-## 10. Copyright Status
+## 9. Copyright Status
 
 | Asset | Status |
 |-------|--------|

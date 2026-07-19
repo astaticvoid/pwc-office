@@ -18,11 +18,6 @@ SOURCES = {
     'sources/pray-without-ceasing.pdf': 'https://www.anglican.ca/wp-content/uploads/pray-without-ceasing.pdf',
     'sources/BAS.pdf':                  'https://www.anglican.ca/wp-content/uploads/BAS.pdf',
     'sources/For-All-The-Saints.pdf':   'https://www.anglican.ca/wp-content/uploads/For-All-The-Saints.pdf',
-    # RCL Daily Readings (commontexts.org)
-    'sources/rcl/rcl_year_a.rtf':          'https://www.commontexts.org/wp-content/uploads/2015/11/RCLDailyReadings_YearA.rtf',
-    'sources/rcl/rcl_year_b.rtf':          'https://www.commontexts.org/wp-content/uploads/2015/11/dailyreadingsB.rtf',
-    'sources/rcl/rcl_year_c.doc':          'https://www.commontexts.org/wp-content/uploads/2015/11/RCLDailyReadings_YearC.doc',
-    'sources/rcl/rcl_year_a_expanded.pdf': 'https://www.commontexts.org/wp-content/uploads/2025/12/RCL-Expanded-Daily-Readings-Year-A.pdf',
 }
 
 

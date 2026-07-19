@@ -44,7 +44,6 @@ Now we need to guarantee the rendered output is liturgically right.
 
 ### Parked
 
-- RCL Daily lectionary (feature-gated, data from Nov 2026)
 - Mobile Capacitor build
 
 ---

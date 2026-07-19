@@ -118,8 +118,6 @@ Copyrighted content in `data/` is permanently gitignored. Only `data/translation
 
 **No service worker.** `sw.js` is a kill-switch only — it unregisters itself and clears all caches to clean up old installs. Do not add SW caching back.
 
-**Feature gate:** `FEATURE_RCL_DAILY = false` in `web/app.js:14`. RCL Daily lectionary UI is scaffolded but disabled — data only exists from Nov 2026 forward.
-
 ### Node CLI (`cli/`)
 
 | File | Role |
@@ -219,4 +217,3 @@ make promote
 - Lectionary coverage: rolling 12-month window, currently 2025–2026 (Year B)
 - Office forms: 30 in `data/offices.json`; form selection is season- and weekday-aware
 - PyMuPDF (fitz) is the sole PDF extraction dependency. pdftotext is optional (only for `check_casing.py` oracle)
-- `FEATURE_RCL_DAILY = false` until Nov 2026 data window
