@@ -11,6 +11,7 @@
 | [0007](./0007-service-worker-offline-support.md) | Browser cache and Capacitor bundle for offline support | Proposed |
 | [0008](./0008-full-office-structured-output.md) | Full-office structured JSON output for validators | Proposed |
 | [0009](./0009-automated-liturgical-quality-gating.md) | Automated liturgical quality gating with coherence scoring | Proposed |
+| [0010](./0010-static-design-options-page.md) | Static design-options page for visual decision-making | Proposed |
 
 ## Status values
 - **Proposed** — decision documented, awaiting review/adoption

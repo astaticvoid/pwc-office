@@ -760,47 +760,11 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 }
 .stale-close:hover { opacity: 1; }
 
-/* ── Design toggle (A/B testing MP/EP selector) ──────────────────────────────── */
-
-/* Option 1: desktop dropdown */
-.office-dropdown {
-  font-family: var(--font-ui); font-size: 0.72rem; font-weight: 600;
-  letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--color-accent); background: none; border: none;
-  cursor: pointer; text-align: center; margin: 0 auto; display: block;
-  padding: 0.25rem 0.5rem; border-radius: 6px;
-  -webkit-appearance: none; appearance: none;
-}
-.office-dropdown:hover { background: var(--color-surface); }
-/* Hide dropdown on mobile, show pills */
-#office-dropdown-wrap              { display: none; }
-#day-office-controls.toggle-opt-1 > .day-ctrl-group:not(#office-dropdown-wrap) { display: none; }
-@media (max-width: 819px) {
-  #day-office-controls.toggle-opt-1 > .day-ctrl-group { display: flex; }
-  #office-dropdown-wrap { display: none; }
-}
-
-/* Option 2: centered text links */
-.office-links {
-  display: flex; justify-content: center; align-items: center; gap: 0.45rem;
-  font-family: var(--font-ui); font-size: 0.76rem; font-weight: 500; letter-spacing: 0.06em;
-  margin-top: 0.3rem;
-}
-.office-link {
-  color: var(--color-muted); text-decoration: none; transition: color 0.15s;
-}
-.office-link--active { color: var(--color-text); font-weight: 600; }
-.office-link:hover { color: var(--color-accent); }
-.office-links-sep { color: var(--color-border); user-select: none; }
-
 /* ── Desktop layout ─────────────────────────────────────────────────────────── */
 
 @media (min-width: 820px) {
   :root { --content-max: 58rem; }
   #day-title { font-size: 2rem; }
-  /* Option 1: show dropdown, hide pills on desktop */
-  #day-office-controls .office-dropdown-wrap { display: block; }
-  #day-office-controls:has(#office-dropdown-wrap) .day-ctrl-seg { display: none; }
 }
 
 /* ── Print ──────────────────────────────────────────────────────────────────── */
