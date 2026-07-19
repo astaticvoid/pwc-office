@@ -117,6 +117,8 @@
     window.onerror = function(m,s,l,c,e) { dbg('ERROR: '+m+' at '+s+':'+l+':'+c); };
     window.addEventListener('unhandledrejection', function(e) { dbg('PROMISE: '+e.reason); });
   </script>
+  <!-- Design toggle: uncomment to A/B test MP/EP selector options. ?toggle=1-4 -->
+  <!-- <script src="_design-toggle.js"></script> -->
   <script src="capacitor-plugins.js"></script>
   <script type="module" src="app.js"></script>
 </body>
