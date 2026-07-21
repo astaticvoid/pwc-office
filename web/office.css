@@ -185,9 +185,10 @@ body {
 
 .settings-sheet {
   position: fixed; inset: 0; z-index: 200;
-  pointer-events: none; display: flex; align-items: flex-end;
+  display: flex; align-items: flex-end;
+  visibility: hidden; transition: visibility 0s 0.28s;
 }
-.settings-sheet[aria-hidden="false"] { pointer-events: all; }
+.settings-sheet[aria-hidden="false"] { pointer-events: all; visibility: visible; transition: visibility 0s; }
 
 .settings-backdrop {
   position: absolute; inset: 0;

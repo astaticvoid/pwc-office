@@ -1248,10 +1248,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   function openSettings() {
     settingsSheet.setAttribute('aria-hidden', 'false');
     settingsBtn.setAttribute('aria-expanded', 'true');
+    const firstCtrl = settingsSheet.querySelector('button, select');
+    if (firstCtrl) firstCtrl.focus();
   }
   function closeSettings() {
     settingsSheet.setAttribute('aria-hidden', 'true');
     settingsBtn.setAttribute('aria-expanded', 'false');
+    settingsBtn.focus();
   }
   settingsBtn.addEventListener('click', openSettings);
   settingsClose.addEventListener('click', closeSettings);
