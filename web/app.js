@@ -466,7 +466,7 @@ function extractVersesWithChapter(book, range) {
 function renderChapterHtml(chVerses, chNum, breaks) {
   const firstV = chVerses[0].v;
   const renderVerse = (v) => {
-    const num = (v.v === 1 && firstV === 1) ? '' : `<sup class="verse-num">${v.v}</sup> `;
+    const num = (v.v === 1 && firstV === 1) ? '' : `<sup class="verse-num">${v.v}</sup>\u00A0`;
     return `${num}${esc(v.text)}`;
   };
   const chDrop = `<span class="scripture-ch-num">${chNum}</span>`;
