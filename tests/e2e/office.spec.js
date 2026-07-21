@@ -27,7 +27,7 @@ async function waitForContentLoaded(page) {
 // ── Office loads ──────────────────────────────────────────────────────────────
 
 test.describe('Office loads', () => {
-  test('morning prayer: page title and header', async ({ page }) => {
+  test('morning prayer: page title and header @smoke', async ({ page }) => {
     await page.goto(MP);
     await expect(page).toHaveTitle(/Morning Prayer/);
     await expect(page.locator('#day-title')).toContainText('Easter');
@@ -35,7 +35,7 @@ test.describe('Office loads', () => {
     await expect(page.locator('#day-office-name')).toHaveText('Morning Prayer');
   });
 
-  test('morning prayer: psalms render with number and verses', async ({ page }) => {
+  test('morning prayer: psalms render with number and verses @smoke', async ({ page }) => {
     await page.goto(MP);
     await expect(page.locator('.psalm-title').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
     // Psalm title should include "Psalm N"
@@ -44,20 +44,20 @@ test.describe('Office loads', () => {
     await expect(page.locator('.psalm-block').first()).not.toBeEmpty();
   });
 
-  test('morning prayer: no loading spinners remain', async ({ page }) => {
+  test('morning prayer: no loading spinners remain @smoke', async ({ page }) => {
     await page.goto(MP);
     await waitForContentLoaded(page);
     // Nothing should still be loading
     await expect(page.locator('p.loading')).toHaveCount(0);
   });
 
-  test('morning prayer: scripture fills in without errors', async ({ page }) => {
+  test('morning prayer: scripture fills in without errors @smoke', async ({ page }) => {
     await page.goto(MP);
     await expect(page.locator('.scripture-block').first()).not.toBeEmpty({ timeout: CONTENT_TIMEOUT });
     await expect(page.locator('.error-msg')).toHaveCount(0);
   });
 
-  test('morning prayer: all major sections present', async ({ page }) => {
+  test('morning prayer: all major sections present @smoke', async ({ page }) => {
     await page.goto(MP);
     const sections = page.locator('.office-section-title');
     // Gathering, Proclamation, Prayers, Sending
