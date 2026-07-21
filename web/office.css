@@ -23,8 +23,6 @@
 
   /* Liturgical accent — overridden per season on <html> */
   --color-accent: #3B6B4E;
-  /* Day colour — overridden per day by JS */
-  --color-day: #3B6B4E;
 
   --content-max: 46rem;
 

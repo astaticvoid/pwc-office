@@ -835,7 +835,6 @@ async function render(dateStr, officeType, translation) {
 
   const hexes = colourHexes(day.colour);
   const firstHex = hexes[0] || '#b5a882';
-  document.documentElement.style.setProperty('--color-day', firstHex);
   const colourChip = hexes.length > 0
     ? `<span class="meta-item">`
       + `<span class="meta-lbl">Colour</span>`
@@ -1339,7 +1338,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const idx = (parseInt(chip.dataset.idx) + 1) % hexes.length;
     chip.dataset.idx = String(idx);
     chip.style.background = hexes[idx];
-    document.documentElement.style.setProperty('--color-day', hexes[idx]);
   });
 
   document.getElementById('office-content').addEventListener('click', e => {
