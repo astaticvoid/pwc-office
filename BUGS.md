@@ -49,7 +49,14 @@ Now we need to guarantee the rendered output is liturgically right.
 
 ### Next
 
-- Promote staging to production (gated on visual-audit fixes + re-test; Commits 1–6 shipped 2026-07-21)
+- ~~Promote staging to production~~ — Promoted 2026-07-21 (`e9b99b0`).
+- Visual-regression testing: no screenshot/visual tests, dark mode untested in CI.
+- `prefers-color-scheme` auto-detection (currently manual-toggle only).
+- Unify tab builders: `renderAlternatives` vs `collectToggleHtml` tabBlock — two divergent implementations.
+- `#day-office-name` button semantics: `role="button"`, `tabindex`, key handler.
+- `CONTRIBUTING.md`: stale references to `patches.json`, `make update-golden`, `make deploy BUCKET=`.
+- Error-state consistency: missing-form/collect notices.
+- E2E staging tests need basic auth credentials wired into playwright config.
 
 ### Parked
 
@@ -73,7 +80,7 @@ Now we need to guarantee the rendered output is liturgically right.
 ### Infrastructure
 
 - ~~Staging cache headers need `make build` integration~~ — Done: `deploy-staging` already sets per-type cache headers.
-- Production still on pre-rubric-fix release (user testing staging)
+- ~~Production still on pre-rubric-fix release (user testing staging)~~ — Promoted to production 2026-07-21.
 - ~~No CI — tests are local only~~ — Done 2026-07-18: GitHub Actions runs `make test` (Vitest + QA gate + integrity check) on push/PR.
 - ~~P0 alternate-observance crash + 5 validity bugs~~ — Fixed 2026-07-21 (Commits 1–6): dead observance card, duplicate ARIA IDs, `--font-body` token, `--color-day` token, StatusBar ternary, `@smoke` test gate.
 - ~~Dead CSS/JS cleanup (~80 lines CSS, #view-toggle/#nav-date wiring)~~ — Purged 2026-07-21.
