@@ -126,10 +126,23 @@ function defaultOffice() {
 
 function initTheme() {
   const stored = storageGet('pwc-theme');
-  if (stored) document.documentElement.setAttribute('data-theme', stored);
-  // No stored pref = light (default; no attribute needed)
+  if (stored) {
+    document.documentElement.setAttribute('data-theme', stored);
+  } else {
+    // No explicit user preference — follow system
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (prefersDark) document.documentElement.setAttribute('data-theme', 'dark');
+  }
   updateThemeButton();
   updateNativeStatusBar();
+
+  // Listen for system theme changes when no stored override
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+    if (!storageGet('pwc-theme')) {
+      document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+      updateThemeButton();
+    }
+  });
 }
 
 function toggleTheme() {
@@ -598,7 +611,8 @@ function collectHtml(collects, ref) {
   const col = lookupCollect(collects, ref);
   const name = col && col.name ? col.name : `p. ${collectPageNum(ref) || ref}`;
   return `<p class="alt-source">${esc(name)}</p>`
-       + (col ? `<p class="collect-text">${esc(col.text)}</p>` : '');
+       + (col ? `<p class="collect-text">${esc(col.text)}</p>`
+              : `<p class="scripture-fallback-note">Collect not available.</p>`);
 }
 
 // Renders the collect section as a toggle between the daily collect and
@@ -641,9 +655,10 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared, fatsEntry
   // Helper: builds one tab-block from arrays of [label, htmlContent] pairs.
   function tabBlock(entries) {
     const activeIdx = Math.min(Math.max(0, savedIdx), entries.length - 1);
-    const tabs = entries.map(([label], i) =>
-      `<button class="alt-tab${i === activeIdx ? ' alt-tab-active' : ''}" role="tab" aria-selected="${i === activeIdx}" aria-controls="${idBase}-panel-${i}" id="${idBase}-tab-${i}" data-idx="${i}" data-key="${esc(stateKey)}">${esc(label)}</button>`
-    ).join('');
+    const tabs = entries.map(([label], i) => {
+      const displayLabel = label.length > 22 ? label.slice(0, 21) + '…' : label;
+      return `<button class="alt-tab${i === activeIdx ? ' alt-tab-active' : ''}" role="tab" aria-selected="${i === activeIdx}" aria-controls="${idBase}-panel-${i}" id="${idBase}-tab-${i}" data-idx="${i}" data-key="${esc(stateKey)}" title="${esc(label)}">${esc(displayLabel)}</button>`;
+    }).join('');
     const panels = entries.map(([, content], i) =>
       `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-${i}" aria-labelledby="${idBase}-tab-${i}" data-idx="${i}">${content}</div>`
     ).join('');
@@ -820,6 +835,15 @@ async function render(dateStr, officeType, translation) {
 
   // Header
   const officeName = officeType === 'mp' ? 'Morning Prayer' : 'Evening Prayer';
+
+  if (!form) {
+    contentEl.innerHTML = `<div class="out-of-range-msg">
+      <p class="out-of-range-title">Office form not available</p>
+      <p>No liturgical form found for <strong>${esc(officeName)}</strong> on ${esc(fmtFullDate(dateStr))}.</p>
+    </div>`;
+    updateControls();
+    return;
+  }
   const activeObs = state.observance === 'alternate' && officeData.alternate ? 'alternate' : 'primary';
   const activeOfficeData = activeObs === 'alternate' ? officeData.alternate : officeData;
   const activeName = activeObs === 'alternate'
@@ -1369,9 +1393,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   fetchOnce('paragraphs', `${DATA}/paragraphs.json`).catch(() => {});
 
   // MP/EP toggle via office name label
-  document.getElementById('day-office-name').addEventListener('click', () => {
+  const officeNameEl = document.getElementById('day-office-name');
+  officeNameEl.addEventListener('click', () => {
     const next = state.office === 'mp' ? 'ep' : 'mp';
     navigateTo(state.date, next);
+  });
+  officeNameEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      const next = state.office === 'mp' ? 'ep' : 'mp';
+      navigateTo(state.date, next);
+    }
   });
 
   // Global navigation delegation — buttons with data-navigate="date|office|observance"

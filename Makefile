@@ -203,7 +203,7 @@ deploy-staging: check-integrity check-dist
 	@echo "$(RELEASE)" > .deploy-latest
 
 test-staging:
-	STAGING_URL=https://$(STAGING_DOMAIN) \
+	BASE_URL=https://$(STAGING_DOMAIN) \
 	  npx playwright test --grep "@smoke"
 
 promote:
