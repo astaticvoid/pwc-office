@@ -139,7 +139,7 @@ test.describe('Office loads', () => {
 test.describe('Navigation', () => {
   test('date picker navigates to a chosen date', async ({ page }) => {
     await page.goto(MP);
-    await page.locator('#nav-date-picker').fill('2026-05-16');
+    await page.locator('#day-date-picker').fill('2026-05-16');
     await expect(page).toHaveURL(/2026-05-16\/mp/);
     await expect(page.locator('#day-title')).not.toBeEmpty();
   });
@@ -160,7 +160,7 @@ test.describe('Navigation', () => {
     const today = new Date();
     const pad = n => String(n).padStart(2, '0');
     const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
-    await expect(page.locator('#nav-date-picker')).toHaveValue(todayStr);
+    await expect(page.locator('#day-date-picker')).toHaveValue(todayStr);
   });
 });
 
@@ -362,8 +362,8 @@ test.describe('Date picker', () => {
   test('changing date navigates to that day', async ({ page }) => {
     await page.goto(MP);
     await page.locator('#day-title').waitFor();
-    await page.locator('#nav-date-picker').fill('2026-05-18');
-    await page.locator('#nav-date-picker').dispatchEvent('change');
+    await page.locator('#day-date-picker').fill('2026-05-18');
+    await page.locator('#day-date-picker').dispatchEvent('change');
     await expect(page).toHaveURL(/2026-05-18\/mp/);
     await expect(page.locator('#day-title')).not.toBeEmpty();
   });
