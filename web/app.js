@@ -758,8 +758,6 @@ async function render(dateStr, officeType, translation) {
 
   // Update nav date immediately (even for out-of-range dates, so the user
   // sees the date they navigated to, not the previous page's date).
-  const navDate = document.getElementById('nav-date');
-  if (navDate) navDate.textContent = fmtNavDate(dateStr);
 
   // Bounds enforcement before attempting to fetch the day file.
   const boundsMax = offsetDate(bounds.christmas_ii, 6);
@@ -1259,18 +1257,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   settingsClose.addEventListener('click', closeSettings);
   settingsBackdrop.addEventListener('click', closeSettings);
 
-  // Book mode toggle — wired to both the header button and the settings seg
-  const viewToggle = document.getElementById('view-toggle');
+  // Book mode toggle — wired to the settings segmented control
   const bookModeKey = 'pwc-book-mode';
 
   function syncViewModeUI(isBook) {
-    if (viewToggle) {
-      viewToggle.setAttribute('aria-pressed', String(isBook));
-      viewToggle.innerHTML = viewToggle.innerHTML.replace(
-        isBook ? 'Book view' : 'Interactive',
-        isBook ? 'Interactive' : 'Book view'
-      );
-    }
     const offBtn = document.getElementById('view-mode-office');
     const bkBtn  = document.getElementById('view-mode-book');
     if (offBtn) { offBtn.classList.toggle('is-active', !isBook); offBtn.setAttribute('aria-pressed', String(!isBook)); }
@@ -1281,12 +1271,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.body.classList.add('book-mode');
     syncViewModeUI(true);
   }
-
-  if (viewToggle) viewToggle.addEventListener('click', () => {
-    const isBook = document.body.classList.toggle('book-mode');
-    syncViewModeUI(isBook);
-    storageSet(bookModeKey, isBook ? '1' : '0');
-  });
 
   const viewModeOffice = document.getElementById('view-mode-office');
   const viewModeBook   = document.getElementById('view-mode-book');
