@@ -14,6 +14,8 @@ export default defineConfig({
     baseURL: BASE_URL,
     // Store browser state (cookies, localStorage) per test, not shared.
     storageState: undefined,
+    // Basic auth for staging/production (ignored on localhost)
+    ...(!isLocal && { httpCredentials: { username: 'office', password: 'daily' } }),
   },
 
   // When testing locally, start the pre-built dist/ server automatically.

@@ -49,14 +49,14 @@ Runs in order:
 2. `tools/normalize_offices.py` — deduplicates shared blocks into `data/offices.json#_shared`
 3. `tools/extract_psalter.py` → `data/psalter.json`
 4. `tools/extract_collects.py` → `data/collects.json`
-5. `tools/validate_patches.py` — verify patch `old` values match current data
-6. `tools/apply_patches.py` — apply corrections from `data/patches.json`
+ 5. `tools/validate_corrections.py` — verify correction `old` values match current data
+ 6. `tools/apply_corrections.py` — apply corrections from `data/corrections.json`
 7. `tools/convert_lectionary.py --accept --window 12` → `data/lectionary/YYYY-MM.json` (rolling 12-month window)
 8. `tools/validate_lectionary.py` — cross-check against ACC HTML
 
 Re-run the pipeline after updating any source PDF or CSV.
 
-**Adding corrections:** text corrections belong in `data/patches.json` (committed), not as direct edits to `data/offices.json` (which is gitignored and regenerated on each extraction). See `tools/apply_patches.py` for the patch format.
+**Adding corrections:** text corrections belong in `data/corrections.json` (committed), not as direct edits to `data/offices.json` (which is gitignored and regenerated on each extraction). See `tools/apply_corrections.py` for the patch format.
 
 ---
 
@@ -71,13 +71,13 @@ Re-run the pipeline after updating any source PDF or CSV.
 | `make test-web` | Playwright E2E suite (70+ browser tests) | After any `web/app.js` or CSS change |
 | `make test-tools` | Python pytest for `tools/` (requires: `brew install pytest`) | After changing any extraction tool |
 | `make validate` | Validate extracted lectionary against ACC HTML (network) | Before a data re-extraction |
-| `make update-golden` | Regenerate golden snapshot files after intentional rendering change | After a rendering change |
+| `make generate-golden` | Regenerate golden snapshot files after intentional rendering change | After a rendering change |
 
 **Typical pre-commit workflow:**
 
 ```bash
 make test          # Vitest + pytest
-make test-web      # Playwright suite (requires: make serve-dist in another terminal)
+make test-web      # Playwright suite (auto-starts web/ server on :8080)
 ```
 
 ---
@@ -88,7 +88,9 @@ make test-web      # Playwright suite (requires: make serve-dist in another term
 make build         # Assembles dist/ (dereferences data/ symlink)
 make check-dist    # Runs build + tools/check_dist.py validation
 make serve-dist    # Serves dist/ on :8081 — required for Playwright pre-deploy check
-make deploy BUCKET=<s3-bucket> CF_DISTRIBUTION_ID=<cf-id>
+make deploy-staging   # Upload to releases/vTIMESTAMP/ + staging/ on S3
+make test-staging     # Playwright smoke tests against staging
+make promote          # CloudFront origin-path swap to production
 ```
 
 Deploy requires AWS credentials with S3 + CloudFront permissions. See `project_aws.md` in the memory directory for the bucket and distribution details.
@@ -97,4 +99,4 @@ Deploy requires AWS credentials with S3 + CloudFront permissions. See `project_a
 
 ## Copyright constraints
 
-`sources/` and `data/` (except `data/translations/kjv/` and `data/patches.json`) are gitignored because they contain or derive from copyrighted ACC/BAS liturgical text. Never commit these files — each contributor must run the extraction pipeline locally from ACC source files. The KJV is public domain and committed. `data/patches.json` contains only short text snippets used to verify corrections.
+`sources/` and `data/` (except `data/translations/kjv/` and `data/corrections.json`) are gitignored because they contain or derive from copyrighted ACC/BAS liturgical text. Never commit these files — each contributor must run the extraction pipeline locally from ACC source files. The KJV is public domain and committed. `data/corrections.json` contains only short text snippets used to verify corrections.
