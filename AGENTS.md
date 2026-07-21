@@ -167,7 +167,7 @@ Capacitor wraps `dist/` as a native app (`capacitor.config.json`, `webDir: dist`
 
 ## Bug tracking
 
-`BUGS.md` is the active tracker for open issues, near-term plan, and parked items. When triaging bugs, note findings there with a date. The "Field observations" inbox section (top of file) is for user reports that need later triage. Batch specs live in `docs/HANDOFF.md`.
+`BUGS.md` is the active tracker for open issues, near-term plan, and parked items. When triaging bugs, note findings there with a date. The "Field observations" inbox section (top of file) is for user reports that need later triage. Batch specs were consolidated into `BUGS.md` (`docs/HANDOFF.md` deleted 2026-07-18).
 
 ## Hard constraints
 

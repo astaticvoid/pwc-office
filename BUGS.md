@@ -1,6 +1,14 @@
 # PWC — Tracker
 
-_Last updated: 2026-07-18_
+_Last updated: 2026-07-21_
+
+## Field observations
+
+_User reports that need triage — move to the appropriate section after investigation._
+
+_(none yet)_
+
+---
 
 ## Active plan
 
@@ -10,6 +18,7 @@ Now we need to guarantee the rendered output is liturgically right.
 
 ### Done (this session)
 
+- Paragraph-break aware scripture rendering — BibleGateway-style paragraph rendering, left-aligned section headings (2026-07-21, `7978854` + `b435069`)
 - PyMuPDF replaces pdfplumber — single PDF dependency, 85 lines of heuristic code deleted
 - Content-based page detection — no hardcoded page numbers
 - Unified renderer — `render.js` has HTML + text + JSON output modes
@@ -40,8 +49,7 @@ Now we need to guarantee the rendered output is liturgically right.
 
 ### Next
 
-- Paragraph-break aware scripture rendering — extract boundaries from ESV XML / Bible Gateway, apply to KJV + NRSVUE (needs Apocrypha source)
-- Promote staging to production (user testing in progress)
+- Promote staging to production (gated on visual-audit fixes + re-test; Commits 1–6 shipped 2026-07-21)
 
 ### Parked
 
@@ -67,6 +75,8 @@ Now we need to guarantee the rendered output is liturgically right.
 - ~~Staging cache headers need `make build` integration~~ — Done: `deploy-staging` already sets per-type cache headers.
 - Production still on pre-rubric-fix release (user testing staging)
 - ~~No CI — tests are local only~~ — Done 2026-07-18: GitHub Actions runs `make test` (Vitest + QA gate + integrity check) on push/PR.
+- ~~P0 alternate-observance crash + 5 validity bugs~~ — Fixed 2026-07-21 (Commits 1–6): dead observance card, duplicate ARIA IDs, `--font-body` token, `--color-day` token, StatusBar ternary, `@smoke` test gate.
+- Missing visual-regression coverage: no screenshot/visual tests, dark mode untested, CSS never parsed. ~15% dead CSS in `office.css`.
 
 ---
 
