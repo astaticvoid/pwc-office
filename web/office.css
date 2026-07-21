@@ -65,9 +65,6 @@
   --color-brass-ink:#CBA24A;
   --color-brass-on-nav:#D8B968;
 }
-@media (max-width: 520px) {
-  .seg-leader, .seg-response { line-height: 1.7; }
-}
 
 /* ── Reset ─────────────────────────────────────────────────────────────────── */
 
