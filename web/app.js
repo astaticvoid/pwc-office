@@ -69,8 +69,7 @@ async function restoreStorageFromPreferences() {
 function updateNativeStatusBar() {
   if (!isNative) return;
   const { StatusBar, Style } = window.__pwcPlugins;
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  StatusBar.setStyle({ style: isDark ? Style.Dark : Style.Dark });
+  StatusBar.setStyle({ style: Style.Dark });
   StatusBar.setBackgroundColor({ color: '#15382A' });
 }
 
