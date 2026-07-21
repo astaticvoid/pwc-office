@@ -329,9 +329,7 @@ body {
 #day-brand { display: none; }
 
 #day-header {
-  padding: 1rem 0 1.25rem;
-  margin-bottom: 1rem;
-  border-bottom: 1px solid var(--color-border);
+  padding: 1rem 0 0;
   text-align: center;
 }
 #day-meta { justify-content: center; }
@@ -450,7 +448,8 @@ body.book-mode .alt-panel + .alt-panel::before {
 /* ── Form header ────────────────────────────────────────────────────────────── */
 
 .form-header {
-  margin-bottom: 1.5rem; padding-bottom: 1rem;
+  margin-top: 1.5rem; margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
   border-bottom: 1px solid var(--color-border);
 }
 .form-title {
