@@ -49,14 +49,14 @@ Now we need to guarantee the rendered output is liturgically right.
 
 ### Next
 
-- ~~Promote staging to production~~ — Promoted 2026-07-21 (`e9b99b0`).
+- ~~Promote staging to production~~ — Promoted 2026-07-21.
+- ~~`prefers-color-scheme` auto-detection~~ — System preference followed when no stored override 2026-07-21.
+- ~~`#day-office-name` button semantics~~ — role="button", tabindex, Enter/Space key handler 2026-07-21.
+- ~~Unify tab builders~~ — `collectToggleHtml` tabBlock now includes title + truncation matching `renderAlternatives` 2026-07-21.
+- ~~Error-state consistency~~ — Missing form shows notice, unresolvable collect shows "not available" note 2026-07-21.
+- ~~`CONTRIBUTING.md`~~ — Fixed stale references (patches→corrections, update-golden→generate-golden, deploy→deploy-staging/promote) 2026-07-21.
+- ~~E2E staging test auth~~ — HTTP basic auth credentials added to playwright config 2026-07-21.
 - Visual-regression testing: no screenshot/visual tests, dark mode untested in CI.
-- `prefers-color-scheme` auto-detection (currently manual-toggle only).
-- Unify tab builders: `renderAlternatives` vs `collectToggleHtml` tabBlock — two divergent implementations.
-- `#day-office-name` button semantics: `role="button"`, `tabindex`, key handler.
-- `CONTRIBUTING.md`: stale references to `patches.json`, `make update-golden`, `make deploy BUCKET=`.
-- Error-state consistency: missing-form/collect notices.
-- E2E staging tests need basic auth credentials wired into playwright config.
 
 ### Parked
 
