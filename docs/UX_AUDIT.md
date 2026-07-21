@@ -25,7 +25,7 @@ All P0–P1 UX issues resolved. The nav redesign (settings bottom sheet, MP/EP r
 | UX-12 | Content | P3 | ✅ Fixed — day notes have "Read more" expand button |
 | UX-13 | Content | P3 | ✅ Fixed — colour chip shows ↺ indicator on cyclic days |
 | UX-14 | Content | P3 | ✅ Fixed 2026-06-06 — form title suppressed on ordinary-time forms |
-| UX-15 | A11y | P2 | 🔲 Open — alt-tabs lack role="tab", aria-selected, arrow-key navigation |
+| UX-15 | A11y | P2 | ✅ Fixed 2026-07-18 — alt-tabs have role="tab", aria-selected, arrow-key navigation |
 | UX-16 | A11y | P2 | ✅ Fixed — psalm verse numbers have aria-hidden="true" |
 | UX-17 | A11y | P3 | 🔲 Future — lang attribute for Latin psalm titles; defer to French BAS work |
 
@@ -39,10 +39,6 @@ Keyboard shortcuts (← → days, m/e office, b book mode, t today) are undiscov
 
 **Suggested fix:** `?` key opens a small modal or inline panel listing shortcuts. Or add `title` attr to MP/EP buttons and nav arrows with key hint.
 
-### UX-15: ARIA tab roles (P2)
+### UX-15: ARIA tab roles (P2) — ✅ Fixed 2026-07-18
 
-The alternatives tabs (canticles, doxology, affirmation) are `<button>` elements in a `.alt-tabs` container. They lack `role="tab"`, `aria-selected`, `aria-controls`. Keyboard users Tab to each button individually instead of using arrow keys within the group.
-
-**Fix spec:** Add `role="tablist"` to `.alt-tabs`; `role="tab"` + `aria-selected` + `aria-controls="alt-panel-{n}"` to each `.alt-tab`; `role="tabpanel"` + `id="alt-panel-{n}"` to each `.alt-panel`. Implement left/right arrow key navigation within the tablist (focus moves, does not activate). This is a pure JS/HTML change — no data or CSS changes needed.
-
-_File:_ `web/app.js` (`renderAlternatives` function)
+Alt-tabs now have `role="tab"`, `aria-selected`, `aria-controls`, and arrow-key navigation via `activateTab` in `web/app.js`. The `renderAlternatives` function in `web/render.js` and the `collectToggleHtml` tab block in `web/app.js` both emit proper ARIA tab markup.
