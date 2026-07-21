@@ -1,6 +1,8 @@
 /* ── Variables ─────────────────────────────────────────────────────────────── */
 
 :root {
+  color-scheme: light dark;
+
   --font-liturgy: 'EB Garamond', Georgia, 'Times New Roman', serif;
   --font-ui: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
   --line-height: 1.7;
@@ -62,9 +64,15 @@
   --color-surface:  #1E1C14;
   --color-heading:  #86C0A4;
   --color-brass:    #CBA24E;
-  --color-brass-ink:#CBA24A;
+  --color-brass-ink:#B88E3E;
   --color-brass-on-nav:#D8B968;
 }
+
+/* Dark-mode seasonal accents — lighten for visibility on dark background */
+[data-theme="dark"][data-season="Advent"]      { --color-accent: #7B6FBC; }
+[data-theme="dark"][data-season="Lent"]        { --color-accent: #9070B0; }
+[data-theme="dark"][data-season="Passiontide"] { --color-accent: #C85040; }
+[data-theme="dark"][data-season="Pentecost"]   { --color-accent: #D06050; }
 
 /* ── Reset ─────────────────────────────────────────────────────────────────── */
 
