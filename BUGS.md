@@ -76,7 +76,17 @@ Now we need to guarantee the rendered output is liturgically right.
 - Production still on pre-rubric-fix release (user testing staging)
 - ~~No CI — tests are local only~~ — Done 2026-07-18: GitHub Actions runs `make test` (Vitest + QA gate + integrity check) on push/PR.
 - ~~P0 alternate-observance crash + 5 validity bugs~~ — Fixed 2026-07-21 (Commits 1–6): dead observance card, duplicate ARIA IDs, `--font-body` token, `--color-day` token, StatusBar ternary, `@smoke` test gate.
-- Missing visual-regression coverage: no screenshot/visual tests, dark mode untested, CSS never parsed. ~15% dead CSS in `office.css`.
+- ~~Dead CSS/JS cleanup (~80 lines CSS, #view-toggle/#nav-date wiring)~~ — Purged 2026-07-21.
+- ~~Missing font weights (Garamond 700, Plex 600/700)~~ — Added 2026-07-21.
+- ~~Mobile line-height override~~ — Removed hardcoded 1.7, token flows through 2026-07-21.
+- ~~Settings-sheet a11y~~ — Visibility hidden removes from tab order, aria-modal, focus management 2026-07-21.
+- ~~Dark-mode gaps~~ — color-scheme meta/root, brass ink typo, seasonal accent dark variants 2026-07-21.
+- ~~Chapter drop-num on mid-chapter readings~~ — Skip when firstV ≠ 1 2026-07-21.
+- ~~Attribution label inconsistency~~ — Unified as "Scripture:" 2026-07-21.
+- ~~ADRs stuck at Proposed~~ — Marked Accepted (0002 Superseded) 2026-07-21.
+- ~~Stale DESIGN.md~~ — Deleted (all info in AGENTS.md + ADRs) 2026-07-21.
+- ~~Throwaway prototype files~~ — Deleted _design-options.html, _cross-test.html 2026-07-21.
+- Missing visual-regression coverage: no screenshot/visual tests, dark mode untested in CI.
 
 ---
 
