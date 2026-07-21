@@ -2,16 +2,16 @@
 
 | ADR | Title | Status |
 |---|---|---|
-| [0001](./0001-pymupdf-for-style-classification.md) | Use PyMuPDF for PDF style classification | Proposed |
-| [0002](./0002-two-pass-extraction-pdftotext-pymupdf.md) | Use pdftotext for text content; separate text from style | Proposed |
-| [0003](./0003-content-based-page-detection.md) | Detect office page bounds from content, not hardcoded numbers | Proposed |
-| [0004](./0004-unified-rendering-engine.md) | Single rendering engine with HTML and text output modes | Proposed |
-| [0005](./0005-single-correction-manifest.md) | Single versioned manifest for all data corrections | Proposed |
-| [0006](./0006-versioned-atomic-deploys.md) | Versioned directory deploys with staged promotion | Proposed |
-| [0007](./0007-service-worker-offline-support.md) | Browser cache and Capacitor bundle for offline support | Proposed |
-| [0008](./0008-full-office-structured-output.md) | Full-office structured JSON output for validators | Proposed |
-| [0009](./0009-automated-liturgical-quality-gating.md) | Automated liturgical quality gating with coherence scoring | Proposed |
-| [0010](./0010-static-design-options-page.md) | Static design-options page for visual decision-making | Proposed |
+| [0001](./0001-pymupdf-for-style-classification.md) | Use PyMuPDF for PDF style classification | Accepted |
+| [0002](./0002-two-pass-extraction-pdftotext-pymupdf.md) | Use pdftotext for text content; separate text from style | Superseded |
+| [0003](./0003-content-based-page-detection.md) | Detect office page bounds from content, not hardcoded numbers | Accepted |
+| [0004](./0004-unified-rendering-engine.md) | Single rendering engine with HTML and text output modes | Accepted |
+| [0005](./0005-single-correction-manifest.md) | Single versioned manifest for all data corrections | Accepted |
+| [0006](./0006-versioned-atomic-deploys.md) | Versioned directory deploys with staged promotion | Accepted |
+| [0007](./0007-service-worker-offline-support.md) | Browser cache and Capacitor bundle for offline support | Accepted |
+| [0008](./0008-full-office-structured-output.md) | Full-office structured JSON output for validators | Accepted |
+| [0009](./0009-automated-liturgical-quality-gating.md) | Automated liturgical quality gating with coherence scoring | Accepted |
+| [0010](./0010-static-design-options-page.md) | Static design-options page for visual decision-making | Accepted |
 
 ## Status values
 - **Proposed** — decision documented, awaiting review/adoption
