@@ -604,27 +604,6 @@ body.book-mode .psalm-block sup { display: inline; }
   line-height: var(--line-height);
 }
 
-/* ── Observance card ────────────────────────────────────────────────────────── */
-
-.observance-card {
-  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border); border-left: 3px solid var(--color-accent);
-  border-radius: 6px; padding: 0.6rem 0.9rem; margin-bottom: 1.25rem;
-  font-family: var(--font-ui); font-size: 0.8rem;
-}
-.observance-card-label {
-  color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.7rem;
-}
-.observance-card-name { color: var(--color-text); font-weight: 500; flex: 1; }
-.observance-card-link { background: none; border: none; padding: 0; cursor: pointer; font: inherit; color: var(--color-accent); white-space: nowrap; }
-.observance-card-link:hover { text-decoration: underline; }
-@media (max-width: 520px) {
-  .observance-card { flex-wrap: wrap; }
-  .observance-card-label { order: 1; flex: 0 0 auto; }
-  .observance-card-link  { order: 2; margin-left: auto; flex: 0 0 auto; }
-  .observance-card-name  { order: 3; flex: 0 0 100%; margin-top: 0.1rem; font-size: 0.85rem; }
-}
 .obs-readings.obs-hidden { display: none; }
 
 /* ── FATS biographical notice ───────────────────────────────────────────────── */
@@ -764,9 +743,6 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
   color: var(--color-heading);
   box-shadow: inset 0 0 0 1.5px var(--color-brass);
 }
-/* Hide the redundant observance card in office-content when controls are in header */
-.observance-card { display: none; }
-
 .loading {
   color: var(--color-muted); font-style: italic; font-size: 0.9rem;
   margin: 2rem 0; text-align: center;

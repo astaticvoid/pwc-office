@@ -531,25 +531,6 @@ function extractVerses(book, range) {
   return lines;
 }
 
-// ── Observance card ───────────────────────────────────────────────────────────
-
-function renderObservanceCard(officeData, currentObservance) {
-  const alt = officeData.alternate;
-  if (!alt) return '';
-  const isUsingAlt = currentObservance === 'alternate';
-  if (isUsingAlt) {
-    return `<div class="observance-card observance-card--alt">
-      <span class="observance-card-name">${esc(alt.label)}</span>
-      <button class="observance-card-link" data-navigate="${esc(dateStr)}|${esc(officeType)}|primary">← Primary observance</button>
-    </div>`;
-  }
-  return `<div class="observance-card">
-    <span class="observance-card-label">Also observed</span>
-    <span class="observance-card-name">${esc(alt.label)}</span>
-    <button class="observance-card-link" data-navigate="${esc(dateStr)}|${esc(officeType)}|alternate">Use this observance →</button>
-  </div>`;
-}
-
 // ── Office HTML building ──────────────────────────────────────────────────────
 
 function gloriaHtml(shared) {
@@ -990,7 +971,7 @@ async function render(dateStr, officeType, translation) {
     collectInline: day.collect_inline,
   }) : { sections: [] };
 
-  let html = renderObservanceCard(officeData, activeObs);
+  let html = '';
 
   // ── FATS biographical notice ───────────────────────────────────────────────
   if (fatsEntry && fatsEntry.bio) {

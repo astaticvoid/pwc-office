@@ -402,8 +402,7 @@ test.describe('Translation switch', () => {
 
 // The observance switch moved into the day-header controls
 // (.day-ctrl-group--obs): a primary/alternate segmented control whose buttons
-// are hash links (…/mp/primary, …/mp/alternate). The old .observance-card is a
-// hidden legacy element. The .obs-readings[data-obs] blocks are unchanged.
+// are hash links (…/mp/primary, …/mp/alternate).
 const OBS_ALT = 'a.day-ctrl-btn[href*="/alternate"]';
 
 test.describe('Observance toggle', () => {
