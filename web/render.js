@@ -272,6 +272,12 @@ function expandCitationForDisplay(rawCitation) {
 
 // ── Rendering ─────────────────────────────────────────────────────────────────
 
+// Monotonic ID salt: keeps tab/panel IDs unique when the same contextKey
+// renders twice in one document (two lessons → 'reading_response', primary
+// + alternate → 'doxology'). stateKey/data-key stay shared so cross-block
+// tab sync and localStorage persistence are unchanged.
+let _altUid = 0;
+
 export function renderAlternatives(seg, shared, contextKey, verse = false) {
   if (!seg.groups || !seg.groups.length) return '';
   const stateKey = contextKey
@@ -283,7 +289,7 @@ export function renderAlternatives(seg, shared, contextKey, verse = false) {
       }).join('\x1f');
   const savedIdx  = parseInt(_ls.getItem(stateKey) || '0');
   const activeIdx = Math.min(Math.max(0, savedIdx), seg.groups.length - 1);
-  const idBase = stateKey.replace(/[^a-zA-Z0-9-]/g, '_');
+  const idBase = stateKey.replace(/[^a-zA-Z0-9-]/g, '_') + '-' + (++_altUid);
   const tabsHtml = seg.groups.map((g, i) => {
     const label = g.label || '';
     const displayLabel = label.length > 22 ? label.slice(0, 21) + '…' : label;
