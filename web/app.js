@@ -469,11 +469,11 @@ function renderChapterHtml(chVerses, chNum, breaks) {
     const num = (v.v === 1 && firstV === 1) ? '' : `<sup class="verse-num">${v.v}</sup>\u00A0`;
     return `${num}${esc(v.text)}`;
   };
-  const chDrop = `<span class="scripture-ch-num">${chNum}</span>`;
+  const chDrop = firstV === 1 ? `<span class="scripture-ch-num">${chNum}</span> ` : '';
   const blocks = [];
 
   if (!breaks || breaks.length === 0) {
-    blocks.push(`<p class="scripture-block">${chDrop} ${chVerses.map(renderVerse).join(' ')}</p>`);
+    blocks.push(`<p class="scripture-block">${chDrop}${chVerses.map(renderVerse).join(' ')}</p>`);
     return blocks.join('\n');
   }
 
@@ -483,7 +483,7 @@ function renderChapterHtml(chVerses, chNum, breaks) {
     const paraEnd = i + 1 < sortedBreaks.length ? sortedBreaks[i + 1] - 1 : Infinity;
     const paraVerses = chVerses.filter(v => v.v >= paraStart && v.v <= paraEnd);
     if (paraVerses.length > 0) {
-      const prefix = i === 0 ? chDrop + ' ' : '';
+      const prefix = i === 0 ? chDrop : '';
       blocks.push(`<p class="scripture-block">${prefix}${paraVerses.map(renderVerse).join(' ')}</p>`);
     }
   }
@@ -1066,7 +1066,7 @@ async function render(dateStr, officeType, translation) {
     html += `<div class="liturgy">${renderSegments(form.dismissal, shared, true)}</div>`;
   }
 
-  html += `<p class="scripture-attr" id="scripture-attr">Translation: ${esc(translation.toUpperCase())}</p>`;
+  html += `<p class="scripture-attr" id="scripture-attr">Scripture: ${esc(translation.toUpperCase())}</p>`;
 
   contentEl.innerHTML = html;
 
