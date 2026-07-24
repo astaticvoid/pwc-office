@@ -1,12 +1,12 @@
 # PWC — Tracker
 
-_Last updated: 2026-07-21_
+_Last updated: 2026-07-24_
 
 ## Field observations
 
 _User reports that need triage — move to the appropriate section after investigation._
 
-_(none yet)_
+- Password re-prompts on every page refresh (2026-07-24). Root cause found: `pwc-basic-auth` CloudFront Function (viewer-request only) never sets a session cookie after a successful Basic Auth check — AWS's own stored comment on it says "Basic auth with cookie check," but the `viewer-response` half that would actually write `Set-Cookie` was never attached/implemented. Confirmed via curl against production: a 200 response to an authenticated request carries no `Set-Cookie` header. Blocked on IAM — the `pwc-deploy` user has no `cloudfront:GetFunction`/`UpdateFunction`/`PublishFunction` permissions, so the function source can't be read or fixed until those are granted (scoped to `function/pwc-*`).
 
 ---
 
@@ -94,6 +94,7 @@ Now we need to guarantee the rendered output is liturgically right.
 - ~~Stale DESIGN.md~~ — Deleted (all info in AGENTS.md + ADRs) 2026-07-21.
 - ~~Throwaway prototype files~~ — Deleted _design-options.html, _cross-test.html 2026-07-21.
 - Missing visual-regression coverage: no screenshot/visual tests, dark mode untested in CI.
+- ~~`make promote` silently failing~~ — Fixed 2026-07-24: the `jq` filter piped the whole `{ETag, DistributionConfig}` wrapper into `--distribution-config`, and `--if-match` was never passed. Every step was `;`-chained instead of `&&`, so the broken `aws cloudfront update-distribution` call failed silently and the recipe still printed a false "Promoted ... to production." Production had been stuck on the 2026-07-18 release for 3 days/5 releases with no visible error. Same bug (plus a trailing-slash `OriginPath` bug) fixed in `rollback`. Re-ran `make promote` after the fix — production confirmed serving the 2026-07-21 release (`index.html` hash matches S3 byte-for-byte).
 
 ---
 
