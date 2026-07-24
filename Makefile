@@ -217,24 +217,27 @@ promote:
 	        rm -f /tmp/pwc-promote-val.json /tmp/pwc-promote-aud.json; exit 1); \
 	  rm -f /tmp/pwc-promote-val.json /tmp/pwc-promote-aud.json; \
 	fi
-	@RELEASE=$$(cat .deploy-latest); \
+	@RELEASE=$$(cat .deploy-latest) && \
 	aws cloudfront get-distribution-config --id $(CF_DISTRIBUTION_ID) \
-	  > /tmp/cf-config.json; \
-	jq '.DistributionConfig.Origins.Items[0].OriginPath = "/releases/'"$$RELEASE"'"' \
-	  /tmp/cf-config.json > /tmp/cf-new.json; \
+	  > /tmp/cf-config.json && \
+	jq '.DistributionConfig.Origins.Items[0].OriginPath = "/releases/'"$$RELEASE"'" | .DistributionConfig' \
+	  /tmp/cf-config.json > /tmp/cf-new.json && \
 	aws cloudfront update-distribution --id $(CF_DISTRIBUTION_ID) \
-	  --distribution-config file:///tmp/cf-new.json; \
+	  --distribution-config file:///tmp/cf-new.json \
+	  --if-match $$(jq -r '.ETag' /tmp/cf-config.json) && \
 	echo "Promoted $$RELEASE to production"
 
 rollback:
-	@PREV=$$(aws s3 ls s3://$(BUCKET)/releases/ | sort -r | head -2 | tail -1 | awk '{print $$2}'); \
-	echo "Rolling back to $$PREV"; \
+	@PREV=$$(aws s3 ls s3://$(BUCKET)/releases/ | sort -r | head -2 | tail -1 | awk '{print $$2}' | sed 's:/$$::') && \
+	test -n "$$PREV" || (echo "No previous release found — nothing to roll back to"; exit 1) && \
+	echo "Rolling back to $$PREV" && \
 	aws cloudfront get-distribution-config --id $(CF_DISTRIBUTION_ID) \
-	  > /tmp/cf-config.json; \
-	jq '.DistributionConfig.Origins.Items[0].OriginPath = "/releases/'"$$PREV"'"' \
-	  /tmp/cf-config.json > /tmp/cf-new.json; \
+	  > /tmp/cf-config.json && \
+	jq '.DistributionConfig.Origins.Items[0].OriginPath = "/releases/'"$$PREV"'" | .DistributionConfig' \
+	  /tmp/cf-config.json > /tmp/cf-new.json && \
 	aws cloudfront update-distribution --id $(CF_DISTRIBUTION_ID) \
-	  --distribution-config file:///tmp/cf-new.json; \
+	  --distribution-config file:///tmp/cf-new.json \
+	  --if-match $$(jq -r '.ETag' /tmp/cf-config.json) && \
 	echo "Rolled back to $$PREV"
 
 # Legacy single-step deploy — kept for compatibility during transition.
