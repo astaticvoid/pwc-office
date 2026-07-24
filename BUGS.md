@@ -6,7 +6,7 @@ _Last updated: 2026-07-24_
 
 _User reports that need triage — move to the appropriate section after investigation._
 
-- Password re-prompts on every page refresh (2026-07-24). Root cause found: `pwc-basic-auth` CloudFront Function (viewer-request only) never sets a session cookie after a successful Basic Auth check — AWS's own stored comment on it says "Basic auth with cookie check," but the `viewer-response` half that would actually write `Set-Cookie` was never attached/implemented. Confirmed via curl against production: a 200 response to an authenticated request carries no `Set-Cookie` header. Blocked on IAM — the `pwc-deploy` user has no `cloudfront:GetFunction`/`UpdateFunction`/`PublishFunction` permissions, so the function source can't be read or fixed until those are granted (scoped to `function/pwc-*`).
+_(none yet)_
 
 ---
 
@@ -94,6 +94,7 @@ Now we need to guarantee the rendered output is liturgically right.
 - ~~Stale DESIGN.md~~ — Deleted (all info in AGENTS.md + ADRs) 2026-07-21.
 - ~~Throwaway prototype files~~ — Deleted _design-options.html, _cross-test.html 2026-07-21.
 - Missing visual-regression coverage: no screenshot/visual tests, dark mode untested in CI.
+- ~~Password re-prompts on every page refresh~~ — Fixed 2026-07-24. Two bugs in the `pwc-basic-auth` CloudFront Function (viewer-request only, no cookie-writing counterpart despite its own comment saying "Basic auth with cookie check"): (1) no `viewer-response` function ever existed to write `Set-Cookie`; (2) even so, its cookie *read* checked `request.headers.cookie`, which the `cloudfront-js-2.0` runtime never populates — cookies only ever appear under `request.cookies`, so the check was structurally always false. Added `pwc-set-auth-cookie` (viewer-response) to write `pwc-auth=1` (30-day, Secure/HttpOnly/SameSite=Lax) after a header-authenticated request, and fixed `pwc-basic-auth`'s read to use `request.cookies["pwc-auth"]`. Verified end-to-end on staging then production: Basic Auth → 200 + Set-Cookie; cookie-only refresh → 200, no reprompt; no credentials → still 401. Both functions are now version-controlled at `infra/cloudfront-functions/` (previously console-only, untracked — how the bug went unnoticed for ~2 months).
 - ~~`make promote` silently failing~~ — Fixed 2026-07-24: the `jq` filter piped the whole `{ETag, DistributionConfig}` wrapper into `--distribution-config`, and `--if-match` was never passed. Every step was `;`-chained instead of `&&`, so the broken `aws cloudfront update-distribution` call failed silently and the recipe still printed a false "Promoted ... to production." Production had been stuck on the 2026-07-18 release for 3 days/5 releases with no visible error. Same bug (plus a trailing-slash `OriginPath` bug) fixed in `rollback`. Re-ran `make promote` after the fix — production confirmed serving the 2026-07-21 release (`index.html` hash matches S3 byte-for-byte).
 
 ---
