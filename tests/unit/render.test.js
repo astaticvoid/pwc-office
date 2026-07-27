@@ -329,8 +329,8 @@ describe('verse rendering structure', () => {
       { type: 'leader', text: 'My soul proclaims the greatness of the Lord, my spirit rejoices in God my Saviour, *\nfor you, Lord, have looked with favour on your lowly servant.\nFrom this day all generations will call me blessed: *\nyou, the Almighty, have done great things for me and holy is your name.' },
     ];
     const html = renderSegments(segs, shared, true);
-    expect(html).toMatch(/\*<\/span><\/span><br>for/);
-    expect(html).toMatch(/\*<\/span><\/span><br>you/);
+    expect(html).toMatch(/\*<\/span><\/span><br><span class="verse-cont">for/);
+    expect(html).toMatch(/\*<\/span><\/span><br><span class="verse-cont">you/);
   });
 
   test('canticle leader text does not use grid divs', () => {

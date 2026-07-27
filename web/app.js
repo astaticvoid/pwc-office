@@ -5,7 +5,7 @@ import {
   filterSeasonalCollects, renderAlternatives, renderSegments, renderSubsection,
   lessonHtml, lessonsPickRubricHtml, bindMidpoints, parseCitation,
   READING_RESPONSE, CANTICLE_SOURCE, SKIP_RUBRICS, SC_HEADER, SC_FOOTER,
-  collectSecondaryPage, assembleSections,
+  collectSecondaryPage, assembleSections, formatLiturgicalText, invitatorySegments,
 } from './render.js';
 
 // ── Data path ─────────────────────────────────────────────────────────────────
@@ -379,7 +379,7 @@ async function renderPsalm(citStr) {
   const filtered = ref.start !== null ? verses.filter(v => v.num >= ref.start && v.num <= ref.end) : verses;
   const titleHtml = `<p class="psalm-title">Psalm ${data.number}${data.title ? ` — ${data.title}` : ''}</p>`;
   const versesHtml = filtered.map(v => {
-    const txt = bindMidpoints(esc(v.text));
+    const txt = bindMidpoints(formatLiturgicalText(v.text));
     return `<sup>${v.num} </sup>${txt}`;
   }).join('<br>');
   return `${titleHtml}<p class="psalm-block">${versesHtml}</p>`;
@@ -1027,7 +1027,7 @@ async function render(dateStr, officeType, translation) {
     if (form.phos_hilaron && form.phos_hilaron.length)
       html += `<div class="liturgy">${renderSegments(form.phos_hilaron, shared, true)}</div>`;
     if (form.invitatory && form.invitatory.length)
-      html += renderSubsection('Invitatory Psalm', form.invitatory, shared, true);
+      html += renderSubsection('Invitatory Psalm', invitatorySegments(form), shared, true);
   }
 
   // ── Proclamation ───────────────────────────────────────────────────────────

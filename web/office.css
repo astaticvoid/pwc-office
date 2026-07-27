@@ -470,6 +470,9 @@ body.book-mode .alt-panel + .alt-panel::before {
   font-size: 0.95rem; color: var(--color-muted);
   margin: 0.75rem 0 0.25rem;
 }
+/* Verse second-half (psalm/canticle/invitatory line-pairs) — small indent,
+   matching the physical indent in the printed source. */
+.verse-cont { padding-left: 1.25em; }
 /* Tighten versicle→response */
 .seg-leader + .seg-response { margin-top: 0.2rem; }
 .seg-response + .seg-leader { margin-top: 1rem; }

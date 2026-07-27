@@ -789,7 +789,7 @@ def _normalize_whitespace(offices: dict) -> dict:
     # Keep in sync with: validate_office.cjs VERSE_SECTIONS (line ~146),
     # validate_office.cjs PHOS_MIN_LINES (line ~177), and the Vitest unit test
     # phos_hilaron line-count assertion in tests/unit/render.test.js.
-    _VERSE_SECTIONS = frozenset({'affirmation', 'canticle', 'doxology', 'phos_hilaron'})
+    _VERSE_SECTIONS = frozenset({'affirmation', 'canticle', 'doxology', 'phos_hilaron', 'invitatory'})
 
     # Join mid-sentence line breaks from PDF column wrapping.
     # Rule 1: \n + lowercase → always join (no verse text starts lowercase).
@@ -1065,9 +1065,11 @@ def extract_office(typed_lines: list[tuple[str, str]], office_key: str = "") -> 
             _dbg(f"  HEADING {raw_disp} → section {key!r}", office=office_key)
             _flush()
             current_key = key  # may be None (major section label → ignored)
-            # Preserve the phos_hilaron heading text as a "label" segment so
-            # renderers can emit it as a titled section rather than bare hymn text.
-            if key == "phos_hilaron" and text:
+            # Preserve the phos_hilaron/invitatory heading text as a "label" segment
+            # so renderers can emit it as a titled section rather than bare content
+            # (invitatory headings carry the psalm citation, e.g. "Invitatory Psalm:
+            # Psalm 95:1–7" — see BUGS.md "Invitatory Psalm heading dropped its psalm number").
+            if key in ("phos_hilaron", "invitatory") and text:
                 current_segs.append({"type": "label", "text": text})
             continue
 
