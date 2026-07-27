@@ -40,8 +40,9 @@ test.describe('Office loads', () => {
     await expect(page.locator('.psalm-title').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
     // Psalm title should include "Psalm N"
     await expect(page.locator('.psalm-title').first()).toContainText('Psalm');
-    // At least one verse should be rendered (verse numbers hidden in non-book mode)
+    // At least one verse should be rendered, with its verse number visible
     await expect(page.locator('.psalm-block').first()).not.toBeEmpty();
+    await expect(page.locator('.psalm-block sup').first()).toBeVisible();
   });
 
   test('morning prayer: no loading spinners remain @smoke', async ({ page }) => {
