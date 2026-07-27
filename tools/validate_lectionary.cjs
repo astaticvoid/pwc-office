@@ -1,15 +1,27 @@
 #!/usr/bin/env node
 /**
- * tools/validate_lectionary.cjs — verify extraction integrity for every date.
+ * tools/validate_lectionary.cjs — verify extraction integrity AND referential
+ * resolution for every date in the lectionary.
  *
- * Checks that the converter correctly parsed every day in the lectionary:
- * psalm references are valid numbers, lesson citations parse correctly,
- * no raw HTML entities leaked through, collect refs are valid page numbers.
+ * Two different classes of check, both walking all ~397 dates x 2 offices:
+ *   1. Syntax — psalm references are valid numbers, lesson citations parse,
+ *      no raw HTML entities leaked through, collect refs look like page numbers.
+ *   2. Resolution — every reference a rendered office actually depends on
+ *      resolves to real data: the collect page exists in data/collects.json,
+ *      every psalm number exists in data/psalter.json, every lesson citation
+ *      resolves to at least one real verse in the KJV translation data.
+ *      Reuses the exact runtime resolution functions from web/render.js
+ *      (lookupCollect, parsePsalmCitation, parseCitation, parseRanges,
+ *      extractVersesWithChapter) rather than reimplementing the parsing —
+ *      a syntax-only check already missed a real bug once (BUG: six Sunday-
+ *      in-Lent collect pages silently dropped by extraction, "collect ref
+ *      is a well-formed page number" passed while the page didn't exist;
+ *      see BUGS.md 2026-07-27) precisely because it never checked resolution.
  *
  * Usage: node tools/validate_lectionary.cjs [--json]
  */
 
-const { readdirSync, readFileSync } = require('fs');
+const { readdirSync, readFileSync, existsSync } = require('fs');
 const { join, dirname } = require('path');
 const root = join(dirname(__filename), '..');
 
@@ -45,7 +57,45 @@ function checkCitation(cit) {
   return results.length === 0 ? null : results;
 }
 
-function main() {
+// ── Resolution helpers ──────────────────────────────────────────────────────
+
+const _bookCache = new Map();
+function loadBook(file) {
+  if (_bookCache.has(file)) return _bookCache.get(file);
+  const path = join(root, 'data/translations/kjv', `${file}.json`);
+  const book = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null;
+  _bookCache.set(file, book);
+  return book;
+}
+
+/** Returns [{raw, num}, ...] for each " or "-separated alternative in a
+ * psalm citation that parses to a numeric psalm reference. */
+function psalmNumbersIn(cit, parsePsalmCitation) {
+  return cit.split(/\s+or\s+/).map(part => {
+    const trimmed = part.trim().replace(/\s*\([^)]*\)\s*/g, ' ').trim();
+    if (!trimmed) return null;
+    const { num } = parsePsalmCitation(trimmed);
+    return isNaN(num) ? null : { raw: trimmed, num };
+  }).filter(Boolean);
+}
+
+/** True if a lesson citation resolves to at least one real verse (KJV, the
+ * always-available fallback translation — matches what the app itself falls
+ * back to when a preferred translation is missing a book). */
+function resolvesToVerses(citation, { parseCitation, parseRanges, extractVersesWithChapter }) {
+  const parsed = parseCitation(citation);
+  if (!parsed) return false;
+  const book = loadBook(parsed.file);
+  if (!book) return false;
+  const ranges = parseRanges(parsed.rest);
+  if (!ranges.length) return false;
+  return ranges.some(r => extractVersesWithChapter(book, r).length > 0);
+}
+
+async function main() {
+  const { parseCitation, parseRanges, extractVersesWithChapter, parsePsalmCitation, lookupCollect } =
+    await import('../web/render.js');
+
   const useJson = process.argv.includes('--json');
   const lectionaryDir = join(root, 'data/lectionary');
   let files;
@@ -55,6 +105,9 @@ function main() {
     console.error('No lectionary data found.');
     process.exit(useJson ? 0 : 1);
   }
+
+  const collects = JSON.parse(readFileSync(join(root, 'data/collects.json'), 'utf8'));
+  const psalter = JSON.parse(readFileSync(join(root, 'data/psalter.json'), 'utf8'));
 
   const failures = [];
   let dates = 0, offices = 0;
@@ -89,7 +142,8 @@ function main() {
           continue;
         }
 
-        // Psalm citations must parse as valid psalm references
+        // Psalm citations must parse as valid psalm references AND resolve
+        // to a real psalm in data/psalter.json.
         const psalms = od.psalms || [];
         for (let i = 0; i < psalms.length; i++) {
           const cit = typeof psalms[i] === 'object' ? psalms[i].citation : psalms[i];
@@ -99,10 +153,16 @@ function main() {
           }
           if (checkCitation(cit)) {
             failures.push({ date, office: ot, detail: `psalm[${i}] unparseable: "${cit}"` });
+            continue;
+          }
+          for (const { raw, num } of psalmNumbersIn(cit, parsePsalmCitation)) {
+            if (!psalter[String(num)]) {
+              failures.push({ date, office: ot, detail: `psalm[${i}] "${raw}" — Psalm ${num} not found in psalter.json` });
+            }
           }
         }
 
-        // Psalm sets: each entry must parse
+        // Psalm sets: each entry must parse and resolve
         if (od.psalm_sets) {
           for (let gi = 0; gi < od.psalm_sets.length; gi++) {
             const group = od.psalm_sets[gi];
@@ -114,6 +174,12 @@ function main() {
               }
               if (checkCitation(cit)) {
                 failures.push({ date, office: ot, detail: `psalm_set[${gi}][${pi}] unparseable: "${cit}"` });
+                continue;
+              }
+              for (const { raw, num } of psalmNumbersIn(cit, parsePsalmCitation)) {
+                if (!psalter[String(num)]) {
+                  failures.push({ date, office: ot, detail: `psalm_set[${gi}][${pi}] "${raw}" — Psalm ${num} not found in psalter.json` });
+                }
               }
             }
           }
@@ -123,7 +189,8 @@ function main() {
           failures.push({ date, office: ot, detail: 'no psalms or psalm_sets' });
         }
 
-        // Lesson citations must match book:chapter:verse pattern
+        // Lesson citations must match book:chapter:verse pattern AND resolve
+        // to at least one real verse in the KJV translation data.
         if (!od.lessons || !od.lessons.length) {
           failures.push({ date, office: ot, detail: 'no lessons' });
         } else {
@@ -136,6 +203,8 @@ function main() {
             }
             if (!LESSON_RE.test(citation)) {
               failures.push({ date, office: ot, detail: `lesson[${i}] unparseable: "${citation}"` });
+            } else if (!resolvesToVerses(citation, { parseCitation, parseRanges, extractVersesWithChapter })) {
+              failures.push({ date, office: ot, detail: `lesson[${i}] "${citation}" does not resolve to any verses` });
             }
             // Check for raw HTML entities
             if (/&mdash;|&amp;|<br>/.test(citation)) {
@@ -144,11 +213,17 @@ function main() {
           }
         }
 
-        // Collect reference: must start with a page number if present
+        // Collect reference: must start with a page number if present, AND
+        // that page must actually exist in data/collects.json. (This is the
+        // check that was missing when 6 real collects went silently missing
+        // — a well-formed page-number string isn't the same as a page that
+        // exists. See file header.)
         if (od.collect !== undefined && od.collect !== null) {
           const ref = String(od.collect);
           if (!COLLECT_RE.test(ref)) {
             failures.push({ date, office: ot, detail: `collect unparseable: "${ref}"` });
+          } else if (!lookupCollect(collects, ref)) {
+            failures.push({ date, office: ot, detail: `collect "${ref}" does not resolve to any entry in collects.json` });
           }
         }
       }
@@ -179,4 +254,4 @@ function main() {
   process.exit(1);
 }
 
-main();
+main().catch(e => { console.error(e); process.exit(1); });

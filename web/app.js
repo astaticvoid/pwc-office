@@ -6,6 +6,8 @@ import {
   lessonHtml, lessonsPickRubricHtml, bindMidpoints, parseCitation,
   READING_RESPONSE, CANTICLE_SOURCE, SKIP_RUBRICS, SC_HEADER, SC_FOOTER,
   collectSecondaryPage, assembleSections, formatLiturgicalText, invitatorySegments,
+  parseRanges, extractVersesWithChapter, parsePsalmCitation,
+  collectPageNum, lookupCollect,
 } from './render.js';
 
 // ── Data path ─────────────────────────────────────────────────────────────────
@@ -238,20 +240,6 @@ function fetchDay(dateStr) {
   });
 }
 
-// ── Collect lookup ────────────────────────────────────────────────────────────
-
-// Mirrors Go's extractFirstPage: "344 (Eve of Easter VII)" → "344"
-function collectPageNum(ref) {
-  const m = /\d+/.exec(ref);
-  return m ? m[0] : null;
-}
-
-function lookupCollect(collects, ref) {
-  if (!ref) return null;
-  const page = collectPageNum(ref);
-  return page ? (collects[page] || null) : null;
-}
-
 // ── For All The Saints (FATS) lookup ─────────────────────────────────────────
 
 // Known name mismatches between lectionary and FATS keys. Add entries as discovered.
@@ -338,16 +326,6 @@ function formatRank(rank) {
 
 // ── Psalm parsing and rendering ───────────────────────────────────────────────
 
-function parsePsalmCitation(c) {
-  const colon = c.indexOf(':');
-  if (colon < 0) return { num: parseInt(c), start: null, end: null };
-  const num = parseInt(c.slice(0, colon));
-  const range = c.slice(colon + 1);
-  const dash = range.indexOf('-');
-  if (dash < 0) { const v = parseInt(range); return { num, start: v, end: v }; }
-  return { num, start: parseInt(range.slice(0, dash)), end: parseInt(range.slice(dash + 1)) };
-}
-
 function parsePsalmText(rawText) {
   const lines = rawText.split('\n');
   const verses = [];
@@ -386,88 +364,11 @@ async function renderPsalm(citStr) {
 }
 
 // ── Scripture citation parsing ────────────────────────────────────────────────
-
-/**
- * Parse a chapter:verse range string (e.g. "1:1-10, 2:3—3:5") into an array of range objects.
- * Handles em-dash cross-chapter ranges and comma-delimited multi-ranges.
- * @param {string} s - verse range string after the book abbreviation
- * @returns {Array<{startCh, startV, endCh, endV}>}
- */
-function parseRanges(s) {
-  s = s.replace(/—/g, '§');
-  const parts = s.split('§');
-  const ranges = [];
-  let currentCh = 0;
-  for (let pi = 0; pi < parts.length; pi++) {
-    const subParts = parts[pi].trim().split(',');
-    for (let si = 0; si < subParts.length; si++) {
-      let sub = subParts[si].trim().replace(/^\(|\)$/g, '');
-      if (!sub) continue;
-      const colon = sub.indexOf(':');
-      if (colon >= 0) { currentCh = parseInt(sub.slice(0, colon)); sub = sub.slice(colon + 1); }
-      if (!currentCh) continue;
-      const isCrossChapterStart = pi < parts.length - 1 && si === subParts.length - 1;
-      const [startV, endV] = parseVerseRange(sub);
-      if (!startV) continue;
-      if (isCrossChapterStart) {
-        const [endCh, endVerse] = parseChapterVerse(parts[pi + 1].trim(), currentCh);
-        ranges.push({ startCh: currentCh, startV, endCh, endV: endVerse });
-        parts[pi + 1] = consumeLeadingRef(parts[pi + 1]);
-        currentCh = endCh;
-      } else {
-        ranges.push({ startCh: currentCh, startV, endCh: currentCh, endV });
-      }
-    }
-  }
-  return ranges;
-}
-
-function parseVerseRange(s) {
-  s = s.trim();
-  const dash = s.indexOf('-');
-  if (dash >= 0) return [parseVerseNum(s.slice(0, dash)), parseVerseNum(s.slice(dash + 1))];
-  const v = parseVerseNum(s);
-  return [v, v];
-}
-
-function parseVerseNum(s) {
-  const n = parseInt(s.trim().replace(/[abc]$/, ''));
-  return isNaN(n) ? 0 : n;
-}
-
-function parseChapterVerse(s, defaultCh) {
-  s = s.trim();
-  const comma = s.indexOf(',');
-  if (comma >= 0) s = s.slice(0, comma).trim();
-  const colon = s.indexOf(':');
-  if (colon >= 0) return [parseInt(s.slice(0, colon)), parseVerseNum(s.slice(colon + 1))];
-  return [defaultCh, parseVerseNum(s)];
-}
-
-function consumeLeadingRef(s) {
-  s = s.trim();
-  const comma = s.indexOf(',');
-  return comma >= 0 ? s.slice(comma + 1).trim() : '';
-}
-
-/**
- * Extract verse objects with chapter info for a single range from a loaded book JSON.
- * @returns {Array<{ch:number, v:number, text:string}>}
- */
-function extractVersesWithChapter(book, range) {
-  const lines = [];
-  for (let ch = range.startCh; ch <= range.endCh; ch++) {
-    const chData = book[String(ch)];
-    if (!chData) continue;
-    const startV = ch === range.startCh ? range.startV : 1;
-    const maxV = Math.max(...Object.keys(chData).map(Number));
-    const endV = ch === range.endCh ? range.endV : maxV;
-    for (let v = startV; v <= endV; v++) {
-      if (chData[String(v)] !== undefined) lines.push({ ch, v, text: chData[String(v)] });
-    }
-  }
-  return lines;
-}
+// parseRanges/parseVerseRange/parseChapterVerse/extractVersesWithChapter moved
+// to render.js (2026-07-27) — pure logic, needed by validate_lectionary.cjs to
+// verify every lectionary reading resolves to real verses, and render.js is the
+// module non-browser tools can safely import (app.js touches `window` at
+// module scope). See BUGS.md.
 
 /**
  * Render a chapter's verses as HTML paragraphs.
