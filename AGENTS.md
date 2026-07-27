@@ -153,6 +153,7 @@ Extraction pipeline (run via `make extract`):
 
 | File | Role |
 |------|------|
+| `validate_css.cjs` | Structural CSS validity for every file in `web/*.css`: no style rule nested inside another style rule's declaration block (only `@media`/`@supports`/etc. and `@keyframes` bodies may nest), and brace-balance at end of file. Catches an unclosed/stray rule silently swallowing the rest of the stylesheet — this happened for real (see BUGS.md 2026-07-27) and nothing else in this project's test suite validates CSS syntax at all. |
 | `validate_office.cjs` | 6 liturgical rules checked against all 30 forms (Amen presence, line breaks, stray spaces, section completeness) |
 | `validate_lectionary.cjs` | Every date × office (397 × 2) in the lectionary: syntax checks (well-formed citations) **and** resolution checks (collect page/psalm number/lesson citation actually resolves to real data in collects.json/psalter.json/translations — not just a well-formed reference). Reuses the exact runtime resolution functions from `web/render.js`, not reimplementations. Run this after any re-extraction, especially a new lectionary year. |
 | `audit_office.cjs` | Cross-form statistical audit — 14 metrics, 4 peer groups, 2σ z-score outlier detection |
