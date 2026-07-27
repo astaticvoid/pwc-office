@@ -17,7 +17,7 @@ ranges now point to unrelated content.
 Detect office page bounds from **text content** rather than from hardcoded page
 numbers. A new tool `detect_office_bounds.py`:
 
-1. Runs `pdftotext -layout` on the full PDF.
+1. Runs PyMuPDF (fitz) `get_text()` on the full PDF.
 2. Scans each page for office form title patterns. The canonical patterns are
    multi-line aware and case-sensitive:
 

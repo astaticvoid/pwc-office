@@ -56,7 +56,6 @@ make generate-golden              # Regenerate golden files for all 30 forms (gi
 # Quality gates
 make check-text                   # scan for PDF extraction artifacts
 make check-text --strict          # same but exits non-zero on findings
-make check-casing                 # casing oracle against pdftotext ground truth
 make check-integrity              # verify data/ hashes match extract manifest — fails if any
 # NOTE: after changing _VERSE_SECTIONS or _fix_* in extract_offices.py, re-run
 # `make extract` before `make check-integrity`.  The manifest stores hashes of
@@ -216,4 +215,4 @@ make promote
 
 - Lectionary coverage: rolling 12-month window, currently 2025–2026 (Year B)
 - Office forms: 30 in `data/offices.json`; form selection is season- and weekday-aware
-- PyMuPDF (fitz) is the sole PDF extraction dependency. pdftotext is optional (only for `check_casing.py` oracle)
+- PyMuPDF (fitz) is the sole PDF extraction dependency.

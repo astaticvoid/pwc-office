@@ -65,11 +65,16 @@ the PyMuPDF version alongside the pdftotext version.
   scripts live in a clearly-bounded directory with their own `LICENSE` file.
 
 ### Notes
-- The extraction architecture separates style classification (this ADR) from
-  text content (ADR 0002). PyMuPDF provides style; pdftotext provides text.
+- The two-pass architecture this section describes (ADR 0002: PyMuPDF for
+  style, pdftotext for text) was never implemented — ADR 0002 is Superseded
+  by [ADR 0011](./0011-single-pass-fitz-no-casing-oracle.md). PyMuPDF alone
+  provides both text and style in the actual pipeline; fitz's text decoding
+  was verified correct on its own, so the pdftotext text pass was never
+  needed.
 - If the AGPL license proves incompatible with a future deployment scenario,
-  pdfplumber can be used as the style classifier. The two-pass architecture is
-  tool-agnostic — only the style pass changes.
+  pdfplumber can be used as the style classifier instead.
 - A PyMuPDF API change could break the `get_text("dict")` output format.
-  Pinning the version and recording it in the extraction manifest (alongside the
-  pdftotext version) catches this at `make check-integrity` time.
+  Pinning the version and recording it in the extraction manifest catches
+  this at `make check-integrity` time. (The manifest also recorded a
+  pdftotext version for the now-removed `check_casing.py` oracle; that field
+  is gone as of 2026-07-26.)
