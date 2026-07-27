@@ -1,8 +1,8 @@
 """
 extract_collects.py — extract BAS collects by book page number.
 
-Reads sources/BAS.pdf directly and uses a transient pdftotext extraction
-for pages that have font encoding issues.
+Reads sources/BAS.pdf directly and uses a transient whole-document fitz
+extraction as a fallback for pages that have font encoding issues.
 Writes data/collects.json.
 
 Each collect entry includes:
@@ -52,9 +52,10 @@ _OCC_PAGE_ALIASES = {
 # PyMuPDF outputs: "1\nFor the Unity of Christians\n" (number and name on separate lines).
 _OCC_HEADER = re.compile(r'^(\d+)\n([A-Z][^\n]+)', re.MULTILINE)
 
-# ── Pages where font encoding garbles text; always use pdftotext fallback ────────
-# These pages have font-encoding issues that pdfplumber cannot recover from.
-# pdftotext produces clean text for them, so we bypass the garbling check.
+# ── Pages where per-page extraction garbles text; always use whole-doc fallback ──
+# These pages have font-encoding issues under per-page fitz extraction.
+# The whole-document join (pdf_as_text, also fitz) produces clean text for
+# them, so we bypass the garbling check and use that instead.
 _TXT_FALLBACK_PAGES = {356, 358, 392, 396}
 
 # ── Terminator patterns ───────────────────────────────────────────────────────
@@ -151,8 +152,8 @@ def is_garbled(text: str) -> bool:
 # ── BAS.txt fallback ──────────────────────────────────────────────────────────
 
 def _load_bas_txt(path: Path) -> str:
-    # pdftotext uses \x0c as page separators; normalise to \n so collect
-    # patterns like r'(?:^|\n)(Collect)\n' match across page breaks.
+    # pdf_as_text (extract_lib.py) joins pages with \x0c; normalise to \n so
+    # collect patterns like r'(?:^|\n)(Collect)\n' match across page breaks.
     return path.read_text(encoding="utf-8", errors="replace").replace("\x0c", "\n")
 
 

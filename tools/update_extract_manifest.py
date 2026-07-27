@@ -12,7 +12,6 @@ detect files edited outside the extraction pipeline.
 import hashlib
 import json
 import os
-import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -54,19 +53,6 @@ def tool_versions() -> dict[str, str]:
         versions["fitz"] = fitz.version
     except ImportError:
         versions["fitz"] = "not found"
-    try:
-        result = subprocess.run(
-            ["pdftotext", "-v"], capture_output=True, text=True
-        )
-        output = result.stderr or result.stdout
-        for line in output.splitlines():
-            if "version" in line.lower() or "pdftotext" in line.lower():
-                versions["pdftotext"] = line.strip()
-                break
-        else:
-            versions["pdftotext"] = output.strip().splitlines()[0] if output.strip() else "unknown"
-    except (FileNotFoundError, OSError):
-        versions["pdftotext"] = "not found"
     return versions
 
 
