@@ -513,8 +513,6 @@ body.book-mode .alt-panel + .alt-panel::before {
   color: var(--color-heading);
   padding-right: 0.25em;
 }
-.psalm-block sup { display: none; }
-body.book-mode .psalm-block sup { display: inline; }
 .verse-num {
   font-size: 0.68em; color: var(--color-brass-ink);
   font-family: var(--font-ui);
