@@ -284,6 +284,117 @@ function expandCitationForDisplay(rawCitation) {
   }).join(' or ');
 }
 
+/**
+ * Parse a chapter:verse range string (e.g. "1:1-10, 2:3—3:5") into an array of range objects.
+ * Handles em-dash cross-chapter ranges and comma-delimited multi-ranges.
+ * @param {string} s - verse range string after the book abbreviation
+ * @returns {Array<{startCh, startV, endCh, endV}>}
+ */
+export function parseRanges(s) {
+  s = s.replace(/—/g, '§');
+  const parts = s.split('§');
+  const ranges = [];
+  let currentCh = 0;
+  for (let pi = 0; pi < parts.length; pi++) {
+    const subParts = parts[pi].trim().split(',');
+    for (let si = 0; si < subParts.length; si++) {
+      let sub = subParts[si].trim().replace(/^\(|\)$/g, '');
+      if (!sub) continue;
+      const colon = sub.indexOf(':');
+      if (colon >= 0) { currentCh = parseInt(sub.slice(0, colon)); sub = sub.slice(colon + 1); }
+      if (!currentCh) continue;
+      const isCrossChapterStart = pi < parts.length - 1 && si === subParts.length - 1;
+      const [startV, endV] = parseVerseRange(sub);
+      if (!startV) continue;
+      if (isCrossChapterStart) {
+        const [endCh, endVerse] = parseChapterVerse(parts[pi + 1].trim(), currentCh);
+        ranges.push({ startCh: currentCh, startV, endCh, endV: endVerse });
+        parts[pi + 1] = consumeLeadingRef(parts[pi + 1]);
+        currentCh = endCh;
+      } else {
+        ranges.push({ startCh: currentCh, startV, endCh: currentCh, endV });
+      }
+    }
+  }
+  return ranges;
+}
+
+export function parseVerseRange(s) {
+  s = s.trim();
+  const dash = s.indexOf('-');
+  if (dash >= 0) return [parseVerseNum(s.slice(0, dash)), parseVerseNum(s.slice(dash + 1))];
+  const v = parseVerseNum(s);
+  return [v, v];
+}
+
+function parseVerseNum(s) {
+  const n = parseInt(s.trim().replace(/[abc]$/, ''));
+  return isNaN(n) ? 0 : n;
+}
+
+export function parseChapterVerse(s, defaultCh) {
+  s = s.trim();
+  const comma = s.indexOf(',');
+  if (comma >= 0) s = s.slice(0, comma).trim();
+  const colon = s.indexOf(':');
+  if (colon >= 0) return [parseInt(s.slice(0, colon)), parseVerseNum(s.slice(colon + 1))];
+  return [defaultCh, parseVerseNum(s)];
+}
+
+function consumeLeadingRef(s) {
+  s = s.trim();
+  const comma = s.indexOf(',');
+  return comma >= 0 ? s.slice(comma + 1).trim() : '';
+}
+
+/**
+ * Extract verse objects with chapter info for a single range from a loaded book JSON.
+ * @returns {Array<{ch:number, v:number, text:string}>}
+ */
+export function extractVersesWithChapter(book, range) {
+  const lines = [];
+  for (let ch = range.startCh; ch <= range.endCh; ch++) {
+    const chData = book[String(ch)];
+    if (!chData) continue;
+    const startV = ch === range.startCh ? range.startV : 1;
+    const maxV = Math.max(...Object.keys(chData).map(Number));
+    const endV = ch === range.endCh ? range.endV : maxV;
+    for (let v = startV; v <= endV; v++) {
+      if (chData[String(v)] !== undefined) lines.push({ ch, v, text: chData[String(v)] });
+    }
+  }
+  return lines;
+}
+
+/**
+ * Parse a psalm citation like "23" or "119:1-24" into a number + optional verse range.
+ * @param {string} c
+ * @returns {{num: number, start: number|null, end: number|null}}
+ */
+export function parsePsalmCitation(c) {
+  const colon = c.indexOf(':');
+  if (colon < 0) return { num: parseInt(c), start: null, end: null };
+  const num = parseInt(c.slice(0, colon));
+  const range = c.slice(colon + 1);
+  const dash = range.indexOf('-');
+  if (dash < 0) { const v = parseInt(range); return { num, start: v, end: v }; }
+  return { num, start: parseInt(range.slice(0, dash)), end: parseInt(range.slice(dash + 1)) };
+}
+
+// ── Collect lookup ──────────────────────────────────────────────────────────────
+
+// Mirrors Go's extractFirstPage: "344 (Eve of Easter VII)" → "344"
+export function collectPageNum(ref) {
+  const m = /\d+/.exec(ref);
+  return m ? m[0] : null;
+}
+
+export function lookupCollect(collects, ref) {
+  if (!ref) return null;
+  const page = collectPageNum(ref);
+  return page ? (collects[page] || null) : null;
+}
+
 // ── Rendering ─────────────────────────────────────────────────────────────────
 
 // Monotonic ID salt: keeps tab/panel IDs unique when the same contextKey
