@@ -484,12 +484,22 @@ function proclamationHtml(officeData, form, shared) {
   return html;
 }
 
+// The BAS book collects (data/collects.json) print without a closing "Amen."
+// (the reader supplies it), while the seasonal collects carry one rendered
+// bold as a congregational response. For consistency we add it here too —
+// a deliberate divergence from the printed source. See BUGS.md.
+function collectTextHtml(text) {
+  const m = text.match(/^([\s\S]+?)\s*Amen\.?\s*$/);
+  const body = m ? m[1] : text;
+  return `<p class="collect-text">${esc(body)}</p><p class="seg-response">Amen.</p>`;
+}
+
 function collectHtml(collects, ref) {
   if (!ref) return '';
   const col = lookupCollect(collects, ref);
   const name = col && col.name ? col.name : `p. ${collectPageNum(ref) || ref}`;
   return `<p class="alt-source">${esc(name)}</p>`
-       + (col ? `<p class="collect-text">${esc(col.text)}</p>`
+       + (col ? collectTextHtml(col.text)
               : `<p class="scripture-fallback-note">Collect not available.</p>`);
 }
 
@@ -511,7 +521,7 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared, fatsEntry
   const basResolvable = !!collectInline || (!!collectRef && !!lookupCollect(collects, collectRef));
   const hasSeasonal   = seasonalContent.some(s => s.type !== 'rubric');
   const dailyHtml = () => collectInline
-    ? `<p class="alt-source">${esc(collectInline.name)}</p><p class="collect-text">${esc(collectInline.text)}</p>`
+    ? `<p class="alt-source">${esc(collectInline.name)}</p>${collectTextHtml(collectInline.text)}`
     : collectHtml(collects, collectRef);
 
   // Detect Occasional Prayer alternative in the collect ref (e.g. "344 or 8, 677 (The King)")
