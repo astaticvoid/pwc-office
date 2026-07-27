@@ -1,5 +1,6 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
+import { gotoOffice, ensureOffice } from './helpers.js';
 
 // Use a fixed known-good date rather than today so tests don't break
 // on days with unusual structure (e.g. no alternate, no optional lesson).
@@ -8,10 +9,9 @@ import { test, expect } from '@playwright/test';
 //   - Two alternate observances (Easter VII + Ascension)
 //   - Two lessons per office
 //   - Long pastoral note (tests note expand/collapse)
-const DATE  = '2026-05-17';
-const MP    = `/#/${DATE}/mp`;
-const EP    = `/#/${DATE}/ep`;
-const PREV  = `/#/2026-05-16/mp`;
+const DATE      = '2026-05-17';
+const DATE_PREV = '2026-05-16';
+const DATE_NEXT = '2026-05-18';
 
 // How long to wait for async content (psalms, scripture fetches).
 const CONTENT_TIMEOUT = 20_000;
@@ -28,15 +28,15 @@ async function waitForContentLoaded(page) {
 
 test.describe('Office loads', () => {
   test('morning prayer: page title and header @smoke', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     await expect(page).toHaveTitle(/Morning Prayer/);
     await expect(page.locator('#day-title')).toContainText('Easter');
-    await expect(page.locator('#day-subtitle')).toContainText('2026');
+    await expect(page.locator('#day-date-label')).toContainText('2026');
     await expect(page.locator('#day-office-name')).toHaveText('Morning Prayer');
   });
 
   test('morning prayer: psalms render with number and verses @smoke', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     await expect(page.locator('.psalm-title').first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
     // Psalm title should include "Psalm N"
     await expect(page.locator('.psalm-title').first()).toContainText('Psalm');
@@ -45,34 +45,34 @@ test.describe('Office loads', () => {
   });
 
   test('morning prayer: no loading spinners remain @smoke', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     await waitForContentLoaded(page);
     // Nothing should still be loading
     await expect(page.locator('p.loading')).toHaveCount(0);
   });
 
   test('morning prayer: scripture fills in without errors @smoke', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     await expect(page.locator('.scripture-block').first()).not.toBeEmpty({ timeout: CONTENT_TIMEOUT });
     await expect(page.locator('.error-msg')).toHaveCount(0);
   });
 
   test('morning prayer: all major sections present @smoke', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     const sections = page.locator('.office-section-title');
     // Gathering, Proclamation, Prayers, Sending
     await expect(sections).toHaveCount(4);
   });
 
   test('morning prayer: collect appears in Prayers section', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     await expect(page.locator('.office-section-title', { hasText: 'Prayers' })).toBeVisible();
     await expect(page.locator('.office-subsection-title', { hasText: 'Collect' }).first())
       .toBeVisible({ timeout: 5000 });
   });
 
   test('morning prayer: reading headings use full book names', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     // Reading headings should say e.g. "Numbers" not "Num", "Ephesians" not "Eph"
     const headings = page.locator('.reading-heading');
     await expect(headings.first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
@@ -82,7 +82,7 @@ test.describe('Office loads', () => {
   });
 
   test('morning prayer: psalm ends with gloria toggle', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     const firstGloria = page.locator('.psalm-gloria').first();
     await expect(firstGloria).toBeVisible({ timeout: CONTENT_TIMEOUT });
     // Each psalm gloria has exactly 3 tabs; scope to the first one.
@@ -90,7 +90,7 @@ test.describe('Office loads', () => {
   });
 
   test('morning prayer: reading ends with 3-option thanks-be-to-god', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     // Scope to primary readings only — alternate readings also render response tabs.
     const responseTabs = page.locator('.obs-readings[data-obs="primary"] [data-key="pwc-alt-reading_response"]');
     await expect(responseTabs.first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
@@ -98,7 +98,7 @@ test.describe('Office loads', () => {
   });
 
   test('morning prayer: affirmation is in Proclamation, not Prayers', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     const affirmation = page.locator('.office-subsection-title', { hasText: 'Affirmation' });
     await expect(affirmation).toBeVisible({ timeout: 5000 });
     // Affirmation title must appear BEFORE the Prayers section title
@@ -110,21 +110,21 @@ test.describe('Office loads', () => {
   });
 
   test('evening prayer loads', async ({ page }) => {
-    await page.goto(EP);
+    await gotoOffice(page, DATE, 'ep');
     await expect(page).toHaveTitle(/Evening Prayer/);
     await expect(page.locator('.psalm-block').first()).not.toBeEmpty({ timeout: CONTENT_TIMEOUT });
     await expect(page.locator('.error-msg')).toHaveCount(0);
   });
 
   test('evening prayer: introductory responses has 2 tabs (not 5)', async ({ page }) => {
-    await page.goto(EP);
+    await gotoOffice(page, DATE, 'ep');
     const altBlock = page.locator('.alt-block').first();
     await altBlock.waitFor();
     await expect(altBlock.locator(':scope > .alt-tabs > .alt-tab')).toHaveCount(2);
   });
 
   test('evening prayer: Thanksgiving section present', async ({ page }) => {
-    await page.goto(EP);
+    await gotoOffice(page, DATE, 'ep');
     await expect(page.locator('.office-subsection-title', { hasText: 'Thanksgiving' }))
       .toBeVisible({ timeout: 5000 });
   });
@@ -132,31 +132,33 @@ test.describe('Office loads', () => {
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 
-// The nav was redesigned: the ← → arrows are hidden (kept in the DOM for
-// keyboard shortcuts only — see the Keyboard navigation describe), day-jump is
-// the calendar date-picker, "today" is the brand logo, and the MP/EP toggle
-// lives in the day-header controls (.day-ctrl-btn).
+// The nav was redesigned: hash-based routing (#/DATE/OFFICE) was removed
+// entirely (2026-07-19) — navigateTo()/initPage() in app.js never touch the
+// URL, and a fresh load always lands on today + the time-of-day default
+// office. Day-jump is the calendar date-picker (#day-date-picker), "today"
+// is the brand logo (#nav-brand), and MP/EP is a single toggle
+// (#day-office-name) whose text is the *current* office — click it to flip.
 test.describe('Navigation', () => {
   test('date picker navigates to a chosen date', async ({ page }) => {
-    await page.goto(MP);
-    await page.locator('#day-date-picker').fill('2026-05-16');
-    await expect(page).toHaveURL(/2026-05-16\/mp/);
+    await gotoOffice(page, DATE, 'mp');
+    await page.locator('#day-date-picker').fill(DATE_PREV);
+    await expect(page.locator('#day-date-picker')).toHaveValue(DATE_PREV);
+    await expect(page.locator('#day-date-label')).toContainText('16 May 2026');
     await expect(page.locator('#day-title')).not.toBeEmpty();
   });
 
   test('MP/EP toggle switches office', async ({ page }) => {
-    await page.goto(MP);
-    await page.locator('.day-ctrl-btn', { hasText: 'Evening Prayer' }).click();
-    await expect(page).toHaveURL(/2026-05-17\/ep/);
+    await gotoOffice(page, DATE, 'mp');
+    await page.locator('#day-office-name').click();
+    await expect(page.locator('#day-office-name')).toHaveText('Evening Prayer');
     await expect(page).toHaveTitle(/Evening Prayer/);
   });
 
   test('brand logo navigates to today', async ({ page }) => {
     // Start on a different date
-    await page.goto(PREV);
+    await gotoOffice(page, DATE_PREV, 'mp');
     await page.locator('#nav-brand').click();
-    // Brand clears the hash to bare "/" and renders today; the date picker
-    // reflects the rendered date (picker.value = dateStr in render()).
+    // Brand resets state to today; the date picker reflects the rendered date.
     const today = new Date();
     const pad = n => String(n).padStart(2, '0');
     const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
@@ -169,22 +171,22 @@ test.describe('Navigation', () => {
 test.describe('Keyboard navigation', () => {
   test('keyboard right/left arrow navigates', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name === 'mobile', 'Keyboard shortcuts are desktop-only');
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     await expect(page.locator('#day-title')).not.toBeEmpty({ timeout: CONTENT_TIMEOUT });
     await page.keyboard.press('ArrowRight');
-    await expect(page).toHaveURL(/2026-05-18\/mp/);
+    await expect(page.locator('#day-date-picker')).toHaveValue(DATE_NEXT);
     await page.keyboard.press('ArrowLeft');
-    await expect(page).toHaveURL(/2026-05-17\/mp/);
+    await expect(page.locator('#day-date-picker')).toHaveValue(DATE);
   });
 
   test('keyboard m/e switches office', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name === 'mobile', 'Keyboard shortcuts are desktop-only');
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     await expect(page.locator('#day-title')).not.toBeEmpty({ timeout: CONTENT_TIMEOUT });
     await page.keyboard.press('e');
-    await expect(page).toHaveURL(/ep$/);
+    await expect(page.locator('#day-office-name')).toHaveText('Evening Prayer');
     await page.keyboard.press('m');
-    await expect(page).toHaveURL(/mp$/);
+    await expect(page.locator('#day-office-name')).toHaveText('Morning Prayer');
   });
 });
 
@@ -192,7 +194,7 @@ test.describe('Keyboard navigation', () => {
 
 test.describe('Notes', () => {
   test('long note is truncated by default', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     const expandBtn = page.locator('.note-expand-btn').first();
     await expect(expandBtn).toBeVisible({ timeout: 5000 });
     await expect(expandBtn).toHaveText('Read more');
@@ -202,7 +204,7 @@ test.describe('Notes', () => {
   });
 
   test('clicking Read More expands note to full text', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     const expandBtn = page.locator('.note-expand-btn').first();
     await expect(expandBtn).toBeVisible({ timeout: 5000 });
     const shortText = await page.locator('p.day-note').first().textContent();
@@ -221,7 +223,7 @@ test.describe('Notes', () => {
 
 test.describe('Alternatives', () => {
   test('opening responses has 2 tabs (Form I and II)', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     // The first alt-block in the Gathering section should be the opening responses.
     const altBlock = page.locator('.alt-block').first();
     await altBlock.waitFor();
@@ -231,7 +233,7 @@ test.describe('Alternatives', () => {
   });
 
   test('Form II contains nested Berakah blessings toggle', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     const outer = page.locator('.alt-block').first();
     await outer.waitFor();
 
@@ -249,7 +251,7 @@ test.describe('Alternatives', () => {
   });
 
   test('clicking tab shows correct panel, hides others', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     const altBlock = page.locator('.alt-block').first();
     await altBlock.waitFor();
 
@@ -265,16 +267,16 @@ test.describe('Alternatives', () => {
   });
 
   test('tab selection persists across office switch', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     const altBlock = page.locator('.alt-block').first();
     await altBlock.waitFor();
 
     // Select tab II
     await altBlock.locator('.alt-tab').nth(1).click();
 
-    // Switch to EP and back to MP (day-header office toggle)
-    await page.locator('.day-ctrl-btn', { hasText: 'Evening Prayer' }).click();
-    await page.locator('.day-ctrl-btn', { hasText: 'Morning Prayer' }).click();
+    // Switch to EP and back to MP (the #day-office-name toggle)
+    await ensureOffice(page, 'ep');
+    await ensureOffice(page, 'mp');
 
     const altBlockAfter = page.locator('.alt-block').first();
     await altBlockAfter.waitFor();
@@ -282,7 +284,7 @@ test.describe('Alternatives', () => {
   });
 
   test('nested Berakah blessings survive round-trip tab switch (II → I → II)', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     const outer = page.locator('.alt-block').first();
     await outer.waitFor();
 
@@ -308,7 +310,7 @@ test.describe('Alternatives', () => {
   });
 
   test('doxology and Berakah blessings use independent localStorage keys', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     const altBlocks = page.locator('.alt-block');
     await altBlocks.first().waitFor();
 
@@ -333,8 +335,12 @@ test.describe('Service worker', () => {
   test('app loads offline after initial online visit', async ({ page, context }, testInfo) => {
     // SW is intentionally not registered on localhost — skip when running locally.
     test.skip((process.env.BASE_URL || 'http://localhost:8080').startsWith('http://localhost'), 'SW not registered on localhost');
-    // First visit online — warms the SW cache (shell + all fetched data).
-    await page.goto(MP);
+    // First visit online, at whatever office a fresh load actually lands on —
+    // warms the SW cache (shell + all fetched data). A reload always
+    // re-derives today + the time-of-day office (no persisted routing state,
+    // see helpers.js), so we can't warm a fixed DATE fixture and expect it
+    // to still be showing post-reload; check generically instead.
+    await page.goto('/');
     await waitForContentLoaded(page);
 
     // Wait for SW to take control of the page.
@@ -347,7 +353,7 @@ test.describe('Service worker', () => {
     await context.setOffline(true);
     try {
       await page.reload();
-      await expect(page).toHaveTitle(/Morning Prayer/);
+      await expect(page).toHaveTitle(/Morning Prayer|Evening Prayer/);
       await expect(page.locator('#day-title')).not.toBeEmpty();
       await expect(page.locator('.office-section-title').first()).toBeVisible({ timeout: 5000 });
     } finally {
@@ -360,23 +366,31 @@ test.describe('Service worker', () => {
 
 test.describe('Date picker', () => {
   test('changing date navigates to that day', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     await page.locator('#day-title').waitFor();
-    await page.locator('#day-date-picker').fill('2026-05-18');
+    await page.locator('#day-date-picker').fill(DATE_NEXT);
     await page.locator('#day-date-picker').dispatchEvent('change');
-    await expect(page).toHaveURL(/2026-05-18\/mp/);
+    await expect(page.locator('#day-date-picker')).toHaveValue(DATE_NEXT);
     await expect(page.locator('#day-title')).not.toBeEmpty();
   });
 });
 
 // ── Translation switch ────────────────────────────────────────────────────────
 
+// #nav-translation lives inside the settings sheet (#settings-sheet, aria-hidden
+// by default) — open it via the settings button before interacting.
+async function openSettings(page) {
+  await page.locator('#nav-settings-btn').click();
+  await expect(page.locator('#nav-translation')).toBeVisible();
+}
+
 test.describe('Translation switch', () => {
   test('switching to KJV re-renders scripture', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     await expect(page.locator('.scripture-block').first()).not.toBeEmpty({ timeout: CONTENT_TIMEOUT });
     const before = await page.locator('.scripture-placeholder').first().textContent();
 
+    await openSettings(page);
     await page.locator('#nav-translation').selectOption('kjv');
     // Wait for loading state to clear
     await expect(page.locator('.scripture-placeholder p.loading')).toHaveCount(0, { timeout: CONTENT_TIMEOUT });
@@ -386,12 +400,13 @@ test.describe('Translation switch', () => {
   });
 
   test('translation preference persists across navigation', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     await expect(page.locator('.scripture-block').first()).not.toBeEmpty({ timeout: CONTENT_TIMEOUT });
+    await openSettings(page);
     await page.locator('#nav-translation').selectOption('kjv');
 
-    // Navigate to the next day (arrows are keyboard-only now; go by URL).
-    await page.goto('/#/2026-05-18/mp');
+    // Navigate to the next day via the date picker (no hash routing anymore).
+    await page.locator('#day-date-picker').fill(DATE_NEXT);
     await expect(page.locator('.scripture-block').first()).not.toBeEmpty({ timeout: CONTENT_TIMEOUT });
     await expect(page.locator('#nav-translation')).toHaveValue('kjv');
     await expect(page.locator('#scripture-attr')).toContainText('KJV');
@@ -400,27 +415,27 @@ test.describe('Translation switch', () => {
 
 // ── Observance toggle ─────────────────────────────────────────────────────────
 
-// The observance switch moved into the day-header controls
-// (.day-ctrl-group--obs): a primary/alternate segmented control whose buttons
-// are hash links (…/mp/primary, …/mp/alternate).
-const OBS_ALT = 'a.day-ctrl-btn[href*="/alternate"]';
+// The observance switch lives in the day-header controls
+// (.day-ctrl-group--obs): a primary/alternate segmented control of
+// <button data-navigate="DATE|OFFICE|primary|alternate"> elements.
+const OBS_ALT = '.day-ctrl-btn[data-navigate*="|alternate"]';
 
 test.describe('Observance toggle', () => {
   // 2026-05-17 has Easter VII (primary) and Ascension (alternate)
   test('observance control is visible', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     await expect(page.locator('.day-ctrl-group--obs')).toBeVisible({ timeout: 5000 });
     await expect(page.locator(OBS_ALT)).toBeVisible();
   });
 
   test('primary readings visible by default, alternate hidden', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     await expect(page.locator('.obs-readings[data-obs="primary"]')).not.toHaveClass(/obs-hidden/);
     await expect(page.locator('.obs-readings[data-obs="alternate"]')).toHaveClass(/obs-hidden/);
   });
 
   test('clicking alternate observance swaps visible readings', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     await expect(page.locator(OBS_ALT)).toBeVisible({ timeout: 5000 });
     await page.locator(OBS_ALT).click();
     await expect(page.locator('.obs-readings[data-obs="primary"]')).toHaveClass(/obs-hidden/);
@@ -428,14 +443,14 @@ test.describe('Observance toggle', () => {
   });
 
   test('title updates to reflect alternate observance', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     await expect(page.locator(OBS_ALT)).toBeVisible({ timeout: 5000 });
     await page.locator(OBS_ALT).click();
     await expect(page).toHaveTitle(/Ascension/, { timeout: 5000 });
   });
 
   test('collect updates to alternate observance collect', async ({ page }) => {
-    await page.goto(MP);
+    await gotoOffice(page, DATE, 'mp');
     // Primary: Seventh Sunday of Easter (collect 344)
     await expect(page.locator('#prayers-collect')).toContainText('Seventh Sunday of Easter', { timeout: 5000 });
     // Switch to Ascension (collect 343)
@@ -443,7 +458,7 @@ test.describe('Observance toggle', () => {
     await page.locator(OBS_ALT).click();
     await expect(page.locator('#prayers-collect')).toContainText('Ascension of the Lord', { timeout: 5000 });
     // Switch back — the primary observance button is the first in the obs
-    // segment (its href has no "/primary" suffix; primary is the default).
+    // segment (its data-navigate ends "|primary").
     await page.locator('.day-ctrl-seg--obs .day-ctrl-btn').first().click();
     await expect(page.locator('#prayers-collect')).toContainText('Seventh Sunday of Easter', { timeout: 5000 });
   });
@@ -457,7 +472,7 @@ test.describe('Reading response renders after lesson', () => {
     ['ordinary-time', '2026-06-17', 'mp'],
   ]) {
     test(label, async ({ page }) => {
-      await page.goto(`/#/${date}/${office}`);
+      await gotoOffice(page, date, office);
       // Wait for scripture to load (replaces placeholder)
       await page.waitForSelector('.scripture-placeholder:not(:has(.loading))', { timeout: 10000 });
       // The reading-response tab strip is the .alt-block containing the
@@ -472,7 +487,7 @@ test.describe('Reading response renders after lesson', () => {
 });
 
 test("Lord's Prayer present in ordinary-time office", async ({ page }) => {
-  await page.goto('/#/2026-06-17/mp');
+  await gotoOffice(page, '2026-06-17', 'mp');
   await expect(page.locator('.office-subsection-title', { hasText: "The Lord's Prayer" })).toBeVisible();
 });
 
@@ -500,7 +515,7 @@ test.describe('Season theming parity', () => {
 
   for (const { date, season, label } of cases) {
     test(`${label}: data-season="${season}"`, async ({ page }) => {
-      await page.goto(`/#/${date}/mp`);
+      await gotoOffice(page, date, 'mp');
       await page.locator('#day-title').waitFor({ timeout: 5000 });
       await expect(page.locator('html')).toHaveAttribute('data-season', season);
     });

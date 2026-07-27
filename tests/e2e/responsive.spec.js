@@ -1,8 +1,8 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
+import { gotoOffice } from './helpers.js';
 
 const DATE = '2026-07-12';
-const MP = `/#/${DATE}/mp`;
 
 const VIEWPORTS = [
   { name: 'mobile', width: 320, height: 568 },
@@ -14,7 +14,7 @@ test.describe('responsive layout', () => {
   for (const vp of VIEWPORTS) {
     test(`${vp.name} (${vp.width}px) renders without horizontal overflow`, async ({ page }) => {
       await page.setViewportSize({ width: vp.width, height: vp.height });
-      await page.goto(MP, { waitUntil: 'domcontentloaded' });
+      await gotoOffice(page, DATE, 'mp');
 
       // Wait for content to load
       await page.waitForSelector('.office-section-title', { timeout: 15000 });
@@ -27,7 +27,7 @@ test.describe('responsive layout', () => {
 
     test(`${vp.name} — all section headings visible`, async ({ page }) => {
       await page.setViewportSize({ width: vp.width, height: vp.height });
-      await page.goto(MP, { waitUntil: 'domcontentloaded' });
+      await gotoOffice(page, DATE, 'mp');
       await page.waitForSelector('.office-section-title', { timeout: 15000 });
 
       const headings = await page.locator('.office-section-title').all();
@@ -36,7 +36,7 @@ test.describe('responsive layout', () => {
 
     test(`${vp.name} — alternatives tabs render without clipping`, async ({ page }) => {
       await page.setViewportSize({ width: vp.width, height: vp.height });
-      await page.goto(MP, { waitUntil: 'domcontentloaded' });
+      await gotoOffice(page, DATE, 'mp');
       await page.waitForSelector('.alt-tab', { timeout: 15000 });
 
       const tabs = await page.locator('.alt-tab').all();
