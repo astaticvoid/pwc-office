@@ -709,46 +709,6 @@ def _normalize_whitespace(offices: dict) -> dict:
     #   (e.g., "power of the\nSpirit" vs "created;\nyou renew" which preserves ;).
     _LINE_JOIN = re.compile(r"(?<![.,;:!?])\n([a-zA-Z])")
 
-    def _fix_canticle_breaks(text):
-        """Insert liturgical verse breaks at asterisk midpoints in canticle text.
-
-        In the PDF, every * marks a deliberate caesura (choir side-change);
-        the text before * is the first half and the text after * the second half.
-        PyMuPDF often merges * and the following word onto the same line, losing
-        the visual break.  Lines within a half that don't end with * are
-        incidental PDF column wraps and should be joined.
-
-        Strategy:
-          1. Insert \\n after every mid-line *.
-          2. Uppercase-starting lines are new first halves — keep preceding NL.
-          3. Lowercase-starting lines join to the previous line *unless* the
-             previous line ends with * (start of a second half — keep NL).
-        """
-        if '*' not in text:
-            return text
-        # Step 1: insert \n after mid-line asterisks
-        text = re.sub(r'(\*)\s*', r'\1\n', text)
-        # Step 2: join incidental wraps using capitalisation as a verse-boundary
-        # heuristic.  Second-half lines (after *) almost always start lowercase;
-        # new first halves start uppercase.
-        lines = text.split('\n')
-        out = []
-        for line in lines:
-            s = line.strip()
-            if not s:
-                continue
-            starts_upper = s[0].isupper()
-            ends_star = s.endswith('*')
-            if starts_upper:
-                out.append(s)
-            elif out and out[-1].endswith('*'):
-                out.append(s)
-            elif out and not out[-1].endswith('*'):
-                out[-1] = out[-1] + ' ' + s
-            else:
-                out.append(s)
-        return '\n'.join(out)
-
     def _fix_phos_hilaron(text):
         """Insert stanza breaks in Phos Hilaron hymn text (4-line stanzas).
 
@@ -769,8 +729,6 @@ def _normalize_whitespace(offices: dict) -> dict:
         text = text.replace(" \n", "\n")
         if seg_type in ("leader", "response") and section_key not in _VERSE_SECTIONS:
             text = _LINE_JOIN.sub(r" \1", text)
-        if seg_type == "leader" and section_key == "canticle":
-            text = _fix_canticle_breaks(text)
         if seg_type == "leader" and section_key == "phos_hilaron":
             text = _fix_phos_hilaron(text)
         return text
