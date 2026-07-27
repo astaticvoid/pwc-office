@@ -675,6 +675,32 @@ def _is_doxology(alt_block: dict) -> bool:
         )
     )
 
+# Ordinary-time morning prayer keeps "Alleluia." after the opening doxology
+# (dropped in Lent/seasonal forms elsewhere), printed once per "or" option in
+# the PDF but said only once, after whichever option is chosen. If baked into
+# each group's response text it would get hoisted (or lost) along with the
+# doxology's dedup to _shared, which is used everywhere doxology appears
+# (after every Psalm/Canticle too) — so it's stripped here and re-attached by
+# the caller as one standalone trailing segment on the forms that had it.
+def _split_doxology_alleluia(alt_block: dict) -> tuple[dict, bool]:
+    groups = alt_block.get('groups', [])
+    has_alleluia = groups and all(
+        g.get('segments')
+        and g['segments'][-1]['type'] == 'response'
+        and g['segments'][-1]['text'].endswith('\nAlleluia.')
+        for g in groups
+    )
+    if not has_alleluia:
+        return alt_block, False
+    new_groups = []
+    for g in groups:
+        segs = list(g['segments'])
+        last = dict(segs[-1])
+        last['text'] = last['text'][: -len('\nAlleluia.')]
+        segs[-1] = last
+        new_groups.append({**g, 'segments': segs})
+    return {**alt_block, 'groups': new_groups}, True
+
 def _is_affirmation(alt_block: dict) -> bool:
     groups = alt_block.get('groups', [])
     return (
@@ -942,6 +968,7 @@ def _dedup_shared(offices: dict) -> dict:
             seg = {**seg, 'groups': new_groups}
 
             if _is_doxology(seg):
+                seg, has_alleluia = _split_doxology_alleluia(seg)
                 if 'doxology' not in shared:
                     shared['doxology'] = _canonical_doxology(seg)
                 # The canticle doxology intro rubric ("At the end of the Canticle…" /
@@ -949,6 +976,8 @@ def _dedup_shared(offices: dict) -> dict:
                 # as a plain rubric segment immediately before this alternatives block,
                 # so no re-insertion is needed here.
                 out.append({'type': 'shared', 'key': 'doxology'})
+                if has_alleluia:
+                    out.append({'type': 'response', 'text': 'Alleluia.'})
             elif _is_affirmation(seg):
                 if 'affirmation' not in shared:
                     shared['affirmation'] = seg
