@@ -121,6 +121,15 @@ def _clean(text: str) -> str:
     return re.sub(r'\n[^\n]*\b\d{3}\b[^\n]*', '', text.strip()).strip()
 
 
+# Every page in the collects range opens with a running header: page number
+# + section/season title, in either order, on one or two lines (e.g.
+# "Christmas\n269\n...", "Good Friday 315\n...", "292    Lent \n..."). When a
+# collect runs to the very end of a page, extract_collect() appends the next
+# page (overflow) to find the real terminator -- but if that terminator lands
+# on the overflow page, the overflow's own leading running header rides along
+# into the collect text. Strip it before concatenating.
+_RUNNING_HEADER = re.compile(r'^\s*(?:\d{1,3}\s+[^\n\d]{1,40}?|[^\n\d]{1,40}?\s+\d{1,3})\s*\n')
+
 def extract_collect(text: str, overflow: str = "") -> str:
     """
     Find the last collect on a page and return its body text.
@@ -134,7 +143,8 @@ def extract_collect(text: str, overflow: str = "") -> str:
     if m:
         return _clean(body[: m.start()])
 
-    combined = body + "\n" + overflow
+    overflow_body = _RUNNING_HEADER.sub("", overflow, count=1)
+    combined = body + "\n" + overflow_body
     m = _TERMINATORS.search(combined)
     if m:
         return _clean(combined[: m.start()])
@@ -151,10 +161,21 @@ def is_garbled(text: str) -> bool:
 
 # ── BAS.txt fallback ──────────────────────────────────────────────────────────
 
+# A page break in the joined text is "\n\n\x0c\n" -> (after \x0c normalisation)
+# a run of blank lines. The running header (page number + section/season
+# title, either order) immediately follows. Strip it so a collect body that
+# happens to span a page boundary within a fallback window doesn't inherit
+# the next page's header as trailing text — same issue and same fix as
+# _RUNNING_HEADER for the per-page extraction path; see BUGS.md 2026-07-26.
+_PAGE_BOUNDARY_HEADER = re.compile(
+    r'(\n{2,})\s*(?:\d{1,3}\s+[^\n\d]{1,40}?|[^\n\d]{1,40}?\s+\d{1,3})\s*\n'
+)
+
 def _load_bas_txt(path: Path) -> str:
     # pdf_as_text (extract_lib.py) joins pages with \x0c; normalise to \n so
     # collect patterns like r'(?:^|\n)(Collect)\n' match across page breaks.
-    return path.read_text(encoding="utf-8", errors="replace").replace("\x0c", "\n")
+    text = path.read_text(encoding="utf-8", errors="replace").replace("\x0c", "\n")
+    return _PAGE_BOUNDARY_HEADER.sub(r'\1', text)
 
 
 def _find_first_collect_body(text: str) -> str:
@@ -401,6 +422,10 @@ def _extract_occasional_prayers(pdf, collects: dict) -> None:
     all_text = ""
     for idx in range(OCCASIONAL_FIRST_PAGE - 1, min(OCCASIONAL_LAST_PAGE, total)):
         page_text = pdf[idx].get_text() or ""
+        # Strip each page's running header ("Occasional Prayers" + page number)
+        # before joining pages, so a prayer body that runs to a page boundary
+        # doesn't inherit the next page's header as trailing text.
+        page_text = _RUNNING_HEADER.sub("", page_text, count=1)
         all_text += page_text + "\n"
 
     headers = list(_OCC_HEADER.finditer(all_text))
