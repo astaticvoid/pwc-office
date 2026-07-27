@@ -97,7 +97,7 @@ def main():
             print(f"         expected: {exp_hash[:12]}…")
             print(f"         actual:   {actual_hash[:12]}…")
             print(f"         → File was modified outside the extraction pipeline.")
-            print(f"           Migrate the change to the extractor or patches.json,")
+            print(f"           Migrate the change to the extractor or data/corrections.json,")
             print(f"           then re-run `make extract`.")
             drift = True
 

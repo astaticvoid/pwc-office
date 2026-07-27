@@ -117,8 +117,14 @@ def _find_collect_body(text: str) -> str:
 
 
 def _clean(text: str) -> str:
-    """Strip PDF running-header lines anywhere in text (e.g. '270 Advent', '308 Good Friday')."""
-    return re.sub(r'\n[^\n]*\b\d{3}\b[^\n]*', '', text.strip()).strip()
+    """Trim whitespace. Used to strip a regex that guessed at running-header
+    lines by scanning for any 3-digit number anywhere in the text -- a false
+    trigger waiting to happen against any genuine 3-digit number in a collect
+    body. _RUNNING_HEADER and _PAGE_BOUNDARY_HEADER below now strip running
+    headers precisely, anchored on page-boundary position rather than content
+    guessing, making this redundant (confirmed via disable+diff, zero live
+    effect on the full dataset). See BUGS.md 2026-07-26."""
+    return text.strip()
 
 
 # Every page in the collects range opens with a running header: page number
