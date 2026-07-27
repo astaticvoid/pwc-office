@@ -679,8 +679,7 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
   background: var(--color-nav-bg); color: var(--color-nav-text);
   box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
-/* MP/EP office-type selector (touch-friendly) */
-.day-ctrl-seg {
+/* Observance seg: brass outline style (distinct category from time-of-day) */
 .day-ctrl-seg--obs { background: transparent; border-color: color-mix(in oklab, var(--color-brass) 40%, var(--color-border)); }
 .day-ctrl-seg--obs .day-ctrl-btn.is-active {
   background: color-mix(in oklab, var(--color-brass) 15%, var(--color-bg));
