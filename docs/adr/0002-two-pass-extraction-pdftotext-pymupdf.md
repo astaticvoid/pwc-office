@@ -1,7 +1,16 @@
 # ADR 0002: Use pdftotext for text content; separate text from style
 
 ## Status
-Proposed
+Superseded by [ADR 0011](./0011-single-pass-fitz-no-casing-oracle.md) — never
+implemented (stayed Proposed); the underlying premise turned out not to hold.
+`check_casing.py`'s pdftotext oracle (mentioned below) was checked against
+fitz's raw per-span output directly: fitz decodes casing correctly on its
+own, contradicting this ADR's claim that "the current extractor mis-decodes
+small-caps." `check_casing.py` was removed 2026-07-26 — see ADR 0011 and
+BUGS.md. (`extract_collects.py`'s "pdftotext fallback" was already fitz-only
+by this point — only its naming/comments were stale, since fixed — it was
+never a real pdftotext dependency.) The single-pass fitz-only extractor this
+ADR proposed replacing remains the actual architecture.
 
 ## Context
 A PDF extraction pipeline must produce two things from each source page: the
