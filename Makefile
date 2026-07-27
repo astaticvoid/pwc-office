@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text check-casing check-book generate-golden serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa
+.PHONY: test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text check-book generate-golden serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -121,11 +121,6 @@ generate-golden:
 check-text:
 	python3 tools/check_text_quality.py
 
-# Casing oracle: compare offices.json segment casing against pdftotext ground
-# truth (pdfplumber lowercases the small-caps font; pdftotext decodes it right).
-check-casing:
-	python3 tools/check_casing.py
-
 # Liturgical quality gate — runs validators and coherence scorer.
 # Used by 'make test' so every PR checks liturgical coherence.
 qa:
@@ -145,7 +140,7 @@ qa:
 
 # Validate extracted lectionary data against the ACC HTML source.
 # Requires network access; run manually before a data re-extraction.
-validate: check-text check-casing
+validate: check-text
 	python3 tools/validate_lectionary.py
 
 # Run E2E tests locally against web/ (default — no bandwidth cost).

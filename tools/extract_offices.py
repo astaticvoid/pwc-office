@@ -139,37 +139,6 @@ def _is_noise(typ: str, text: str) -> bool:
 
 # ── Segment merging ───────────────────────────────────────────────────────────
 
-# Response segments starting with these words are grammatical continuations of
-# the preceding leader line and should remain lowercase.
-_CONTINUATION_STARTS = {'who', 'which', 'that', 'and', 'or', 'but', 'nor', 'yet'}
-
-# Divine titles and proper nouns that small-caps encoding renders lowercase in the PDF.
-# Order matters: multi-word phrases must come before their components.
-_DIVINE_FIXES: list[tuple[re.Pattern, str]] = [
-    (re.compile(r'\bholy spirit\b',       re.IGNORECASE), 'Holy Spirit'),
-    (re.compile(r'\bholy ghost\b',        re.IGNORECASE), 'Holy Ghost'),
-    # Divine title in the Wednesday litany (BUG-25; pdftotext confirms "Holy One").
-    # Safe only because _fix_casing scopes to response segments — canticle/psalm
-    # "holy one(s)" lives in leader/psalm segments and is untouched.
-    (re.compile(r'\bholy one\b',          re.IGNORECASE), 'Holy One'),
-    (re.compile(r"\bgod[’']s only son\b", re.IGNORECASE), "God’s only Son"),
-    (re.compile(r'\bgod the father\b',    re.IGNORECASE), 'God the Father'),
-    (re.compile(r'\bgod the son\b',       re.IGNORECASE), 'God the Son'),
-    (re.compile(r'\bson of god\b',        re.IGNORECASE), 'Son of God'),
-    (re.compile(r'\bthe father\b',        re.IGNORECASE), 'the Father'),
-    (re.compile(r'\bthe son\b',           re.IGNORECASE), 'the Son'),
-    (re.compile(r'\bthe creator\b',       re.IGNORECASE), 'the Creator'),
-    (re.compile(r"\bgod's\b",             re.IGNORECASE), "God's"),
-    # Standalone (not preceded by "the") — apply after the above.
-    (re.compile(r'\bfather\b'),  'Father'),
-    (re.compile(r'\bcreator\b'), 'Creator'),
-    # Proper nouns rendered lowercase by small-caps.
-    (re.compile(r'\bisrael\b'),  'Israel'),
-    (re.compile(r'\bpilate\b'),  'Pilate'),
-    # Vocative interjection "O" after comma (e.g. "Where, O death", "Hear, O Israel").
-    (re.compile(r', o (?=\w)'),  ', O '),
-]
-
 def _reflow_leader_prose(segs: list) -> list:
     """BUG-29: join PDF column-wrap line breaks in leader (prose) segments.
     Recurses into alternatives groups. Rubric/response segments are left as-is."""
@@ -217,13 +186,18 @@ def _reflow_litany_prose(segs: list) -> list:
 
 def _fix_casing(seg: dict) -> dict:
     """
-    Fix PDF small-caps artifacts in response segments:
-      1. Capitalize first character unless the segment is a grammatical
-         continuation (starts with a conjunction or relative pronoun).
-      2. Capitalize the first letter of each new sentence within the segment
-         (letter following .  !  ? and a newline).
-      3. Fix standalone lowercase "i" → "I" (first-person pronoun).
-      4. Restore capitalization of divine titles (small-caps encodes them lowercase).
+    Fix PDF text artifacts in response segments:
+      1. Capitalize the first letter of each new sentence within the segment
+         (letter following .  !  ? and a newline) — an artifact of `_merge()`
+         joining originally-separate PDF lines with "\\n".
+      2. Fix standalone lowercase "i" → "I" (first-person pronoun).
+
+    Does NOT force-capitalize the segment's own opening letter, and does not
+    restore divine-title capitalization: PyMuPDF (fitz) already decodes casing
+    correctly on its own. Both of those used to be handled here (inherited from
+    the pre-fitz pdfplumber extractor, which mis-decoded small-caps fonts as
+    lowercase) but were checked against fitz's raw per-span output and found to
+    be no longer needed — see BUGS.md.
     """
     if not seg["text"]:
         return seg
@@ -240,16 +214,9 @@ def _fix_casing(seg: dict) -> dict:
     # Normalize typographic apostrophes so pattern matching is consistent.
     text = text.replace('‘', "'").replace('’', "'")
 
-    first_word = re.split(r'\W', text)[0].lower()
-    if first_word not in _CONTINUATION_STARTS:
-        text = text[0].upper() + text[1:]
-
     text = re.sub(r'([.!?]\n)([a-z])',
                   lambda m: m.group(1) + m.group(2).upper(), text)
     text = re.sub(r'\bi\b', 'I', text)
-
-    for pat, replacement in _DIVINE_FIXES:
-        text = pat.sub(replacement, text)
 
     seg["text"] = text
     return seg
@@ -722,87 +689,6 @@ def _canonical_doxology(alt_block: dict) -> dict:
     return alt_block  # fallback: leave as-is if we can't normalise
 
 
-# ── Post-extraction text patches ─────────────────────────────────────────────
-# Some PDF responses are genuinely lowercase in the source (not small-caps
-# artefacts). _fix_casing capitalises them because they aren't in
-# _CONTINUATION_STARTS. Patch them back here rather than widening
-# _CONTINUATION_STARTS (which would affect every response).
-#
-# Format: (office_key, section_key, old_text, new_text)
-_TEXT_PATCHES: list[tuple[str, str, str, str]] = [
-    # BUG-18 (revised by BUG-25): the MP "holy one" patch was removed — pdftotext
-    # proves the PDF reads "Holy One" (small-caps decoded lowercase by pdfplumber).
-    # The four EP tuples below stand: grammatical continuations, verified lowercase
-    # in the PDF (pdftotext lines 8031–8042).
-    ("ordinary-wednesday-ep", "litany",
-     "To declare the mystery of Christ.",
-     "to declare the mystery of Christ."),
-    ("ordinary-wednesday-ep", "litany",
-     "Behold and tend the vine you have planted.",
-     "behold and tend the vine you have planted."),
-    ("ordinary-wednesday-ep", "litany",
-     "In the strength of your name.",
-     "in the strength of your name."),
-    ("ordinary-wednesday-ep", "litany",
-     "As we have put our hope in you.",
-     "as we have put our hope in you."),
-      # Fix 'The Evening Hymn:' capitalisation and per-hymn title casing (PDF artifacts)
-    ("ordinary-sunday-ep", "phos_hilaron",
-     'the evening hymn: “o Gladsome Light, o Grace”',
-     'The Evening Hymn: “O Gladsome Light, O Grace”'),
-    ("ordinary-monday-ep", "phos_hilaron",
-     'the evening hymn: “o Gracious Light, Lord Jesus Christ”',
-     'The Evening Hymn: “O Gracious Light, Lord Jesus Christ”'),
-    ("ordinary-tuesday-ep", "phos_hilaron",
-     'the evening hymn: “Light of the World, in Grace and Beauty”',
-     'The Evening Hymn: “Light of the World, in Grace and Beauty”'),
-    ("ordinary-wednesday-ep", "phos_hilaron",
-     'the evening hymn: “o Light, Whose splendour thrills”',
-     'The Evening Hymn: “O Light, Whose Splendour Thrills”'),
-    ("ordinary-thursday-ep", "phos_hilaron",
-     'the evening hymn: ”Christ, Mighty saviour”',
-     'The Evening Hymn: “Christ, Mighty Saviour”'),
-    ("ordinary-saturday-ep", "phos_hilaron",
-     'the evening hymn: “now from the Altar of My heart”',
-     'The Evening Hymn: “Now from the Altar of My Heart”'),
-    # BUG-36: God's Spirit lowercased. pdftotext oracle (check_casing.py) shows
-    # "Spirit" in every one of these; _DIVINE_FIXES has no safe standalone
-    # "spirit → Spirit" rule (human "spirit" must stay lowercase), so patch each.
-    ("lent-mp", "opening_responses",
-     "and sustain us by your bountiful spirit.",
-     "and sustain us by your bountiful Spirit."),
-    ("pentecost-ep", "responsory",
-     "When you send forth your spirit, we are created;\nyou renew the face of the earth.",
-     "When you send forth your Spirit, we are created;\nyou renew the face of the earth."),
-    ("ordinary-thursday-ep", "litany",
-     "and sustain them with your spirit.",
-     "and sustain them with your Spirit."),
-]
-
-def _patch_segments(segs: list, old: str, new: str) -> None:
-    """Replace matching response/label text in a segment list, recursing into
-    alternatives groups (some patched responses live inside I/II/III groups)."""
-    for seg in segs:
-        if not isinstance(seg, dict):
-            continue
-        if seg.get("type") == "alternatives":
-            for group in seg.get("groups", []):
-                _patch_segments(group.get("segments", []), old, new)
-        elif seg.get("type") in ("response", "label") and seg.get("text") == old:
-            seg["text"] = new
-
-
-def _apply_text_patches(offices: dict) -> dict:
-    """Apply _TEXT_PATCHES to correct responses the extractor mis-capitalised."""
-    import copy
-    offices = copy.deepcopy(offices)
-    for office_key, section_key, old, new in _TEXT_PATCHES:
-        section = offices.get(office_key, {}).get(section_key)
-        if not isinstance(section, list):
-            continue
-        _patch_segments(section, old, new)
-    return offices
-
 
 def _normalize_whitespace(offices: dict) -> dict:
     """Fix common PyMuPDF whitespace artifacts across all forms."""
@@ -1007,9 +893,7 @@ def _dedup_shared(offices: dict) -> dict:
 
 def _fix_shared_affirmation(offices: dict) -> dict:
     """
-    Correct two known issues in _shared.affirmation that can't be caught by
-    the per-office text-patch mechanism (shared blocks are deduplicated before
-    _apply_text_patches runs, so the segment no longer lives in any office section):
+    Correct two known issues in _shared.affirmation:
 
     1. The Apostles' Creed group label is stripped of its article by _alt_label.
        Restore 'The Apostles' Creed'.
@@ -1215,7 +1099,6 @@ def run():
     offices = _normalize_whitespace(offices)
     offices = _fix_shared_affirmation(offices)
     offices = _add_reading_responses(offices)
-    offices = _apply_text_patches(offices)
     n_shared = len(offices.get('_shared', {}))
     print(f"\nShared blocks extracted: {list(offices.get('_shared', {}).keys())}")
 

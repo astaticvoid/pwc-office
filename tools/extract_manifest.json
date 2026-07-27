@@ -1,16 +1,15 @@
 {
-  "extracted_at": "2026-07-18T23:50:34Z",
+  "extracted_at": "2026-07-27T04:33:21Z",
   "tool_versions": {
     "fitz": [
-      "1.27.2.3",
-      "1.27.2",
+      "1.28.0",
+      "1.28.0",
       null
-    ],
-    "pdftotext": "pdftotext version 26.07.0"
+    ]
   },
   "files": {
     "data/offices.json": {
-      "sha256": "83bfb92271459d16e47feeb3416312d26d596180fdf7b828604b930896b8c066",
+      "sha256": "a937b73ba030833fb601ce804e634b12c1ba3444d62b907f8e48b3f8a53c1ad8",
       "entries": 31
     },
     "data/collects.json": {

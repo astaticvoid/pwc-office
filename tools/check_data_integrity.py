@@ -11,7 +11,6 @@ preventing accidentally deploying monkey-patched data files.
 
 import hashlib
 import json
-import subprocess
 import sys
 from pathlib import Path
 
@@ -56,27 +55,6 @@ def check_tool_versions(manifest: dict) -> None:
         fitz_expected = expected_versions.get("fitz")
         if fitz_expected and fitz_expected != "not found":
             print(f"VERSION WARN fitz not found (manifest recorded {fitz_expected})")
-
-    pdftotext_expected = expected_versions.get("pdftotext")
-    if pdftotext_expected:
-        try:
-            result = subprocess.run(
-                ["pdftotext", "-v"], capture_output=True, text=True
-            )
-            actual = (result.stdout + result.stderr).splitlines()[0].strip()
-        except (FileNotFoundError, OSError):
-            print("VERSION NOTE pdftotext not found (optional; manifest recorded " 
-                  + pdftotext_expected + ")")
-            return
-        if actual == pdftotext_expected:
-            print(f"VERSION OK   {actual} (matches manifest)")
-        else:
-            print(f"VERSION WARN {actual} (manifest recorded {pdftotext_expected})")
-            print(
-                "             → pdftotext version changed. Run make extract then\n"
-                "               make check-text to catch any new garbled-text regressions\n"
-                "               before deploying."
-            )
 
 
 def main():

@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from extract_offices import _group_alternatives, _fix_casing, _patch_segments, _reflow_litany_prose
+from extract_offices import _group_alternatives, _fix_casing, _reflow_litany_prose
 
 
 # ── _fix_casing ───────────────────────────────────────────────────────────────
@@ -21,12 +21,19 @@ class TestFixCasing:
     def _leader(self, text):
         return _fix_casing({"type": "leader", "text": text})["text"]
 
-    def test_capitalises_response_first_char(self):
-        assert self._response("holy one, accomplish your purposes in us.")[0].isupper()
+    def test_does_not_force_capitalise_response(self):
+        # Regression guard: an earlier version force-capitalised every response's
+        # first letter (inherited from the pre-fitz pdfplumber extractor, which
+        # mis-decoded small-caps fonts as lowercase). fitz already decodes casing
+        # correctly, so forcing a capital wrongly overrode genuine grammatical
+        # continuations like the doxology's "as it was in the beginning..." —
+        # see BUGS.md.
+        original = "as it was in the beginning, is now, and will be for ever. Amen."
+        assert self._response(original) == original
 
-    def test_conjunction_start_stays_lowercase(self):
-        # "and", "or", "but" etc. are continuation words — must not be uppercased.
-        assert self._response("and your ministers be clothed with salvation.")[0].islower()
+    def test_lowercase_conjunction_start_stays_lowercase(self):
+        original = "and your ministers be clothed with salvation."
+        assert self._response(original) == original
 
     def test_standalone_i_fixed(self):
         assert " I " in self._response("here i am, Lord.")
@@ -39,48 +46,6 @@ class TestFixCasing:
     def test_empty_text_safe(self):
         result = _fix_casing({"type": "response", "text": ""})
         assert result["text"] == ""
-
-    def test_holy_one_divine_title_in_response(self):
-        # BUG-25: "Holy One" is a divine title (small-caps in the PDF; pdftotext
-        # confirms the capitalisation). Applies to response segments only.
-        assert self._response("holy one, accomplish your purposes in us.") == \
-            "Holy One, accomplish your purposes in us."
-
-    def test_holy_one_leader_untouched(self):
-        # Leader segments (canticles, psalms) may legitimately contain lowercase
-        # "holy one" — _fix_casing must leave them alone.
-        original = "nor let your holy one see the Pit."
-        assert self._leader(original) == original
-
-
-# ── _patch_segments (BUG-36 recursion) ────────────────────────────────────────
-
-class TestPatchSegments:
-    def test_patches_flat_response(self):
-        segs = [{"type": "response", "text": "your spirit."}]
-        _patch_segments(segs, "your spirit.", "your Spirit.")
-        assert segs[0]["text"] == "your Spirit."
-
-    def test_patches_response_nested_in_alternatives(self):
-        # BUG-36: some patched responses live inside I/II/III groups; the patch
-        # must recurse into alternatives (lent-mp opening_responses).
-        segs = [{
-            "type": "alternatives",
-            "groups": [
-                {"label": "I", "segments": [
-                    {"type": "response", "text": "and sustain us by your bountiful spirit."},
-                ]},
-            ],
-        }]
-        _patch_segments(segs, "and sustain us by your bountiful spirit.",
-                        "and sustain us by your bountiful Spirit.")
-        assert segs[0]["groups"][0]["segments"][0]["text"] == \
-            "and sustain us by your bountiful Spirit."
-
-    def test_leaves_non_matching_untouched(self):
-        segs = [{"type": "response", "text": "a broken spirit."}]
-        _patch_segments(segs, "your spirit.", "your Spirit.")
-        assert segs[0]["text"] == "a broken spirit."
 
 
 # ── _group_alternatives ───────────────────────────────────────────���───────────
