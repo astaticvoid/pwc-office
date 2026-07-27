@@ -102,7 +102,7 @@ PDFs  →  PyMuPDF (fitz)  →  data/*.json + data/lectionary/YYYY-MM.json
               └── cli/office.js (debug CLI)
 ```
 
-Copyrighted content in `data/` is permanently gitignored. Only `data/translations/kjv/`, `data/patches.json`, and `data/corrections.json` are committed. `web/data` is a symlink to `../data` — `make build` dereferences it via `cp -rL` into `dist/`; `make serve` follows the symlink live.
+Copyrighted content in `data/` is permanently gitignored. Only `data/translations/kjv/`, `data/corrections.json`, and `data/paragraphs.json` are committed. `web/data` is a symlink to `../data` — `make build` dereferences it via `cp -rL` into `dist/`; `make serve` follows the symlink live.
 
 ### Web SPA (`web/`)
 

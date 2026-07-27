@@ -8,7 +8,8 @@ Reads sources/pray-without-ceasing.pdf and writes:
                                the web SPA on first load
 
 Schema: { number: int, book: int, title: str, text: str }
-  (source-corrected entries also carry source_corrections: [...])
+  (source-corrected entries also carry source_corrections: [...] — stamped
+  on by apply_corrections.py, not here; see data/corrections.json "psalter")
 
 Text format inside each psalm:
   • verse lines:      "N  verse text *"
@@ -161,61 +162,12 @@ def main():
     if missing:
         print(f"WARNING: missing psalms: {missing}", file=sys.stderr)
 
-    # Apply corrections: keyed by int for in-place mutation.
+    # One-off text corrections (spelling, typos, missing words) are no longer
+    # hardcoded here -- they live in data/corrections.json ("psalter") and are
+    # applied by apply_corrections.py later in the pipeline (make extract),
+    # the same mechanism used for office text and lectionary data. This
+    # extractor only does extraction. See BUGS.md 2026-07-26 and ADR 0005.
     psalms_by_num: dict[int, dict] = {p["number"]: p for p in psalms_list}
-
-    # Fix typographic error: double period in Psalm 78 v72
-    # PyMuPDF uses non-breaking spaces in liturgical text; match both.
-    if 78 in psalms_by_num:
-        text = psalms_by_num[78]["text"]
-        text = text.replace("God's hands\u00a0..", "God's hands.")  # nbsp variant
-        text = text.replace("God's hands..", "God's hands.")        # regular space
-        psalms_by_num[78]["text"] = text
-
-    # British/Canadian orthography (source PDF uses American spelling)
-    for num, (old, new) in {
-        51: ("offenses.", "offences."),
-        61: ("fulfill",   "fulfil"),
-        64: ("recognize", "recognise"),
-    }.items():
-        if num in psalms_by_num:
-            psalms_by_num[num]["text"] = psalms_by_num[num]["text"].replace(old, new)
-
-    # Psalm 119 uses non-standard "Sadhe" for the 18th section
-    if 119 in psalms_by_num:
-        psalms_by_num[119]["text"] = psalms_by_num[119]["text"].replace("Sadhe ", "Tsadhe ")
-
-    # Psalm 35 v25 — missing "not" (meaning reversed)
-    if 35 in psalms_by_num:
-        psalms_by_num[35]["text"] = (
-            psalms_by_num[35]["text"]
-            .replace("\u00a0Do let them say", "\u00a0Do not let them say")
-            .replace("\nDo let them say", "\nDo not let them say"))
-        psalms_by_num[35]["source_corrections"] = [{
-            "verse": 25,
-            "original":  "Do let them say in their hearts, *",
-            "corrected": "Do not let them say in their hearts, *",
-            "reason": "Missing 'not' in source — meaning reversed.",
-        }]
-
-    # Tag spelling fixes with provenance
-    for num, old, new, verse, reason in [
-        (51, "offenses.", "offences.", 1, "American spelling; psalter uses British/Canadian orthography"),
-        (61, "fulfill", "fulfil", 8, "American spelling; psalter uses British/Canadian orthography"),
-        (64, "recognize", "recognise", 9, "American spelling; psalter uses British/Canadian orthography"),
-    ]:
-        if num in psalms_by_num:
-            psalms_by_num[num]["source_corrections"] = [{
-                "verse": verse, "original": old, "corrected": new, "reason": reason,
-            }]
-
-    if 78 in psalms_by_num:
-        psalms_by_num[78]["source_corrections"] = [{
-            "verse": 72,
-            "original": "skillfulness of God's hands..",
-            "corrected": "skillfulness of God's hands.",
-            "reason": "Typographic error: double period in printed source.",
-        }]
 
     # ── Write: combined dict ─────────────────────────────────────────────
     psalter_path = root / "data" / "psalter.json"
@@ -251,19 +203,14 @@ def main():
                    (146, "The Lord lifts up those who are bowed down")]:
         checks.append((f"Ps {n} verse restored", chk in t(n)))
 
-    # Section B corrections
+    # Section B: extraction structure (one-off text corrections — spelling,
+    # typos, missing words — are checked separately by apply_corrections.py,
+    # which is what actually applies them; see data/corrections.json "psalter").
     checks += [
         ("Ps 2 v12 present",       any(l.startswith("12 ") for l in t(2).split("\n"))),
-        ("Ps 35 v25 not restored", "Do not let them say" in t(35)),
-        ("Ps 51 v1 offences",      "offences" in t(51)),
-        ("Ps 61 v8 fulfil",        "fulfil" in t(61)),
-        ("Ps 64 v9 recognise",     "recognise" in t(64)),
-        ("Ps 78 v72 single period","God's hands.." not in t(78)),
-        ("Ps 119 Tsadhe header",   "Tsadhe " in t(119) and "Sadhe " not in t(119)),
         ("Ps 114 v1 Hallelujah",   "1 Hallelujah!\n When Israel came out of Egypt" in t(114)),
         ("book field on all 150",  all("book" in psalms_by_num[n] for n in psalms_by_num)),
         ("no curly quotes",        not any(c in t(n) for n in psalms_by_num for c in "“”‘’")),
-        ("source_corrections × 5", all("source_corrections" in psalms_by_num.get(n, {}) for n in [35, 51, 61, 64, 78])),
     ]
     all_ok = True
     for label, ok in checks:

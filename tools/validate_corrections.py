@@ -122,6 +122,17 @@ def validate_lectionary_field(corrections: list, field_name: str) -> list[str]:
 
 
 def validate_lectionary_notes(corrections: list) -> list[str]:
+    """Only 'clear' is a live action (removes a garbled/unparseable note).
+    ('set_type' existed here previously but was never used by any real
+    correction — removed 2026-07-26, see BUGS.md.)
+
+    Checks PRE-application state, like every other validator here: a
+    'clear' correction is stale once notes are already gone (either
+    because it was applied, or the upstream CSV stopped producing the
+    garbled note), so it must find notes still present to be actionable —
+    not already-empty, which is what this checked before (backwards: that
+    tested apply_corrections' output, not whether there was anything left
+    to correct, so it could never actually catch staleness)."""
     errors = []
     lectionary = load_lectionary()
     for c in corrections:
@@ -130,25 +141,33 @@ def validate_lectionary_notes(corrections: list) -> list[str]:
         if day is None:
             errors.append(f"{cid}: date {c['date']} not found")
             continue
-        notes = day.get("notes") or []
-        action = c.get("action", "")
-        if action == "clear":
-            if notes:
-                errors.append(f"{cid}: notes not empty (expected clear)")
-        elif action == "set_type":
-            if not notes:
-                errors.append(f"{cid}: no notes to set type on")
-                continue
-            for n in notes:
-                if isinstance(n, dict):
-                    actual_type = n.get("type", "")
-                    if actual_type != c.get("old"):
-                        errors.append(f"{cid}: note type mismatch: {actual_type!r} != {c['old']!r}")
-                    break
+        if not day.get("notes"):
+            errors.append(f"{cid}: notes already empty — nothing to clear (stale?)")
+    return errors
+
+
+def validate_lectionary_lessons(corrections: list) -> list[str]:
+    """Whole-lessons-list replace for one date+office, keyed by (date, office)."""
+    errors = []
+    lectionary = load_lectionary()
+    for c in corrections:
+        cid = c["id"]
+        day = lectionary.get(c["date"])
+        if day is None:
+            errors.append(f"{cid}: date {c['date']} not found")
+            continue
+        office = day.get(c["office"], {})
+        actual = office.get("lessons")
+        if actual != c.get("old"):
+            errors.append(f"{cid}: lessons mismatch for {c['date']}/{c['office']}: {actual!r} != {c['old']!r}")
     return errors
 
 
 def validate_psalter(corrections: list) -> list[str]:
+    """Every psalter correction is a plain text replace within one psalm's
+    text, keyed by psalm number. (insert_before/insert_after/fix_v12 action
+    variants existed here previously but were never used by any real
+    correction — removed 2026-07-26, see BUGS.md.)"""
     errors = []
     psalter = json.loads((DATA / "psalter.json").read_text())
     for c in corrections:
@@ -159,49 +178,28 @@ def validate_psalter(corrections: list) -> list[str]:
             errors.append(f"{cid}: psalm {pnum} not found")
             continue
         ptext = psalm.get("text", "")
-        action = c.get("action", "")
-        if action == "replace":
-            old = c.get("old", "")
-            if old not in ptext:
-                # Try nbsp variant
-                if old.replace(" ", "\xa0") not in ptext:
-                    errors.append(f"{cid}: old text not found in psalm {pnum}")
-        elif action in ("insert_before", "insert_after"):
-            marker = c.get("marker", "")
-            if marker and marker not in ptext:
-                errors.append(f"{cid}: marker not found in psalm {pnum}")
-        elif action == "fix_v12":
-            if "12 lest God be angry" not in ptext:
-                errors.append(f"{cid}: v12 still missing from psalm {pnum}")
+        old = c.get("old", "")
+        if old not in ptext and old.replace(" ", "\xa0") not in ptext:
+            errors.append(f"{cid}: old text not found in psalm {pnum}")
     return errors
 
 
 def validate_fats(corrections: list) -> list[str]:
+    """Every FATS correction is a plain text replace within one saint's
+    field. (A "rename_key" action variant existed here previously but was
+    never used by any real correction — removed 2026-07-26, see BUGS.md.)"""
     errors = []
     fats = json.loads((DATA / "fats" / "saints.json").read_text())
     for c in corrections:
         cid = c["id"]
-        action = c.get("action", "")
-        if action == "rename_key":
-            skey = c.get("saint_key")
-            if skey is None:
-                errors.append(f"{cid}: missing saint_key")
-                continue
-            if skey not in fats:
-                errors.append(f"{cid}: saint key {skey!r} not found (already renamed?)")
-        elif action is None and "field" in c:
-            # Text fix within a saint field
-            saint = fats.get(c.get("saint") or c.get("saint_key", ""))
-            if saint is None:
-                errors.append(f"{cid}: saint not found")
-                continue
-            field = c.get("field")
-            val = saint.get(field, "")
-            if c.get("old") not in val:
-                errors.append(f"{cid}: old text not found in saint.{field}")
-        else:
-            # Unknown action — skip
-            pass
+        saint = fats.get(c.get("saint") or c.get("saint_key", ""))
+        if saint is None:
+            errors.append(f"{cid}: saint not found")
+            continue
+        field = c.get("field")
+        val = saint.get(field, "")
+        if c.get("old") not in val:
+            errors.append(f"{cid}: old text not found in saint.{field}")
     return errors
 
 
@@ -219,6 +217,9 @@ def main():
 
     if corrections.get("lectionary_citations"):
         errors.extend(validate_lectionary_citation(corrections["lectionary_citations"]))
+
+    if corrections.get("lectionary_lessons"):
+        errors.extend(validate_lectionary_lessons(corrections["lectionary_lessons"]))
 
     if corrections.get("lectionary_names"):
         errors.extend(validate_lectionary_field(corrections["lectionary_names"], "name"))

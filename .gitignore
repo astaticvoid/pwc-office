@@ -12,13 +12,12 @@ sources/*
 
 # All data/ content is copyrighted or derived from copyrighted sources — not for distribution.
 # Exception: KJV translation is public domain and committed.
-# Exception: patches.json is the developer correction layer — short text snippets, committed.
-# Exception: corrections.json supersedes patches.json — single versioned correction manifest.
+# Exception: corrections.json is the single versioned correction manifest (ADR 0005) —
+#   supersedes patches.json, which is deleted (was unused; see BUGS.md 2026-07-27).
 data/*
 !data/translations/
 data/translations/*
 !data/translations/kjv/
-!data/patches.json
 !data/corrections.json
 !data/paragraphs.json
 

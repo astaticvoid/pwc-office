@@ -54,30 +54,21 @@ RANK_SUFFIX_MAP = {
     'principal feast': 'principal_feast',
 }
 
-# Names split by a date line in the PDF: truncated_name → full_name
-NAME_FIXES = {
-    'The Annunciation of the Lord to the Blessed Virgin':
-        'The Annunciation of the Lord to the Blessed Virgin Mary',
-    'The Visit of the Blessed Virgin Mary to':
-        'The Visit of the Blessed Virgin Mary to Elizabeth',
-    'Founders, Benefactors and Missionaries':
-        'Founders, Benefactors and Missionaries of the Anglican Church of Canada',
-}
-
-# Post-extraction text fixups: merged tokens from PDF hyphen stripping
-_TEXT_FIXES = [
-    ('midVictorian', 'mid-Victorian'),
-    ('NinetyFive', 'Ninety-Five'),
-]
+# Adjacent duplicate word from PDF line-wrap artifacts (e.g. "who who inhabited").
+# NAME_FIXES (names split by a date line) and _TEXT_FIXES (merged hyphenated
+# tokens: 'midVictorian', 'NinetyFive') used to live here too, targeting the
+# same class of PDF artifact by exact string match. Both confirmed dead —
+# zero live effect on the current dataset (disable+diff, 2026-07-26) — the
+# source no longer produces the truncations/merges they were written to
+# catch. Removed; see BUGS.md. If a real one-off editorial correction is
+# needed for a saint's field, it belongs in data/corrections.json ("fats"),
+# applied by apply_corrections.py after extraction, not hardcoded here.
 _DUP_WORD_RE = re.compile(r'\b(\w{3,})\s+\1\b', re.IGNORECASE)
 
 
 def _clean_text(text: str) -> str:
-    """Fix known PDF extraction artifacts: merged tokens and duplicate adjacent words."""
-    for old, new in _TEXT_FIXES:
-        text = text.replace(old, new)
-    text = _DUP_WORD_RE.sub(r'\1', text)
-    return text
+    """Fix duplicate adjacent words from PDF line-wrap artifacts."""
+    return _DUP_WORD_RE.sub(r'\1', text)
 
 
 # Printer artifact patterns in appendix pages
@@ -208,8 +199,7 @@ def parse_bio(page: str) -> dict | None:
     if first_date_idx is None:
         return None
 
-    raw_name = _extract_name(lines, first_date_idx)
-    name = NAME_FIXES.get(raw_name, raw_name)
+    name = _extract_name(lines, first_date_idx)
     if not name:
         return None
 

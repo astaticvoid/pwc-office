@@ -34,63 +34,18 @@ from pathlib import Path
 from extract_lib import check_manifest
 
 
-# ── Manual corrections ─────────────────────────────────────────────────────────
-# Entries where parse_name_meta produces the wrong name or rank.
-
-# Manual corrections for lesson citations where the CSV source has errors:
-# missing semicolon separators, typos, contextual continuations, etc.
-# Key: (date, office) — "morning" or "evening".
-# Value: the corrected lessons list (same format as parse_office_column output).
-LESSON_FIXES: dict[tuple[str, str], list] = {
-    # CSV has "Zeph 3:14-20 Tit 1:1-16" — missing semicolon separator
-    ("2025-12-19", "morning"): ["Zeph 3:14-20", "Tit 1:1-16"],
-    # CSV has "Jer 24:-10" — typo, missing "1-"
-    ("2026-03-23", "evening"): [{"citation": "Jer 24:1-10", "optional": True}, "Mk 9:30-41"],
-    # CSV has "Mt (1:1-17), 3:1-6" — optional prefix merged into citation
-    ("2026-04-20", "evening"): [{"citation": "Dan 4:19-27", "optional": True}, "Mt 1:1-17, 3:1-6"],
-    # CSV has "32-35" without book/chapter prefix — continuation of Job 9
-    ("2026-08-28", "morning"): ["Job 9:1-15", "Job 9:32-35", "Acts 10:34-48"],
-    # CSV has "108:1-6, (7-13)" without "Ps" prefix
-    ("2026-11-21", "morning"): ["Ps 108:1-6, (7-13)", "Mal 3:13—4:6", "Jas 5:13-20"],
-    # CSV has "(2 Kgs 17:1-18), Mt 13:44-52" — optional citation comma-merged
-    # with the following lesson (same family as 2026-04-20). BUG-32.
-    ("2026-09-27", "evening"): [{"citation": "2 Kgs 17:1-18", "optional": True}, "Mt 13:44-52"],
-}
-
-NAME_FIXES = {
-    # parse_name_meta strips the trailing "- Com" as a rank marker, losing the
-    # rank indicator that belongs to John of the Cross in this combined feast.
-    "2026-10-15": (
-        "Teresa of Avila, Spiritual Teacher and Reformer, 1582"
-        " - Com and John of the Cross, Priest, Spiritual Teacher, 1591 - Com"
-    ),
-}
-
-# Days where a co-occurring Commemoration raises the rank from feria.
-# Colour does not change — a Com uses the season colour.
-RANK_FIXES = {
-    # Multi-feast days where the primary observance is a special day (Ember/Rogation),
-    # not the co-occurring commemoration. HTML scraper confirms holy_day is correct.
-    "2026-02-27": "holy_day",   # Lenten Ember Day + George Herbert
-    "2026-05-12": "holy_day",   # Rogation Day + Florence Nightingale
-    # Days where the CSV rank marker belongs to the secondary feast; primary is a commemoration.
-    "2026-05-27": "commemoration",
-    "2026-05-30": "commemoration",
-    "2026-09-19": "commemoration",
-}
-
-# Colour corrections: CSV encodes the day rank in the colour field for this entry.
-COLOUR_FIXES = {
-    "2026-04-28": "White",  # CSV has "Feria" (the rank) instead of the Easter season colour
-    "2026-10-04": "Green",  # Nineteenth Sunday after Pentecost, Season of Creation
-}
-
-# Dates whose notes column should be suppressed entirely. The raw CSV text is
-# a parsing artifact (alternate office readings printed inline) that produces
-# a garbled note not renderable by the app.
-CLEAR_NOTES = {
-    "2026-06-03",  # Eve-of-Corpus-Christi alternate readings in note col, not yet parsed
-}
+# One-off corrections for lesson citations, names, ranks, colours, and notes
+# where the CSV source has errors (missing separators, typos, mis-parsed
+# markers) used to be hardcoded dicts here (LESSON_FIXES, NAME_FIXES,
+# RANK_FIXES, COLOUR_FIXES, CLEAR_NOTES). They now live in
+# data/corrections.json ("lectionary_lessons"/"lectionary_names"/
+# "lectionary_ranks"/"lectionary_colours"/"lectionary_notes"), applied by
+# apply_corrections.py after this script runs — the same mechanism used for
+# office text, psalter, and FATS corrections. This extractor only parses the
+# CSV; it no longer patches its own output. See BUGS.md 2026-07-27 and ADR 0005.
+# (OBSERVANCES and NOTE_TYPES below are not migrated: they're substantive
+# project-authored classification data, not corrections of a wrong value —
+# there's no "old" the CSV got wrong to record provenance against.)
 
 
 # ── Observances ────────────────────────────────────────────────────────────────
@@ -717,8 +672,6 @@ def parse_extra(raw: str, date_str: str) -> list[dict] | None:
     Each day has at most one note. Type is looked up from NOTE_TYPES;
     text is the HTML-cleaned content of the column.
     """
-    if date_str in CLEAR_NOTES:
-        return None
     text = clean_inline(raw)
     if not text:
         return None
@@ -791,11 +744,6 @@ def main():
 
         name, rank, colour = parse_name_meta(row[1])
 
-        # Apply manual corrections.
-        name = NAME_FIXES.get(date_str, name)
-        rank = RANK_FIXES.get(date_str, rank)
-        colour = COLOUR_FIXES.get(date_str, colour)
-
         # Field order: date, name, rank, colour, observances, eucharist,
         #              morning, evening, notes.
         entry: dict = {
@@ -823,12 +771,6 @@ def main():
         raw_offices = " ".join(row[3:5])
         if m := re.search(r"\bColl (above|below)\b", raw_offices):
             entry["_coll_ref"] = m.group(1)
-
-        # Apply manual lesson corrections for known CSV errors.
-        for office_key, office_data in (("morning", mp), ("evening", ep)):
-            fix = LESSON_FIXES.get((date_str, office_key))
-            if fix is not None:
-                office_data["lessons"] = fix
 
         if mp:
             entry["morning"] = mp
@@ -919,35 +861,17 @@ def main():
     print(f"Season bounds: {bounds}")
 
     # ── Verification ──────────────────────────────────────────────────────────
-    loaded_dates = {e["date"] for e in entries}
+    # One-off CSV-error corrections (name/rank/colour/lessons/notes) are no
+    # longer applied or stale-checked here — that's data/corrections.json +
+    # validate_corrections.py/apply_corrections.py now, which run later in
+    # `make extract` and do the same staleness check generically for every
+    # correction category, not just this file's.
     with_eucharist = sum(1 for e in entries if e.get("eucharist"))
     with_obs = sum(1 for e in entries if e.get("observances"))
     with_notes = sum(1 for e in entries if e.get("notes"))
-    rank_fixed = sum(1 for e in entries if e["date"] in RANK_FIXES)
-    name_fixed = sum(1 for e in entries if e["date"] in NAME_FIXES)
-    lesson_fixed = sum(1 for key in LESSON_FIXES if key[0] in loaded_dates)
     print(f"  eucharist populated: {with_eucharist}/{len(entries)}")
     print(f"  observances:         {with_obs}/{len(OBSERVANCES)} from correction dict")
     print(f"  notes:               {with_notes}/{len(NOTE_TYPES)} from correction dict")
-    print(f"  rank fixes applied:  {rank_fixed}/{len(RANK_FIXES)}")
-    print(f"  name fixes applied:  {name_fixed}/{len(NAME_FIXES)}")
-    print(f"  lesson fixes applied: {lesson_fixed}/{len(LESSON_FIXES)}")
-
-    # Warn about stale corrections (date in correction dict but not in loaded data).
-    stale = []
-    for (fix_date, fix_office) in LESSON_FIXES:
-        if fix_date not in loaded_dates:
-            stale.append(f"LESSON_FIXES[({fix_date!r}, {fix_office!r})]")
-    for fix_date in RANK_FIXES:
-        if fix_date not in loaded_dates:
-            stale.append(f"RANK_FIXES[{fix_date!r}]")
-    for fix_date in NAME_FIXES:
-        if fix_date not in loaded_dates:
-            stale.append(f"NAME_FIXES[{fix_date!r}]")
-    if stale:
-        print(f"  WARNING: {len(stale)} stale correction(s) — date not in any loaded CSV:")
-        for s in stale:
-            print(f"    {s}")
 
     check_manifest(output_paths, root, accept=args.accept)
 

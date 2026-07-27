@@ -1,7 +1,7 @@
 # ADR 0005: Single versioned manifest for all data corrections
 
 ## Status
-Proposed
+Accepted (implemented 2026-07-27)
 
 ## Context
 The extraction pipeline must correct errors in upstream data sources. Corrected
@@ -97,3 +97,56 @@ correction table is updated to point to the single manifest.
   because corrections are investigated by data content, not by extractor.
 - Migrating existing corrections from their current distributed locations is a
   one-time step.
+
+## Implementation notes (2026-07-27)
+
+This ADR sat as Proposed for a long time: `data/corrections.json` and its
+validators existed, and `office_text`/`lectionary_citations` were wired into
+`apply_corrections.py`, but `psalter`/`fats`/`lectionary_names`/
+`lectionary_ranks`/`lectionary_colours`/`lectionary_notes` were declared in
+the schema and checked by `validate_corrections.py` yet never actually
+*applied* by anything — the corresponding hardcoded dicts in
+`extract_psalter.py`, `extract_fats.py`, and `convert_lectionary.py` kept
+doing the real work independently, silently drifting from the manifest.
+This was found and finished during a follow-up audit (the same one that
+produced the canticle/litany/collects fixes logged in BUGS.md 2026-07-26/27),
+prompted by the user asking to push data-correction cleanup as far as it
+would go.
+
+One concrete bug this closed: `extract_psalter.py`'s hardcoded Ps 35 v25 fix
+matched a prefix (`\xa0`/`\n` immediately before "Do") that never actually
+occurred in the real text (the verse starts with a verse number, "25 Do let
+them say..."), so despite `source_corrections` claiming it was fixed, the
+verse was shipping with "not" still missing — reversing the petition's
+meaning — because nothing in the pipeline ever exercised the corresponding
+(correct, already-declared) `corrections.json` entry either. Wiring up
+`apply_corrections.py`'s psalter handler fixed it as a direct side effect.
+
+What was actually migrated: `NAME_FIXES`/`_TEXT_FIXES` in `extract_fats.py`
+(found to have zero live effect — removed rather than migrated),
+`_fix_casing`'s two remaining rules and `extract_collects.py`'s redundant
+`_clean()` regex (same: zero live effect, removed), and all of
+`convert_lectionary.py`'s `LESSON_FIXES`/`NAME_FIXES`/`RANK_FIXES`/
+`COLOUR_FIXES`/`CLEAR_NOTES` (all live — migrated to `lectionary_lessons`/
+`lectionary_names`/`lectionary_ranks`/`lectionary_colours`/`lectionary_notes`,
+verified byte-identical output against baseline aside from the Ps 35 fix
+above). `data/patches.json` (referenced nowhere except a stale error-message
+string) was deleted outright — its 7 entries all targeted a `subtitle` field
+no current office even populates anymore, so there was nothing left to
+migrate.
+
+`psalter_corrections.py`, named in the original decision above, never
+existed as a separate file — the psalter one-offs were always inline in
+`extract_psalter.py`; that's what got migrated.
+
+`convert_lectionary.py`'s `NOTE_TYPES` (72 entries) and `OBSERVANCES` (175
+entries) were deliberately **not** migrated despite being named in the
+original decision (`NOTE_TYPES`) or living in the same file (`OBSERVANCES`).
+Both are substantive project-authored classification/annotation data with no
+"old" value the CSV got wrong — there's nothing to record `source`/`old`/`new`
+provenance against, and `corrections.json`'s schema doesn't fit data that
+isn't a correction of something. `_fix_shared_affirmation` in
+`extract_offices.py` (one office_text-shaped fix, but nested inside a shared
+block the `office_text` category's `{office, field}` locator can't reach)
+was evaluated and deliberately left as code for the same reason: not enough
+of a pattern yet to justify a new correction category for one instance.

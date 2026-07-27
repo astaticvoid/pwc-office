@@ -167,39 +167,22 @@ def _reflow_leader_prose(segs: list) -> list:
 
 def _fix_casing(seg: dict) -> dict:
     """
-    Fix PDF text artifacts in response segments:
-      1. Capitalize the first letter of each new sentence within the segment
-         (letter following .  !  ? and a newline) — an artifact of `_merge()`
-         joining originally-separate PDF lines with "\\n".
-      2. Fix standalone lowercase "i" → "I" (first-person pronoun).
-
-    Does NOT force-capitalize the segment's own opening letter, and does not
-    restore divine-title capitalization: PyMuPDF (fitz) already decodes casing
-    correctly on its own. Both of those used to be handled here (inherited from
-    the pre-fitz pdfplumber extractor, which mis-decoded small-caps fonts as
-    lowercase) but were checked against fitz's raw per-span output and found to
-    be no longer needed — see BUGS.md.
+    Normalize space before punctuation (PDF extraction artifact) in every
+    segment's text. PyMuPDF (fitz) already decodes casing correctly on its
+    own, so no casing correction lives here — this function used to also
+    recapitalize the start of a new sentence after `_merge()` joins lines
+    with "\\n", fix standalone lowercase "i" -> "I", and straighten curly
+    apostrophes to feed those two regexes. All three were checked against
+    fitz's raw per-span output and found to have zero live effect on the
+    current dataset (Batch: 2026-07-26 audit) -- worse, the apostrophe
+    straightening was actively wrong: it flattened the source PDF's genuine
+    curly apostrophe ("God’s") to a straight one in 2 places purely so its
+    regex neighbours could pattern-match reliably. Removed; see BUGS.md.
     """
     if not seg["text"]:
         return seg
     seg = dict(seg)
-    text = seg["text"]
-
-    # Normalize space before punctuation (PDF extraction artifact).
-    text = re.sub(r' ([!?])', r'\1', text)
-
-    if seg["type"] != "response":
-        seg["text"] = text
-        return seg
-
-    # Normalize typographic apostrophes so pattern matching is consistent.
-    text = text.replace('‘', "'").replace('’', "'")
-
-    text = re.sub(r'([.!?]\n)([a-z])',
-                  lambda m: m.group(1) + m.group(2).upper(), text)
-    text = re.sub(r'\bi\b', 'I', text)
-
-    seg["text"] = text
+    seg["text"] = re.sub(r' ([!?])', r'\1', seg["text"])
     return seg
 
 
@@ -832,19 +815,27 @@ def _dedup_shared(offices: dict) -> dict:
 
 def _fix_shared_affirmation(offices: dict) -> dict:
     """
-    Correct two known issues in _shared.affirmation:
-
-    1. The Apostles' Creed group label is stripped of its article by _alt_label.
-       Restore 'The Apostles' Creed'.
-    2. 'he ascended into heaven' is missing a comma (BAS p.189).
-       Add the comma so the line reads 'he ascended into heaven,'.
+    Fix two unrelated issues in _shared.affirmation. Kept as code rather than
+    a data/corrections.json entry: #1 isn't a source-text correction at all
+    (it's this pipeline's own label-stripping needing to be undone, not a
+    PDF error), and #2's target -- one response segment nested inside
+    _shared.affirmation.groups[].segments[] -- doesn't fit the corrections.json
+    categories' shape (office+field, psalm+text, saint+field); building a
+    generic JSON-path corrector for this one instance isn't worth it. If a
+    second nested-shared-block correction ever comes up, revisit.
     """
     import copy
     offices = copy.deepcopy(offices)
     affirmation = offices.get('_shared', {}).get('affirmation', {})
+
     for group in affirmation.get('groups', []):
+        # 1. _alt_label strips the article from every alternatives-group
+        #    label; restore it for this one ("Apostles" -> "The Apostles' Creed").
         if group.get('label', '').startswith('Apostles'):
             group['label'] = 'The Apostles’ Creed'
+
+        # 2. Source PDF error (BAS p.189): 'he ascended into heaven' is
+        #    missing its comma.
         for seg in group.get('segments', []):
             if seg.get('type') == 'response' and 'he ascended into heaven\n' in seg['text']:
                 seg['text'] = seg['text'].replace(

@@ -2,18 +2,194 @@
   "version": 1,
   "office_text": [],
   "lectionary_citations": [],
-  "lectionary_names": [],
-  "lectionary_ranks": [],
-  "lectionary_colours": [],
-  "lectionary_notes": [],
+  "lectionary_lessons": [
+    {
+      "id": "lesson-2025-12-19-morning",
+      "source": "acc-csv-error",
+      "date": "2025-12-19",
+      "office": "morning",
+      "old": ["Zeph 3:14-20 Tit 1:1-16"],
+      "new": ["Zeph 3:14-20", "Tit 1:1-16"],
+      "reason": "CSV has \"Zeph 3:14-20 Tit 1:1-16\" — missing semicolon separator."
+    },
+    {
+      "id": "lesson-2026-03-23-evening",
+      "source": "acc-csv-error",
+      "date": "2026-03-23",
+      "office": "evening",
+      "old": [{"citation": "Jer 24:-10", "optional": true}, "Mk 9:30-41"],
+      "new": [{"citation": "Jer 24:1-10", "optional": true}, "Mk 9:30-41"],
+      "reason": "CSV has \"Jer 24:-10\" — typo, missing \"1-\"."
+    },
+    {
+      "id": "lesson-2026-04-20-evening",
+      "source": "acc-csv-error",
+      "date": "2026-04-20",
+      "office": "evening",
+      "old": [{"citation": "Dan 4:19-27", "optional": true}, "Mt (1:1-17), 3:1-6"],
+      "new": [{"citation": "Dan 4:19-27", "optional": true}, "Mt 1:1-17, 3:1-6"],
+      "reason": "CSV has \"Mt (1:1-17), 3:1-6\" — optional prefix merged into citation."
+    },
+    {
+      "id": "lesson-2026-08-28-morning",
+      "source": "acc-csv-error",
+      "date": "2026-08-28",
+      "office": "morning",
+      "old": ["Job 9:1-15", "32-35", "Acts 10:34-48"],
+      "new": ["Job 9:1-15", "Job 9:32-35", "Acts 10:34-48"],
+      "reason": "CSV has \"32-35\" without book/chapter prefix — continuation of Job 9."
+    },
+    {
+      "id": "lesson-2026-11-21-morning",
+      "source": "acc-csv-error",
+      "date": "2026-11-21",
+      "office": "morning",
+      "old": ["108:1-6, (7-13)", "Mal 3:13—4:6", "Jas 5:13-20"],
+      "new": ["Ps 108:1-6, (7-13)", "Mal 3:13—4:6", "Jas 5:13-20"],
+      "reason": "CSV has \"108:1-6, (7-13)\" without \"Ps\" prefix."
+    },
+    {
+      "id": "lesson-2026-09-27-evening",
+      "source": "acc-csv-error",
+      "date": "2026-09-27",
+      "office": "evening",
+      "old": ["(2 Kgs 17:1-18), Mt 13:44-52"],
+      "new": [{"citation": "2 Kgs 17:1-18", "optional": true}, "Mt 13:44-52"],
+      "reason": "CSV has \"(2 Kgs 17:1-18), Mt 13:44-52\" — optional citation comma-merged with the following lesson. BUG-32."
+    }
+  ],
+  "lectionary_names": [
+    {
+      "id": "name-2026-10-15",
+      "source": "acc-csv-error",
+      "date": "2026-10-15",
+      "old": "Teresa of Avila, Spiritual Teacher and Reformer, 1582 - Com (Green) and John of the Cross, Priest, Spiritual Teacher, 1591",
+      "new": "Teresa of Avila, Spiritual Teacher and Reformer, 1582 - Com and John of the Cross, Priest, Spiritual Teacher, 1591 - Com",
+      "reason": "parse_name_meta strips the trailing \"- Com\" as a rank marker, losing the rank indicator that belongs to John of the Cross in this combined feast."
+    }
+  ],
+  "lectionary_ranks": [
+    {
+      "id": "rank-2026-02-27",
+      "source": "editorial",
+      "date": "2026-02-27",
+      "old": "feria",
+      "new": "holy_day",
+      "reason": "Lenten Ember Day + George Herbert — the primary observance is the Ember Day, not the co-occurring commemoration. HTML scraper confirms holy_day is correct."
+    },
+    {
+      "id": "rank-2026-05-12",
+      "source": "editorial",
+      "date": "2026-05-12",
+      "old": "feria",
+      "new": "holy_day",
+      "reason": "Rogation Day + Florence Nightingale — same as 2026-02-27."
+    },
+    {
+      "id": "rank-2026-05-27",
+      "source": "editorial",
+      "date": "2026-05-27",
+      "old": "feria",
+      "new": "commemoration",
+      "reason": "CSV rank marker belongs to the secondary feast; primary is a commemoration."
+    },
+    {
+      "id": "rank-2026-05-30",
+      "source": "editorial",
+      "date": "2026-05-30",
+      "old": "feria",
+      "new": "commemoration",
+      "reason": "CSV rank marker belongs to the secondary feast; primary is a commemoration."
+    },
+    {
+      "id": "rank-2026-09-19",
+      "source": "editorial",
+      "date": "2026-09-19",
+      "old": "feria",
+      "new": "commemoration",
+      "reason": "CSV rank marker belongs to the secondary feast; primary is a commemoration."
+    }
+  ],
+  "lectionary_colours": [
+    {
+      "id": "colour-2026-04-28",
+      "source": "acc-csv-error",
+      "date": "2026-04-28",
+      "old": "Feria",
+      "new": "White",
+      "reason": "CSV encodes the day rank (\"Feria\") in the colour field instead of the Easter season colour."
+    },
+    {
+      "id": "colour-2026-10-04",
+      "source": "editorial",
+      "date": "2026-10-04",
+      "old": "",
+      "new": "Green",
+      "reason": "Nineteenth Sunday after Pentecost, Season of Creation — colour not populated by the CSV for this date."
+    }
+  ],
+  "lectionary_notes": [
+    {
+      "id": "notes-2026-06-03-clear",
+      "source": "pwc-pdf-error",
+      "date": "2026-06-03",
+      "action": "clear",
+      "reason": "Eve-of-Corpus-Christi alternate readings printed inline in the CSV notes column — a parsing artifact that produces a garbled note not renderable by the app; not yet parsed properly."
+    }
+  ],
   "psalter": [
     {
       "id": "ps35-v25",
       "source": "pwc-pdf-error",
       "psalm": 35,
-      "action": "replace",
+      "verse": 25,
       "old": "Do let them say in their hearts,",
-      "new": "Do not let them say in their hearts,"
+      "new": "Do not let them say in their hearts,",
+      "reason": "Missing 'not' in source — meaning reversed."
+    },
+    {
+      "id": "ps51-v1-spelling",
+      "source": "editorial",
+      "psalm": 51,
+      "verse": 1,
+      "old": "offenses.",
+      "new": "offences.",
+      "reason": "American spelling; psalter uses British/Canadian orthography."
+    },
+    {
+      "id": "ps61-v8-spelling",
+      "source": "editorial",
+      "psalm": 61,
+      "verse": 8,
+      "old": "fulfill",
+      "new": "fulfil",
+      "reason": "American spelling; psalter uses British/Canadian orthography."
+    },
+    {
+      "id": "ps64-v9-spelling",
+      "source": "editorial",
+      "psalm": 64,
+      "verse": 9,
+      "old": "recognize",
+      "new": "recognise",
+      "reason": "American spelling; psalter uses British/Canadian orthography."
+    },
+    {
+      "id": "ps78-v72-double-period",
+      "source": "pwc-pdf-error",
+      "psalm": 78,
+      "verse": 72,
+      "old": "God's hands..",
+      "new": "God's hands.",
+      "reason": "Typographic error: double period in printed source."
+    },
+    {
+      "id": "ps119-sadhe-tsadhe",
+      "source": "editorial",
+      "psalm": 119,
+      "old": "Sadhe ",
+      "new": "Tsadhe ",
+      "reason": "Source PDF uses the non-standard transliteration 'Sadhe' for the 18th section; psalter uses the standard 'Tsadhe'."
     }
   ],
   "fats": []
