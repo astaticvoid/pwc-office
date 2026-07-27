@@ -132,10 +132,24 @@ export function bindMidpoints(html) {
     `<span class="midpoint-group">${word}${sp}<span class="midpoint">*</span></span>`);
 }
 
-function formatLiturgicalText(text) {
+// Verse second-halves (psalm/canticle/invitatory line-pairs) are physically
+// indented in the source. Two independent signals mark a continuation line:
+// a leading space (extraction's geometry-derived indent marker — see
+// spans_to_typed_lines in tools/extract_office_styles.py) or the previous
+// line ending in the psalter's "*" mid-verse marker (canticle/psalm text,
+// where the marker itself survives but the leading space does not).
+export function formatLiturgicalText(text) {
   const lines = text.split('\n');
   if (lines.length < 2) return esc(text);
-  return lines.map(l => esc(l)).join('<br>');
+  let prevEndsWithStar = false;
+  return lines.map(l => {
+    const hasLeadingSpace = l.startsWith(' ');
+    const indented = hasLeadingSpace || prevEndsWithStar;
+    const clean = hasLeadingSpace ? l.slice(1) : l;
+    prevEndsWithStar = clean.trimEnd().endsWith('*');
+    const html = esc(clean);
+    return indented ? `<span class="verse-cont">${html}</span>` : html;
+  }).join('<br>');
 }
 
 // ── Date / season ─────────────────────────────────────────────────────────────
@@ -345,6 +359,21 @@ export function renderSegments(segs, shared, verse = false) {
 export function renderSubsection(label, segs, shared, verse = false) {
   if (!segs || !segs.length) return '';
   return `<h3 class="office-subsection-title">${esc(label)}</h3><div class="liturgy">${renderSegments(segs, shared, verse)}</div>`;
+}
+
+// form.invitatory's extracted "label" segment carries the PDF's full heading
+// ("Invitatory Psalm: Psalm 95:1–7") — see BUGS.md "Invitatory Psalm heading
+// dropped its psalm number". The subsection already gets an "Invitatory Psalm"
+// title bar (matching Introductory Responses etc.), so strip the redundant
+// prefix here and let just the citation render as the italic seg-label line.
+const INVITATORY_LABEL_PREFIX = /^Invitatory Psalm:\s*/i;
+
+export function invitatorySegments(form) {
+  const segs = form.invitatory;
+  if (!segs || !segs.length) return segs;
+  return segs.map(seg =>
+    seg.type === 'label' ? { ...seg, text: seg.text.replace(INVITATORY_LABEL_PREFIX, '') } : seg
+  );
 }
 
 export function lessonHtml(lesson, shared, form) {
@@ -640,11 +669,10 @@ export function assembleSections(cfg) {
     }
 
     if (form.invitatory && form.invitatory.length) {
-      g.subsections.push({
-        label: 'Invitatory Psalm',
-        segments: flattenSegs(form.invitatory, shared),
-      });
-      g.dynamic.invitatory = { citation: form.invitatory[0] ? (form.invitatory[0].text || '').slice(0, 80) : '' };
+      const items = flattenSegs(invitatorySegments(form), shared);
+      g.subsections.push({ label: 'Invitatory Psalm', segments: items });
+      const labelSeg = items.find(s => s.type === 'label');
+      g.dynamic.invitatory = { citation: labelSeg ? labelSeg.text : '' };
     }
 
     sections.push(g);

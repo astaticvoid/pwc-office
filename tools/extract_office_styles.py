@@ -80,6 +80,17 @@ def spans_to_typed_lines(page_spans: list[dict]) -> list[tuple[str, str]]:
     if cur_line:
         lines.append(cur_line)
     result: list[tuple[str, str]] = []
+    # Verse second-halves are typeset with a physical ~18pt indent relative to
+    # the first half (e.g. psalm/canticle/invitatory poetic line-pairs), and a
+    # second half can itself run onto multiple indented lines. Track the
+    # left-most 'leader' x0 seen since the last reset as the margin baseline —
+    # not just the previous line's x0, which would only catch the first line
+    # of a multi-line indented run — and mark any line indented past it with a
+    # leading space, the same continuation marker already used in
+    # data/psalter.json, for renderers to pick up. Reset on any non-leader
+    # line (heading/rubric/response) so unrelated indented blocks (e.g. the
+    # Confession, which is uniformly indented, not jump-indented) aren't misread.
+    baseline_x0: float | None = None
     for line_spans in lines:
         line_spans.sort(key=lambda s: s["x0"])
         # Count types; exclude footer spans from classification
@@ -96,8 +107,17 @@ def spans_to_typed_lines(page_spans: list[dict]) -> list[tuple[str, str]]:
         if (re.match(r"^\d{1,3}$", text) or
             re.match(r"^(Morning|Evening) Prayer", text)):
             continue
-        if text:
-            result.append((dominant, text))
+        if not text:
+            continue
+        if dominant == "leader":
+            x0 = min(s["x0"] for s in body)
+            if baseline_x0 is None or x0 < baseline_x0 - 2:
+                baseline_x0 = x0
+            elif x0 > baseline_x0 + 8:
+                text = " " + text
+        else:
+            baseline_x0 = None
+        result.append((dominant, text))
     return result
 
 
