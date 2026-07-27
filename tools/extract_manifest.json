@@ -1,5 +1,5 @@
 {
-  "extracted_at": "2026-07-27T14:32:51Z",
+  "extracted_at": "2026-07-27T14:55:25Z",
   "tool_versions": {
     "fitz": [
       "1.28.0",
@@ -13,11 +13,11 @@
       "entries": 31
     },
     "data/collects.json": {
-      "sha256": "e15b054dba3894e5d6ba3f3f1edbdf0fb764203c6c8875edfeaa498c09e0676e",
-      "entries": 110
+      "sha256": "c3680c6d9a694a2d8581fce958566798baf7e8f0e9b57bd43d2aa56b8f72c0ce",
+      "entries": 116
     },
     "data/psalter.json": {
-      "sha256": "b24354ce9126b1735a6b27b1276918b6ed13a761a1b57d183e5b7374e61b411d",
+      "sha256": "68d664479ee20af09fce48fd84f6813010c200ebae28e094356f878440065c65",
       "entries": 150
     },
     "data/fats/saints.json": {
@@ -25,7 +25,7 @@
       "entries": 173
     },
     "data/lectionary": {
-      "sha256": "85651d470da7844e008f13158daba426f26b60fb005c9a142bc3e3c1df8926ad",
+      "sha256": "c5e122e397eba4ad80df29130514fa272ca8adfec782896c50fbbe2e47efeadf",
       "months": 14
     }
   }
