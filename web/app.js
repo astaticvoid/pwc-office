@@ -358,7 +358,7 @@ function parsePsalmText(rawText) {
       if (cur) verses.push(cur);
       cur = { num: parseInt(m[1]), text: m[2] };
     } else if (cur && (line.startsWith(' ') || /^[a-z]/.test(line))) {
-      cur.text += '\n' + line.replace(/^ /, '');
+      cur.text += '\n' + line;
     }
   }
   if (cur) verses.push(cur);
@@ -552,7 +552,8 @@ function gloriaHtml(shared) {
 }
 
 /**
- * Render the psalm section: heading, rubric, and all psalms in sequence.
+ * Render the psalm section: rubric and all psalms in sequence. Each psalm's
+ * own "Psalm N — Title" heading (from renderPsalm) introduces it individually.
  * Handles both psalm_sets (alternative groups) and plain psalms.
  * @param {object} officeData - morning|evening office object from lectionary JSON
  * @param {object} shared - offices._shared
@@ -561,21 +562,13 @@ function gloriaHtml(shared) {
 function psalmHtml(officeData, shared) {
   const psalms = officeData.psalms || [];
   const psalmSets = officeData.psalm_sets;
-  const officeLabel = officeData.label ? `${esc(officeData.label)} — ` : '';
   let html = '';
   if (psalmSets && psalmSets.length) {
     const allFlat = psalmSets.flat();
-    const setLabels = psalmSets.map(set =>
-      set.map(p => { const c = typeof p === 'object' ? p.citation : p; return (typeof p === 'object' && p.optional) ? `[${c}]` : c; }).join(', ')
-    );
-    const label = setLabels.join(' or ');
-    html += `<h3 class="psalm-heading">${officeLabel}Psalm${allFlat.length > 1 ? 's' : ''}: ${esc(label)}</h3>`;
     html += `<p class="seg-rubric rubric-book-only">A Psalm from the appointed lectionary is said or sung.</p>`;
     allFlat.forEach(p => { html += psalmPlaceholder(p); });
     html += gloriaHtml(shared);
   } else if (psalms.length) {
-    const label = psalms.map(p => typeof p === 'object' ? p.citation : p).join(', ');
-    html += `<h3 class="psalm-heading">${officeLabel}Psalm${psalms.length > 1 ? 's' : ''}: ${esc(label)}</h3>`;
     if (psalms.length > 1) {
       html += `<p class="seg-rubric rubric-book-only">The following Psalms from the appointed lectionary are said or sung.</p>`;
     } else {
