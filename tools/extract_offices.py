@@ -141,7 +141,22 @@ def _is_noise(typ: str, text: str) -> bool:
 
 def _reflow_leader_prose(segs: list) -> list:
     """BUG-29: join PDF column-wrap line breaks in leader (prose) segments.
-    Recurses into alternatives groups. Rubric/response segments are left as-is."""
+    Recurses into alternatives groups. Rubric/response segments are left as-is.
+
+    Used for both seasonal_collects and litany. An earlier litany-specific
+    version (_reflow_litany_prose) tried to keep a break wherever a line
+    ended in "terminal punctuation" (comma/semicolon/colon/etc.), on the
+    theory that marked an intro-rubric -> petition boundary. Checked against
+    the source PDF (2026-07-26): every leader segment in the litany is one
+    continuous petition -- the leader/response type alternation is already
+    the real structural boundary, and mid-sentence commas/colons (extremely
+    common in this prose) aren't a break signal at all. That heuristic
+    produced 46 false breaks across the litany dataset, e.g. "Show your good
+    will to all who live in this city, the poor and the rich," / "the
+    elderly and the young, men and women." -- one sentence, split on an
+    ordinary comma. Unconditional join (this function) matches the source;
+    see BUGS.md 2026-07-26.
+    """
     for seg in segs:
         if seg.get("type") == "leader" and seg.get("text"):
             seg["text"] = re.sub(r"\s*\n\s*", " ", seg["text"]).strip()
@@ -149,40 +164,6 @@ def _reflow_leader_prose(segs: list) -> list:
             for g in seg.get("groups", []):
                 _reflow_leader_prose(g.get("segments", []))
     return segs
-
-
-# Terminal punctuation characters — if a non-final line ends with one of these,
-# the line break is treated as a sentence/paragraph break rather than a column wrap.
-_TERMINAL_PUNCT = (",", ";", ":", ".", "!", "?", "\u2014", "\u2019", "\u201d", ")")
-# \u2014 = em dash, \u2019 = curly right single quote, \u201d = curly right double quote
-
-def _reflow_litany_prose(segs: list) -> list:
-    """Join mid-clause PDF column-wrap line breaks in litany leader segments.
-    Lines ending with terminal punctuation (,.!?;: etc.) keep their break
-    (typically intro-rubric → petition separation). Lines ending mid-clause
-    are joined with a space. Recurses into alternatives groups."""
-    for seg in segs:
-        if seg.get("type") == "leader" and seg.get("text") and "\n" in seg["text"]:
-            lines = seg["text"].split("\n")
-            result = []
-            i = 0
-            while i < len(lines):
-                stripped = lines[i].strip()
-                if not stripped:
-                    i += 1
-                    continue
-                j = i + 1
-                while j < len(lines) and lines[j].strip() and stripped and not stripped.endswith(_TERMINAL_PUNCT):
-                    stripped += " " + lines[j].strip()
-                    j += 1
-                result.append(stripped)
-                i = j
-            seg["text"] = "\n".join(result)
-        elif seg.get("type") == "alternatives":
-            for g in seg.get("groups", []):
-                _reflow_litany_prose(g.get("segments", []))
-    return segs
-
 
 def _fix_casing(seg: dict) -> dict:
     """
@@ -981,12 +962,10 @@ def extract_office(typed_lines: list[tuple[str, str]], office_key: str = "") -> 
     if "seasonal_collects" in sections:
         _reflow_leader_prose(sections["seasonal_collects"])
 
-    # Litany leaders are prose but extract with PDF column-width hard wraps.
-    # Unlike seasonal_collects (all prose), litany leaders sometimes have a
-    # rubric-like intro line before the petition — join mid-clause wraps but
-    # preserve breaks after terminal punctuation.
+    # Litany leaders are prose too (see _reflow_leader_prose docstring for
+    # why this isn't treated differently from seasonal_collects).
     if "litany" in sections:
-        _reflow_litany_prose(sections["litany"])
+        _reflow_leader_prose(sections["litany"])
 
     # Fold Berakah prayer blessing conclusions into nested alternatives inside
     # group II of seasonal opening_responses (not applicable to ordinary-time).
