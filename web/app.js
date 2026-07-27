@@ -423,27 +423,6 @@ function buildParagraphHtml(verses, paraMap) {
   return blocks.join('\n');
 }
 
-/**
- * Extract verse objects for a single range from a loaded book JSON.
- * @param {object} book - book JSON keyed by chapter → verse → text
- * @param {{startCh, startV, endCh, endV}} range - from parseRanges()
- * @returns {Array<{v:number, text:string}>}
- */
-function extractVerses(book, range) {
-  const lines = [];
-  for (let ch = range.startCh; ch <= range.endCh; ch++) {
-    const chData = book[String(ch)];
-    if (!chData) continue;
-    const startV = ch === range.startCh ? range.startV : 1;
-    const maxV = Math.max(...Object.keys(chData).map(Number));
-    const endV = ch === range.endCh ? range.endV : maxV;
-    for (let v = startV; v <= endV; v++) {
-      if (chData[String(v)] !== undefined) lines.push({ v, text: chData[String(v)] });
-    }
-  }
-  return lines;
-}
-
 // ── Office HTML building ──────────────────────────────────────────────────────
 
 function gloriaHtml(shared) {
