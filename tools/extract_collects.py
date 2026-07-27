@@ -87,7 +87,7 @@ def _find_collect_body(text: str) -> str:
     best = -1
     body_start = -1
 
-    for m in re.finditer(r'(?:^|\n)(Collect)\n', text):
+    for m in re.finditer(r'(?:^|\n)(Collect)[ \t]*\n', text):
         pos = m.start(1)
         end = m.end()
         if pos > best:
@@ -189,7 +189,7 @@ def _find_first_collect_body(text: str) -> str:
     best = len(text)
     body_start = -1
 
-    for m in re.finditer(r'(?:^|\n)(Collect)\n', text):
+    for m in re.finditer(r'(?:^|\n)(Collect)[ \t]*\n', text):
         pos = m.start(1)
         if pos < best:
             best = pos
@@ -278,7 +278,7 @@ def _feast_name_from_page(text: str) -> str:
     Return the feast/Sunday heading that appears immediately before the first
     Sentence or Collect-of-the-Day marker on this page, or "" if none found.
     """
-    m = re.search(r'\nSentence\n|\nCollect of the Day\.?\n', text)
+    m = re.search(r'\nSentence[ \t]*\n|\nCollect of the Day\.?\n', text)
     if not m:
         return ""
 
@@ -403,7 +403,7 @@ def date_from_name(name: str) -> str:
 
 
 def _date_from_page(text: str) -> str:
-    m = re.search(r'^Sentence$', text, re.MULTILINE)
+    m = re.search(r'^Sentence[ \t]*$', text, re.MULTILINE)
     if not m:
         return ""
     before = text[: m.start()]
