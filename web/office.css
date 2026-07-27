@@ -435,7 +435,6 @@ body.book-mode .alt-panel + .alt-panel::before {
   border-top: 1px solid var(--color-border);
 }
 .office-section-title + .office-subsection-title,
-.office-section-title + .psalm-heading,
 .office-section-title + .reading-heading,
 .obs-readings h3:first-of-type {
   border-top: none; padding-top: 0;
@@ -487,10 +486,10 @@ body.book-mode .alt-panel + .alt-panel::before {
 
 /* ── Psalm text ─────────────────────────────────────────────────────────────── */
 
-.psalm-heading {
-  font-family: var(--font-ui);
-  font-size: 0.76rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--color-muted); margin: 1.5rem 0 0.5rem;
+/* Separate consecutive psalms within a single office section (each carries
+   its own "Psalm N — Title" heading, so no group heading precedes them). */
+.psalm-loading + .psalm-loading {
+  margin-top: 1.5rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--color-border);
 }
