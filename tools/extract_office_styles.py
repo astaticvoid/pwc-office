@@ -91,6 +91,18 @@ def spans_to_typed_lines(page_spans: list[dict]) -> list[tuple[str, str]]:
     # line (heading/rubric/response) so unrelated indented blocks (e.g. the
     # Confession, which is uniformly indented, not jump-indented) aren't misread.
     baseline_x0: float | None = None
+    # The Affirmation of Faith's response text (Apostles' Creed, Hear O
+    # Israel) is typeset with extra vertical space between its credal
+    # stanzas — ~18-22pt between consecutive "response" lines vs. ~12.5pt
+    # for an ordinary line within a stanza. Checked against every "response"
+    # line-pair gap >13pt across all 31 office forms (2026-07-27): every one
+    # is a real stanza boundary in the Affirmation, with zero false
+    # positives — narrow enough that no other response-typed content
+    # (there is none with this gap) can be mismarked. Insert a blank line so
+    # the stanza break survives extraction; reset the baseline whenever the
+    # dominant type isn't "response" so unrelated content can't misread a
+    # leftover previous-line y-position.
+    prev_response_y0: float | None = None
     for line_spans in lines:
         line_spans.sort(key=lambda s: s["x0"])
         # Count types; exclude footer spans from classification
@@ -117,6 +129,13 @@ def spans_to_typed_lines(page_spans: list[dict]) -> list[tuple[str, str]]:
                 text = " " + text
         else:
             baseline_x0 = None
+        if dominant == "response":
+            y0 = min(s["y0"] for s in body)
+            if prev_response_y0 is not None and y0 - prev_response_y0 > 15:
+                result.append(("response", ""))
+            prev_response_y0 = y0
+        else:
+            prev_response_y0 = None
         result.append((dominant, text))
     return result
 
