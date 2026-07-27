@@ -1,5 +1,5 @@
 {
-  "extracted_at": "2026-07-27T15:34:28Z",
+  "extracted_at": "2026-07-27T22:32:06Z",
   "tool_versions": {
     "fitz": [
       "1.28.0",
@@ -17,7 +17,7 @@
       "entries": 116
     },
     "data/psalter.json": {
-      "sha256": "68d664479ee20af09fce48fd84f6813010c200ebae28e094356f878440065c65",
+      "sha256": "6627c22bad2f66fde8126fc8d55d4bfb69d9806f1ce375d09ff7de1f7732120e",
       "entries": 150
     },
     "data/fats/saints.json": {
