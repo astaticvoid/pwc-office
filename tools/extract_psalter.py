@@ -29,7 +29,7 @@ import re
 import sys
 from pathlib import Path
 
-from extract_lib import check_manifest, normalise_quotes, pdf_as_text, write_json
+from extract_lib import check_manifest, normalise_quotes, write_json
 
 
 # ── Patterns ──────────────────────────────────────────────────────────────────
@@ -64,17 +64,41 @@ def strip_page_header(line: str) -> str | None:
     return line
 
 
+# ── PDF line geometry ─────────────────────────────────────────────────────────
+
+def pdf_lines_with_x0(pdf_path: Path) -> list[tuple[float, str]]:
+    """Return (x0, text) for every visual line in the PDF, in reading order.
+
+    Unlike page.get_text(), this keeps each line's left-edge x-coordinate so
+    callers can tell a physically-indented line (a verse's second half) from
+    an ordinary line-wrap — see the "second half" indent tracking below.
+    """
+    import fitz  # noqa: PLC0415
+
+    out: list[tuple[float, str]] = []
+    with fitz.open(pdf_path) as pdf:
+        for page in pdf:
+            d = page.get_text("dict", flags=fitz.TEXTFLAGS_DICT)
+            for block in d["blocks"]:
+                if "lines" not in block:
+                    continue
+                for line in block["lines"]:
+                    text = "".join(span["text"] for span in line["spans"])
+                    if not text.strip():
+                        continue
+                    out.append((line["bbox"][0], text))
+    return out
+
+
 # ── Extraction ────────────────────────────────────────────────────────────────
 
-def extract_psalms(path: Path) -> list[dict]:
+def extract_psalms(lines: list[tuple[float, str]]) -> list[dict]:
     """
-    Read the source text and return a list of psalm dicts:
+    Read the source lines (with x0) and return a list of psalm dicts:
         {number: int, book: int, title: str, text: str}
     """
-    raw_lines = path.read_text(encoding="utf-8").splitlines()
-
     psalter_start = None
-    for i, line in enumerate(raw_lines):
+    for i, (_x0, line) in enumerate(lines):
         cleaned = strip_page_header(line)
         if cleaned is not None and RE_BOOK.match(cleaned.strip()):
             psalter_start = i
@@ -87,6 +111,17 @@ def extract_psalms(path: Path) -> list[dict]:
     cur_num: int | None = None
     cur_title: str = ""
     cur_lines: list[str] = []
+    # Verse second-halves (and section headings) are typeset with a physical
+    # ~36pt indent relative to the verse's first half, and a second half can
+    # itself run onto multiple indented lines. Track the flush left margin
+    # established by the last verse-start/section-heading line as the
+    # baseline, and mark any later line indented past it with a leading
+    # space — the continuation marker formatLiturgicalText() reads in
+    # render.js. Reset the baseline on every verse-start/section line (they
+    # are always flush), not just when a "*" is seen: a verse can contain
+    # several first-half/second-half pairs, and a first half returning to
+    # the flush margin doesn't necessarily end in "*" on its last line.
+    baseline_x0: float | None = None
 
     def psalm_book(n: int) -> int:
         if n <= 41:  return 1
@@ -104,7 +139,7 @@ def extract_psalms(path: Path) -> list[dict]:
                 "text":   "\n".join(cur_lines).strip(),
             })
 
-    for raw in raw_lines[psalter_start:]:
+    for x0, raw in lines[psalter_start:]:
         raw = normalise_quotes(raw)
         if "Acknowledgements" in raw:
             break
@@ -123,6 +158,7 @@ def extract_psalms(path: Path) -> list[dict]:
             cur_num   = int(m.group(1))
             cur_title = m.group(2).strip()
             cur_lines = []
+            baseline_x0 = None
             continue
 
         if cur_num is None:
@@ -130,13 +166,16 @@ def extract_psalms(path: Path) -> list[dict]:
 
         if RE_SECTION.match(stripped):
             cur_lines.append(stripped)
+            baseline_x0 = x0
             continue
 
         if RE_VERSE.match(stripped):
             cur_lines.append(stripped)
+            baseline_x0 = x0
             continue
 
-        cur_lines.append(" " + stripped)
+        indented = baseline_x0 is not None and x0 > baseline_x0 + 8
+        cur_lines.append((" " if indented else "") + stripped)
 
     flush()
     return psalms
@@ -154,8 +193,9 @@ def main():
 
     root = Path(__file__).parent.parent
 
-    with pdf_as_text(root / "sources" / "pray-without-ceasing.pdf") as src:
-        psalms_list = extract_psalms(src)
+    print("Extracting pray-without-ceasing.pdf…", file=sys.stderr)
+    lines = pdf_lines_with_x0(root / "sources" / "pray-without-ceasing.pdf")
+    psalms_list = extract_psalms(lines)
 
     found   = {p["number"] for p in psalms_list}
     missing = [n for n in range(1, 151) if n not in found]
@@ -208,7 +248,11 @@ def main():
     # which is what actually applies them; see data/corrections.json "psalter").
     checks += [
         ("Ps 2 v12 present",       any(l.startswith("12 ") for l in t(2).split("\n"))),
-        ("Ps 114 v1 Hallelujah",   "1 Hallelujah!\n When Israel came out of Egypt" in t(114)),
+        # "Hallelujah!" sits on its own line, flush with "When Israel came out
+        # of Egypt," below it (both at PDF x0=30.0 — verified against source
+        # geometry) — no leading space, since it's the first half of v1, not
+        # a second half.
+        ("Ps 114 v1 Hallelujah",   "1 Hallelujah!\nWhen Israel came out of Egypt" in t(114)),
         ("book field on all 150",  all("book" in psalms_by_num[n] for n in psalms_by_num)),
         ("no curly quotes",        not any(c in t(n) for n in psalms_by_num for c in "“”‘’")),
     ]

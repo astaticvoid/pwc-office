@@ -326,6 +326,11 @@ function formatRank(rank) {
 
 // ── Psalm parsing and rendering ───────────────────────────────────────────────
 
+// Section headings ("Part I", "Aleph", "Beth", … — see RE_SECTION in
+// tools/extract_psalter.py) never carry a verse number or leading space;
+// exclude them so they don't get glued onto the previous verse as running text.
+const PSALM_SECTION_RE = /^(?:Part\s+[IVX]+\b|(?:Aleph|Beth|Gimel|Daleth|He\b|Waw|Zayin|Heth|Teth|Yodh|Kaph|Lamedh|Mem|Nun|Samekh|Ayin|Pe|Tsadhe|Qoph|Resh|Sin|Shin|Taw)\s+)/i;
+
 function parsePsalmText(rawText) {
   const lines = rawText.split('\n');
   const verses = [];
@@ -335,7 +340,7 @@ function parsePsalmText(rawText) {
     if (m) {
       if (cur) verses.push(cur);
       cur = { num: parseInt(m[1]), text: m[2] };
-    } else if (cur && (line.startsWith(' ') || /^[a-z]/.test(line))) {
+    } else if (cur && line.trim() && !PSALM_SECTION_RE.test(line)) {
       cur.text += '\n' + line;
     }
   }
