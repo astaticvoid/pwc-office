@@ -73,18 +73,43 @@
     </div>
   </div>
 
+  <!-- Date/office picker bottom sheet -->
+  <div id="day-picker-sheet" class="settings-sheet" aria-hidden="true" aria-label="Go to date">
+    <div class="settings-backdrop" id="day-picker-backdrop"></div>
+    <div class="settings-panel" role="dialog" aria-modal="true">
+      <div class="settings-header">
+        <span>Go to Date</span>
+        <button id="day-picker-close-btn" aria-label="Close date picker">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="settings-body">
+        <div class="settings-row">
+          <span class="settings-label">Office</span>
+          <div class="settings-mini-seg" id="day-picker-office-seg">
+            <button id="day-picker-mp" type="button" aria-pressed="false">Morning</button>
+            <button id="day-picker-ep" type="button" aria-pressed="false">Evening</button>
+          </div>
+        </div>
+        <label class="settings-row" for="day-date-picker">
+          <span class="settings-label">Date</span>
+          <input type="date" id="day-date-picker" aria-label="Go to date">
+        </label>
+      </div>
+    </div>
+  </div>
+
   <div id="nav-spacer" aria-hidden="true"></div>
 
   <main id="main">
     <header id="day-header">
       <div id="day-brand">Pray Without Ceasing</div>
       <div id="day-office-name" role="button" tabindex="0"></div>
-      <h1 id="day-title"></h1>
+      <h1 id="day-title" role="button" tabindex="0" aria-label="Choose date"></h1>
       <div id="day-subtitle"></div>
       <div id="day-date-nav">
         <button id="day-date-btn" aria-label="Choose date">
           <span id="day-date-label"></span>
-          <input type="date" id="day-date-picker" aria-label="Go to date">
         </button>
       </div>
       <div id="day-meta"></div>

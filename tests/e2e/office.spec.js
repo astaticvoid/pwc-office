@@ -1,6 +1,6 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
-import { gotoOffice, ensureOffice } from './helpers.js';
+import { gotoOffice, ensureOffice, openDatePicker } from './helpers.js';
 
 // Use a fixed known-good date rather than today so tests don't break
 // on days with unusual structure (e.g. no alternate, no optional lesson).
@@ -142,15 +142,22 @@ test.describe('Office loads', () => {
 test.describe('Navigation', () => {
   test('date picker navigates to a chosen date', async ({ page }) => {
     await gotoOffice(page, DATE, 'mp');
+    await openDatePicker(page);
     await page.locator('#day-date-picker').fill(DATE_PREV);
     await expect(page.locator('#day-date-picker')).toHaveValue(DATE_PREV);
     await expect(page.locator('#day-date-label')).toContainText('16 May 2026');
     await expect(page.locator('#day-title')).not.toBeEmpty();
   });
 
-  test('MP/EP toggle switches office', async ({ page }) => {
+  test('MP/EP toggle switches office', async ({ page }, testInfo) => {
     await gotoOffice(page, DATE, 'mp');
     await page.locator('#day-office-name').click();
+    if (testInfo.project.name === 'mobile') {
+      // On mobile, tapping the office label opens the day picker sheet
+      // rather than flipping office directly.
+      await expect(page.locator('#day-picker-sheet')).toHaveAttribute('aria-hidden', 'false');
+      await page.locator('#day-picker-ep').click();
+    }
     await expect(page.locator('#day-office-name')).toHaveText('Evening Prayer');
     await expect(page).toHaveTitle(/Evening Prayer/);
   });
@@ -369,6 +376,7 @@ test.describe('Date picker', () => {
   test('changing date navigates to that day', async ({ page }) => {
     await gotoOffice(page, DATE, 'mp');
     await page.locator('#day-title').waitFor();
+    await openDatePicker(page);
     await page.locator('#day-date-picker').fill(DATE_NEXT);
     await page.locator('#day-date-picker').dispatchEvent('change');
     await expect(page.locator('#day-date-picker')).toHaveValue(DATE_NEXT);
@@ -405,8 +413,10 @@ test.describe('Translation switch', () => {
     await expect(page.locator('.scripture-block').first()).not.toBeEmpty({ timeout: CONTENT_TIMEOUT });
     await openSettings(page);
     await page.locator('#nav-translation').selectOption('kjv');
+    await page.locator('#settings-close-btn').click();
 
     // Navigate to the next day via the date picker (no hash routing anymore).
+    await openDatePicker(page);
     await page.locator('#day-date-picker').fill(DATE_NEXT);
     await expect(page.locator('.scripture-block').first()).not.toBeEmpty({ timeout: CONTENT_TIMEOUT });
     await expect(page.locator('#nav-translation')).toHaveValue('kjv');
