@@ -5,7 +5,7 @@ import {
   filterSeasonalCollects, renderAlternatives, renderSegments, renderSubsection,
   lessonHtml, lessonsPickRubricHtml, bindMidpoints, parseCitation,
   READING_RESPONSE, CANTICLE_SOURCE, SKIP_RUBRICS, SC_HEADER, SC_FOOTER,
-  collectSecondaryPage, assembleSections, formatLiturgicalText, invitatorySegments,
+  collectSecondaryPage, assembleSections, formatLiturgicalText, invitatorySegments, phosHilaronSegments,
   parseRanges, extractVersesWithChapter, parsePsalmCitation,
   collectPageNum, lookupCollect,
 } from './render.js';
@@ -926,7 +926,7 @@ async function render(dateStr, officeType, translation) {
       html += renderSubsection('Thanksgiving', form.thanksgiving_for_light, shared, true);
     // Ordinary-time EP: evening hymn reference (Phos Hilaron).
     if (form.phos_hilaron && form.phos_hilaron.length)
-      html += `<div class="liturgy">${renderSegments(form.phos_hilaron, shared, true)}</div>`;
+      html += renderSubsection('Evening Hymn', phosHilaronSegments(form), shared, true);
     if (form.invitatory && form.invitatory.length)
       html += renderSubsection('Invitatory Psalm', invitatorySegments(form), shared, true);
   }
@@ -1257,6 +1257,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   dayPickerClose.addEventListener('click', closeDayPicker);
   dayPickerBackdrop.addEventListener('click', closeDayPicker);
 
+  // Tapping the native date input only reliably opens its calendar UI when
+  // the tap lands on the small calendar glyph itself (esp. mobile Chrome) —
+  // call showPicker() explicitly so the whole row/label opens it.
+  dayDatePicker.addEventListener('click', () => { try { dayDatePicker.showPicker(); } catch (_) {} });
   dayDatePicker.addEventListener('change', e => {
     if (e.target.value) navigateTo(e.target.value, state.office);
     closeDayPicker();

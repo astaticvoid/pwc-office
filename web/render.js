@@ -487,6 +487,21 @@ export function invitatorySegments(form) {
   );
 }
 
+// Same treatment as invitatorySegments above: form.phos_hilaron's label segment
+// carries a redundant "The Evening Hymn:"/"Evening Hymn:" prefix once the
+// subsection gets its own "Evening Hymn" title bar (matching Introductory
+// Responses / Invitatory Psalm) — strip it so just the hymn's title quote
+// renders as the italic seg-label line.
+const EVENING_HYMN_LABEL_PREFIX = /^(?:The )?Evening Hymn:\s*/i;
+
+export function phosHilaronSegments(form) {
+  const segs = form.phos_hilaron;
+  if (!segs || !segs.length) return segs;
+  return segs.map(seg =>
+    seg.type === 'label' ? { ...seg, text: seg.text.replace(EVENING_HYMN_LABEL_PREFIX, '') } : seg
+  );
+}
+
 export function lessonHtml(lesson, shared, form) {
   const rawCitation = typeof lesson === 'object' ? lesson.citation : lesson;
   const optional = typeof lesson === 'object' && lesson.optional;
