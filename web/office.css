@@ -469,6 +469,8 @@ body.book-mode .alt-panel + .alt-panel::before {
 /* Tighten versicle→response */
 .seg-leader + .seg-response { margin-top: 0.2rem; }
 .seg-response + .seg-leader { margin-top: 1rem; }
+/* Tighten label→leader (e.g. hymn title directly above its first line) */
+.seg-label + .seg-leader { margin-top: 0.25rem; }
 
 .seg-rubric {
   font-family: var(--font-ui);
