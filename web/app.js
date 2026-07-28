@@ -124,6 +124,11 @@ function defaultOffice() {
   return new Date().getHours() >= 15 ? 'ep' : 'mp';
 }
 
+// Matches the desktop breakpoint in office.css (@media (min-width: 820px)).
+function isMobileLayout() {
+  return window.matchMedia('(max-width: 819.98px)').matches;
+}
+
 // ── Theme ─────────────────────────────────────────────────────────────────────
 
 function initTheme() {
@@ -699,13 +704,21 @@ async function render(dateStr, officeType, translation) {
   const fatsEntry = lookupFatsEntry(fats, day.name);
   const shared = offices._shared || {};
 
-  // Sync date picker. Min = 12 months ago (rolling window matches lectionary coverage).
+  // Sync date picker sheet. Min = 12 months ago (rolling window matches lectionary coverage).
   const picker = document.getElementById('day-date-picker');
   if (picker) {
     const today = new Date();
     const twelveMonthsAgo = new Date(today.getFullYear() - 1, today.getMonth(), 1);
     const pickerMin = `${twelveMonthsAgo.getFullYear()}-${String(twelveMonthsAgo.getMonth()+1).padStart(2,'0')}-01`;
     picker.min = pickerMin; picker.max = boundsMax; picker.value = dateStr;
+  }
+  const pickerMpBtn = document.getElementById('day-picker-mp');
+  const pickerEpBtn = document.getElementById('day-picker-ep');
+  if (pickerMpBtn && pickerEpBtn) {
+    pickerMpBtn.classList.toggle('is-active', officeType === 'mp');
+    pickerMpBtn.setAttribute('aria-pressed', String(officeType === 'mp'));
+    pickerEpBtn.classList.toggle('is-active', officeType === 'ep');
+    pickerEpBtn.setAttribute('aria-pressed', String(officeType === 'ep'));
   }
 
   const d = new Date(dateStr + 'T00:00:00Z');
@@ -1205,7 +1218,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeSettings();
+    if (e.key === 'Escape') { closeSettings(); closeDayPicker(); }
     if (e.key === 'b' && !e.target.matches('input,select,textarea')) {
       const isBook = document.body.classList.toggle('book-mode');
       syncViewModeUI(isBook);
@@ -1220,14 +1233,37 @@ document.addEventListener('DOMContentLoaded', async () => {
   sel.value = state.translation;
   sel.addEventListener('change', () => { switchTranslation(sel.value); });
 
-  const picker = document.getElementById('day-date-picker');
-  picker.addEventListener('click', () => { try { picker.showPicker(); } catch (_) {} });
-  picker.addEventListener('change', e => {
-    if (e.target.value) navigateTo(e.target.value, state.office);
-    picker.blur();
+  // Date/office picker sheet — opened by tapping either the date or the day title.
+  const dayPickerSheet = document.getElementById('day-picker-sheet');
+  const dayPickerBackdrop = document.getElementById('day-picker-backdrop');
+  const dayPickerClose = document.getElementById('day-picker-close-btn');
+  const dayTitleEl = document.getElementById('day-title');
+  const dayDatePicker = document.getElementById('day-date-picker');
+  const dayPickerMpBtn = document.getElementById('day-picker-mp');
+  const dayPickerEpBtn = document.getElementById('day-picker-ep');
+
+  function openDayPicker() {
+    dayPickerSheet.setAttribute('aria-hidden', 'false');
+  }
+  function closeDayPicker() {
+    dayPickerSheet.setAttribute('aria-hidden', 'true');
+    dayDatePicker.blur();
+  }
+  document.getElementById('day-date-nav').addEventListener('click', openDayPicker);
+  dayTitleEl.addEventListener('click', openDayPicker);
+  dayTitleEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDayPicker(); }
   });
-  // Dismiss without selecting (Escape / tap-outside) — remove focus ring immediately.
-  picker.addEventListener('cancel', () => { picker.blur(); });
+  dayPickerClose.addEventListener('click', closeDayPicker);
+  dayPickerBackdrop.addEventListener('click', closeDayPicker);
+
+  dayDatePicker.addEventListener('change', e => {
+    if (e.target.value) navigateTo(e.target.value, state.office);
+    closeDayPicker();
+  });
+
+  dayPickerMpBtn.addEventListener('click', () => { if (state.office !== 'mp') navigateTo(state.date, 'mp'); });
+  dayPickerEpBtn.addEventListener('click', () => { if (state.office !== 'ep') navigateTo(state.date, 'ep'); });
 
   document.getElementById('day-meta').addEventListener('click', e => {
     const chip = e.target.closest('.colour-chip-toggle');
@@ -1280,15 +1316,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   fetchOnce('psalter',  `${DATA}/psalter.json`);
   fetchOnce('paragraphs', `${DATA}/paragraphs.json`).catch(() => {});
 
-  // MP/EP toggle via office name label
+  // MP/EP toggle via office name label. On mobile, tapping it opens the day
+  // picker sheet (like the date/title) instead of flipping office directly —
+  // there's not enough room for a mis-tap to be forgiven on a small screen.
   const officeNameEl = document.getElementById('day-office-name');
   officeNameEl.addEventListener('click', () => {
+    if (isMobileLayout()) { openDayPicker(); return; }
     const next = state.office === 'mp' ? 'ep' : 'mp';
     navigateTo(state.date, next);
   });
   officeNameEl.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
+      if (isMobileLayout()) { openDayPicker(); return; }
       const next = state.office === 'mp' ? 'ep' : 'mp';
       navigateTo(state.date, next);
     }
