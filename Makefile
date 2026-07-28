@@ -170,9 +170,10 @@ mobile-android: mobile-sync
 # Requires AWS_PROFILE or ambient credentials, BUCKET, CF_DISTRIBUTION_ID.
 #
 # Three-stage workflow:
-#   1. make deploy-staging  — upload to releases/vTIMESTAMP/ and staging/
-#   2. make test-staging     — Playwright smoke against staging
-#   3. make promote          — CloudFront origin-path swap to production
+#   1. make deploy-staging      — upload to releases/vTIMESTAMP/ and staging/
+#   2. make test-staging        — Playwright smoke against staging
+#      (make test-staging-full  — optional: full e2e regression, not just @smoke)
+#   3. make promote             — CloudFront origin-path swap to production
 #
 # Rollback: make rollback    — swaps to previous release
 
@@ -202,6 +203,12 @@ deploy-staging: check-integrity check-dist
 test-staging:
 	BASE_URL=https://$(STAGING_DOMAIN) \
 	  npx playwright test --grep "@smoke"
+
+# Full regression against staging — every e2e spec, not just @smoke.
+# Slower (~3 min); run before a risky promote or after UI-touching changes.
+test-staging-full:
+	BASE_URL=https://$(STAGING_DOMAIN) \
+	  npx playwright test
 
 promote:
 	@test -f .deploy-latest || (echo "Run deploy-staging first"; exit 1)
