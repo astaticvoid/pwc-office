@@ -208,9 +208,15 @@ const _cache = {
   books:    {},   // 'kjv/Numbers' → Promise<object>
 };
 
-/** Fetch JSON at `url` once; all callers share the same in-flight or resolved promise. */
+/** Fetch JSON at `url` once; all callers share the same in-flight or resolved promise.
+ *  A failed fetch clears its cache slot so a later retry actually re-fetches
+ *  instead of replaying the same rejection forever. */
 async function fetchOnce(key, url) {
-  if (!_cache[key]) _cache[key] = fetch(url).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+  if (!_cache[key]) {
+    _cache[key] = fetch(url)
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .catch(err => { _cache[key] = null; throw err; });
+  }
   return _cache[key];
 }
 
@@ -226,8 +232,11 @@ function fetchPsalm(num) {
 /** Load a Bible book JSON file; keyed by translation + filename so each file is only fetched once. */
 function fetchBook(translation, filename) {
   const k = `${translation}/${filename}`;
-  if (!_cache.books[k]) _cache.books[k] = fetch(`${DATA}/translations/${translation}/${filename}.json`)
-    .then(r => { if (!r.ok) throw new Error(`${filename}: ${r.status}`); return r.json(); });
+  if (!_cache.books[k]) {
+    _cache.books[k] = fetch(`${DATA}/translations/${translation}/${filename}.json`)
+      .then(r => { if (!r.ok) throw new Error(`${filename}: ${r.status}`); return r.json(); })
+      .catch(err => { delete _cache.books[k]; throw err; });
+  }
   return _cache.books[k];
 }
 
@@ -235,14 +244,44 @@ function fetchBook(translation, filename) {
 function fetchDay(dateStr) {
   const monthKey = dateStr.slice(0, 7);
   const cacheKey = `bas:${monthKey}`;
-  if (!_cache.months[cacheKey])
+  if (!_cache.months[cacheKey]) {
     _cache.months[cacheKey] = fetch(`${DATA}/lectionary/${monthKey}.json`)
-      .then(r => { if (!r.ok) throw new Error(`${monthKey}: ${r.status}`); return r.json(); });
+      .then(r => { if (!r.ok) throw new Error(`${monthKey}: ${r.status}`); return r.json(); })
+      .catch(err => { delete _cache.months[cacheKey]; throw err; });
+  }
   return _cache.months[cacheKey].then(month => {
     const day = month[dateStr];
     if (!day) throw new Error(`${dateStr}: not found in ${monthKey}.json`);
     return day;
   });
+}
+
+// ── Load-error fallback ───────────────────────────────────────────────────────
+
+/** Map a fetch failure to a short, non-technical message — never surface raw error text. */
+function friendlyLoadError(err) {
+  if (window.__pwcOffline || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
+    return 'You appear to be offline. Check your connection and try again.';
+  }
+  // Browsers reject fetch() with a TypeError for network failures (DNS, CORS, connection drop).
+  if (err instanceof TypeError) {
+    return 'Unable to load — check your internet connection and try again.';
+  }
+  // fetchOnce/fetchBook/fetchDay throw `new Error(status)` on a non-OK HTTP response.
+  if (/^\d{3}$/.test(String(err && err.message))) {
+    return 'This content isn’t available right now.';
+  }
+  return 'Something went wrong loading this content. Please try again.';
+}
+
+/** Render a graceful error message with a "Try again" button into `container`. */
+function showLoadError(container, err, onRetry) {
+  container.innerHTML = `<div class="error-msg">
+    <p>${esc(friendlyLoadError(err))}</p>
+    <button type="button" class="error-retry-btn">Try again</button>
+  </div>`;
+  const btn = container.querySelector('.error-retry-btn');
+  if (btn) btn.addEventListener('click', onRetry, { once: true });
 }
 
 // ── For All The Saints (FATS) lookup ─────────────────────────────────────────
@@ -660,7 +699,7 @@ async function render(dateStr, officeType, translation) {
   try {
     bounds = await fetchOnce('bounds', `${DATA}/season_bounds.json`);
   } catch (err) {
-    contentEl.innerHTML = `<p class="error-msg">Failed to load: ${esc(String(err))}</p>`;
+    showLoadError(contentEl, err, () => render(dateStr, officeType, translation));
     return;
   }
 
@@ -694,7 +733,7 @@ async function render(dateStr, officeType, translation) {
       fetchDay(dateStr),
     ]);
   } catch (err) {
-    contentEl.innerHTML = `<p class="error-msg">Failed to load: ${esc(String(err))}</p>`;
+    showLoadError(contentEl, err, () => render(dateStr, officeType, translation));
     return;
   }
   const [offices, collects, day] = result;
@@ -1025,68 +1064,75 @@ function prefetchOtherOffice(day, officeType, translation) {
 
 // ── Async fillers ─────────────────────────────────────────────────────────────
 
+async function fillPsalmEl(el) {
+  const cit = el.dataset.citation;
+  try {
+    el.innerHTML = await renderPsalm(cit);
+  } catch (e) {
+    showLoadError(el, e, () => { el.innerHTML = '<p class="loading">Loading…</p>'; fillPsalmEl(el); });
+  }
+}
+
 function fillPsalms(root) {
-  root.querySelectorAll('.psalm-loading').forEach(async el => {
-    const cit = el.dataset.citation;
-    try { el.innerHTML = await renderPsalm(cit); }
-    catch (e) { el.innerHTML = `<p class="error-msg">Psalm ${esc(cit)}: ${esc(String(e))}</p>`; }
-  });
+  root.querySelectorAll('.psalm-loading').forEach(fillPsalmEl);
+}
+
+async function fillScriptureEl(el, translation) {
+  const rawCitation = el.dataset.citation;
+  try {
+    const parsed = parseCitation(rawCitation);
+    if (!parsed) { el.innerHTML = `<p class="error-msg">Cannot parse: ${esc(rawCitation)}</p>`; return; }
+
+    let bookData, usedTranslation = translation;
+    if (window.__pwcOffline) {
+      el.innerHTML = '<p class="scripture-offline">Unable to load Scripture (offline)</p>';
+      return;
+    }
+    try {
+      bookData = await fetchBook(translation, parsed.file);
+    } catch (_) {
+      if (translation !== 'kjv') {
+        try { bookData = await fetchBook('kjv', parsed.file); usedTranslation = 'kjv'; }
+        catch (_2) { /* unavailable */ }
+      }
+    }
+
+    const ranges = parseRanges(parsed.rest);
+    if (!bookData || !ranges.length) {
+      el.innerHTML = `<p class="error-msg">Text unavailable: ${esc(rawCitation)}</p>`;
+      return;
+    }
+
+    const allVerses = ranges.flatMap(r => extractVersesWithChapter(bookData, r));
+    const paragraphs = await fetchOnce('paragraphs', `${DATA}/paragraphs.json`).catch(() => null);
+    const paraMap = paragraphs ? (paragraphs[parsed.file] || null) : null;
+
+    let html;
+    if (paraMap) {
+      html = buildParagraphHtml(allVerses, paraMap);
+    } else {
+      const byChapter = {};
+      for (const v of allVerses) {
+        (byChapter[v.ch] || (byChapter[v.ch] = [])).push(v);
+      }
+      const blocks = [];
+      for (const [chStr, chVerses] of Object.entries(byChapter)) {
+        blocks.push(renderChapterHtml(chVerses, parseInt(chStr), null));
+      }
+      html = blocks.join('\n');
+    }
+    el.innerHTML = html;
+
+    if (usedTranslation !== translation) {
+      el.innerHTML += `<p class="scripture-fallback-note">[${usedTranslation.toUpperCase()} shown — ${translation.toUpperCase()} unavailable for this reading]</p>`;
+    }
+  } catch (e) {
+    showLoadError(el, e, () => { el.innerHTML = '<p class="loading">Loading…</p>'; fillScriptureEl(el, translation); });
+  }
 }
 
 function fillScripture(root, translation) {
-  root.querySelectorAll('.scripture-placeholder').forEach(async el => {
-    const rawCitation = el.dataset.citation;
-    try {
-      const parsed = parseCitation(rawCitation);
-      if (!parsed) { el.innerHTML = `<p class="error-msg">Cannot parse: ${esc(rawCitation)}</p>`; return; }
-
-      let bookData, usedTranslation = translation;
-      if (window.__pwcOffline) {
-        el.innerHTML = '<p class="scripture-offline">Unable to load Scripture (offline)</p>';
-        return;
-      }
-      try {
-        bookData = await fetchBook(translation, parsed.file);
-      } catch (_) {
-        if (translation !== 'kjv') {
-          try { bookData = await fetchBook('kjv', parsed.file); usedTranslation = 'kjv'; }
-          catch (_2) { /* unavailable */ }
-        }
-      }
-
-      const ranges = parseRanges(parsed.rest);
-      if (!bookData || !ranges.length) {
-        el.innerHTML = `<p class="error-msg">Text unavailable: ${esc(rawCitation)}</p>`;
-        return;
-      }
-
-      const allVerses = ranges.flatMap(r => extractVersesWithChapter(bookData, r));
-      const paragraphs = await fetchOnce('paragraphs', `${DATA}/paragraphs.json`).catch(() => null);
-      const paraMap = paragraphs ? (paragraphs[parsed.file] || null) : null;
-
-      let html;
-      if (paraMap) {
-        html = buildParagraphHtml(allVerses, paraMap);
-      } else {
-        const byChapter = {};
-        for (const v of allVerses) {
-          (byChapter[v.ch] || (byChapter[v.ch] = [])).push(v);
-        }
-        const blocks = [];
-        for (const [chStr, chVerses] of Object.entries(byChapter)) {
-          blocks.push(renderChapterHtml(chVerses, parseInt(chStr), null));
-        }
-        html = blocks.join('\n');
-      }
-      el.innerHTML = html;
-
-      if (usedTranslation !== translation) {
-        el.innerHTML += `<p class="scripture-fallback-note">[${usedTranslation.toUpperCase()} shown — ${translation.toUpperCase()} unavailable for this reading]</p>`;
-      }
-    } catch (e) {
-      el.innerHTML = `<p class="error-msg">Error: ${esc(String(e))}</p>`;
-    }
-  });
+  root.querySelectorAll('.scripture-placeholder').forEach(el => fillScriptureEl(el, translation));
 }
 
 // ── Translation switch (no full re-render) ────────────────────────────────────
