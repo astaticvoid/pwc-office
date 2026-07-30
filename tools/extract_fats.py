@@ -71,6 +71,33 @@ def _clean_text(text: str) -> str:
     return _DUP_WORD_RE.sub(r'\1', text)
 
 
+# Hard line-wrap hyphenation: the justified PDF layout breaks words like
+# "doctrine" across a line as "doc-\ntrine". Rejoin without the hyphen by
+# default. Two cases keep it instead:
+#   - the continuation starts with a capital, e.g. "mid-\nVictorian" ->
+#     "mid-Victorian" — a capitalized continuation is a whole word in its
+#     own right, never a mid-word fragment, so it's always a real compound.
+#   - a small set of lowercase pairs are genuine compounds too (e.g.
+#     "hard-\npressed" -> "hard-pressed", not "hardpressed").
+# Found by diffing every wrap pair in the current PDF against an English
+# wordlist (dwyl/english-words) and reviewing the non-matches in context;
+# the source PDF is static, so this exception list won't grow on rerun.
+_HYPHEN_WRAP_RE = re.compile(r'([A-Za-z]+)-\n([A-Za-z]+)')
+_HYPHEN_KEEP = {
+    ('Church', 'wide'), ('English', 'speaking'), ('Greek', 'speaking'),
+    ('brother', 'in'), ('eleven', 'year'), ('fifty', 'nine'),
+    ('hard', 'pressed'), ('nuclear', 'disarmament'), ('thirteenth', 'century'),
+}
+
+
+def _dehyphenate(text: str) -> str:
+    """Rejoin words split by hard line-wrap hyphenation (see _HYPHEN_KEEP)."""
+    def repl(m: re.Match) -> str:
+        a, b = m.group(1), m.group(2)
+        return f'{a}-{b}' if b[0].isupper() or (a, b) in _HYPHEN_KEEP else a + b
+    return _HYPHEN_WRAP_RE.sub(repl, text)
+
+
 # Printer artifact patterns in appendix pages
 PRINTER_LINE_RE = re.compile(
     r'\.prn$'
@@ -269,7 +296,7 @@ def _extract_bio_body(lines: list[str]) -> str:
             result.append(s)
     text = '\n'.join(result)
     text = re.sub(r'\n{3,}', '\n\n', text)
-    return _clean_text(text.strip())
+    return _clean_text(_dehyphenate(text.strip()))
 
 
 def parse_propers(page: str) -> dict:
