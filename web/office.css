@@ -689,6 +689,16 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
   border: 1px solid var(--color-rubric); border-radius: 6px;
   padding: 0.75rem 1rem; margin: 1rem 0;
 }
+.error-msg p { margin: 0; }
+.error-retry-btn {
+  display: inline-block; margin-top: 0.6rem;
+  font-family: var(--font-ui); font-size: 0.78rem; font-weight: 500;
+  color: var(--color-rubric); background: none;
+  border: 1px solid var(--color-rubric); border-radius: 999px;
+  padding: 0.3rem 0.85rem; cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+.error-retry-btn:hover { background: var(--color-rubric); color: var(--color-bg); }
 .out-of-range-msg {
   padding: 2rem 0 1rem; font-family: var(--font-liturgy);
   font-size: 1.05rem; line-height: 1.7;
