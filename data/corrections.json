@@ -192,5 +192,24 @@
       "reason": "Source PDF uses the non-standard transliteration 'Sadhe' for the 18th section; psalter uses the standard 'Tsadhe'."
     }
   ],
-  "fats": []
+  "fats": [
+    {
+      "id": "fats-marie-incarnation-ursuline-order",
+      "source": "pdf-extraction-artifact",
+      "saint": "Marie de L’Incarnation",
+      "field": "bio",
+      "old": "UrsulineOrder",
+      "new": "Ursuline Order",
+      "reason": "Source PDF text layer drops the space between these words; confirmed present in the raw PyMuPDF extraction itself, not introduced by our pipeline."
+    },
+    {
+      "id": "fats-marie-incarnation-build-a-house",
+      "source": "pdf-extraction-artifact",
+      "saint": "Marie de L’Incarnation",
+      "field": "bio",
+      "old": "builda house forJesus",
+      "new": "build a house for Jesus",
+      "reason": "Source PDF text layer drops spaces around these words; confirmed present in the raw PyMuPDF extraction itself, not introduced by our pipeline."
+    }
+  ]
 }
