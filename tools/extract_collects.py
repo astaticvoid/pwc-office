@@ -116,15 +116,6 @@ def _find_collect_body(text: str) -> str:
     return text[body_start:]
 
 
-def _clean(text: str) -> str:
-    """Trim whitespace. Used to strip a regex that guessed at running-header
-    lines by scanning for any 3-digit number anywhere in the text -- a false
-    trigger waiting to happen against any genuine 3-digit number in a collect
-    body. _RUNNING_HEADER and _PAGE_BOUNDARY_HEADER below now strip running
-    headers precisely, anchored on page-boundary position rather than content
-    guessing, making this redundant (confirmed via disable+diff, zero live
-    effect on the full dataset). See issue #15."""
-    return text.strip()
 
 
 # Every page in the collects range opens with a running header: page number
@@ -147,15 +138,15 @@ def extract_collect(text: str, overflow: str = "") -> str:
 
     m = _TERMINATORS.search(body)
     if m:
-        return _clean(body[: m.start()])
+        return body[: m.start()].strip()
 
     overflow_body = _RUNNING_HEADER.sub("", overflow, count=1)
     combined = body + "\n" + overflow_body
     m = _TERMINATORS.search(combined)
     if m:
-        return _clean(combined[: m.start()])
+        return combined[: m.start()].strip()
 
-    return _clean(body)
+    return body.strip()
 
 
 # ── Garbling detection ────────────────────────────────────────────────────────
@@ -244,8 +235,8 @@ def extract_collect_from_txt(bas_txt: str, feast_name: str) -> str:
         return ""
     mt = _TERMINATORS.search(body)
     if mt:
-        return _clean(body[: mt.start()])
-    return _clean(body)
+        return body[: mt.start()].strip()
+    return body.strip()
 
 
 # ── Feast-name extraction (from BAS page headings) ────────────────────────────
@@ -449,7 +440,7 @@ def _extract_occasional_prayers(pdf, collects: dict) -> None:
             None,
         )
         body_end = next_valid.start() if next_valid else len(all_text)
-        text = _clean(all_text[body_start:body_end])
+        text = all_text[body_start:body_end].strip()
         if text:
             entries[num] = {
                 "name": name,
@@ -495,7 +486,7 @@ def _extract_supplemental_collect(pdf, collects: dict, bas_txt: str) -> None:
             print("ERROR: supplemental collect on p.668 has no closing Amen.",
                   file=sys.stderr)
             sys.exit(1)
-        return _clean(body[:end.end()])
+        return body[:end.end()].strip()
 
     page668 = pdf[667].get_text() or ""
     page669 = pdf[668].get_text() or ""
@@ -508,7 +499,7 @@ def _extract_supplemental_collect(pdf, collects: dict, bas_txt: str) -> None:
             body = bas_txt[m.end():]
             end = _SUPPLEMENTAL_END.search(body)
             if end:
-                text = _clean(body[:end.end()])
+                text = body[:end.end()].strip()
                 print(f"  supplemental p.668  (txt fallback)")
 
     if not text:

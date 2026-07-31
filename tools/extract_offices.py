@@ -165,37 +165,8 @@ def _reflow_leader_prose(segs: list) -> list:
                 _reflow_leader_prose(g.get("segments", []))
     return segs
 
-def _fix_casing(seg: dict) -> dict:
-    """
-    Normalize space before punctuation (PDF extraction artifact, from
-    spans_to_typed_lines joining adjacent spans with a literal space
-    regardless of whether the source intended one there) in every segment's
-    text. PyMuPDF (fitz) already decodes casing correctly on its own, so no
-    casing correction lives here — this function used to also recapitalize
-    the start of a new sentence after `_merge()` joins lines with "\\n", fix
-    standalone lowercase "i" -> "I", and straighten curly apostrophes to feed
-    those two regexes. All three were checked against fitz's raw per-span
-    output and found to have zero live effect on the current dataset
-    (Batch: 2026-07-26 audit) -- worse, the apostrophe straightening was
-    actively wrong: it flattened the source PDF's genuine curly apostrophe
-    ("God’s") to a straight one in 2 places purely so its regex neighbours
-    could pattern-match reliably. Removed; see issue #15.
-
-    Comma joined the character class 2026-07-27 after a full-document scan
-    found exactly one live case (ordinary-tuesday-mp litany: "this city ,
-    the poor") and zero collisions -- period is deliberately excluded from
-    this class because it would corrupt the spaced-ellipsis placeholder
-    used elsewhere ("For [ . . . and ] all the saints...").
-    """
-    if not seg["text"]:
-        return seg
-    seg = dict(seg)
-    seg["text"] = re.sub(r' ([!?,])', r'\1', seg["text"])
-    return seg
-
-
 def _merge(segs: list[dict]) -> list[dict]:
-    """Merge consecutive segments of the same type into one, fixing casing.
+    """Merge consecutive segments of the same type into one.
 
     Structural rubrics must not be merged in ways that destroy their semantics:
     - Bare 'Or' / 'or' absorb the immediately following name-line rubric to form
@@ -238,7 +209,7 @@ def _merge(segs: list[dict]) -> list[dict]:
             prev["text"] += sep + seg["text"]
         else:
             merged.append(dict(seg))
-    return [_fix_casing(s) for s in merged if s["text"].strip()]
+    return [s for s in merged if s["text"].strip()]
 
 
 # ── Post-process: split seasonal collects from litany ─────────────────────────
@@ -702,6 +673,9 @@ def _normalize_whitespace(offices: dict) -> dict:
         return '\n'.join(out)
 
     def _fix(text, seg_type=None, section_key=None):
+        text = text.replace(" ,", ",")
+        text = text.replace(" !", "!")
+        text = text.replace(" ?", "?")
         text = text.replace("Amen .", "Amen.")
         text = text.replace(" \n", "\n")
         if seg_type in ("leader", "response") and section_key not in _VERSE_SECTIONS:
