@@ -30,7 +30,7 @@ sys.path.insert(0, str(ROOT / 'tools'))
 
 import fitz  # PyMuPDF
 from extract_office_styles import extract_office_typed_lines
-from extract_offices import OFFICES, _is_noise, _MAJOR_HDRS, _DIVINE_FIXES
+from extract_offices import OFFICES, _is_noise, _MAJOR_HDRS
 
 # ── Casing helpers ────────────────────────────────────────────────────────────
 
@@ -210,7 +210,14 @@ def _normalise_casing(line_type, text):
 
     line_type: 'heading' | 'response' | 'leader' | 'collect'
     - 'heading' and 'response': also capitalise the first character.
-    - All types: fix pronoun I, vocative O, and divine titles.
+    - All types: fix pronoun I and vocative O.
+
+    The divine-title pass (`_DIVINE_FIXES`) that used to run here was removed
+    with the constant itself — see issue #4. Of its ~14 patterns exactly one
+    had a live effect anywhere in the dataset ("creator" -> "Creator" in the
+    Apostles' Creed), and a rendered pixmap of the page showed the print is
+    genuinely lowercase, so that one effect was making the output wrong. fitz
+    already decodes "Holy Spirit", "Holy One", "Israel" etc. correctly.
     """
     if not text:
         return text
@@ -221,9 +228,6 @@ def _normalise_casing(line_type, text):
     text = _PRONOUN_I_RE.sub('I', text)
     # Vocative O of address.
     text = _VOCATIVE_O_RE.sub('O ', text)
-    # Divine titles (Holy Spirit, the Father, Son of God, etc.)
-    for pat, replacement in _DIVINE_FIXES:
-        text = pat.sub(replacement, text)
     # PDF small-caps artifact: Creed comma after "ascended into heaven" is dropped.
     text = re.sub(r'\bascended into heaven\b(?!,)', 'ascended into heaven,', text, flags=re.IGNORECASE)
     return text
