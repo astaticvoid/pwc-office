@@ -196,12 +196,19 @@ All task tracking lives in [GitHub Issues](https://github.com/astaticvoid/pwc-of
 
 ## Data correction locations
 
-| Correction type | File | Mechanism |
-|----------------|------|-----------|
-| Office text (casing, wording, whitespace) | `tools/extract_offices.py` | `_normalize_whitespace()` pass (systemic) or `_TEXT_PATCHES` list (targeted) |
-| Editorial corrections (all data types) | `data/corrections.json` | `validate_corrections.py` + `apply_corrections.py` |
-| Lectionary: wrong citations | `tools/convert_lectionary.py` | Fix dicts (LESSON_FIXES, NAME_FIXES, etc.) |
-| Psalter: missing/incorrect text | `tools/extract_psalter.py` | Inline fix with `source_corrections` metadata |
+**There is one correction manifest: `data/corrections.json`** (ADR 0005). Extractors extract; they no longer patch their own output. Every editorial correction goes in the manifest under the category matching its data type, is checked for staleness by `validate_corrections.py`, and is applied by `apply_corrections.py` after extraction in `make extract`.
+
+| Correction type | Manifest category | Target locator |
+|----------------|-------------------|----------------|
+| Office text (wording, casing, whitespace) | `office_text` | `{office, field}` |
+| Psalter: missing/incorrect verse text | `psalter` | psalm number + substring replace |
+| Saint biographies | `fats` | saint + field + substring replace |
+| Lectionary: wrong citation | `lectionary_citations` | date + office + lesson index |
+| Lectionary: wrong lesson list | `lectionary_lessons` | date + office (whole-list replace) |
+| Lectionary: name / rank / colour | `lectionary_names`, `lectionary_ranks`, `lectionary_colours` | date (whole-value replace) |
+| Lectionary: garbled note | `lectionary_notes` | date (`clear` action only) |
+
+Systemic parsing problems are **not** corrections — fix those in the extractor (`_normalize_whitespace()` and friends in `tools/extract_offices.py`) so every instance resolves at once. The hardcoded fix dicts that used to live in `extract_psalter.py`, `extract_fats.py`, and `convert_lectionary.py` were migrated into the manifest and deleted; don't reintroduce that pattern (see issue #13).
 
 ## Delivery workflow
 
