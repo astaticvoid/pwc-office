@@ -44,7 +44,7 @@ make test-seasonal                # 26 cases: one MP+EP per liturgical form
 make test-web                     # Playwright E2E — auto-starts web/ server on :8080
 
 # Quality assurance
-node tools/validate_office.cjs    # 6 liturgical rules against all 30 forms
+node tools/validate_office.cjs    # 20 liturgical rules across 3 tiers, all 30 forms
 node tools/validate_css.cjs       # structural CSS validity (web/*.css)
 node tools/validate_lectionary.cjs # every date × office: citation syntax + resolution
 node tools/audit_office.cjs       # cross-form statistical outlier detection (z-score)
@@ -136,7 +136,7 @@ Extraction pipeline (run via `make extract`):
 
 **Data integrity guard:** `check_data_integrity.py` compares current `data/*.json` hashes against `tools/extract_manifest.json`. Exits 1 if any file was edited outside the pipeline. Wired into `make deploy-staging` as a gate.
 
-**Verse section sync:** `_VERSE_SECTIONS` in `tools/extract_offices.py` must stay in sync with `VERSE_SECTIONS` in `tools/validate_office.cjs`. When adding a verse-like section, update both locations and the line-count assertions in `tests/unit/render.test.js`.
+**Verse section sync:** `_VERSE_SECTIONS` in `tools/extract_offices.py` must stay in sync with `VERSE_SECTIONS` in `tools/validate_office.cjs`. The Python set decides whether `_LINE_JOIN` rewrites the shipped data; the JS set decides whether `no-prose-line-breaks` flags it, so a section in only one list is silently joined and never reported — that gap shipped #33. `tools/tests/test_verse_sections_sync.py` enforces the invariant and carries an allowlist of the 8 divergences still pending adjudication (#36); reconciling them is not mechanical, since some belong in the Python set and others should come out of the JS one. When adding a verse-like section, update both locations and the line-count assertions in `tests/unit/render.test.js`.
 
 **Page bounds:** `detect_office_bounds.py` detects office form page ranges from PDF content (title patterns). Output is committed as `tools/office_bounds.json`. No hardcoded page numbers.
 
