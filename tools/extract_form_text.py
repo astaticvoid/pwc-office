@@ -32,19 +32,9 @@ import fitz  # PyMuPDF
 from extract_office_styles import extract_office_typed_lines
 from extract_offices import OFFICES, _is_noise, _MAJOR_HDRS
 
-# ── Casing helpers ────────────────────────────────────────────────────────────
+# ── Text helpers ──────────────────────────────────────────────────────────────
 
 _SHORT_LABEL_RE = re.compile(r'^(?:Form\s+)?(?:I{1,3}|IV|V|VI{0,3}|IX|X)$', re.IGNORECASE)
-
-_PRONOUN_I_RE = re.compile(r'\bi\b')
-
-# Vocative "O" of address: "O Lord", "O God", "O come", "O Son", etc.
-# Word-boundary match so it won't affect "of", "on", etc.
-_VOCATIVE_O_RE = re.compile(
-    r'\bo (?=(?:lord|god|come|son|father|christ|most)\b)',
-    re.IGNORECASE,
-)
-
 
 _SKIP_COLLECT_RE = re.compile(
     r'^Either the Collect of the Day'
@@ -205,30 +195,33 @@ def _render_collect_blocks(segs, shared_data, join_lines=True):
     return outer
 
 
-def _normalise_casing(line_type, text):
-    """Fix PDF small-caps casing artifacts.
+def _normalise_text(text):
+    """Repair the one real artifact left in golden text after fitz decoding.
 
-    line_type: 'heading' | 'response' | 'leader' | 'collect'
-    - 'heading' and 'response': also capitalise the first character.
-    - All types: fix pronoun I and vocative O.
+    This was `_normalise_casing`, a pdfplumber-era layer of four rules. Three
+    were removed once measured against the full 30-form dataset (see issue #32),
+    the same disable-and-diff method ADR 0011 used:
 
-    The divine-title pass (`_DIVINE_FIXES`) that used to run here was removed
-    with the constant itself — see issue #4. Of its ~14 patterns exactly one
-    had a live effect anywhere in the dataset ("creator" -> "Creator" in the
-    Apostles' Creed), and a rendered pixmap of the page showed the print is
-    genuinely lowercase, so that one effect was making the output wrong. fitz
-    already decodes "Holy Spirit", "Holy One", "Israel" etc. correctly.
+    - Force-capitalise the first character of every heading/response — altered
+      1051 lines, all of them wrongly. It capitalised grammatical continuations
+      the book prints lowercase: every Apostles' Creed clause ("born of the
+      Virgin Mary,"), every Lord's Prayer petition after the first ("hallowed
+      be your name,"), the Shema ("with all your heart,"), and the doxology
+      ("as it was in the beginning,"). This is the identical rule, with the
+      identical failure, that issue #4 removed from `extract_offices.py`.
+    - Standalone pronoun "i" -> "I" — zero effect across all 30 forms.
+    - Vocative "o Lord" -> "O Lord" — zero effect across all 30 forms.
+
+    All three existed because pdfplumber mis-decoded the book's small-caps
+    font as lowercase. fitz decodes it correctly, so they became liability.
+
+    The comma rule below is the one that still earns its keep: disabling it
+    drops a comma the PDF genuinely prints ("he ascended into heaven,"), so
+    something upstream in assembly is losing it and this puts it back.
     """
     if not text:
         return text
-    # Capitalise first character for headings and standalone responses.
-    if line_type in ('heading', 'response'):
-        text = text[0].upper() + text[1:]
-    # Standalone pronoun I.
-    text = _PRONOUN_I_RE.sub('I', text)
-    # Vocative O of address.
-    text = _VOCATIVE_O_RE.sub('O ', text)
-    # PDF small-caps artifact: Creed comma after "ascended into heaven" is dropped.
+    # Creed comma after "ascended into heaven" is dropped during assembly.
     text = re.sub(r'\bascended into heaven\b(?!,)', 'ascended into heaven,', text, flags=re.IGNORECASE)
     return text
 
@@ -715,14 +708,14 @@ def extract_form_text(form_name, date_str):
             elif re.search(r'^(?:the )?evening hymn\b', sub_text, re.IGNORECASE):
                 if form_data.get('phos_hilaron') or form_data.get('thanksgiving_for_light'):
                     # Data exists — book.js renders it; include in golden.
-                    blocks.append(_normalise_casing('heading', sub_text))
+                    blocks.append(_normalise_text(sub_text))
                     section = None
                 else:
                     # No data — book.js has a gap here; skip to avoid mismatch.
                     section = 'phos_hilaron_skip'
             else:
                 # Generic sub-heading.
-                blocks.append(_normalise_casing('heading', sub_text))
+                blocks.append(_normalise_text(sub_text))
                 section = None
 
             continue
@@ -842,7 +835,7 @@ def extract_form_text(form_name, date_str):
             continue  # skip subtitle lines from PDF (already emitted from form_data)
         if section in ('invitatory', 'phos_hilaron_skip', 'psalm_dox_skip', 'collect_done'):
             continue  # skip content for sections already rendered from offices.json
-        text = _normalise_casing(typ, text)
+        text = _normalise_text(text)
         if collect_mode:
             collect_lines.append(text)
         elif section == 'reading' and rresp_saved is None:
