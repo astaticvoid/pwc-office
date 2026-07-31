@@ -295,7 +295,7 @@ describe.skipIf(!HAS_DATA)('renderOfficeJSON sync with renderSegments', () => {
     expect(gath.dynamic.phosHilaronPresent || gath.dynamic.thanksgivingForLightPresent).toBe(true);
   });
 
-  test('phos_hilaron preserves poetic line breaks (no _LINE_JOIN artifacts)', () => {
+  test('phos_hilaron preserves poetic line breaks', () => {
     const MIN_LINES = {
       'ordinary-sunday-ep':    11,
       'ordinary-monday-ep':    14,

@@ -57,9 +57,10 @@ def span_type(span: dict) -> str:
     return "leader"
 
 
-def spans_to_typed_lines(page_spans: list[dict]) -> list[tuple[str, str]]:
+def spans_to_typed_lines(page_spans: list[dict]) -> list[tuple[str, str, bool]]:
     """Group spans on a page into typed lines by y-position proximity.
-    Returns [(type, text), ...] — same format as _page_styled_lines()."""
+    Returns [(type, text, wrap), ...] — wrap is True when the line's raw text
+    ended with a trailing space (a PDF column-wrap signature)."""
     if not page_spans:
         return []
     sorted_spans = sorted(page_spans, key=lambda s: (round(s["y0"]), s["x0"]))
@@ -79,7 +80,7 @@ def spans_to_typed_lines(page_spans: list[dict]) -> list[tuple[str, str]]:
                 cur_y = y
     if cur_line:
         lines.append(cur_line)
-    result: list[tuple[str, str]] = []
+    result: list[tuple[str, str, bool]] = []
     # Verse second-halves are typeset with a physical ~18pt indent relative to
     # the first half (e.g. psalm/canticle/invitatory poetic line-pairs), and a
     # second half can itself run onto multiple indented lines. Track the
@@ -114,10 +115,16 @@ def spans_to_typed_lines(page_spans: list[dict]) -> list[tuple[str, str]]:
             t = s["type"]
             types[t] = types.get(t, 0) + 1
         dominant = max(types, key=types.get)
+        # Detect column-wrap: if the raw text of the last content span on
+        # this line ends with a space, the PDF line was a soft wrap — not an
+        # intentional line break. Use raw_text (preserved before strip).
+        wrap_flag = False
+        last_raw = body[-1].get("raw_text", "")
+        if last_raw.endswith(" "):
+            wrap_flag = True
         text = " ".join(s["text"] for s in line_spans).strip()
         # Skip running-header lines (page number + form title)
-        if (re.match(r"^\d{1,3}$", text) or
-            re.match(r"^(Morning|Evening) Prayer", text)):
+        if re.match(r"^\d{1,3}$", text) or re.match(r"^(Morning|Evening) Prayer", text):
             continue
         if not text:
             continue
@@ -132,18 +139,19 @@ def spans_to_typed_lines(page_spans: list[dict]) -> list[tuple[str, str]]:
         if dominant == "response":
             y0 = min(s["y0"] for s in body)
             if prev_response_y0 is not None and y0 - prev_response_y0 > 15:
-                result.append(("response", ""))
+                result.append(("response", "", False))
             prev_response_y0 = y0
         else:
             prev_response_y0 = None
-        result.append((dominant, text))
+        result.append((dominant, text, wrap_flag))
     return result
 
 
-def extract_office_typed_lines(pdf_doc: fitz.Document, form_key: str,
-                                start_page: int, end_page: int) -> list[tuple[str, str]]:
+def extract_office_typed_lines(
+    pdf_doc: fitz.Document, form_key: str, start_page: int, end_page: int
+) -> list[tuple[str, str, bool]]:
     """Return typed lines for an entire office form (all pages concatenated)."""
-    all_lines: list[tuple[str, str]] = []
+    all_lines: list[tuple[str, str, bool]] = []
     for i in range(start_page - 1, end_page):
         page = pdf_doc[i]
         d = page.get_text("dict", flags=fitz.TEXTFLAGS_DICT)
@@ -153,23 +161,28 @@ def extract_office_typed_lines(pdf_doc: fitz.Document, form_key: str,
                 continue
             for line in block["lines"]:
                 for span in line["spans"]:
-                    text = span["text"].strip()
+                    raw = span["text"]
+                    text = raw.strip()
                     if not text:
                         continue
-                    segments.append({
-                        "type": span_type(span),
-                        "text": text,
-                        "x0": span["bbox"][0],
-                        "y0": span["bbox"][1],
-                        "x1": span["bbox"][2],
-                        "y1": span["bbox"][3],
-                    })
+                    segments.append(
+                        {
+                            "type": span_type(span),
+                            "text": text,
+                            "raw_text": raw,
+                            "x0": span["bbox"][0],
+                            "y0": span["bbox"][1],
+                            "x1": span["bbox"][2],
+                            "y1": span["bbox"][3],
+                        }
+                    )
         all_lines.extend(spans_to_typed_lines(segments))
     return all_lines
 
 
-def extract_office(pdf_doc: fitz.Document, form_key: str,
-                   start_page: int, end_page: int) -> list[list[dict]]:
+def extract_office(
+    pdf_doc: fitz.Document, form_key: str, start_page: int, end_page: int
+) -> list[list[dict]]:
     """Return per-page lists of typed segments for one office form."""
     pages_output = []
     # MuPDF pages are 0-indexed
@@ -186,14 +199,16 @@ def extract_office(pdf_doc: fitz.Document, form_key: str,
                     if not text:
                         continue
                     stype = span_type(span)
-                    segments.append({
-                        "type": stype,
-                        "text": text,
-                        "x0": span["bbox"][0],
-                        "y0": span["bbox"][1],
-                        "x1": span["bbox"][2],
-                        "y1": span["bbox"][3],
-                    })
+                    segments.append(
+                        {
+                            "type": stype,
+                            "text": text,
+                            "x0": span["bbox"][0],
+                            "y0": span["bbox"][1],
+                            "x1": span["bbox"][2],
+                            "y1": span["bbox"][3],
+                        }
+                    )
         pages_output.append(segments)
     return pages_output
 
@@ -207,7 +222,9 @@ def main():
     if not PDF.exists():
         sys.exit(f"PDF not found: {PDF}\nRun: make fetch-sources")
     if not BOUNDS.exists():
-        sys.exit(f"Bounds file not found: {BOUNDS}\nRun: python3 tools/detect_office_bounds.py --write")
+        sys.exit(
+            f"Bounds file not found: {BOUNDS}\nRun: python3 tools/detect_office_bounds.py --write"
+        )
 
     bounds = json.loads(BOUNDS.read_text())
 

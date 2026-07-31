@@ -55,7 +55,7 @@ node tools/review_form.cjs FORM   # line-numbered text renderer for manual revie
 make check-text                   # scan for PDF extraction artifacts
 make check-text --strict          # same but exits non-zero on findings
 make check-integrity              # verify data/ hashes match extract manifest — fails if any
-# NOTE: after changing _VERSE_SECTIONS or _fix_* in extract_offices.py, re-run
+# NOTE: after changing extraction logic in extract_offices.py, re-run
 # `make extract` before `make check-integrity`.  The manifest stores hashes of
 # the committed data; stale hashes after a code change will fail the check.
 
@@ -136,7 +136,7 @@ Extraction pipeline (run via `make extract`):
 
 **Data integrity guard:** `check_data_integrity.py` compares current `data/*.json` hashes against `tools/extract_manifest.json`. Exits 1 if any file was edited outside the pipeline. Wired into `make deploy-staging` as a gate.
 
-**Verse sections — two lists, two questions.** `VERSE_SECTIONS` in `tools/validate_office.cjs` asks *"does this section contain any intentional line breaks?"* so `no-prose-line-breaks` won't flag a `\n`. `_VERSE_SECTIONS` in `tools/extract_offices.py` asks the stricter *"are all breaks here intentional, so `_LINE_JOIN` must never fire?"* A section can hold both real verse breaks and PDF column wraps and then belongs in the first but not the second — `thanksgiving_for_light` prints as verse yet all four of its joinable breaks are wraps. So the invariant is **Python ⊆ JS**, not equality, plus neither list may name a section that doesn't reach the renderer. Both are enforced by `tools/tests/test_verse_sections_sync.py`. When adding a verse-like section, update the relevant list(s) and the line-count assertions in `tests/unit/render.test.js`.
+**Line-break handling.** Column wraps (PDF soft breaks) and intentional verse breaks are now distinguished per-line by the trailing-space signature in the PDF (see issue #38). `spans_to_typed_lines` detects trailing space on raw span text and threads a `wrap` flag through the extraction pipeline; `_merge` joins only wrapped lines. The former `_VERSE_SECTIONS` / `_LINE_JOIN` section-level allowlist is retired. `VERSE_SECTIONS` in `tools/validate_office.cjs` is the single list used by the validator's `no-prose-line-breaks` rule. When adding a verse-like section, update that list and the line-count assertions in `tests/unit/render.test.js`.
 
 **Page bounds:** `detect_office_bounds.py` detects office form page ranges from PDF content (title patterns). Output is committed as `tools/office_bounds.json`. No hardcoded page numbers.
 
