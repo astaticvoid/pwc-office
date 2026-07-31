@@ -17,9 +17,14 @@ extract:
 	python3 tools/extract_psalter.py
 	python3 tools/extract_collects.py
 	python3 tools/extract_fats.py
+	python3 tools/convert_lectionary.py --window 12
+# Corrections run last, after every extractor has produced pristine output.
+# convert_lectionary.py rewrites data/lectionary/ wholesale, so it must come
+# before apply_corrections.py or it discards the lectionary corrections; and
+# validate_corrections.py checks PRE-application state, so it must see freshly
+# converted data or it reports every lectionary correction as stale. See #37.
 	python3 tools/validate_corrections.py
 	python3 tools/apply_corrections.py
-	python3 tools/convert_lectionary.py --window 12
 	python3 tools/update_extract_manifest.py
 	@if [ -z "$$CI" ] && git -C data/ rev-parse --git-dir >/dev/null 2>&1; then \
 	  git -C data/ add -A && git -C data/ commit -m "extraction $(shell date +%Y-%m-%d)" || true; \
