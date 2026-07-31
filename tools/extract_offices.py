@@ -673,7 +673,12 @@ def _normalize_whitespace(offices: dict) -> dict:
     # Keep in sync with: validate_office.cjs VERSE_SECTIONS (line ~146),
     # validate_office.cjs PHOS_MIN_LINES (line ~177), and the Vitest unit test
     # phos_hilaron line-count assertion in tests/unit/render.test.js.
-    _VERSE_SECTIONS = frozenset({'affirmation', 'canticle', 'doxology', 'phos_hilaron', 'invitatory'})
+    # Sections whose line breaks are intentional liturgical structure, so the
+    # PDF-column-wrap join below must not touch them. Must stay in sync with
+    # VERSE_SECTIONS in tools/validate_office.cjs — enforced by
+    # tools/tests/test_verse_sections_sync.py, not by this comment.
+    _VERSE_SECTIONS = frozenset({'affirmation', 'canticle', 'doxology', 'phos_hilaron',
+                                 'invitatory', 'lords_prayer_intro'})
 
     # Join mid-sentence line breaks from PDF column wrapping.
     # Rule 1: \n + lowercase → always join (no verse text starts lowercase).
