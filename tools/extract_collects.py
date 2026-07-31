@@ -123,7 +123,7 @@ def _clean(text: str) -> str:
     body. _RUNNING_HEADER and _PAGE_BOUNDARY_HEADER below now strip running
     headers precisely, anchored on page-boundary position rather than content
     guessing, making this redundant (confirmed via disable+diff, zero live
-    effect on the full dataset). See BUGS.md 2026-07-26."""
+    effect on the full dataset). See issue #15."""
     return text.strip()
 
 
@@ -172,7 +172,7 @@ def is_garbled(text: str) -> bool:
 # title, either order) immediately follows. Strip it so a collect body that
 # happens to span a page boundary within a fallback window doesn't inherit
 # the next page's header as trailing text — same issue and same fix as
-# _RUNNING_HEADER for the per-page extraction path; see BUGS.md 2026-07-26.
+# _RUNNING_HEADER for the per-page extraction path; see issue #10.
 _PAGE_BOUNDARY_HEADER = re.compile(
     r'(\n{2,})\s*(?:\d{1,3}\s+[^\n\d]{1,40}?|[^\n\d]{1,40}?\s+\d{1,3})\s*\n'
 )

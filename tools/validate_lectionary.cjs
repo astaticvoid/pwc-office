@@ -16,7 +16,7 @@
  *      a syntax-only check already missed a real bug once (BUG: six Sunday-
  *      in-Lent collect pages silently dropped by extraction, "collect ref
  *      is a well-formed page number" passed while the page didn't exist;
- *      see BUGS.md 2026-07-27) precisely because it never checked resolution.
+ *      see issue #18) precisely because it never checked resolution.
  *
  * Usage: node tools/validate_lectionary.cjs [--json]
  */

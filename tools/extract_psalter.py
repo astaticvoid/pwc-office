@@ -206,7 +206,7 @@ def main():
     # hardcoded here -- they live in data/corrections.json ("psalter") and are
     # applied by apply_corrections.py later in the pipeline (make extract),
     # the same mechanism used for office text and lectionary data. This
-    # extractor only does extraction. See BUGS.md 2026-07-26 and ADR 0005.
+    # extractor only does extraction. See issue #13 and ADR 0005.
     psalms_by_num: dict[int, dict] = {p["number"]: p for p in psalms_list}
 
     # ── Write: combined dict ─────────────────────────────────────────────

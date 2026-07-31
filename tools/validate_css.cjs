@@ -14,7 +14,7 @@
  * of the file (loading/error states, the whole desktop layout, print
  * styles, the eval banner) for about a week with zero test failures,
  * because nothing in this project validates CSS syntax at all. See
- * BUGS.md 2026-07-27.
+ * issue #22.
  *
  * Two checks, in order:
  *   1. A style rule nested inside another style rule's declaration block —

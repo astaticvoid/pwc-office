@@ -60,7 +60,7 @@ RANK_SUFFIX_MAP = {
 # same class of PDF artifact by exact string match. Both confirmed dead —
 # zero live effect on the current dataset (disable+diff, 2026-07-26) — the
 # source no longer produces the truncations/merges they were written to
-# catch. Removed; see BUGS.md. If a real one-off editorial correction is
+# catch. Removed; see issue #13. If a real one-off editorial correction is
 # needed for a saint's field, it belongs in data/corrections.json ("fats"),
 # applied by apply_corrections.py after extraction, not hardcoded here.
 _DUP_WORD_RE = re.compile(r'\b(\w{3,})\s+\1\b', re.IGNORECASE)

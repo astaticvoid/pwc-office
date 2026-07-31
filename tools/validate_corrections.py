@@ -124,7 +124,7 @@ def validate_lectionary_field(corrections: list, field_name: str) -> list[str]:
 def validate_lectionary_notes(corrections: list) -> list[str]:
     """Only 'clear' is a live action (removes a garbled/unparseable note).
     ('set_type' existed here previously but was never used by any real
-    correction — removed 2026-07-26, see BUGS.md.)
+    correction — removed 2026-07-26, see issue #13.)
 
     Checks PRE-application state, like every other validator here: a
     'clear' correction is stale once notes are already gone (either
@@ -167,7 +167,7 @@ def validate_psalter(corrections: list) -> list[str]:
     """Every psalter correction is a plain text replace within one psalm's
     text, keyed by psalm number. (insert_before/insert_after/fix_v12 action
     variants existed here previously but were never used by any real
-    correction — removed 2026-07-26, see BUGS.md.)"""
+    correction — removed 2026-07-26, see issue #13.)"""
     errors = []
     psalter = json.loads((DATA / "psalter.json").read_text())
     for c in corrections:
@@ -187,7 +187,7 @@ def validate_psalter(corrections: list) -> list[str]:
 def validate_fats(corrections: list) -> list[str]:
     """Every FATS correction is a plain text replace within one saint's
     field. (A "rename_key" action variant existed here previously but was
-    never used by any real correction — removed 2026-07-26, see BUGS.md.)"""
+    never used by any real correction — removed 2026-07-26, see issue #13.)"""
     errors = []
     fats = json.loads((DATA / "fats" / "saints.json").read_text())
     for c in corrections:

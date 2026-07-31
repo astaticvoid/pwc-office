@@ -155,7 +155,7 @@ def _reflow_leader_prose(segs: list) -> list:
     will to all who live in this city, the poor and the rich," / "the
     elderly and the young, men and women." -- one sentence, split on an
     ordinary comma. Unconditional join (this function) matches the source;
-    see BUGS.md 2026-07-26.
+    see issue #9.
     """
     for seg in segs:
         if seg.get("type") == "leader" and seg.get("text"):
@@ -179,7 +179,7 @@ def _fix_casing(seg: dict) -> dict:
     (Batch: 2026-07-26 audit) -- worse, the apostrophe straightening was
     actively wrong: it flattened the source PDF's genuine curly apostrophe
     ("God’s") to a straight one in 2 places purely so its regex neighbours
-    could pattern-match reliably. Removed; see BUGS.md.
+    could pattern-match reliably. Removed; see issue #15.
 
     Comma joined the character class 2026-07-27 after a full-document scan
     found exactly one live case (ordinary-tuesday-mp litany: "this city ,
@@ -919,7 +919,7 @@ def extract_office(typed_lines: list[tuple[str, str]], office_key: str = "") -> 
             # Preserve the phos_hilaron/invitatory heading text as a "label" segment
             # so renderers can emit it as a titled section rather than bare content
             # (invitatory headings carry the psalm citation, e.g. "Invitatory Psalm:
-            # Psalm 95:1–7" — see BUGS.md "Invitatory Psalm heading dropped its psalm number").
+            # Psalm 95:1–7" — see issue #1).
             if key in ("phos_hilaron", "invitatory") and text:
                 current_segs.append({"type": "label", "text": text})
             continue

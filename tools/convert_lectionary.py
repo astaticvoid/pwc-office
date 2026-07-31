@@ -42,7 +42,7 @@ from extract_lib import check_manifest
 # "lectionary_ranks"/"lectionary_colours"/"lectionary_notes"), applied by
 # apply_corrections.py after this script runs — the same mechanism used for
 # office text, psalter, and FATS corrections. This extractor only parses the
-# CSV; it no longer patches its own output. See BUGS.md 2026-07-27 and ADR 0005.
+# CSV; it no longer patches its own output. See issue #13 and ADR 0005.
 # (OBSERVANCES and NOTE_TYPES below are not migrated: they're substantive
 # project-authored classification data, not corrections of a wrong value —
 # there's no "old" the CSV got wrong to record provenance against.)

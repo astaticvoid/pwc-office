@@ -22,7 +22,7 @@ class TestFixCasing:
     regexes) was checked against fitz's raw per-span output and found to
     have zero live effect on the current dataset — worse, the apostrophe
     straightening was actively wrong (flattened a genuine curly apostrophe
-    in 2 places). Removed 2026-07-26; see BUGS.md."""
+    in 2 places). Removed 2026-07-26; see issue #15."""
 
     def _fix(self, text, seg_type="response"):
         return _fix_casing({"type": seg_type, "text": text})["text"]
@@ -33,7 +33,7 @@ class TestFixCasing:
         # mis-decoded small-caps fonts as lowercase). fitz already decodes casing
         # correctly, so forcing a capital wrongly overrode genuine grammatical
         # continuations like the doxology's "as it was in the beginning..." —
-        # see BUGS.md.
+        # see issue #4.
         original = "as it was in the beginning, is now, and will be for ever. Amen."
         assert self._fix(original) == original
 
@@ -185,7 +185,7 @@ class TestReflowLeaderProse:
     your good will to all who live in this city, the poor and the rich," /
     "the elderly and the young, men and women." printed as one sentence,
     split on the comma). Removed 2026-07-26 in favour of this function's
-    unconditional join; see BUGS.md."""
+    unconditional join; see issue #9."""
 
     def test_joins_mid_clause_wraps(self):
         segs = [{"type": "leader", "text": "Watchful at all times, let us pray to God for strength to stand with\nconfidence."}]
