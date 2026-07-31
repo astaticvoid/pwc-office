@@ -7,7 +7,7 @@ implemented (stayed Proposed); the underlying premise turned out not to hold.
 fitz's raw per-span output directly: fitz decodes casing correctly on its
 own, contradicting this ADR's claim that "the current extractor mis-decodes
 small-caps." `check_casing.py` was removed 2026-07-26 — see ADR 0011 and
-BUGS.md. (`extract_collects.py`'s "pdftotext fallback" was already fitz-only
+issue #4. (`extract_collects.py`'s "pdftotext fallback" was already fitz-only
 by this point — only its naming/comments were stale, since fixed — it was
 never a real pdftotext dependency.) The single-pass fitz-only extractor this
 ADR proposed replacing remains the actual architecture.
