@@ -71,7 +71,6 @@ Re-run the pipeline after updating any source PDF or CSV.
 | `make test-web` | Playwright E2E suite (70+ browser tests) | After any `web/app.js` or CSS change |
 | `make test-tools` | Python pytest for `tools/` (requires: `brew install pytest`) | After changing any extraction tool |
 | `make validate` | Validate extracted lectionary against ACC HTML (network) | Before a data re-extraction |
-| `make generate-golden` | Regenerate golden snapshot files after intentional rendering change | After a rendering change |
 
 **Typical pre-commit workflow:**
 

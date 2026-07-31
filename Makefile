@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text check-book generate-golden serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa
+.PHONY: test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -105,17 +105,6 @@ serve-dist: check-dist
 # Unit tests for Python extraction tools (requires pytest: brew install pytest).
 test-tools:
 	pytest tools/tests/ -v
-
-# Diff book-mode renderer output against golden file. Usage: make check-book FORM=ordinary-sunday-ep [DATE=2026-06-14]
-check-book:
-	python3 tools/compare_book.py $(FORM) $(DATE)
-
-# Generate golden files for all 31 forms from the source PDF.
-# Files are written to tests/fixtures/book/ (gitignored — contain copyrighted content).
-generate-golden:
-	for form in $$(python3 -c "import sys; sys.path.insert(0,'tools'); from extract_offices import OFFICES; print(' '.join(r[0] for r in OFFICES))"); do \
-		python3 tools/extract_form_text.py $$form; \
-	done
 
 # Scan extracted JSON files for PDF extraction artifacts (missing spaces, etc.).
 check-text:

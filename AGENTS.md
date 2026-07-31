@@ -51,10 +51,6 @@ node tools/audit_office.cjs       # cross-form statistical outlier detection (z-
 node tools/compare_staging.cjs [date] [mp|ep]  # A/B diff staging vs production rendered DOM
 node tools/review_form.cjs FORM   # line-numbered text renderer for manual review
 
-# CLI book-mode checks
-make check-book FORM=... DATE=... # Diff CLI output against PDF golden files
-make generate-golden              # Regenerate golden files for all 30 forms (gitignored)
-
 # Quality gates
 make check-text                   # scan for PDF extraction artifacts
 make check-text --strict          # same but exits non-zero on findings
@@ -88,7 +84,6 @@ python3 tools/detect_office_bounds.py --write   # regenerate after PDF change
 
 ```bash
 npx vitest run -t "pattern"       # run a single Vitest test
-make check-book FORM=allsaints-mp  # diff one form against golden file
 ```
 
 ## Architecture

@@ -49,14 +49,16 @@ The text renderer is tested by:
 1. **Vitest unit tests** — call `renderSegmentsText` for each section type
    (opening responses, canticle, litany, dismissal) with known segment data
    and assert the text output matches expectations.
-2. **Golden-file comparison** — `make check-book` diffs `cli/book.js` output
-   (which uses `renderSegmentsText`) against PDF-derived golden files for all
-   31 forms. This exercises the full rendering path with all options active.
-3. **Structural smoke tests** — `make test-full` verifies that all 38 forms
+2. **Structural smoke tests** — `make test-full` verifies that all 38 forms
    (31 seasonal + 7 Ordinary Time weekday variants) produce text containing the
    six canonical section headings.
 
-Option combinations are covered by the golden-file tests: each of the 31 forms
+_Amended 2026-07-30: the golden-file comparison described above was removed
+(see issue #35). It was a second PDF→text implementation that shared the span
+layer with the main pipeline, so it could not act as an independent oracle,
+and it drifted badly once unmaintained._
+
+Option combinations are covered by the remaining tests: each of the 31 forms
 exercises a realistic combination of `verse`, `showLabel`, `skipRubrics`, and
 `skipShortLabels` as appropriate for its season and office type.
 
