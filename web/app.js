@@ -1265,11 +1265,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') { closeSettings(); closeDayPicker(); }
-    if (e.key === 'b' && !e.target.matches('input,select,textarea')) {
-      const isBook = document.body.classList.toggle('book-mode');
-      syncViewModeUI(isBook);
-      storageSet(bookModeKey, isBook ? '1' : '0');
-    }
   });
 
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
@@ -1348,17 +1343,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     tabs[next].focus();
   });
 
-  document.addEventListener('keydown', e => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.isContentEditable) return;
-    if (e.key === 'ArrowLeft'  || e.key === 'h') { navigateTo(offsetDate(state.date, -1), state.office); }
-    if (e.key === 'ArrowRight' || e.key === 'l') { navigateTo(offsetDate(state.date, +1), state.office); }
-    if (e.key === 'm') { navigateTo(state.date, 'mp'); }
-    if (e.key === 'e') { navigateTo(state.date, 'ep'); }
-    if (e.key === 't') { navigateTo(todayStr(), defaultOffice()); }
-  });
-
   initEvalBanner();
-
   // Warm up static fetches.
   fetchOnce('offices',  `${DATA}/offices.json`);
   fetchOnce('collects', `${DATA}/collects.json`);
