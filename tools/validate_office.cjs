@@ -143,11 +143,17 @@ async function main() {
 
   // ── Tier 2: Format (penalty: -3) ────────────────────────────────────
 
-  // Sections whose line breaks are intentional liturgical structure.
-  // The no-prose-line-breaks rule skips these.  Must stay in sync with
-  // _VERSE_SECTIONS in tools/extract_offices.py (line ~789).
+  // Sections that contain *any* intentional line breaks, so no-prose-line-breaks
+  // must not treat a \n here as a prose orphan.
+  //
+  // This is deliberately a SUPERSET of _VERSE_SECTIONS in extract_offices.py,
+  // which answers a stricter question: "are ALL breaks here intentional, so
+  // _LINE_JOIN must never fire?".  A section can hold both real verse breaks and
+  // PDF column wraps — thanksgiving_for_light prints as verse ("Blessed are you,
+  // Sovereign God, / creator of light and darkness,") yet its 4 joinable breaks
+  // are all wraps.  Such a section belongs here but not there.  See #36.
   const VERSE_SECTIONS = ['opening_responses', 'responsory', 'canticle', 'invitatory',
-    'phos_hilaron', 'thanksgiving_for_light', 'lords_prayer_intro', 'lords_prayer',
+    'phos_hilaron', 'thanksgiving_for_light', 'lords_prayer_intro',
     'intercessions', 'affirmation', 'litany', 'dismissal'];
 
   rules.push({ name: 'no-prose-line-breaks', tier: 2, check(form, formKey, data) {
