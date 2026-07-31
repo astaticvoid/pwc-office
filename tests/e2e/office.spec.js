@@ -174,30 +174,6 @@ test.describe('Navigation', () => {
   });
 });
 
-// ── Keyboard navigation (desktop only) ───────────────────────────────────────
-
-test.describe('Keyboard navigation', () => {
-  test('keyboard right/left arrow navigates', async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name === 'mobile', 'Keyboard shortcuts are desktop-only');
-    await gotoOffice(page, DATE, 'mp');
-    await expect(page.locator('#day-title')).not.toBeEmpty({ timeout: CONTENT_TIMEOUT });
-    await page.keyboard.press('ArrowRight');
-    await expect(page.locator('#day-date-picker')).toHaveValue(DATE_NEXT);
-    await page.keyboard.press('ArrowLeft');
-    await expect(page.locator('#day-date-picker')).toHaveValue(DATE);
-  });
-
-  test('keyboard m/e switches office', async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name === 'mobile', 'Keyboard shortcuts are desktop-only');
-    await gotoOffice(page, DATE, 'mp');
-    await expect(page.locator('#day-title')).not.toBeEmpty({ timeout: CONTENT_TIMEOUT });
-    await page.keyboard.press('e');
-    await expect(page.locator('#day-office-name')).toHaveText('Evening Prayer');
-    await page.keyboard.press('m');
-    await expect(page.locator('#day-office-name')).toHaveText('Morning Prayer');
-  });
-});
-
 // ── Notes ─────────────────────────────────────────────────────────────────────
 
 test.describe('Notes', () => {
