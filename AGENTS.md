@@ -45,8 +45,10 @@ make test-web                     # Playwright E2E — auto-starts web/ server o
 
 # Quality assurance
 node tools/validate_office.cjs    # 6 liturgical rules against all 30 forms
+node tools/validate_css.cjs       # structural CSS validity (web/*.css)
+node tools/validate_lectionary.cjs # every date × office: citation syntax + resolution
 node tools/audit_office.cjs       # cross-form statistical outlier detection (z-score)
-node tools/compare_staging.cjs    # A/B diff staging vs production rendered DOM
+node tools/compare_staging.cjs [date] [mp|ep]  # A/B diff staging vs production rendered DOM
 node tools/review_form.cjs FORM   # line-numbered text renderer for manual review
 
 # CLI book-mode checks
@@ -153,7 +155,7 @@ Extraction pipeline (run via `make extract`):
 
 | File | Role |
 |------|------|
-| `validate_css.cjs` | Structural CSS validity for every file in `web/*.css`: no style rule nested inside another style rule's declaration block (only `@media`/`@supports`/etc. and `@keyframes` bodies may nest), and brace-balance at end of file. Catches an unclosed/stray rule silently swallowing the rest of the stylesheet — this happened for real (see BUGS.md 2026-07-27) and nothing else in this project's test suite validates CSS syntax at all. |
+| `validate_css.cjs` | Structural CSS validity for every file in `web/*.css`: no style rule nested inside another style rule's declaration block (only `@media`/`@supports`/etc. and `@keyframes` bodies may nest), and brace-balance at end of file. Catches an unclosed/stray rule silently swallowing the rest of the stylesheet — this happened for real (see issue #22) and nothing else in this project's test suite validates CSS syntax at all. |
 | `validate_office.cjs` | 6 liturgical rules checked against all 30 forms (Amen presence, line breaks, stray spaces, section completeness) |
 | `validate_lectionary.cjs` | Every date × office (397 × 2) in the lectionary: syntax checks (well-formed citations) **and** resolution checks (collect page/psalm number/lesson citation actually resolves to real data in collects.json/psalter.json/translations — not just a well-formed reference). Reuses the exact runtime resolution functions from `web/render.js`, not reimplementations. Run this after any re-extraction, especially a new lectionary year. |
 | `audit_office.cjs` | Cross-form statistical audit — 14 metrics, 4 peer groups, 2σ z-score outlier detection |
@@ -168,7 +170,12 @@ Capacitor wraps `dist/` as a native app (`capacitor.config.json`, `webDir: dist`
 
 ## Bug tracking
 
-`BUGS.md` is the active tracker for open issues, near-term plan, and parked items. When triaging bugs, note findings there with a date. The "Field observations" inbox section (top of file) is for user reports that need later triage. Batch specs were consolidated into `BUGS.md` (`docs/HANDOFF.md` deleted 2026-07-18).
+All task tracking lives in [GitHub Issues](https://github.com/astaticvoid/pwc-office/issues) — there is no in-repo tracker. `BUGS.md` was retired 2026-07-30 and its full history migrated: every resolved entry is a closed issue, so a `see issue #N` comment in the source resolves to the original writeup.
+
+- **Triaging a user report** — open an issue rather than noting it in a file. Label `bug`; leave it unlabelled for severity until investigated.
+- **Fixing a bug** — close its issue with the findings in the closing comment. That writeup is the durable record; keep it detailed enough that a future session can reconstruct *why*, not just *what*.
+- **Citing rationale from code** — reference the issue number (`see issue #13`), not a date or a file. Issue numbers are stable; the tracker file was not.
+- **Parked work** — an open issue with no milestone, not a "Parked" list.
 
 ## Hard constraints
 
