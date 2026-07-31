@@ -473,8 +473,7 @@ export function renderSubsection(label, segs, shared, verse = false) {
 }
 
 // form.invitatory's extracted "label" segment carries the PDF's full heading
-// ("Invitatory Psalm: Psalm 95:1–7") — see BUGS.md "Invitatory Psalm heading
-// dropped its psalm number". The subsection already gets an "Invitatory Psalm"
+// ("Invitatory Psalm: Psalm 95:1–7") — see issue #1. The subsection already gets an "Invitatory Psalm"
 // title bar (matching Introductory Responses etc.), so strip the redundant
 // prefix here and let just the citation render as the italic seg-label line.
 const INVITATORY_LABEL_PREFIX = /^Invitatory Psalm:\s*/i;
