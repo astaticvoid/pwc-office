@@ -417,7 +417,7 @@ async function renderPsalm(citStr) {
 // to render.js (2026-07-27) — pure logic, needed by validate_lectionary.cjs to
 // verify every lectionary reading resolves to real verses, and render.js is the
 // module non-browser tools can safely import (app.js touches `window` at
-// module scope). See BUGS.md.
+// module scope). See issue #19.
 
 /**
  * Render a chapter's verses as HTML paragraphs.
@@ -531,7 +531,7 @@ function proclamationHtml(officeData, form, shared) {
 // The BAS book collects (data/collects.json) print without a closing "Amen."
 // (the reader supplies it), while the seasonal collects carry one rendered
 // bold as a congregational response. For consistency we add it here too —
-// a deliberate divergence from the printed source. See BUGS.md.
+// a deliberate divergence from the printed source. See issue #8.
 function collectTextHtml(text) {
   const m = text.match(/^([\s\S]+?)\s*Amen\.?\s*$/);
   const body = m ? m[1] : text;
