@@ -465,6 +465,65 @@ def _extract_occasional_prayers(pdf, collects: dict) -> None:
             print(f"  WARNING: occ prayer #{num} not found (needed for p.{page})")
 
 
+# ── Supplemental collect (outside main Proper range) ──────────────────────────
+
+# BAS pp. 668-669: the collect for the Feast of Dedication of a Church lives in
+# the "Parish Thanksgiving" Occasional Services section. It has no "Collect"
+# heading, so the main loop skips it. Extract it explicitly from the PDF rather
+# than maintaining a hand-typed copy.
+_SUPPLEMENTAL_START = re.compile(
+    r'The\s+celebrant\s+sings\s+or\s+says\s+either\s+the\s+Collect\s+of\s+the\s+Day\s+or\s+the\s+following:'
+)
+_SUPPLEMENTAL_END = re.compile(r'\bAmen\.')
+
+
+def _extract_supplemental_collect(pdf, collects: dict, bas_txt: str) -> None:
+    """Extract the collect from BAS pp. 668-669 (Parish Thanksgiving)."""
+    total = len(pdf)
+    if total < 669:
+        return
+
+    def extract_from_text(page668: str, page669: str) -> str | None:
+        page668 = _RUNNING_HEADER.sub("", page668, count=1)
+        page669 = _RUNNING_HEADER.sub("", page669, count=1)
+        m = _SUPPLEMENTAL_START.search(page668)
+        if not m:
+            return None
+        body = page668[m.end():] + "\n" + page669
+        end = _SUPPLEMENTAL_END.search(body)
+        if not end:
+            print("ERROR: supplemental collect on p.668 has no closing Amen.",
+                  file=sys.stderr)
+            sys.exit(1)
+        return _clean(body[:end.end()])
+
+    page668 = pdf[667].get_text() or ""
+    page669 = pdf[668].get_text() or ""
+    text = extract_from_text(page668, page669)
+
+    # Fall back to whole-document text if per-page extraction is garbled.
+    if text is None or is_garbled(text):
+        m = _SUPPLEMENTAL_START.search(bas_txt)
+        if m:
+            body = bas_txt[m.end():]
+            end = _SUPPLEMENTAL_END.search(body)
+            if end:
+                text = _clean(body[:end.end()])
+                print(f"  supplemental p.668  (txt fallback)")
+
+    if not text:
+        print("ERROR: could not extract supplemental collect on p.668",
+              file=sys.stderr)
+        sys.exit(1)
+
+    collects["668"] = {
+        "name": "Anniversary of a Parish / Feast of Dedication",
+        "section": "Occasional Services",
+        "text": text,
+    }
+    print(f"  supplemental p.668  'Anniversary of a Parish / Feast of Dedication'")
+
+
 # ── Main extraction loop ──────────────────────────────────────────────────────
 
 def run():
@@ -546,30 +605,9 @@ def run():
         print("\nExtracting Occasional Prayers (pp.676-683)...")
         _extract_occasional_prayers(pdf, collects)
 
-    # ── Supplemental collects outside the main extraction range ──────────────
-    # These are from Occasional Services / other BAS sections not covered by
-    # the page scan above. Add manually after verifying against the PDF.
-    collects["668"] = {
-        "name": "Anniversary of a Parish / Feast of Dedication",
-        "section": "Occasional Services",
-        # BAS pp. 668–669: collect for the Feast of Dedication of a Church.
-        "text": (
-            "Almighty God,\n"
-            "watchful and caring,\n"
-            "our source and our end,\n"
-            "all that we are and all that we have are yours.\n"
-            "Accept us now,\n"
-            "as we give thanks to you for this place\n"
-            "where we have come to praise your name,\n"
-            "to ask your forgiveness,\n"
-            "to know your healing power,\n"
-            "to hear your word,\n"
-            "and to be nourished by the body and blood of your Son.\n"
-            "Be present always to guide and to judge,\n"
-            "to illumine and to bless your people.\n"
-            "This we pray in the name of Jesus Christ our Lord. Amen."
-        ),
-    }
+        # ── Supplemental collect outside the main extraction range ───────────────
+        print("\nExtracting supplemental collect...")
+        _extract_supplemental_collect(pdf, collects, bas_txt)
 
     # BUG-29: collect texts are single prose prayers; the PDF's column-width
     # hard wraps are typographic, not semantic. Join internal line breaks so the
@@ -609,6 +647,10 @@ def run():
         ("680", "name",   "For Industry and Commerce"),
         ("680", "text",   "dignified our labour"),
         ("680", "section","Occasional Prayers"),
+        # Supplemental collects (Occasional Services)
+        ("668", "name",   "Anniversary of a Parish / Feast of Dedication"),
+        ("668", "text",   "watchful and caring"),
+        ("668", "section", "Occasional Services"),
     ]
     print("\nSpot checks:")
     ok = True
