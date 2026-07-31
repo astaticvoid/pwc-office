@@ -30,7 +30,7 @@ correction mechanisms, which are removed as part of the implementation.
 
 ### Manifest structure
 Corrections are organized by data type as top-level keys. Each entry carries:
-- `id` — unique identifier; maps to a BUGS.md entry or GitHub issue
+- `id` — unique identifier; maps to a GitHub issue
 - `source` — provenance: `"editorial"`, `"acc-csv-error"`, or `"pwc-pdf-error"`
 - Target locator — varies by category. Office text uses `{office, field}`.
   Lectionary uses `{date, office, index}`. Psalter uses `{psalm, …}`.
@@ -109,7 +109,7 @@ the schema and checked by `validate_corrections.py` yet never actually
 `extract_psalter.py`, `extract_fats.py`, and `convert_lectionary.py` kept
 doing the real work independently, silently drifting from the manifest.
 This was found and finished during a follow-up audit (the same one that
-produced the canticle/litany/collects fixes logged in BUGS.md 2026-07-26/27),
+produced the canticle/litany/collects fixes in #11, #9, and #10),
 prompted by the user asking to push data-correction cleanup as far as it
 would go.
 

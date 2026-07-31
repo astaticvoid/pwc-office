@@ -122,7 +122,7 @@ proposal.
   re-run the full extraction, diff against baseline, and verify any surviving
   effect against a rendered pixmap of the actual page — is reusable for
   auditing whether any future extraction "fix" is still earning its keep.
-  Full trail recorded in `BUGS.md`, dated 2026-07-26.
+  Full trail recorded in issue #4.
 - `docs/ASSESSMENT-2026-07.md` and `docs/CORRECTNESS.md` are historical audit
   records from when `check_casing.py` was introduced and still describe it
   as load-bearing; they are left unedited as a record of what was true when

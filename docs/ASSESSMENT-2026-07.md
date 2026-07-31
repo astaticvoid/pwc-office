@@ -1,6 +1,8 @@
 # PWC — Project Assessment & Strategy Validation
 
-_Written 2026-07-05 during a full audit. Audience: the project owner and future implementing sessions (including smaller models). This document holds the **reasoning**; the executable work lives in `docs/HANDOFF.md` (Batch 18/19), `BUGS.md`, and `ROADMAP.md`. When this document and a spec disagree, the spec wins — but update whichever is wrong._
+_Written 2026-07-05 during a full audit. Audience: the project owner and future implementing sessions (including smaller models). This document holds the **reasoning**._
+
+_Historical record. `docs/HANDOFF.md`, `BUGS.md`, and `ROADMAP.md` — the trackers it refers to throughout — have since been retired; all task tracking now lives in [GitHub Issues](https://github.com/astaticvoid/pwc-office/issues). Body references to those files are preserved as written in July 2026._
 
 ---
 
@@ -92,7 +94,7 @@ One residual risk to track: **the Capacitor store builds bundle the texts into t
 2. **Evidence before patches.** Any text/casing correction must cite `pdftotext` output (line numbers) or the Batch 19 oracle. If the oracle and pdfplumber disagree, pdftotext wins for *casing*; pdfplumber wins for *layout/structure*.
 3. **Follow Batch 18 in order, one commit per fix, push each.** Re-extract + full gates after every extractor change. Expected-output greps in the spec are acceptance criteria, not suggestions.
 4. **When a fix touches ≥4 similar instances, stop and write a parser rule instead of enumerated patches** (the BUG-25/26/33 lesson). If unsure which layer a correction belongs in, consult the table in §3.
-5. **Don't expand scope mid-batch.** Parked decisions (§6) need the owner; note new findings in BUGS.md "Field observations" and move on.
+5. **Don't expand scope mid-batch.** Parked decisions (§6) need the owner; open a GitHub issue for new findings and move on.
 6. **The priority order is: Batch 18 → Batch 19 → mobile milestones (ROADMAP §5.4).** Mobile is the ACC's prime desire; correctness fixes come first only because they're small and trust-critical.
 
 ## 9. Model routing (added 2026-07-06)
@@ -109,6 +111,6 @@ Right-size the model to the cognitive load of the task, and right-size the *orch
 
 - **Do NOT delegate trivial glue.** `git commit`, a 5-line edit in a file the orchestrator already has loaded, a single grep — the orchestrator (kept on a strong model) does these inline. Serializing working-tree state into a subagent prompt costs more than the op.
 - **Do NOT delegate work already in the orchestrator's context** mid-batch. If the files and mental model are loaded, finishing inline beats a cold agent re-reading everything to write 20 lines.
-- **DO delegate the independent audit.** After a batch, a fresh Fable/Opus agent reads the diffs against the evidence with no confirmation bias — bounded context (diffs + BUGS.md + PDF), high value. This is the delegation that pays.
+- **DO delegate the independent audit.** After a batch, a fresh Fable/Opus agent reads the diffs against the evidence with no confirmation bias — bounded context (diffs + the relevant issue + PDF), high value. This is the delegation that pays.
 - **DO delegate genuinely parallel or cold-start work.** Future batches begun fresh; several independent fixes at once. For parallel *data-pipeline* fixes use `isolation: worktree` — `make extract` mutates shared `data/`, so concurrent extractor edits collide without it.
 - When delegating, pass the model explicitly and hand the subagent the spec section + exact acceptance greps so it doesn't re-plan.
