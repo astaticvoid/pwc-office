@@ -31,11 +31,13 @@ extract:
 	$(PYTHON) tools/extract_collects.py
 	$(PYTHON) tools/extract_fats.py
 	$(PYTHON) tools/convert_lectionary.py --window 12
-# Corrections run last, after every extractor has produced pristine output.
-# convert_lectionary.py rewrites data/lectionary/ wholesale, so it must come
-# before apply_corrections.py or it discards the lectionary corrections; and
-# validate_corrections.py checks PRE-application state, so it must see freshly
-# converted data or it reports every lectionary correction as stale. See #37.
+# Corrections run after the extractors because they consume the .build/ stage-1
+# artifacts, which is a data dependency rather than a rule anyone has to hold in
+# their head. The ordering hazard this comment used to describe is gone (#49):
+# convert_lectionary.py writes .build/lectionary/ and so cannot discard published
+# corrections, and validate_corrections.py names the pre-correction artifacts and
+# so cannot see corrected output whatever order things run in. Verified by running
+# validate after apply — the order that used to report every correction as stale.
 	$(PYTHON) tools/validate_corrections.py
 	$(PYTHON) tools/apply_corrections.py
 	$(PYTHON) tools/update_extract_manifest.py
@@ -172,10 +174,11 @@ test-web:
 #   make extract-diff EXPECT=0        # a refactor must change nothing
 #   make extract-diff                 # or just look at what moved
 #
-# The baseline comes from a FULL pipeline run, never from extract_offices.py on
-# its own: that writes a complete-looking data/offices.json whose _shared is
-# missing the three blocks normalize_offices.py creates, and diffing against it
-# produces confident nonsense. See #48.
+# The baseline comes from a FULL pipeline run, which this target guarantees by
+# depending on `extract`. Before #48 a standalone extract_offices.py wrote a
+# complete-looking data/offices.json whose _shared was missing three blocks, and
+# diffing against it produced confident nonsense; the stages now write separate
+# artifacts, so an intermediate can no longer be mistaken for the finished file.
 BASELINE = .build/baseline
 
 extract-baseline: extract

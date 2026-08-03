@@ -25,16 +25,21 @@ CORRECTIONS = DATA / "corrections.json"
 _misses: list[str] = []
 
 
-def _apply_replace(path: Path, corrections: list, locate, describe, on_applied=None):
+def _apply_replace(in_path: Path, out_path: Path, corrections: list, locate,
+                   describe, on_applied=None):
     """Generic 'find old substring, replace with new' applier for a list of
     corrections against one JSON file. `locate(data, c)` returns the mutable
     container to correct plus its field name (container, field), or None if
     not found. `describe(c)` returns a short id string for logging.
     `on_applied(container, c)`, if given, runs after a successful replace —
-    e.g. to stamp provenance metadata alongside the corrected field."""
+    e.g. to stamp provenance metadata alongside the corrected field.
+
+    Reads `in_path` and writes `out_path`, always — the output is a separate
+    artifact that downstream stages read by name, so skipping the write when
+    nothing applied would leave them consuming a stale copy (#49)."""
     if not corrections:
         return
-    data = json.loads(path.read_text())
+    data = json.loads(in_path.read_text())
     applied = 0
     for c in corrections:
         located = locate(data, c)
@@ -51,9 +56,35 @@ def _apply_replace(path: Path, corrections: list, locate, describe, on_applied=N
             on_applied(container, c)
         applied += 1
         print(f"  {c['id']}: {describe(c)}")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
     if applied:
-        path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
-        print(f"  Applied {applied} correction(s) → {path}")
+        print(f"  Applied {applied} correction(s) → {out_path}")
+
+
+def _seed_lectionary() -> None:
+    """Mirror .build/lectionary/ into data/lectionary/ before corrections run.
+
+    The five date-keyed appliers (lessons, names, ranks, colours, notes) each
+    walk the months they have corrections for, so they have to accumulate: if
+    every one re-read the pristine build artifact, the last would discard the
+    others' work. Three months carry two correction types and regressed exactly
+    that way when this was first written.
+
+    So the published copy is seeded once here and corrected in place after. The
+    build artifact is still never written, and months that lost their corrections
+    or dropped out of the source cannot linger, because the mirror is exact.
+    """
+    src, dst = BUILD / "lectionary", DATA / "lectionary"
+    if not src.exists():
+        return
+    dst.mkdir(parents=True, exist_ok=True)
+    wanted = {p.name for p in src.glob("*.json")}
+    for stale in dst.glob("*.json"):
+        if stale.name not in wanted:
+            stale.unlink()
+    for month in sorted(src.glob("*.json")):
+        (dst / month.name).write_text(month.read_text())
 
 
 def _apply_by_date(corrections: list, mutate, describe=None):
@@ -70,6 +101,7 @@ def _apply_by_date(corrections: list, mutate, describe=None):
         by_month.setdefault(c["date"][:7], []).append(c)
     for month, month_corrections in by_month.items():
         path = DATA / "lectionary" / f"{month}.json"
+        out_path = path
         if not path.exists():
             for c in month_corrections:
                 _misses.append(f"{c['id']}: month file {month}.json not found")
@@ -87,8 +119,8 @@ def _apply_by_date(corrections: list, mutate, describe=None):
                 print(f"  {c['id']}: {describe(c) if describe else c['date']}")
             else:
                 _misses.append(f"{c['id']}: {describe(c) if describe else c['date']} — old value mismatch")
-        if changed:
-            path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
     if applied:
         print(f"  Applied {applied} correction(s)")
 
@@ -137,7 +169,8 @@ def main():
 
     if corrections.get("psalter"):
         _apply_replace(
-            DATA / "psalter.json", corrections["psalter"],
+            BUILD / "psalter.1-extract.json", DATA / "psalter.json",
+            corrections["psalter"],
             locate=lambda data, c: (
                 (data[pnum], "text") if (pnum := str(c["psalm"])) in data else None
             ),
@@ -147,10 +180,10 @@ def main():
 
     # FATS (saint biography) corrections — substring replace within one field.
     if corrections.get("fats"):
-        path = DATA / "fats" / "saints.json"
+        path = BUILD / "fats-saints.1-extract.json"
         if path.exists():
             _apply_replace(
-                path, corrections["fats"],
+                path, DATA / "fats" / "saints.json", corrections["fats"],
                 locate=lambda data, c: (
                     (data[skey], c["field"])
                     if (skey := c.get("saint") or c.get("saint_key")) in data and c.get("field")
@@ -175,6 +208,11 @@ def main():
         else:
             lessons[idx] = c["new"]
         return True
+
+    # Seed the published months from the build artifact before any date-keyed
+    # applier runs. They accumulate against data/lectionary/, so this is the one
+    # point where the pristine input is copied across.
+    _seed_lectionary()
 
     _apply_by_date(
         corrections.get("lectionary_citations", []), _mutate_citation,

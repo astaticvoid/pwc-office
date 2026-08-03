@@ -17,7 +17,8 @@ import fitz
 ROOT = Path(__file__).parent.parent
 PDF_PATH = ROOT / 'sources' / 'For-All-The-Saints.pdf'
 OUT_DIR = ROOT / 'data' / 'fats'
-OUT_FILE = OUT_DIR / 'saints.json'
+# Stage 1: apply_corrections.py reads this and writes data/fats/saints.json.
+OUT_FILE = ROOT / '.build' / 'fats-saints.1-extract.json'
 
 MONTHS = (
     'January', 'February', 'March', 'April', 'May', 'June',
