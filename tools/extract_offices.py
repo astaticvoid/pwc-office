@@ -165,6 +165,106 @@ def _reflow_leader_prose(segs: list) -> list:
                 _reflow_leader_prose(g.get("segments", []))
     return segs
 
+
+# Litany line breaks are decided per break from page geometry, not per section.
+# The litany is the one genuinely mixed section: seasonal forms set it as verse
+# (the Advent litany is the O Antiphons, lines ending 90-215pt short of the
+# margin) while ordinary-time forms end with prose collects that really do wrap
+# ("...you create us by your power and redeem us by your / love"). Measured
+# across all 168 litany breaks, the end-of-line gap is bimodal: 67 breaks under
+# 30pt, 83 over 70pt, and 18 between. See #39.
+_LITANY_WRAP_MAX_GAP = 30.0    # below this the line ran to the margin -> wrap
+_LITANY_VERSE_MIN_GAP = 70.0   # above this the break was unambiguously chosen
+# Body leading is ~12.5pt and a paragraph boundary ~21pt; 16 sits between them,
+# the same split spans_to_typed_lines already uses for creed stanza breaks.
+_LITANY_PARAGRAPH_LEAD = 16.0
+
+# The 18 breaks in the valley, adjudicated by hand against the PDF (2026-08-02).
+# Only the joins need naming; a valley break that is not listed is kept, which is
+# the conservative direction (it preserves text rather than destroying it), and
+# warns so a re-cut PDF cannot silently change lineation. Keyed by the text of
+# the line the break follows.
+_LITANY_VALLEY_JOIN = frozenset({
+    "Bring those who are drawing to near to the light of faith to true",
+    # Wrapped despite 42pt of slack: the next word ("goodwill:") is wide enough
+    # that it could not have fitted. Gap alone cannot see this; the adjudication
+    # is what covers it.
+    "That your holy angels may lead us in the paths of peace and",
+})
+_LITANY_VALLEY_KEEP = frozenset({
+    "Let all peoples acknowledge your reign of justice and peace",
+    "help the Church to reveal the mystery of your love",
+    "Inspire the King, the Governor General, the Prime Minister,",
+    "Strengthen the faith of those who are preparing for baptism",
+    "Grant a peaceful end and eternal rest to all who are dying",
+    "For the poor, the persecuted, the sick, and all who suffer;",
+    "In the hour of death you heard the penitent thief",
+    "Let us give thanks to the God of all the faithful.",
+    "Creator of the heavens, lead all peoples into a common life",
+    "O Branch of Jesse standing as a sign among the nations,",
+    "Inspire all who have consecrated their lives to your reign",
+    "let us offer our prayers before the throne of grace, saying,",
+    "Direct our lives in the same spirit of service and sacrifice",
+    "O God of our salvation, guard and direct your Church",
+    "Strengthen all who are persecuted for your name’s sake,",
+    "Let us pray, saying, “Giver of life, hear our prayer.”",
+    "Teach us to use your creation for your greater praise,",
+    "Source of all being, you call us to live together in unity:",
+    "May all who with Christ have entered the shadow of death",
+    "Let us pray to God the Holy Spirit, saying,",
+    "For all that is gracious in the lives of men and women,",
+    "Grant your salvation to all who are far from home,",
+})
+
+
+def _reflow_litany(segs: list, office_key: str = "") -> list:
+    """Join only those litany breaks the typesetter was forced into.
+
+    Replaces the unconditional join that _reflow_leader_prose applies, which
+    flattened every petition in all 31 forms (#39).
+    """
+    for seg in segs:
+        if seg.get("type") == "alternatives":
+            for g in seg.get("groups", []):
+                _reflow_litany(g.get("segments", []), office_key)
+            continue
+        if seg.get("type") != "leader" or not seg.get("text"):
+            continue
+        lines = seg["text"].split("\n")
+        gaps = seg.get("break_gaps", [])
+        leads = seg.get("break_leads", [])
+        if len(gaps) != len(lines) - 1 or len(leads) != len(gaps):
+            # Alignment lost — a later pass rewrote the text. Fall back to the
+            # historical behaviour rather than guessing at which break is which.
+            _dbg(f"  LITANY gap misalignment ({len(gaps)} gaps, {len(lines)} lines)"
+                 f" — joining unconditionally", office=office_key)
+            seg["text"] = re.sub(r"\s*\n\s*", " ", seg["text"]).strip()
+            continue
+        out = lines[0]
+        for i, nxt in enumerate(lines[1:]):
+            gap = gaps[i]
+            line = lines[i].strip()
+            if leads[i] > _LITANY_PARAGRAPH_LEAD:
+                # Extra leading below the line — a paragraph or stanza boundary.
+                # The typesetter cannot open up space by wrapping, so this is
+                # decisive regardless of how full the line ran.
+                join = False
+            elif gap < _LITANY_WRAP_MAX_GAP:
+                join = True
+            elif gap >= _LITANY_VERSE_MIN_GAP:
+                join = False
+            elif line in _LITANY_VALLEY_JOIN:
+                join = True
+            elif line in _LITANY_VALLEY_KEEP:
+                join = False
+            else:
+                join = False
+                print(f"  WARNING [{office_key}] unadjudicated litany break at "
+                      f"gap={gap:.1f}pt, kept: {line[:60]!r}", file=sys.stderr)
+            out += (" " if join else "\n") + nxt.strip()
+        seg["text"] = re.sub(r"[ \t]+", " ", out).strip()
+    return segs
+
 def _merge(segs: list[dict]) -> list[dict]:
     """Merge consecutive segments of the same type into one.
 
@@ -206,7 +306,16 @@ def _merge(segs: list[dict]) -> list[dict]:
         if can_merge:
             # Truncated continues rubric: join with space (mid-sentence continuation).
             sep = " " if prev_is_truncated_continues else "\n"
+            if sep == "\n":
+                # Record the geometry of the break, so _reflow_litany can judge
+                # each one individually later: the end-of-line gap of the line
+                # the break follows, and the leading opened up below it. Both
+                # lists stay index-aligned with the "\n"s in prev["text"].
+                prev.setdefault("break_gaps", []).append(prev.get("gap", 0.0))
+                prev.setdefault("break_leads", []).append(seg.get("lead", 0.0))
             prev["text"] += sep + seg["text"]
+            # The segment now ends where `seg` ends.
+            prev["gap"] = seg.get("gap", 0.0)
         else:
             merged.append(dict(seg))
     return [s for s in merged if s["text"].strip()]
@@ -664,9 +773,15 @@ def _normalize_whitespace(offices: dict) -> dict:
     # matched the reflow test on 63% of responsory breaks, 7% of
     # opening_responses, and 0% of thanksgiving_for_light. Do not reintroduce it;
     # see #38 and the revert of c81b341.
+    # `litany` is here for a different reason than the rest. Its breaks are not
+    # all intentional in the source, but by the time this runs _reflow_litany has
+    # already judged each one against the page geometry and joined the wraps, so
+    # every break that survives to here is deliberate. Letting the blanket regex
+    # run would silently undo that per-break work (#39).
     _VERSE_SECTIONS = frozenset({'affirmation', 'canticle', 'doxology', 'phos_hilaron',
                                  'invitatory', 'lords_prayer_intro', 'responsory',
-                                 'opening_responses', 'thanksgiving_for_light'})
+                                 'opening_responses', 'thanksgiving_for_light',
+                                 'litany'})
 
     # Join mid-sentence line breaks from PDF column wrapping.
     # Rule 1: \n + lowercase → always join (no verse text starts lowercase).
@@ -851,13 +966,13 @@ def _fix_shared_affirmation(offices: dict) -> dict:
 
 # ── Main extraction ───────────────────────────────────────────────────────────
 
-def extract_office(typed_lines: list[tuple[str, str]], office_key: str = "") -> dict:
+def extract_office(typed_lines: list[tuple[str, str, float, float]], office_key: str = "") -> dict:
     title = ""
     subtitle = ""
     header_done = False
-    filtered_lines: list[tuple[str, str]] = []
+    filtered_lines: list[tuple[str, str, float, float]] = []
 
-    for typ, text in typed_lines:
+    for typ, text, gap, lead in typed_lines:
         if _is_noise(typ, text):
             _dbg(f"  NOISE [{typ}] {repr(text[:60])}", office=office_key)
             continue
@@ -873,7 +988,7 @@ def extract_office(typed_lines: list[tuple[str, str]], office_key: str = "") -> 
                 continue
             if title and typ == "heading":
                 header_done = True
-        filtered_lines.append((typ, text))
+        filtered_lines.append((typ, text, gap, lead))
 
     _dbg(f"\n=== SECTION ASSIGNMENT: {office_key} ===", office=office_key)
 
@@ -889,7 +1004,7 @@ def extract_office(typed_lines: list[tuple[str, str]], office_key: str = "") -> 
             sections[current_key] = _merge(current_segs)
         current_segs = []
 
-    for typ, text in filtered_lines:
+    for typ, text, gap, lead in filtered_lines:
         if typ == "heading":
             key = _heading_to_key(text)
             raw_disp = repr(text[:60])
@@ -902,7 +1017,7 @@ def extract_office(typed_lines: list[tuple[str, str]], office_key: str = "") -> 
                         break
                 _dbg(f"  UNKNOWN-HDR → content in {current_key!r} as {content_type}: {raw_disp}", office=office_key)
                 if current_key is not None:
-                    current_segs.append({"type": content_type, "text": text})
+                    current_segs.append({"type": content_type, "text": text, "gap": gap, "lead": lead})
                 continue
             if key is _CONTINUE:
                 # Structural heading that keeps the current section active (e.g. Lord's Prayer
@@ -917,12 +1032,12 @@ def extract_office(typed_lines: list[tuple[str, str]], office_key: str = "") -> 
             # (invitatory headings carry the psalm citation, e.g. "Invitatory Psalm:
             # Psalm 95:1–7" — see issue #1).
             if key in ("phos_hilaron", "invitatory") and text:
-                current_segs.append({"type": "label", "text": text})
+                current_segs.append({"type": "label", "text": text, "gap": gap, "lead": lead})
             continue
 
         if current_key is not None:
             _dbg(f"  [{current_key}] {typ} {repr(text[:60])}", office=office_key)
-            current_segs.append({"type": typ, "text": text})
+            current_segs.append({"type": typ, "text": text, "gap": gap, "lead": lead})
         else:
             _dbg(f"  [NO-SECTION] {typ} {repr(text[:60])}", office=office_key)
 
@@ -957,10 +1072,10 @@ def extract_office(typed_lines: list[tuple[str, str]], office_key: str = "") -> 
     if "seasonal_collects" in sections:
         _reflow_leader_prose(sections["seasonal_collects"])
 
-    # Litany leaders are prose too (see _reflow_leader_prose docstring for
-    # why this isn't treated differently from seasonal_collects).
+    # Litany is mixed verse and prose, so each break is judged on its own
+    # geometry rather than section-wide (#39).
     if "litany" in sections:
-        _reflow_leader_prose(sections["litany"])
+        _reflow_litany(sections["litany"], office_key)
 
     # Fold Berakah prayer blessing conclusions into nested alternatives inside
     # group II of seasonal opening_responses (not applicable to ordinary-time).
@@ -975,6 +1090,21 @@ def extract_office(typed_lines: list[tuple[str, str]], office_key: str = "") -> 
         sections["thanksgiving_for_light"] = _split_thanksgiving(
             sections["thanksgiving_for_light"]
         )
+
+    # Drop the geometry carried through merging. It must not reach the output,
+    # and must not survive into _dedup_shared: gaps differ per form, so leaving
+    # them on would stop identical blocks from comparing equal.
+    def _strip_internal(segs: list) -> None:
+        for seg in segs:
+            seg.pop("gap", None)
+            seg.pop("break_gaps", None)
+            seg.pop("break_leads", None)
+            seg.pop("lead", None)
+            for g in seg.get("groups", []):
+                _strip_internal(g.get("segments", []))
+
+    for segs in sections.values():
+        _strip_internal(segs)
 
     # Build result.
     result: dict = {"title": title}
