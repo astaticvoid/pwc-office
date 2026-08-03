@@ -306,11 +306,16 @@ def _reflow_litany(segs: list, office_key: str = "") -> list:
         for i, nxt in enumerate(lines[1:]):
             gap, slack = gaps[i], slacks[i]
             line = lines[i].strip()
+            para = False
             if (leads[i] or 0) > _LITANY_PARAGRAPH_LEAD:
                 # Extra leading below the line — a paragraph or stanza boundary.
                 # The typesetter cannot open up space by wrapping, so this is
-                # decisive regardless of how full the line ran.
-                join = False
+                # decisive regardless of how full the line ran. Carry the
+                # division through as a blank line rather than flattening it to
+                # an ordinary break: in every litany this is the bidding
+                # ("Let us pray, saying, ...") standing apart from the first
+                # petition (#40).
+                join, para = False, True
             elif slack is not None and abs(slack) >= _SLACK_DECIDES:
                 # The decisive question: would the next line's first word have
                 # fitted here? If yes the break was chosen; if not it was forced.
@@ -328,7 +333,8 @@ def _reflow_litany(segs: list, office_key: str = "") -> list:
                 where = "unmeasurable (page break)" if slack is None else f"slack={slack:.1f}pt"
                 print(f"  WARNING [{office_key}] unadjudicated litany break, {where}, "
                       f"gap={gap:.1f}pt, kept: {line[:60]!r}", file=sys.stderr)
-            out += (" " if join else "\n") + nxt.strip()
+            sep = " " if join else ("\n\n" if para else "\n")
+            out += sep + nxt.strip()
         seg["text"] = re.sub(r"[ \t]+", " ", out).strip()
     return segs
 
