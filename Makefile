@@ -202,12 +202,25 @@ deploy-staging: check-integrity check-dist
 	# kept serving the previous copy. Production caching is unaffected — the
 	# releases/ objects below carry no cache-control and promote swaps the
 	# CloudFront origin path.
+	#
+	# Wiped first because `aws s3 sync` skips files whose content is unchanged,
+	# and cache-control is only written on upload — so an object keeps whatever
+	# TTL it was first uploaded with, forever. Changing the header above without
+	# this would leave every unchanged file on its old TTL. Staging is ~11MB, so
+	# re-uploading it wholesale each deploy is cheaper than reasoning about which
+	# objects carry stale metadata.
+	aws s3 rm s3://$(BUCKET)/staging/ --recursive --only-show-errors
 	aws s3 sync dist/ s3://$(BUCKET)/staging/ --delete \
-	  --exclude "*" --include "*.html" --include "*.js" --include "*.css" \
+	  --exclude "*" \
+	  --include "*.html" --include "*.js" --include "*.css" \
 	  --include "*.json" --include "*.png" --include "*.svg" --include "*.ico" \
+	  --exclude "sw.js" \
 	  --cache-control "max-age=60"
-	# sw.js: never cache — kill-switch must always be fresh
-	aws s3 sync dist/ s3://$(BUCKET)/staging/ --delete \
+	# sw.js: never cache — kill-switch must always be fresh. The exclude above
+	# must come after --include "*.js", since s3 filters apply in order and the
+	# last match wins; ahead of it, the *.js include would claim sw.js and this
+	# sync would then skip it as unchanged, leaving the kill-switch cacheable.
+	aws s3 sync dist/ s3://$(BUCKET)/staging/ \
 	  --exclude "*" --include "sw.js" \
 	  --cache-control "max-age=0, no-store"
 	@echo "Staging deployed: $(RELEASE)"
