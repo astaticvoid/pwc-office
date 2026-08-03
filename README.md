@@ -72,11 +72,14 @@ and are generated locally from source PDFs and the ACC lectionary.
 
 ### One-time setup
 
-Requires `PyMuPDF`:
+Requires `PyMuPDF`. Create the project venv:
 
 ```sh
-pip install pymupdf
+make venv
 ```
+
+`make` picks up `.venv/` automatically — no `activate` needed before
+`make extract`, `make test-tools`, or any other target.
 
 Source PDFs go in `sources/` (gitignored). Run `make fetch-sources` to
 download publicly available source files, then `make extract` to run the

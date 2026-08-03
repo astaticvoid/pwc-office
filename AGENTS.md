@@ -11,8 +11,13 @@ Instructions for automated tooling working in this repository.
 ```bash
 npm install
 npx playwright install              # Chromium browser for Playwright E2E tests
-python3 -m pip install pymupdf      # PDF extraction dependency (PyMuPDF)
+make venv                           # .venv with pymupdf (PDF extraction) + pytest
 ```
+
+Every Python target runs through `$(PYTHON)`, which resolves to `.venv/bin/python3`
+when the venv exists and falls back to the ambient `python3` otherwise (CI). No
+shell activation is needed. Installing directly into Homebrew's python3 is not
+supported — it is an externally-managed environment (PEP 668).
 
 Required environment variables in `.env` (gitignored):
 - No keys required. KJV scripture is bundled in `data/translations/kjv/` and works offline.
