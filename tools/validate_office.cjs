@@ -149,9 +149,14 @@ async function main() {
   // This is deliberately a SUPERSET of _VERSE_SECTIONS in extract_offices.py,
   // which answers a stricter question: "are ALL breaks here intentional, so
   // _LINE_JOIN must never fire?".  A section can hold both real verse breaks and
-  // PDF column wraps — thanksgiving_for_light prints as verse ("Blessed are you,
-  // Sovereign God, / creator of light and darkness,") yet its 4 joinable breaks
-  // are all wraps.  Such a section belongs here but not there.  See #36.
+  // PDF column wraps, and then belongs here but not there.  `litany` is the
+  // live case: ~110 of its 153 breaks are deliberate and the rest are true
+  // wraps, so it cannot be classified section-wide.
+  //
+  // thanksgiving_for_light was once described here as all-wraps.  That came from
+  // the trailing-space heuristic, which does not measure wrapping; remeasured by
+  // reflow, all 70 of its breaks are deliberate and it now sits in the Python
+  // set too.  See #36 and the revert of c81b341.
   const VERSE_SECTIONS = ['opening_responses', 'responsory', 'canticle', 'invitatory',
     'phos_hilaron', 'thanksgiving_for_light', 'lords_prayer_intro',
     'intercessions', 'affirmation', 'litany', 'dismissal'];

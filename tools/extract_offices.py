@@ -648,8 +648,25 @@ def _normalize_whitespace(offices: dict) -> dict:
     # PDF-column-wrap join below must not touch them. Must stay in sync with
     # VERSE_SECTIONS in tools/validate_office.cjs — enforced by
     # tools/tests/test_verse_sections_sync.py, not by this comment.
+    #
+    # responsory, opening_responses and thanksgiving_for_light were added after
+    # re-measuring every break with a reflow test — a break is a column wrap iff
+    # the next line's first word could not have fitted on the current line, which
+    # is a physical fact about the typeset page. Counts (deliberate/total):
+    # responsory 105/108, opening_responses 71/72, thanksgiving_for_light 70/70.
+    # Every apparent exception is a couplet that happens to end within ~30pt of
+    # the right margin, so nothing real is preserved by leaving them out.
+    #
+    # The earlier reading — that these sections were mostly column wraps — came
+    # from classifying breaks by the trailing space PyMuPDF leaves on a span.
+    # That signal marks "this line does not end the block", not "this line was
+    # wrapped", so verse lines carry it for the same reason prose lines do. It
+    # matched the reflow test on 63% of responsory breaks, 7% of
+    # opening_responses, and 0% of thanksgiving_for_light. Do not reintroduce it;
+    # see #38 and the revert of c81b341.
     _VERSE_SECTIONS = frozenset({'affirmation', 'canticle', 'doxology', 'phos_hilaron',
-                                 'invitatory', 'lords_prayer_intro'})
+                                 'invitatory', 'lords_prayer_intro', 'responsory',
+                                 'opening_responses', 'thanksgiving_for_light'})
 
     # Join mid-sentence line breaks from PDF column wrapping.
     # Rule 1: \n + lowercase → always join (no verse text starts lowercase).
