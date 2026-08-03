@@ -146,10 +146,12 @@ async function main() {
   // Sections that contain *any* intentional line breaks, so no-prose-line-breaks
   // must not treat a \n here as a prose orphan.
   //
-  // Column wraps are now resolved per-break by the trailing-space signature in
-  // the PDF (see #38).  The former _VERSE_SECTIONS / _LINE_JOIN allowlist in
-  // extract_offices.py no longer exists — this list is the single source for
-  // the validator.
+  // This is deliberately a SUPERSET of _VERSE_SECTIONS in extract_offices.py,
+  // which answers a stricter question: "are ALL breaks here intentional, so
+  // _LINE_JOIN must never fire?".  A section can hold both real verse breaks and
+  // PDF column wraps — thanksgiving_for_light prints as verse ("Blessed are you,
+  // Sovereign God, / creator of light and darkness,") yet its 4 joinable breaks
+  // are all wraps.  Such a section belongs here but not there.  See #36.
   const VERSE_SECTIONS = ['opening_responses', 'responsory', 'canticle', 'invitatory',
     'phos_hilaron', 'thanksgiving_for_light', 'lords_prayer_intro',
     'intercessions', 'affirmation', 'litany', 'dismissal'];
@@ -181,8 +183,9 @@ async function main() {
   }});
 
   // Minimum line count per phos_hilaron hymn (including stanza-break blank lines).
-  // Column wraps are resolved per-break by trailing-space detection (see #38).
-  // A drop indicates a regression in the extraction pipeline.
+  // A drop indicates _LINE_JOIN in extract_offices.py is incorrectly joining
+  // poetic lines.  Must stay in sync with VERSE_SECTIONS in extract_offices.py
+  // and with the Vitest unit test in tests/unit/render.test.js.
   const PHOS_MIN_LINES = {
     'ordinary-sunday-ep':    11, 'ordinary-monday-ep':  14, 'ordinary-tuesday-ep':   9,
     'ordinary-wednesday-ep': 14, 'ordinary-thursday-ep': 24, 'ordinary-friday-ep':   14,

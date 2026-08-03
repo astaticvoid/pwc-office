@@ -28,10 +28,7 @@ from extract_lib import check_manifest
 # Set DEBUG=1 to emit a full extraction trace to stderr.
 # Usage: DEBUG=1 python3 tools/extract_offices.py 2> audit.log
 _DEBUG = os.environ.get("DEBUG", "0") == "1"
-_OFFICE_FILTER = os.environ.get(
-    "DEBUG_OFFICE", ""
-)  # e.g. "easter-ep" to trace one office
-
+_OFFICE_FILTER = os.environ.get("DEBUG_OFFICE", "")  # e.g. "easter-ep" to trace one office
 
 def _dbg(*parts, office="", section=""):
     if not _DEBUG:
@@ -43,9 +40,7 @@ def _dbg(*parts, office="", section=""):
         prefix += f"[{section}]"
     print(prefix, *parts, file=sys.stderr)
 
-
 ROOT = Path(__file__).parent.parent
-
 
 # ── Office table ──────────────────────────────────────────────────────────────
 # Page bounds detected by detect_office_bounds.py from the PDF content.
@@ -53,12 +48,9 @@ ROOT = Path(__file__).parent.parent
 def _load_offices():
     bounds_path = ROOT / "tools" / "office_bounds.json"
     if not bounds_path.exists():
-        sys.exit(
-            f"Bounds file not found: {bounds_path}\nRun: python3 tools/detect_office_bounds.py --write"
-        )
+        sys.exit(f"Bounds file not found: {bounds_path}\nRun: python3 tools/detect_office_bounds.py --write")
     bounds = json.loads(bounds_path.read_text())
     return [(k, v["start"], v["end"]) for k, v in bounds.items()]
-
 
 OFFICES = _load_offices()
 
@@ -70,10 +62,10 @@ OFFICES = _load_offices()
 # We split them out and discard the major-section label (it is structural, not
 # content — the renderer knows the order).
 _MAJOR_HDRS = re.compile(
-    r"the (?:GAtheRinG of the CoMMunitY"
-    r"|PRoCLAMAtion of the WoRd"
-    r"|PRAYeRs of the CoMMunitY"
-    r"|sendinG foRth of the CoMMunitY)",
+    r'the (?:GAtheRinG of the CoMMunitY'
+    r'|PRoCLAMAtion of the WoRd'
+    r'|PRAYeRs of the CoMMunitY'
+    r'|sendinG foRth of the CoMMunitY)',
     re.IGNORECASE,
 )
 
@@ -85,33 +77,32 @@ _CONTINUE = object()
 # Map heading text → section key (str), None (flush section, no new section),
 # _CONTINUE (discard heading, keep current section), or False (unknown, treated as content).
 _SUB_HDR_MAP: list[tuple] = [
-    (re.compile(r"introductory Responses", re.IGNORECASE), "opening_responses"),
-    (re.compile(r"invitatory Psalm", re.IGNORECASE), "invitatory"),
+    (re.compile(r'introductory Responses',              re.IGNORECASE), "opening_responses"),
+    (re.compile(r'invitatory Psalm',                    re.IGNORECASE), "invitatory"),
     # Seasonal EP: Service of Light elements (Gathering section)
-    (re.compile(r"^thanksgiving$", re.IGNORECASE), "thanksgiving_for_light"),
+    (re.compile(r'^thanksgiving$',                      re.IGNORECASE), "thanksgiving_for_light"),
     # Ordinary-time EP: evening hymn heading carries the hymn title as rubric text
-    (re.compile(r"^(?:the )?evening hymn\b", re.IGNORECASE), "phos_hilaron"),
-    (re.compile(r"^the Responsory$", re.IGNORECASE), "responsory"),
-    (re.compile(r"^the Canticle$", re.IGNORECASE), "canticle"),
-    (re.compile(r"Affirmation of faith", re.IGNORECASE), "affirmation"),
+    (re.compile(r'^(?:the )?evening hymn\b',              re.IGNORECASE), "phos_hilaron"),
+    (re.compile(r'^the Responsory$',                    re.IGNORECASE), "responsory"),
+    (re.compile(r'^the Canticle$',                      re.IGNORECASE), "canticle"),
+    (re.compile(r'Affirmation of faith',                re.IGNORECASE), "affirmation"),
     # Ordinary-time: free-prayer space + day-specific topic prompts before the Litany
-    (re.compile(r"^intercessions and thanksgivings$", re.IGNORECASE), "intercessions"),
-    (re.compile(r"^the Litany$", re.IGNORECASE), "litany"),
+    (re.compile(r'^intercessions and thanksgivings$',   re.IGNORECASE), "intercessions"),
+    (re.compile(r'^the Litany$',                        re.IGNORECASE), "litany"),
     # Lord's Prayer: keep litany section active so intro + prayer text flow in and are
     # later split out by _split_lords_prayer.
-    (re.compile(r"the Lord['']?s Prayer", re.IGNORECASE), _CONTINUE),
-    (re.compile(r"^the dismissal$", re.IGNORECASE), "dismissal"),
-    (re.compile(r"^the Reading$", re.IGNORECASE), None),
-    (re.compile(r"^the Psalm$", re.IGNORECASE), None),
+    (re.compile(r"the Lord['']?s Prayer",               re.IGNORECASE), _CONTINUE),
+    (re.compile(r'^the dismissal$',                     re.IGNORECASE), "dismissal"),
+    (re.compile(r'^the Reading$',                       re.IGNORECASE), None),
+    (re.compile(r'^the Psalm$',                         re.IGNORECASE), None),
 ]
 
 # Heading lines that are actually repeated congregational refrains (antiphon pattern).
 # Some PDF occurrences are rendered at heading font size/weight; reclassify as response.
 _RESPONSE_HDRS: list[re.Pattern] = [
-    re.compile(r"^Let heaven and earth shout their praise", re.IGNORECASE),
-    re.compile(r"^God of all the faithful, we thank you", re.IGNORECASE),
+    re.compile(r'^Let heaven and earth shout their praise', re.IGNORECASE),
+    re.compile(r'^God of all the faithful, we thank you',  re.IGNORECASE),
 ]
-
 
 def _heading_to_key(text: str) -> str | None | bool:
     """
@@ -132,10 +123,9 @@ def _heading_to_key(text: str) -> str | None | bool:
 # ── Running-header / page-number stripping ────────────────────────────────────
 
 _RUNNING_HDR = re.compile(
-    r"^(?:Morning|Evening) Prayer\b.*\d|^\d+\s+(?:Morning|Evening) Prayer\b"
+    r'^(?:Morning|Evening) Prayer\b.*\d|^\d+\s+(?:Morning|Evening) Prayer\b'
 )
-_PAGE_NUM = re.compile(r"^\d{1,3}$")
-
+_PAGE_NUM = re.compile(r'^\d{1,3}$')
 
 def _is_noise(typ: str, text: str) -> bool:
     if typ == "footer":
@@ -148,7 +138,6 @@ def _is_noise(typ: str, text: str) -> bool:
 
 
 # ── Segment merging ───────────────────────────────────────────────────────────
-
 
 def _reflow_leader_prose(segs: list) -> list:
     """BUG-29: join PDF column-wrap line breaks in leader (prose) segments.
@@ -176,7 +165,6 @@ def _reflow_leader_prose(segs: list) -> list:
                 _reflow_leader_prose(g.get("segments", []))
     return segs
 
-
 def _merge(segs: list[dict]) -> list[dict]:
     """Merge consecutive segments of the same type into one.
 
@@ -191,8 +179,9 @@ def _merge(segs: list[dict]) -> list[dict]:
     merged = [dict(segs[0])]
     for seg in segs[1:]:
         prev = merged[-1]
-        prev_is_bare_or = prev["type"] == "rubric" and (
-            _OR_UPPER.match(prev["text"]) or _OR_LOWER.match(prev["text"])
+        prev_is_bare_or = (
+            prev["type"] == "rubric"
+            and (_OR_UPPER.match(prev["text"]) or _OR_LOWER.match(prev["text"]))
         )
         # A truncated "continues with…" rubric (no trailing period) may absorb the
         # immediately following non-structural rubric to complete the sentence.
@@ -201,31 +190,23 @@ def _merge(segs: list[dict]) -> list[dict]:
             and _CONTINUES_ALT.search(prev["text"])
             and not prev["text"].rstrip().endswith(".")
         )
-        can_merge = seg["type"] == prev["type"] and not (
-            seg["type"] == "rubric"
-            and (
-                # Incoming structural rubric always starts a new segment.
-                _is_structural_rubric(seg["text"])
-                # Structural prev merges only when it's a bare Or/or (needs its name)
-                # or a truncated continues rubric waiting for its continuation.
-                or (
-                    _is_structural_rubric(prev["text"])
-                    and not prev_is_bare_or
-                    and not prev_is_truncated_continues
+        can_merge = (
+            seg["type"] == prev["type"]
+            and not (
+                seg["type"] == "rubric" and (
+                    # Incoming structural rubric always starts a new segment.
+                    _is_structural_rubric(seg["text"])
+                    # Structural prev merges only when it's a bare Or/or (needs its name)
+                    # or a truncated continues rubric waiting for its continuation.
+                    or (_is_structural_rubric(prev["text"]) and not prev_is_bare_or
+                        and not prev_is_truncated_continues)
                 )
             )
         )
         if can_merge:
-            # Column-wrapped line (trailing space in PDF): join the break.
-            # Intentional line breaks (verse, liturgical structure): keep as \n.
-            if prev.get("wrap"):
-                sep = " "
-            elif prev_is_truncated_continues:
-                sep = " "
-            else:
-                sep = "\n"
+            # Truncated continues rubric: join with space (mid-sentence continuation).
+            sep = " " if prev_is_truncated_continues else "\n"
             prev["text"] += sep + seg["text"]
-            prev["wrap"] = seg.get("wrap", False)
         else:
             merged.append(dict(seg))
     return [s for s in merged if s["text"].strip()]
@@ -233,13 +214,10 @@ def _merge(segs: list[dict]) -> list[dict]:
 
 # ── Post-process: split seasonal collects from litany ─────────────────────────
 
-_AFTER_SILENCE = re.compile(r"After a period of silence", re.IGNORECASE)
-_EITHER_COLLECT = re.compile(r"Either the Collect of the Day", re.IGNORECASE)
-_LP_CONTINUES = re.compile(
-    r"(?:Morning|Evening) Prayer continues with the Lord", re.IGNORECASE
-)
-_CONTINUES_RUBRIC = re.compile(r"(?:Morning|Evening) Prayer continues", re.IGNORECASE)
-
+_AFTER_SILENCE     = re.compile(r'After a period of silence', re.IGNORECASE)
+_EITHER_COLLECT    = re.compile(r'Either the Collect of the Day', re.IGNORECASE)
+_LP_CONTINUES      = re.compile(r'(?:Morning|Evening) Prayer continues with the Lord', re.IGNORECASE)
+_CONTINUES_RUBRIC  = re.compile(r'(?:Morning|Evening) Prayer continues', re.IGNORECASE)
 
 def _split_litany_collects(segs: list[dict]) -> tuple[list[dict], list[dict]]:
     """
@@ -253,8 +231,7 @@ def _split_litany_collects(segs: list[dict]) -> tuple[list[dict], list[dict]]:
         ):
             # Drop 'Morning Prayer continues…' rubric at end of collects.
             collect_segs = [
-                s
-                for s in segs[i:]
+                s for s in segs[i:]
                 if not (s["type"] == "rubric" and _LP_CONTINUES.search(s["text"]))
             ]
             return segs[:i], collect_segs
@@ -263,54 +240,45 @@ def _split_litany_collects(segs: list[dict]) -> tuple[list[dict], list[dict]]:
 
 # ── Post-process: group alternatives (Or / or rubrics) ───────────────────────
 
-_OR_NAMED = re.compile(r"^Or\n(.+)", re.DOTALL)
-_OR_UPPER = re.compile(r"^Or$")
-_OR_LOWER = re.compile(r"^or$")
-_BLESSED_BE = re.compile(r"^Blessed be (?:God|the holy)\b", re.IGNORECASE)
+_OR_NAMED       = re.compile(r'^Or\n(.+)', re.DOTALL)
+_OR_UPPER       = re.compile(r'^Or$')
+_OR_LOWER       = re.compile(r'^or$')
+_BLESSED_BE     = re.compile(r'^Blessed be (?:God|the holy)\b', re.IGNORECASE)
 # Canticle intro: starts with curly/straight open-quote, contains “said or sung.”, newline, then first option label.
 # Handles all line-break variants (“may be\nsaid”, “may\nbe said”, “may be said”).
-_CANTICLE_INTRO = re.compile(r"^[“”].+?said or sung\.\n(.+)", re.DOTALL)
-_GENERAL_INTRO = re.compile(
-    r"one of the following .+ may be said or sung\.\n(.+)", re.IGNORECASE | re.DOTALL
-)
+_CANTICLE_INTRO = re.compile(r'^[“”].+?said or sung\.\n(.+)', re.DOTALL)
+_GENERAL_INTRO  = re.compile(r'one of the following .+ may be said or sung\.\n(.+)', re.IGNORECASE | re.DOTALL)
 # Matches pure block separator rubrics (no embedded label).
 # Canticle doxology intros ("At the end of the Canticle…" / "After the Canticle…") also
 # match this pattern, but are now emitted as plain rubric segments rather than discarded
 # — see the BLOCK-SEP branch in _group_alternatives.
-_BLOCK_SEP_ONLY = re.compile(
-    r"of the following may be said or sung\.?\s*$", re.IGNORECASE
-)
+_BLOCK_SEP_ONLY = re.compile(r'of the following may be said or sung\.?\s*$', re.IGNORECASE)
 # Identifies the two canticle doxology intro phrasings so _group_alternatives can
 # preserve them in the output instead of silently discarding them.
 _CANTICLE_DOXOLOGY_INTRO = re.compile(
-    r"^(?:At the end of the Canticle|After the Canticle)\b", re.IGNORECASE
+    r'^(?:At the end of the Canticle|After the Canticle)\b', re.IGNORECASE
 )
 # Used as a structural separator to prevent "continues with…" rubrics from merging
 # with adjacent segments. The Lord's Prayer variant is discarded; others are kept as PWC text.
-_CONTINUES_ALT = re.compile(r"(?:Morning|Evening) Prayer continues", re.IGNORECASE)
-
+_CONTINUES_ALT  = re.compile(r'(?:Morning|Evening) Prayer continues', re.IGNORECASE)
 
 def _is_structural_rubric(text: str) -> bool:
     """True for rubrics with structural meaning that must not be merged with neighbours."""
     return bool(
-        _OR_NAMED.match(text)
-        or _OR_UPPER.match(text)
-        or _OR_LOWER.match(text)
-        or _CANTICLE_INTRO.match(text)
-        or _BLOCK_SEP_ONLY.search(text)
+        _OR_NAMED.match(text) or _OR_UPPER.match(text) or _OR_LOWER.match(text)
+        or _CANTICLE_INTRO.match(text) or _BLOCK_SEP_ONLY.search(text)
         or _CONTINUES_ALT.search(text)
     )
 
-
-_ROMAN = ["I", "II", "III", "IV", "V"]
+_ROMAN = ['I', 'II', 'III', 'IV', 'V']
 
 
 def _alt_label(text: str) -> str:
     """Extract short display label from 'Name (citation)' or 'Name' string."""
-    name = re.sub(r"\s*\([^)]*\)\s*$", "", text).strip()
+    name = re.sub(r'\s*\([^)]*\)\s*$', '', text).strip()
     # Strip "The " and "An " articles that don't belong in canonical short names,
     # but preserve "A " so canticle names like "A Song of the Lamb" keep their article.
-    name = re.sub(r"^(?:The |An )", "", name).strip()
+    name = re.sub(r'^(?:The |An )', '', name).strip()
     return name or text.strip()
 
 
@@ -322,14 +290,14 @@ def _group_alternatives(segs: list[dict], office="", section="") -> list[dict]:
       - Unnamed: block-sep rubric or bare or/Or rubrics → Roman-numeral groups
     """
     result: list[dict] = []
-    pending: list[dict] = []  # flat segments not yet committed to result
-    groups: list | None = None  # None = flat mode; list = inside alternatives block
-    unnamed_n = [0]  # mutable counter for Roman numerals
+    pending: list[dict] = []   # flat segments not yet committed to result
+    groups: list | None = None # None = flat mode; list = inside alternatives block
+    unnamed_n = [0]            # mutable counter for Roman numerals
 
     def _flush_groups():
         nonlocal groups
         if groups:
-            result.append({"type": "alternatives", "groups": groups})
+            result.append({'type': 'alternatives', 'groups': groups})
         groups = None
         unnamed_n[0] = 0
 
@@ -341,52 +309,41 @@ def _group_alternatives(segs: list[dict], office="", section="") -> list[dict]:
         if label is None:
             label = _ROMAN[unnamed_n[0]]
             unnamed_n[0] += 1
-        groups.append({"label": label, "segments": []})
+        groups.append({'label': label, 'segments': []})
 
     def _push(seg: dict):
         if groups is not None:
-            if not groups:  # pure block-sep started, no group yet
+            if not groups:          # pure block-sep started, no group yet
                 _new_group()
-            groups[-1]["segments"].append(seg)
+            groups[-1]['segments'].append(seg)
         else:
             pending.append(seg)
 
-    _dbg(
-        f"\n  --- _group_alternatives: {office}[{section}] ({len(segs)} segs) ---",
-        office=office,
-        section=section,
-    )
+    _dbg(f"\n  --- _group_alternatives: {office}[{section}] ({len(segs)} segs) ---",
+         office=office, section=section)
 
     for seg in segs:
-        text = seg.get("text", "")
-        typ = seg.get("type", "")
+        text = seg.get('text', '')
+        typ  = seg.get('type', '')
         cur_grp = f"grp[{len(groups)}]" if groups is not None else "pending"
 
         # Discard only the Lord's Prayer navigation rubric ("…continues with the Lord's Prayer").
         # Other "continues with…" rubrics are PWC liturgical transitions and are kept.
-        if typ == "rubric" and _LP_CONTINUES.search(text):
-            _dbg(
-                f"    DISCARD lp-continues-rubric: {repr(text[:60])}",
-                office=office,
-                section=section,
-            )
+        if typ == 'rubric' and _LP_CONTINUES.search(text):
+            _dbg(f"    DISCARD lp-continues-rubric: {repr(text[:60])}", office=office, section=section)
             continue
 
         # Canticle intro: '"Name A," "Name B," … may be said or sung.\nName A (citation)'
-        if typ == "rubric" and _CANTICLE_INTRO.match(text):
-            lines = text.strip().split("\n")
+        if typ == 'rubric' and _CANTICLE_INTRO.match(text):
+            lines = text.strip().split('\n')
             # The intro spans multiple PDF lines — join with space for a single rubric.
-            intro_part = " ".join(l.strip() for l in lines[:-1] if l.strip())
+            intro_part = ' '.join(l.strip() for l in lines[:-1] if l.strip())
             last_line = lines[-1]
-            _dbg(
-                f"    CANTICLE-INTRO → flush, start named group {repr(_alt_label(last_line))}: {repr(text[:60])}",
-                office=office,
-                section=section,
-            )
+            _dbg(f"    CANTICLE-INTRO → flush, start named group {repr(_alt_label(last_line))}: {repr(text[:60])}", office=office, section=section)
             _flush_groups()
             _flush_pending()
             if intro_part:
-                result.append({"type": "rubric", "text": intro_part})
+                result.append({'type': 'rubric', 'text': intro_part})
             groups = []
             unnamed_n[0] = 0
             _new_group(_alt_label(last_line))
@@ -394,36 +351,24 @@ def _group_alternatives(segs: list[dict], office="", section="") -> list[dict]:
 
         # General intro with embedded first label:
         # 'One of the following Affirmations … may be said or sung.\nLabel'
-        if (
-            typ == "rubric"
-            and _GENERAL_INTRO.search(text)
-            and not _BLOCK_SEP_ONLY.search(text)
-        ):
-            lines = text.strip().split("\n")
+        if typ == 'rubric' and _GENERAL_INTRO.search(text) and not _BLOCK_SEP_ONLY.search(text):
+            lines = text.strip().split('\n')
             # Join intro lines with space; they're PDF line-break artefacts.
-            intro_part = " ".join(l.strip() for l in lines[:-1] if l.strip())
+            intro_part = ' '.join(l.strip() for l in lines[:-1] if l.strip())
             last_line = lines[-1]
-            _dbg(
-                f"    GENERAL-INTRO → flush, start named group {repr(_alt_label(last_line))}: {repr(text[:60])}",
-                office=office,
-                section=section,
-            )
+            _dbg(f"    GENERAL-INTRO → flush, start named group {repr(_alt_label(last_line))}: {repr(text[:60])}", office=office, section=section)
             _flush_groups()
             _flush_pending()
             if intro_part:
-                result.append({"type": "rubric", "text": intro_part})
+                result.append({'type': 'rubric', 'text': intro_part})
             groups = []
             unnamed_n[0] = 0
             _new_group(_alt_label(last_line))
             continue
 
         # Pure block separator (no embedded label):
-        if typ == "rubric" and _BLOCK_SEP_ONLY.search(text):
-            _dbg(
-                f"    BLOCK-SEP → flush, start unnamed groups: {repr(text[:60])}",
-                office=office,
-                section=section,
-            )
+        if typ == 'rubric' and _BLOCK_SEP_ONLY.search(text):
+            _dbg(f"    BLOCK-SEP → flush, start unnamed groups: {repr(text[:60])}", office=office, section=section)
             _flush_groups()
             _flush_pending()
             # Block-sep rubrics carry liturgical text (e.g. "One of the following may be
@@ -436,14 +381,10 @@ def _group_alternatives(segs: list[dict], office="", section="") -> list[dict]:
             continue
 
         # Or\nName (citation) — named alternative
-        if typ == "rubric" and _OR_NAMED.match(text):
+        if typ == 'rubric' and _OR_NAMED.match(text):
             m = _OR_NAMED.match(text)
-            label = _alt_label(m.group(1).strip().split("\n")[0])
-            _dbg(
-                f"    OR-NAMED → new group {repr(label)}: {repr(text[:60])}",
-                office=office,
-                section=section,
-            )
+            label = _alt_label(m.group(1).strip().split('\n')[0])
+            _dbg(f"    OR-NAMED → new group {repr(label)}: {repr(text[:60])}", office=office, section=section)
             if groups is None:
                 _flush_pending()
                 groups = []
@@ -452,47 +393,30 @@ def _group_alternatives(segs: list[dict], office="", section="") -> list[dict]:
             continue
 
         # Or (uppercase, unnamed) or or (lowercase, unnamed)
-        if typ == "rubric" and (_OR_UPPER.match(text) or _OR_LOWER.match(text)):
-            next_roman = (
-                _ROMAN[unnamed_n[0]]
-                if unnamed_n[0] < len(_ROMAN)
-                else f"?{unnamed_n[0]}"
-            )
-            _dbg(
-                f"    OR-BARE → new group {next_roman} (groups={'None' if groups is None else len(groups)}): {repr(text[:60])}",
-                office=office,
-                section=section,
-            )
+        if typ == 'rubric' and (_OR_UPPER.match(text) or _OR_LOWER.match(text)):
+            next_roman = _ROMAN[unnamed_n[0]] if unnamed_n[0] < len(_ROMAN) else f"?{unnamed_n[0]}"
+            _dbg(f"    OR-BARE → new group {next_roman} (groups={'None' if groups is None else len(groups)}): {repr(text[:60])}", office=office, section=section)
             if groups is None:
                 _flush_groups()
                 groups = []
                 unnamed_n[0] = 0
                 if pending:
-                    groups.append({"label": _ROMAN[0], "segments": list(pending)})
+                    groups.append({'label': _ROMAN[0], 'segments': list(pending)})
                     pending.clear()
                     unnamed_n[0] = 1
             _new_group()
             continue
 
-        _dbg(
-            f"    CONTENT [{cur_grp}] {typ} {repr(text[:60])}",
-            office=office,
-            section=section,
-        )
+        _dbg(f"    CONTENT [{cur_grp}] {typ} {repr(text[:60])}", office=office, section=section)
         _push(seg)
 
     _flush_groups()
     _flush_pending()
-    _dbg(
-        f"  --- result: {len(result)} top-level segs ---",
-        office=office,
-        section=section,
-    )
+    _dbg(f"  --- result: {len(result)} top-level segs ---", office=office, section=section)
     return result
 
 
 # ── Post-process: fold Berakah blessing conclusions into nested alternatives ───
-
 
 def _fold_berakah_blessings(segs: list[dict], office="") -> list[dict]:
     """
@@ -505,122 +429,82 @@ def _fold_berakah_blessings(segs: list[dict], office="") -> list[dict]:
     """
     result: list[dict] = []
     for seg in segs:
-        if seg.get("type") != "alternatives":
+        if seg.get('type') != 'alternatives':
             result.append(seg)
             continue
-        groups = seg["groups"]
-        labels = [g["label"] for g in groups]
-        _dbg(
-            f"  BERAKAH-FOLD? groups={labels}",
-            office=office,
-            section="opening_responses",
-        )
+        groups = seg['groups']
+        labels = [g['label'] for g in groups]
+        _dbg(f"  BERAKAH-FOLD? groups={labels}", office=office, section="opening_responses")
         if len(groups) < 3:
-            _dbg(
-                f"    SKIP: fewer than 3 groups",
-                office=office,
-                section="opening_responses",
-            )
+            _dbg(f"    SKIP: fewer than 3 groups", office=office, section="opening_responses")
             result.append(seg)
             continue
 
         # Check whether groups[2:] are all short "Blessed be…" leader+response pairs.
         tail = groups[2:]
         tail_ok = all(
-            len(g["segments"]) == 2
-            and g["segments"][0]["type"] == "leader"
-            and _BLESSED_BE.match(g["segments"][0]["text"])
-            and g["segments"][1]["type"] == "response"
+            len(g['segments']) == 2
+            and g['segments'][0]['type'] == 'leader'
+            and _BLESSED_BE.match(g['segments'][0]['text'])
+            and g['segments'][1]['type'] == 'response'
             for g in tail
         )
         if not tail_ok:
-            bad = [
-                g["label"]
-                for g in tail
-                if not (
-                    len(g["segments"]) == 2
-                    and g["segments"][0]["type"] == "leader"
-                    and _BLESSED_BE.match(g["segments"][0]["text"])
-                    and g["segments"][1]["type"] == "response"
-                )
-            ]
-            _dbg(
-                f"    SKIP: tail groups not all short 'Blessed be' pairs — failing: {bad}",
-                office=office,
-                section="opening_responses",
-            )
+            bad = [g['label'] for g in tail if not (
+                len(g['segments']) == 2
+                and g['segments'][0]['type'] == 'leader'
+                and _BLESSED_BE.match(g['segments'][0]['text'])
+                and g['segments'][1]['type'] == 'response'
+            )]
+            _dbg(f"    SKIP: tail groups not all short 'Blessed be' pairs — failing: {bad}", office=office, section="opening_responses")
             result.append(seg)
             continue
 
         # Confirm group[1] ends with a response (the "Blessed be God for ever." close).
-        g1_segs = list(groups[1]["segments"])
-        if not g1_segs or g1_segs[-1]["type"] != "response":
-            _dbg(
-                f"    SKIP: group[1] doesn't end with response",
-                office=office,
-                section="opening_responses",
-            )
+        g1_segs = list(groups[1]['segments'])
+        if not g1_segs or g1_segs[-1]['type'] != 'response':
+            _dbg(f"    SKIP: group[1] doesn't end with response", office=office, section="opening_responses")
             result.append(seg)
             continue
 
         # Find the last leader in group[1]; its final line should be the first blessing option.
-        leaders = [(i, s) for i, s in enumerate(g1_segs) if s["type"] == "leader"]
+        leaders = [(i, s) for i, s in enumerate(g1_segs) if s['type'] == 'leader']
         if not leaders:
-            _dbg(
-                f"    SKIP: group[1] has no leader segments",
-                office=office,
-                section="opening_responses",
-            )
+            _dbg(f"    SKIP: group[1] has no leader segments", office=office, section="opening_responses")
             result.append(seg)
             continue
         last_i, last_leader = leaders[-1]
-        lines = last_leader["text"].rsplit("\n", 1)
+        lines = last_leader['text'].rsplit('\n', 1)
         if len(lines) < 2 or not _BLESSED_BE.match(lines[1].strip()):
-            _dbg(
-                f"    SKIP: group[1] last leader doesn't end with 'Blessed be' line: {repr(lines[-1][:60])}",
-                office=office,
-                section="opening_responses",
-            )
+            _dbg(f"    SKIP: group[1] last leader doesn't end with 'Blessed be' line: {repr(lines[-1][:60])}", office=office, section="opening_responses")
             result.append(seg)
             continue
-        _dbg(
-            f"    FOLDING: nesting groups {[g['label'] for g in tail]} into group[1]",
-            office=office,
-            section="opening_responses",
-        )
+        _dbg(f"    FOLDING: nesting groups {[g['label'] for g in tail]} into group[1]", office=office, section="opening_responses")
 
-        berakah_body = lines[0]
-        blessing_one = lines[1].strip()
-        blessing_resp = g1_segs[-1]["text"]  # "Blessed be God for ever."
+        berakah_body   = lines[0]
+        blessing_one   = lines[1].strip()
+        blessing_resp  = g1_segs[-1]['text']   # "Blessed be God for ever."
 
         # Build trimmed group[1] segments: Berakah body only (no trailing blessing line/response).
-        trimmed = list(g1_segs[:-1])  # drop final response
-        trimmed[last_i] = {**last_leader, "text": berakah_body}
+        trimmed = list(g1_segs[:-1])           # drop final response
+        trimmed[last_i] = {**last_leader, 'text': berakah_body}
 
         # Build the nested 3-way alternatives for the blessing conclusion.
-        nested_groups = [
-            {
-                "label": _ROMAN[0],
-                "segments": [
-                    {"type": "leader", "text": blessing_one},
-                    {"type": "response", "text": blessing_resp},
-                ],
-            }
-        ]
+        nested_groups = [{'label': _ROMAN[0], 'segments': [
+            {'type': 'leader',   'text': blessing_one},
+            {'type': 'response', 'text': blessing_resp},
+        ]}]
         for j, tg in enumerate(tail, 1):
-            nested_groups.append({"label": _ROMAN[j], "segments": list(tg["segments"])})
+            nested_groups.append({'label': _ROMAN[j], 'segments': list(tg['segments'])})
 
-        new_g1 = {
-            "label": groups[1]["label"],
-            "segments": trimmed + [{"type": "alternatives", "groups": nested_groups}],
-        }
-        result.append({"type": "alternatives", "groups": [groups[0], new_g1]})
+        new_g1 = {'label': groups[1]['label'],
+                  'segments': trimmed + [{'type': 'alternatives', 'groups': nested_groups}]}
+        result.append({'type': 'alternatives', 'groups': [groups[0], new_g1]})
 
     return result
 
 
 # ── Thanksgiving exchange/body split ─────────────────────────────────────────
-
 
 def _split_thanksgiving(segs: list[dict]) -> list[dict]:
     """
@@ -656,8 +540,7 @@ def _split_thanksgiving(segs: list[dict]) -> list[dict]:
 
 # ── Lords-prayer intro extraction ─────────────────────────────────────────────
 
-_OUR_FATHER = re.compile(r"^our father\b", re.IGNORECASE)
-
+_OUR_FATHER = re.compile(r'^our father\b', re.IGNORECASE)
 
 def _split_lords_prayer(segs: list[dict]) -> tuple[list[dict], list[dict]]:
     """
@@ -674,30 +557,33 @@ def _split_lords_prayer(segs: list[dict]) -> tuple[list[dict], list[dict]]:
 
 # Canonical doxology ordering (Source → Trinity → Father). All offices normalize to this.
 _DOXOLOGY_CANONICAL_ORDER = [
-    "Glory to God, Source of all being, eternal Word, and Holy Spirit:",
-    "Glory to the holy and undivided Trinity, one God:",
-    "Glory to the Father, and to the Son, and to the Holy Spirit:",
+    'Glory to God, Source of all being, eternal Word, and Holy Spirit:',
+    'Glory to the holy and undivided Trinity, one God:',
+    'Glory to the Father, and to the Son, and to the Holy Spirit:',
 ]
-
 
 def _is_berakah_blessings(alt_block: dict) -> bool:
     """Three-option block of short 'Blessed be…' doxological conclusions."""
-    groups = alt_block.get("groups", [])
-    return len(groups) == 3 and all(
-        len(g.get("segments", [])) == 2
-        and g["segments"][0]["type"] == "leader"
-        and g["segments"][0]["text"].startswith("Blessed be")
-        for g in groups
+    groups = alt_block.get('groups', [])
+    return (
+        len(groups) == 3
+        and all(
+            len(g.get('segments', [])) == 2
+            and g['segments'][0]['type'] == 'leader'
+            and g['segments'][0]['text'].startswith('Blessed be')
+            for g in groups
+        )
     )
-
 
 def _is_doxology(alt_block: dict) -> bool:
-    groups = alt_block.get("groups", [])
-    return len(groups) == 3 and all(
-        g.get("segments") and g["segments"][0]["text"].startswith("Glory")
-        for g in groups
+    groups = alt_block.get('groups', [])
+    return (
+        len(groups) == 3
+        and all(
+            g.get('segments') and g['segments'][0]['text'].startswith('Glory')
+            for g in groups
+        )
     )
-
 
 # Ordinary-time morning prayer keeps "Alleluia." after the opening doxology
 # (dropped in Lent/seasonal forms elsewhere), printed once per "or" option in
@@ -707,49 +593,69 @@ def _is_doxology(alt_block: dict) -> bool:
 # (after every Psalm/Canticle too) — so it's stripped here and re-attached by
 # the caller as one standalone trailing segment on the forms that had it.
 def _split_doxology_alleluia(alt_block: dict) -> tuple[dict, bool]:
-    groups = alt_block.get("groups", [])
+    groups = alt_block.get('groups', [])
     has_alleluia = groups and all(
-        g.get("segments")
-        and g["segments"][-1]["type"] == "response"
-        and g["segments"][-1]["text"].endswith("\nAlleluia.")
+        g.get('segments')
+        and g['segments'][-1]['type'] == 'response'
+        and g['segments'][-1]['text'].endswith('\nAlleluia.')
         for g in groups
     )
     if not has_alleluia:
         return alt_block, False
     new_groups = []
     for g in groups:
-        segs = list(g["segments"])
+        segs = list(g['segments'])
         last = dict(segs[-1])
-        last["text"] = last["text"][: -len("\nAlleluia.")]
+        last['text'] = last['text'][: -len('\nAlleluia.')]
         segs[-1] = last
-        new_groups.append({**g, "segments": segs})
-    return {**alt_block, "groups": new_groups}, True
-
+        new_groups.append({**g, 'segments': segs})
+    return {**alt_block, 'groups': new_groups}, True
 
 def _is_affirmation(alt_block: dict) -> bool:
-    groups = alt_block.get("groups", [])
-    return len(groups) == 2 and groups[0].get("label", "").startswith("Apostles")
-
+    groups = alt_block.get('groups', [])
+    return (
+        len(groups) == 2
+        and groups[0].get('label', '').startswith("Apostles")
+    )
 
 def _canonical_doxology(alt_block: dict) -> dict:
     """Reorder a 3-group doxology to the canonical Source→Trinity→Father sequence."""
-    groups = alt_block["groups"]
-    by_first_line = {g["segments"][0]["text"]: g for g in groups if g.get("segments")}
+    groups = alt_block['groups']
+    by_first_line = {g['segments'][0]['text']: g for g in groups if g.get('segments')}
     ordered = []
     for leader_text in _DOXOLOGY_CANONICAL_ORDER:
         grp = by_first_line.get(leader_text)
         if grp:
-            ordered.append({**grp, "label": _ROMAN[len(ordered)]})
+            ordered.append({**grp, 'label': _ROMAN[len(ordered)]})
     if len(ordered) == 3:
-        return {"type": "alternatives", "groups": ordered}
+        return {'type': 'alternatives', 'groups': ordered}
     return alt_block  # fallback: leave as-is if we can't normalise
+
 
 
 def _normalize_whitespace(offices: dict) -> dict:
     """Fix common PyMuPDF whitespace artifacts across all forms."""
     import copy, re
-
     offices = copy.deepcopy(offices)
+
+    # Sections where line breaks are intentional liturgical structure
+    # (affirmation verse text, canticle lines, doxology invocations).
+    # The line-join regex skips these to preserve intentional verse formatting.
+    # Keep in sync with: validate_office.cjs VERSE_SECTIONS (line ~146),
+    # validate_office.cjs PHOS_MIN_LINES (line ~177), and the Vitest unit test
+    # phos_hilaron line-count assertion in tests/unit/render.test.js.
+    # Sections whose line breaks are intentional liturgical structure, so the
+    # PDF-column-wrap join below must not touch them. Must stay in sync with
+    # VERSE_SECTIONS in tools/validate_office.cjs — enforced by
+    # tools/tests/test_verse_sections_sync.py, not by this comment.
+    _VERSE_SECTIONS = frozenset({'affirmation', 'canticle', 'doxology', 'phos_hilaron',
+                                 'invitatory', 'lords_prayer_intro'})
+
+    # Join mid-sentence line breaks from PDF column wrapping.
+    # Rule 1: \n + lowercase → always join (no verse text starts lowercase).
+    # Rule 2: \n + uppercase but no punctuation before \n → join
+    #   (e.g., "power of the\nSpirit" vs "created;\nyou renew" which preserves ;).
+    _LINE_JOIN = re.compile(r"(?<![.,;:!?])\n([a-zA-Z])")
 
     def _fix_phos_hilaron(text):
         """Insert stanza breaks in Phos Hilaron hymn text (4-line stanzas).
@@ -758,13 +664,13 @@ def _normalize_whitespace(offices: dict) -> dict:
         have a visible separation when rendered.  Lines that end with . but are
         not at a stanza boundary (e.g. line 2 of a 4-line stanza) are left alone.
         """
-        lines = text.split("\n")
+        lines = text.split('\n')
         out = []
         for i, line in enumerate(lines):
             if i > 0 and i % 4 == 0:
-                out.append("")
+                out.append('')
             out.append(line)
-        return "\n".join(out)
+        return '\n'.join(out)
 
     def _fix(text, seg_type=None, section_key=None):
         text = text.replace(" ,", ",")
@@ -772,6 +678,8 @@ def _normalize_whitespace(offices: dict) -> dict:
         text = text.replace(" ?", "?")
         text = text.replace("Amen .", "Amen.")
         text = text.replace(" \n", "\n")
+        if seg_type in ("leader", "response") and section_key not in _VERSE_SECTIONS:
+            text = _LINE_JOIN.sub(r" \1", text)
         if seg_type == "leader" and section_key == "phos_hilaron":
             text = _fix_phos_hilaron(text)
         return text
@@ -783,7 +691,6 @@ def _normalize_whitespace(offices: dict) -> dict:
                     _walk(g.get("segments", []), section_key)
             elif "text" in seg:
                 seg["text"] = _fix(seg["text"], seg.get("type"), section_key)
-            seg.pop("wrap", None)
 
     for office_key, form in offices.items():
         if office_key.startswith("_") and office_key != "_shared":
@@ -802,49 +709,33 @@ def _add_reading_responses(offices: dict) -> dict:
       - ordinary offices:  "Holy wisdom, holy word."
     This is not captured by PDF extraction — it comes from PWC rubrics.
     """
-
     def _make(third_leader: str) -> dict:
         return {
             "type": "alternatives",
             "groups": [
-                {
-                    "label": "I",
-                    "segments": [
-                        {"type": "leader", "text": "The word of the Lord."},
-                        {"type": "response", "text": "Thanks be to God."},
-                    ],
-                },
-                {
-                    "label": "II",
-                    "segments": [
-                        {
-                            "type": "leader",
-                            "text": "Hear what the Spirit is saying to the Church.",
-                        },
-                        {"type": "response", "text": "Thanks be to God."},
-                    ],
-                },
-                {
-                    "label": "III",
-                    "segments": [
-                        {"type": "leader", "text": third_leader},
-                        {"type": "response", "text": "Thanks be to God."},
-                    ],
-                },
+                {"label": "I", "segments": [
+                    {"type": "leader",   "text": "The word of the Lord."},
+                    {"type": "response", "text": "Thanks be to God."},
+                ]},
+                {"label": "II", "segments": [
+                    {"type": "leader",   "text": "Hear what the Spirit is saying to the Church."},
+                    {"type": "response", "text": "Thanks be to God."},
+                ]},
+                {"label": "III", "segments": [
+                    {"type": "leader",   "text": third_leader},
+                    {"type": "response", "text": "Thanks be to God."},
+                ]},
             ],
         }
 
     result = {}
     for office_key, office in offices.items():
-        if office_key.startswith("_"):
+        if office_key.startswith('_'):
             result[office_key] = office
             continue
-        third = (
-            "Holy wisdom, holy word."
-            if office_key.startswith("ordinary-")
-            else "Holy Word, Holy Wisdom."
-        )
-        result[office_key] = {**office, "reading_response": _make(third)}
+        third = ("Holy wisdom, holy word." if office_key.startswith('ordinary-')
+                 else "Holy Word, Holy Wisdom.")
+        result[office_key] = {**office, 'reading_response': _make(third)}
     return result
 
 
@@ -859,37 +750,37 @@ def _dedup_shared(offices: dict) -> dict:
     def _walk(segs: list, office_key: str = "", section_key: str = "") -> list:
         out = []
         for seg in segs:
-            if seg.get("type") != "alternatives":
+            if seg.get('type') != 'alternatives':
                 out.append(seg)
                 continue
             # Recursively walk into each group's segments first so nested
             # alternatives (e.g. berakah_blessings inside opening_responses group II)
             # are deduped before we inspect the parent block.
             new_groups = [
-                {**g, "segments": _walk(g.get("segments", []), office_key, section_key)}
-                for g in seg.get("groups", [])
+                {**g, 'segments': _walk(g.get('segments', []), office_key, section_key)}
+                for g in seg.get('groups', [])
             ]
-            seg = {**seg, "groups": new_groups}
+            seg = {**seg, 'groups': new_groups}
 
             if _is_doxology(seg):
                 seg, has_alleluia = _split_doxology_alleluia(seg)
-                if "doxology" not in shared:
-                    shared["doxology"] = _canonical_doxology(seg)
+                if 'doxology' not in shared:
+                    shared['doxology'] = _canonical_doxology(seg)
                 # The canticle doxology intro rubric ("At the end of the Canticle…" /
                 # "After the Canticle…") is now emitted natively by _group_alternatives
                 # as a plain rubric segment immediately before this alternatives block,
                 # so no re-insertion is needed here.
-                out.append({"type": "shared", "key": "doxology"})
+                out.append({'type': 'shared', 'key': 'doxology'})
                 if has_alleluia:
-                    out.append({"type": "response", "text": "Alleluia."})
+                    out.append({'type': 'response', 'text': 'Alleluia.'})
             elif _is_affirmation(seg):
-                if "affirmation" not in shared:
-                    shared["affirmation"] = seg
-                out.append({"type": "shared", "key": "affirmation"})
+                if 'affirmation' not in shared:
+                    shared['affirmation'] = seg
+                out.append({'type': 'shared', 'key': 'affirmation'})
             elif _is_berakah_blessings(seg):
-                if "berakah_blessings" not in shared:
-                    shared["berakah_blessings"] = seg
-                out.append({"type": "shared", "key": "berakah_blessings"})
+                if 'berakah_blessings' not in shared:
+                    shared['berakah_blessings'] = seg
+                out.append({'type': 'shared', 'key': 'berakah_blessings'})
             else:
                 out.append(seg)
         return out
@@ -905,7 +796,7 @@ def _dedup_shared(offices: dict) -> dict:
         result[office_key] = new_office
 
     if shared:
-        return {"_shared": shared, **result}
+        return {'_shared': shared, **result}
     return result
 
 
@@ -921,42 +812,35 @@ def _fix_shared_affirmation(offices: dict) -> dict:
     second nested-shared-block correction ever comes up, revisit.
     """
     import copy
-
     offices = copy.deepcopy(offices)
-    affirmation = offices.get("_shared", {}).get("affirmation", {})
+    affirmation = offices.get('_shared', {}).get('affirmation', {})
 
-    for group in affirmation.get("groups", []):
+    for group in affirmation.get('groups', []):
         # 1. _alt_label strips the article from every alternatives-group
         #    label; restore it for this one ("Apostles" -> "The Apostles' Creed").
-        if group.get("label", "").startswith("Apostles"):
-            group["label"] = "The Apostles’ Creed"
+        if group.get('label', '').startswith('Apostles'):
+            group['label'] = 'The Apostles’ Creed'
 
         # 2. Source PDF error (BAS p.189): 'he ascended into heaven' is
         #    missing its comma.
-        for seg in group.get("segments", []):
-            if (
-                seg.get("type") == "response"
-                and "he ascended into heaven\n" in seg["text"]
-            ):
-                seg["text"] = seg["text"].replace(
-                    "he ascended into heaven\n",
-                    "he ascended into heaven,\n",
+        for seg in group.get('segments', []):
+            if seg.get('type') == 'response' and 'he ascended into heaven\n' in seg['text']:
+                seg['text'] = seg['text'].replace(
+                    'he ascended into heaven\n',
+                    'he ascended into heaven,\n',
                 )
     return offices
 
 
 # ── Main extraction ───────────────────────────────────────────────────────────
 
-
-def extract_office(
-    typed_lines: list[tuple[str, str, bool]], office_key: str = ""
-) -> dict:
+def extract_office(typed_lines: list[tuple[str, str]], office_key: str = "") -> dict:
     title = ""
     subtitle = ""
     header_done = False
-    filtered_lines: list[tuple[str, str, bool]] = []
+    filtered_lines: list[tuple[str, str]] = []
 
-    for typ, text, wrap in typed_lines:
+    for typ, text in typed_lines:
         if _is_noise(typ, text):
             _dbg(f"  NOISE [{typ}] {repr(text[:60])}", office=office_key)
             continue
@@ -972,7 +856,7 @@ def extract_office(
                 continue
             if title and typ == "heading":
                 header_done = True
-        filtered_lines.append((typ, text, wrap))
+        filtered_lines.append((typ, text))
 
     _dbg(f"\n=== SECTION ASSIGNMENT: {office_key} ===", office=office_key)
 
@@ -984,13 +868,11 @@ def extract_office(
     def _flush():
         nonlocal current_segs
         if current_key is not None and current_segs:
-            _dbg(
-                f"  FLUSH {current_key!r}: {len(current_segs)} segs", office=office_key
-            )
+            _dbg(f"  FLUSH {current_key!r}: {len(current_segs)} segs", office=office_key)
             sections[current_key] = _merge(current_segs)
         current_segs = []
 
-    for typ, text, wrap in filtered_lines:
+    for typ, text in filtered_lines:
         if typ == "heading":
             key = _heading_to_key(text)
             raw_disp = repr(text[:60])
@@ -1001,20 +883,14 @@ def extract_office(
                     if pat.match(text):
                         content_type = "response"
                         break
-                _dbg(
-                    f"  UNKNOWN-HDR → content in {current_key!r} as {content_type}: {raw_disp}",
-                    office=office_key,
-                )
+                _dbg(f"  UNKNOWN-HDR → content in {current_key!r} as {content_type}: {raw_disp}", office=office_key)
                 if current_key is not None:
                     current_segs.append({"type": content_type, "text": text})
                 continue
             if key is _CONTINUE:
                 # Structural heading that keeps the current section active (e.g. Lord's Prayer
                 # heading — the intro + prayer text must flow into litany for post-processing).
-                _dbg(
-                    f"  CONTINUE-HDR {raw_disp} (stays in {current_key!r})",
-                    office=office_key,
-                )
+                _dbg(f"  CONTINUE-HDR {raw_disp} (stays in {current_key!r})", office=office_key)
                 continue
             _dbg(f"  HEADING {raw_disp} → section {key!r}", office=office_key)
             _flush()
@@ -1029,7 +905,7 @@ def extract_office(
 
         if current_key is not None:
             _dbg(f"  [{current_key}] {typ} {repr(text[:60])}", office=office_key)
-            current_segs.append({"type": typ, "text": text, "wrap": wrap})
+            current_segs.append({"type": typ, "text": text})
         else:
             _dbg(f"  [NO-SECTION] {typ} {repr(text[:60])}", office=office_key)
 
@@ -1043,19 +919,12 @@ def extract_office(
             lp_found = bool(lp_segs) and _OUR_FATHER.match(lp_segs[0]["text"].strip())
             if lp_found:
                 # pre_lp[-1] is the LP intro ("Rejoicing in God's new creation…")
-                sections["seasonal_collects"] = (
-                    pre_lp[:-1] if len(pre_lp) > 1 else pre_lp
-                )
+                sections["seasonal_collects"] = pre_lp[:-1] if len(pre_lp) > 1 else pre_lp
                 lp_body = [
-                    s
-                    for s in lp_segs
-                    if not (
-                        s["type"] == "rubric" and _CONTINUES_RUBRIC.search(s["text"])
-                    )
+                    s for s in lp_segs
+                    if not (s["type"] == "rubric" and _CONTINUES_RUBRIC.search(s["text"]))
                 ]
-                sections["lords_prayer_intro"] = (
-                    pre_lp[-1:] if pre_lp else []
-                ) + lp_body
+                sections["lords_prayer_intro"] = (pre_lp[-1:] if pre_lp else []) + lp_body
             else:
                 sections["seasonal_collects"] = sc
 
@@ -1063,9 +932,7 @@ def extract_office(
     _NO_ALT_SECTIONS = {"litany", "lords_prayer_intro"}
     for key in list(sections.keys()):
         if key not in _NO_ALT_SECTIONS:
-            sections[key] = _group_alternatives(
-                sections[key], office=office_key, section=key
-            )
+            sections[key] = _group_alternatives(sections[key], office=office_key, section=key)
 
     # BUG-29: seasonal collect leaders are prose; the PDF's column-width hard
     # wraps are typographic, not semantic. Join them. Rubric segments (bullet
@@ -1098,20 +965,10 @@ def extract_office(
         result["subtitle"] = subtitle
 
     # Preserve canonical section order.
-    for key in (
-        "opening_responses",
-        "thanksgiving_for_light",
-        "phos_hilaron",
-        "invitatory",
-        "responsory",
-        "canticle",
-        "affirmation",
-        "intercessions",
-        "litany",
-        "seasonal_collects",
-        "lords_prayer_intro",
-        "dismissal",
-    ):
+    for key in ("opening_responses", "thanksgiving_for_light", "phos_hilaron",
+                "invitatory", "responsory", "canticle", "affirmation",
+                "intercessions", "litany", "seasonal_collects", "lords_prayer_intro",
+                "dismissal"):
         if key in sections and sections[key]:
             result[key] = sections[key]
 
@@ -1120,14 +977,10 @@ def extract_office(
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-
 def run():
     ap = argparse.ArgumentParser()
-    ap.add_argument(
-        "--accept",
-        action="store_true",
-        help="Update tools/manifest.json with current output hashes",
-    )
+    ap.add_argument("--accept", action="store_true",
+                    help="Update tools/manifest.json with current output hashes")
     args = ap.parse_args()
 
     pdf_path = ROOT / "sources" / "pray-without-ceasing.pdf"
@@ -1142,10 +995,7 @@ def run():
     offices: dict[str, dict] = {}
     doc = fitz.open(pdf_path)
     for key, start, end in OFFICES:
-        _dbg(
-            f"\n{'=' * 60}\nEXTRACTING: {key} (pages {start}–{end})\n{'=' * 60}",
-            office=key,
-        )
+        _dbg(f"\n{'='*60}\nEXTRACTING: {key} (pages {start}–{end})\n{'='*60}", office=key)
         typed_lines = extract_office_typed_lines(doc, key, start, end)
         offices[key] = extract_office(typed_lines, office_key=key)
         sections = [k for k in offices[key] if k not in ("title", "subtitle")]
@@ -1155,8 +1005,8 @@ def run():
             if sk in ("title", "subtitle") or not isinstance(sv, list):
                 continue
             for seg in sv:
-                if seg.get("type") == "alternatives":
-                    glabels = [g["label"] for g in seg.get("groups", [])]
+                if seg.get('type') == 'alternatives':
+                    glabels = [g['label'] for g in seg.get('groups', [])]
                     _dbg(f"  RESULT {sk}: alternatives {glabels}", office=key)
     doc.close()
 
@@ -1164,22 +1014,20 @@ def run():
     offices = _normalize_whitespace(offices)
     offices = _fix_shared_affirmation(offices)
     offices = _add_reading_responses(offices)
-    n_shared = len(offices.get("_shared", {}))
+    n_shared = len(offices.get('_shared', {}))
     print(f"\nShared blocks extracted: {list(offices.get('_shared', {}).keys())}")
 
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(offices, f, ensure_ascii=False, indent=2)
-    print(
-        f"Wrote {len(offices) - (1 if '_shared' in offices else 0)} offices + {n_shared} shared → {out_path}"
-    )
+    print(f"Wrote {len(offices) - (1 if '_shared' in offices else 0)} offices + {n_shared} shared → {out_path}")
 
     # Spot checks.
-    shared_blocks = offices.get("_shared", {})
+    shared_blocks = offices.get('_shared', {})
 
     def _resolve(seg):
         """Expand {type: shared} sentinels for search purposes."""
-        if seg.get("type") == "shared":
-            return shared_blocks.get(seg["key"], seg)
+        if seg.get('type') == 'shared':
+            return shared_blocks.get(seg['key'], seg)
         return seg
 
     def _find(segs, seg_type, fragment):
@@ -1202,21 +1050,21 @@ def run():
         return False
 
     content_checks = [
-        ("easter-mp", "opening_responses", "leader", "Alleluia! Christ is risen."),
-        ("easter-mp", "opening_responses", "response", "The Lord is risen indeed"),
-        ("easter-mp", "responsory", "rubric", "The Responsory is said or sung"),
-        ("easter-mp", "seasonal_collects", "leader", "Living God"),
-        ("advent-mp", "opening_responses", "leader", "Creator of the stars"),
+        ("easter-mp",   "opening_responses", "leader",   "Alleluia! Christ is risen."),
+        ("easter-mp",   "opening_responses", "response", "The Lord is risen indeed"),
+        ("easter-mp",   "responsory",        "rubric",   "The Responsory is said or sung"),
+        ("easter-mp",   "seasonal_collects", "leader",   "Living God"),
+        ("advent-mp",   "opening_responses", "leader",   "Creator of the stars"),
         ("ordinary-sunday-mp", "opening_responses", "leader", "proclaim your praise"),
     ]
     alt_checks = [
-        ("easter-mp", "canticle", "Song of Moses"),
-        ("easter-ep", "canticle", "Song of Mary"),
-        ("advent-mp", "canticle", "Song of Zechariah"),
-        ("advent-ep", "canticle", "Song of Mary"),
-        ("lent-mp", "canticle", "Song of Manasseh"),
-        ("advent-mp", "affirmation", "Apostles"),
-        ("advent-mp", "affirmation", "Hear, O Israel"),
+        ("easter-mp",   "canticle",          "Song of Moses"),
+        ("easter-ep",   "canticle",          "Song of Mary"),
+        ("advent-mp",   "canticle",          "Song of Zechariah"),
+        ("advent-ep",   "canticle",          "Song of Mary"),
+        ("lent-mp",     "canticle",          "Song of Manasseh"),
+        ("advent-mp",   "affirmation",       "Apostles"),
+        ("advent-mp",   "affirmation",       "Hear, O Israel"),
     ]
     print("\nSpot checks:")
     ok = True
