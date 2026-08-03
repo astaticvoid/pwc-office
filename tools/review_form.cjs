@@ -31,7 +31,6 @@ if (!form) {
   const { renderSegmentsText, blocksToString } = await import('../web/render.js');
 
   const BK = {
-    verse: false,
     showLabel: true,
     skipRubrics: /continues with|may conclude with|^The Litany is said or sung\./i,
     skipShortLabels: true,

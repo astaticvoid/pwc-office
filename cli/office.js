@@ -42,7 +42,7 @@ if (!form) {
 
 const officeData = lectionaryDay ? lectionaryDay[officeType === 'mp' ? 'morning' : 'evening'] : null;
 
-const BK = { verse: true };
+const BK = {};
 
 function text(segs, opts = {}) {
   return blocksToString(renderSegmentsText(segs, shared, { ...BK, ...opts }));
