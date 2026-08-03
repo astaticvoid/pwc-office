@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: venv invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa
+.PHONY: venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -162,6 +162,33 @@ validate: check-text
 # Run E2E tests locally against web/ (default — no bandwidth cost).
 test-web:
 	npx playwright test
+
+# ── Verifying an extractor change ────────────────────────────────────────────
+# The safety net for touching tools/extract_*.py. Capture a baseline, make the
+# change, then diff — and say what the expected node count is:
+#
+#   make extract-baseline
+#   ...edit tools/extract_offices.py...
+#   make extract-diff EXPECT=0        # a refactor must change nothing
+#   make extract-diff                 # or just look at what moved
+#
+# The baseline comes from a FULL pipeline run, never from extract_offices.py on
+# its own: that writes a complete-looking data/offices.json whose _shared is
+# missing the three blocks normalize_offices.py creates, and diffing against it
+# produces confident nonsense. See #48.
+BASELINE = .extract-baseline
+
+extract-baseline: extract
+	@mkdir -p $(BASELINE)
+	@cp data/offices.json $(BASELINE)/offices.json
+	@echo "Baseline captured in $(BASELINE)/ — now make your change, then 'make extract-diff'"
+
+extract-diff:
+	@test -f $(BASELINE)/offices.json || \
+	  (echo "No baseline. Run 'make extract-baseline' before changing the extractor."; exit 1)
+	@$(MAKE) extract --no-print-directory CI=1 >/dev/null
+	@$(PYTHON) tools/diff_extraction.py $(BASELINE)/offices.json data/offices.json \
+	  $(if $(EXPECT),--expect $(EXPECT),)
 
 # Verify data/ files match the last extraction — exits 1 if any file was edited directly.
 check-integrity:
