@@ -57,9 +57,16 @@ def span_type(span: dict) -> str:
     return "leader"
 
 
-def spans_to_typed_lines(page_spans: list[dict]) -> list[tuple[str, str]]:
+def spans_to_typed_lines(page_spans: list[dict]) -> list[tuple[str, str, float, float]]:
     """Group spans on a page into typed lines by y-position proximity.
-    Returns [(type, text), ...] — same format as _page_styled_lines()."""
+
+    Returns [(type, text, gap), ...] where `gap` is the unused space in points
+    between the end of the line and the page's right margin. A column wrap can
+    only occur on a line that ran out of horizontal room, so a large gap is
+    positive evidence that the following break was chosen by the typesetter
+    rather than forced. Consumed by _reflow_litany in extract_offices.py; see
+    #39 for the measurements behind the thresholds.
+    """
     if not page_spans:
         return []
     sorted_spans = sorted(page_spans, key=lambda s: (round(s["y0"]), s["x0"]))
@@ -79,7 +86,46 @@ def spans_to_typed_lines(page_spans: list[dict]) -> list[tuple[str, str]]:
                 cur_y = y
     if cur_line:
         lines.append(cur_line)
-    result: list[tuple[str, str]] = []
+    # Pass 1: classify each line and note its geometry, so the page's right
+    # margin is known before any line is emitted. Running headers ("34 Morning
+    # Prayer for Christmas") are dropped downstream by _is_noise, but they run
+    # wider than the text block and would inflate the margin, so they are
+    # excluded from it here.
+    prepared: list[dict] = []
+    for line_spans in lines:
+        line_spans.sort(key=lambda s: s["x0"])
+        body = [s for s in line_spans if s["type"] != "footer"]
+        if not body:
+            continue
+        types: dict[str, int] = {}
+        for s in body:
+            types[s["type"]] = types.get(s["type"], 0) + 1
+        text = " ".join(s["text"] for s in line_spans).strip()
+        if not text or re.match(r"^\d{1,3}$", text) or re.match(r"^(Morning|Evening) Prayer", text):
+            continue
+        prepared.append({
+            "dominant": max(types, key=types.get),
+            "text": text,
+            "body": body,
+            "y0": min(s["y0"] for s in body),
+            "is_running_hdr": bool(re.match(r"^\d+\s+(Morning|Evening) Prayer", text)),
+        })
+
+    # Leading above each line. Body leading in this book is ~12.5pt; a paragraph
+    # or stanza boundary opens it to ~21pt. A column wrap never carries extra
+    # leading, so this distinguishes a chosen break from a forced one even when
+    # the line happens to run the full measure. First line of a page has no
+    # predecessor, so it reports normal leading and the horizontal gap decides.
+    for i, p in enumerate(prepared):
+        p["lead"] = (p["y0"] - prepared[i - 1]["y0"]) if i else 0.0
+
+    margin = max(
+        (max(s["x1"] for s in p["body"]) for p in prepared
+         if p["dominant"] in ("leader", "response") and not p["is_running_hdr"]),
+        default=0.0,
+    )
+
+    result: list[tuple[str, str, float, float]] = []
     # Verse second-halves are typeset with a physical ~18pt indent relative to
     # the first half (e.g. psalm/canticle/invitatory poetic line-pairs), and a
     # second half can itself run onto multiple indented lines. Track the
@@ -103,24 +149,10 @@ def spans_to_typed_lines(page_spans: list[dict]) -> list[tuple[str, str]]:
     # dominant type isn't "response" so unrelated content can't misread a
     # leftover previous-line y-position.
     prev_response_y0: float | None = None
-    for line_spans in lines:
-        line_spans.sort(key=lambda s: s["x0"])
-        # Count types; exclude footer spans from classification
-        body = [s for s in line_spans if s["type"] != "footer"]
-        if not body:
-            continue
-        types = {}
-        for s in body:
-            t = s["type"]
-            types[t] = types.get(t, 0) + 1
-        dominant = max(types, key=types.get)
-        text = " ".join(s["text"] for s in line_spans).strip()
-        # Skip running-header lines (page number + form title)
-        if (re.match(r"^\d{1,3}$", text) or
-            re.match(r"^(Morning|Evening) Prayer", text)):
-            continue
-        if not text:
-            continue
+    for p in prepared:
+        dominant, text, body = p["dominant"], p["text"], p["body"]
+        gap = margin - max(s["x1"] for s in body)
+        lead = p["lead"]
         if dominant == "leader":
             x0 = min(s["x0"] for s in body)
             if baseline_x0 is None or x0 < baseline_x0 - 2:
@@ -132,18 +164,25 @@ def spans_to_typed_lines(page_spans: list[dict]) -> list[tuple[str, str]]:
         if dominant == "response":
             y0 = min(s["y0"] for s in body)
             if prev_response_y0 is not None and y0 - prev_response_y0 > 15:
-                result.append(("response", ""))
+                # Synthetic stanza break — not a typeset line, so it has no
+                # geometry. Give it an unbounded gap: it is deliberate by
+                # construction and must never be treated as a column wrap.
+                result.append(("response", "", float("inf"), 0.0))
             prev_response_y0 = y0
         else:
             prev_response_y0 = None
-        result.append((dominant, text))
+        result.append((dominant, text, gap, lead))
     return result
 
 
 def extract_office_typed_lines(pdf_doc: fitz.Document, form_key: str,
-                                start_page: int, end_page: int) -> list[tuple[str, str]]:
-    """Return typed lines for an entire office form (all pages concatenated)."""
-    all_lines: list[tuple[str, str]] = []
+                                start_page: int, end_page: int) -> list[tuple[str, str, float, float]]:
+    """Return typed lines for an entire office form (all pages concatenated).
+
+    Each line carries its end-of-line gap; the margin is per page, so gaps stay
+    comparable across a form even where page geometry differs slightly.
+    """
+    all_lines: list[tuple[str, str, float, float]] = []
     for i in range(start_page - 1, end_page):
         page = pdf_doc[i]
         d = page.get_text("dict", flags=fitz.TEXTFLAGS_DICT)

@@ -319,6 +319,38 @@ describe.skipIf(!HAS_DATA)('renderOfficeJSON sync with renderSegments', () => {
       }
     }
   });
+
+  // The litany is verse in the seasonal forms and prose in the ordinary-time
+  // collects, so its breaks are decided per break from page geometry by
+  // _reflow_litany rather than section-wide. Before that, _reflow_leader_prose
+  // flattened every petition in all 31 forms into one paragraph (#39). These
+  // counts are the total leader lines per litany; a drop means breaks are being
+  // joined again.
+  test('litany preserves petition line breaks (no unconditional reflow)', () => {
+    const MIN_LINES = {
+      'advent-mp':             21,   // the O Antiphons — the worst previous loss
+      'lent-mp':               16,
+      'ordinary-wednesday-mp': 16,
+      'passiontide-mp':        15,
+      'passiontide-ep':        15,
+      'allsaints-ep':          13,
+      'pentecost-ep':          13,
+      'ordinary-monday-mp':    12,
+      'ordinary-tuesday-mp':   12,
+    };
+    for (const [formKey, form] of forms) {
+      const expected = MIN_LINES[formKey];
+      if (!expected) continue;
+      const litany = form.litany;
+      if (!litany || !litany.length) continue;
+      const lines = litany
+        .filter(seg => seg.type === 'leader')
+        .reduce((n, seg) => n + seg.text.split('\n').length, 0);
+      expect(lines,
+        `${formKey}: expected >= ${expected} litany leader lines, got ${lines}`)
+        .toBeGreaterThanOrEqual(expected);
+    }
+  });
 });
 
 // ── Verse rendering: inline sup numbers, no grid divs, * break handling ──────
