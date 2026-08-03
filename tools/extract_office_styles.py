@@ -17,8 +17,10 @@ Usage:
 import argparse
 import json
 import re
+import statistics
 import sys
 from pathlib import Path
+from typing import NamedTuple
 
 import fitz  # PyMuPDF
 
@@ -57,15 +59,92 @@ def span_type(span: dict) -> str:
     return "leader"
 
 
-def spans_to_typed_lines(page_spans: list[dict]) -> list[tuple[str, str, float, float]]:
+class TypedLine(NamedTuple):
+    """One typeset line, with the geometry needed to judge the break after it.
+
+    gap    unused space between the end of the line and the right margin
+    slack  what would have been left over had the next line's first word been
+           pulled up: gap - space advance - that word's width. Negative means
+           the typesetter had no choice; positive means the break was chosen.
+           None when the next line is on another page and cannot be measured.
+    lead   leading above this line; None on the first line of a page.
+    """
+    type: str
+    text: str
+    gap: float
+    slack: float | None
+    lead: float | None
+
+
+def _body_x1(page) -> list[float]:
+    """Right edge of every body line on a page, for measuring the text block."""
+    out = []
+    for block in page.get_text("dict", flags=fitz.TEXTFLAGS_DICT)["blocks"]:
+        for line in block.get("lines", []):
+            spans = [s for s in line["spans"]
+                     if s["text"].strip() and span_type(s) != "footer"]
+            if spans:
+                out.append(max(s["bbox"][2] for s in spans))
+    return out
+
+
+def document_metrics(pdf_doc, pages: list[int]) -> tuple[dict[int, float], float]:
+    """Measure the book's text block and space advance from the document itself.
+
+    Returns ({page parity: right margin}, space advance).
+
+    The margin must come from the whole book, not from one page: a page of short
+    poetic lines has no line reaching the measure, so a per-page maximum reports
+    a margin tens of points narrow and makes chosen breaks look forced. Recto and
+    verso differ by the gutter shift, hence the split by parity. The 99.5th
+    percentile rather than the maximum, so a single over-wide line cannot stretch
+    it.
+    """
+    by_parity: dict[int, list[float]] = {0: [], 1: []}
+    gaps: list[float] = []
+    for pno in pages:
+        page = pdf_doc[pno]
+        by_parity[pno % 2].extend(_body_x1(page))
+        lines: dict[int, list] = {}
+        for w in page.get_text("words"):
+            lines.setdefault(round(w[1]), []).append(w)
+        for line_words in lines.values():
+            line_words.sort(key=lambda w: w[0])
+            for a, b in zip(line_words, line_words[1:]):
+                advance = b[0] - a[2]
+                if 0 < advance < 8:          # ignore tabs/indents, keep word spaces
+                    gaps.append(advance)
+    margins = {}
+    for parity, values in by_parity.items():
+        if values:
+            values.sort()
+            margins[parity] = values[int(len(values) * 0.995)]
+    return margins, (statistics.median(gaps) if gaps else 2.6)
+
+
+def _first_word_widths(page) -> list[tuple[float, float]]:
+    """(y0, width of first word) for each line of words on the page."""
+    lines: dict[int, list] = {}
+    for w in page.get_text("words"):
+        lines.setdefault(round(w[1]), []).append(w)
+    out = []
+    for y, line_words in lines.items():
+        line_words.sort(key=lambda w: w[0])
+        first = line_words[0]
+        out.append((float(first[1]), first[2] - first[0]))
+    return sorted(out)
+
+
+def spans_to_typed_lines(page_spans: list[dict], margin: float | None = None,
+                         space_w: float = 2.6,
+                         first_words: list[tuple[float, float]] | None = None
+                         ) -> list[TypedLine]:
     """Group spans on a page into typed lines by y-position proximity.
 
-    Returns [(type, text, gap), ...] where `gap` is the unused space in points
-    between the end of the line and the page's right margin. A column wrap can
-    only occur on a line that ran out of horizontal room, so a large gap is
-    positive evidence that the following break was chosen by the typesetter
-    rather than forced. Consumed by _reflow_litany in extract_offices.py; see
-    #39 for the measurements behind the thresholds.
+    Returns TypedLine records carrying the geometry of the break after each
+    line. Pass `margin`/`space_w`/`first_words` from document_metrics() and
+    _first_word_widths() to get a usable `slack`; without them only `gap` is
+    meaningful. Consumed by _reflow_litany in extract_offices.py; see #39.
     """
     if not page_spans:
         return []
@@ -86,11 +165,10 @@ def spans_to_typed_lines(page_spans: list[dict]) -> list[tuple[str, str, float, 
                 cur_y = y
     if cur_line:
         lines.append(cur_line)
-    # Pass 1: classify each line and note its geometry, so the page's right
-    # margin is known before any line is emitted. Running headers ("34 Morning
-    # Prayer for Christmas") are dropped downstream by _is_noise, but they run
-    # wider than the text block and would inflate the margin, so they are
-    # excluded from it here.
+    # Pass 1: classify each line and note its geometry. Running headers ("34
+    # Morning Prayer for Christmas") are dropped downstream by _is_noise, but
+    # they run wider than the text block, so they are excluded from any fallback
+    # margin measured here.
     prepared: list[dict] = []
     for line_spans in lines:
         line_spans.sort(key=lambda s: s["x0"])
@@ -121,13 +199,28 @@ def spans_to_typed_lines(page_spans: list[dict]) -> list[tuple[str, str, float, 
         # page break, and callers must treat that as unknown rather than "no gap".
         p["lead"] = (p["y0"] - prepared[i - 1]["y0"]) if i else None
 
-    margin = max(
-        (max(s["x1"] for s in p["body"]) for p in prepared
-         if p["dominant"] in ("leader", "response") and not p["is_running_hdr"]),
-        default=0.0,
-    )
+    if margin is None:
+        # Fallback for callers with no document context. Measured per page, so it
+        # under-reports on pages of short poetic lines — document_metrics() is
+        # what the extraction pipeline uses.
+        margin = max(
+            (max(s["x1"] for s in p["body"]) for p in prepared
+             if p["dominant"] in ("leader", "response") and not p["is_running_hdr"]),
+            default=0.0,
+        )
 
-    result: list[tuple[str, str, float, float]] = []
+    # Width of the first word of each line, matched by y-position, so each line
+    # can be asked whether the next line's first word would have fitted on it.
+    def _next_first_word_w(i: int) -> float | None:
+        if first_words is None or i + 1 >= len(prepared):
+            return None
+        want = prepared[i + 1]["y0"]
+        for y, w in first_words:
+            if abs(y - want) <= 2:
+                return w
+        return None
+
+    result: list[TypedLine] = []
     # Verse second-halves are typeset with a physical ~18pt indent relative to
     # the first half (e.g. psalm/canticle/invitatory poetic line-pairs), and a
     # second half can itself run onto multiple indented lines. Track the
@@ -151,9 +244,11 @@ def spans_to_typed_lines(page_spans: list[dict]) -> list[tuple[str, str, float, 
     # dominant type isn't "response" so unrelated content can't misread a
     # leftover previous-line y-position.
     prev_response_y0: float | None = None
-    for p in prepared:
+    for i, p in enumerate(prepared):
         dominant, text, body = p["dominant"], p["text"], p["body"]
         gap = margin - max(s["x1"] for s in body)
+        w_next = _next_first_word_w(i)
+        slack = None if w_next is None else gap - space_w - w_next
         lead = p["lead"]
         if dominant == "leader":
             x0 = min(s["x0"] for s in body)
@@ -169,22 +264,26 @@ def spans_to_typed_lines(page_spans: list[dict]) -> list[tuple[str, str, float, 
                 # Synthetic stanza break — not a typeset line, so it has no
                 # geometry. Give it an unbounded gap: it is deliberate by
                 # construction and must never be treated as a column wrap.
-                result.append(("response", "", float("inf"), 0.0))
+                result.append(TypedLine("response", "", float("inf"),
+                                        float("inf"), 0.0))
             prev_response_y0 = y0
         else:
             prev_response_y0 = None
-        result.append((dominant, text, gap, lead))
+        result.append(TypedLine(dominant, text, gap, slack, lead))
     return result
 
 
 def extract_office_typed_lines(pdf_doc: fitz.Document, form_key: str,
-                                start_page: int, end_page: int) -> list[tuple[str, str, float, float]]:
+                                start_page: int, end_page: int,
+                                metrics: tuple[dict[int, float], float] | None = None
+                                ) -> list[TypedLine]:
     """Return typed lines for an entire office form (all pages concatenated).
 
-    Each line carries its end-of-line gap; the margin is per page, so gaps stay
-    comparable across a form even where page geometry differs slightly.
+    Pass `metrics` from document_metrics() so line geometry is measured against
+    the book's text block rather than each page's widest line.
     """
-    all_lines: list[tuple[str, str, float, float]] = []
+    margins, space_w = metrics if metrics else ({}, 2.6)
+    all_lines: list[TypedLine] = []
     for i in range(start_page - 1, end_page):
         page = pdf_doc[i]
         d = page.get_text("dict", flags=fitz.TEXTFLAGS_DICT)
@@ -205,7 +304,9 @@ def extract_office_typed_lines(pdf_doc: fitz.Document, form_key: str,
                         "x1": span["bbox"][2],
                         "y1": span["bbox"][3],
                     })
-        all_lines.extend(spans_to_typed_lines(segments))
+        all_lines.extend(spans_to_typed_lines(
+            segments, margin=margins.get(i % 2), space_w=space_w,
+            first_words=_first_word_widths(page)))
     return all_lines
 
 

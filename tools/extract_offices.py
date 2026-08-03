@@ -173,8 +173,16 @@ def _reflow_leader_prose(segs: list) -> list:
 # ("...you create us by your power and redeem us by your / love"). Measured
 # across all 168 litany breaks, the end-of-line gap is bimodal: 67 breaks under
 # 30pt, 83 over 70pt, and 18 between. See #39.
-_LITANY_WRAP_MAX_GAP = 30.0    # below this the line ran to the margin -> wrap
-_LITANY_VERSE_MIN_GAP = 70.0   # above this the break was unambiguously chosen
+# A break is forced iff the next line's first word could not have fitted on it.
+# `slack` measures exactly that, so it decides directly and no gap band is needed.
+# Only near zero is the answer genuinely uncertain: the measure is known to about
+# a point, so anything inside this dead band is adjudicated by hand instead.
+# Verified across all 149 litany breaks — every deliberate one has at least
+# 26.8pt of slack and the single true wrap has -22.8pt, so nothing real sits
+# near the band.
+_SLACK_DECIDES = 3.0
+# Used only where slack cannot be measured, i.e. the next line is on another page.
+_LITANY_VERSE_MIN_GAP = 70.0
 # Body leading is ~12.5pt and a paragraph or stanza boundary is 16.5pt or more;
 # 15 sits between them, the same split spans_to_typed_lines already uses for
 # creed stanza breaks.
@@ -246,53 +254,27 @@ def _insert_stanza_breaks(segs: list) -> list:
         seg["text"] = "\n".join(out)
     return segs
 
-# The 24 breaks in the valley, adjudicated by hand against the PDF (2026-08-02)
-# and independently re-verified against it (2026-08-03), by measuring the book's
-# true text measure and asking whether the next word would have fitted. Every
-# KEEP has 26.8-89.3pt to spare, so the typesetter chose those breaks.
+# Breaks that geometry cannot settle, adjudicated by hand against the PDF.
 #
-# Only the joins need naming; a valley break that is not listed is kept, which is
-# the conservative direction (it preserves text rather than destroying it), and
-# warns so a re-cut PDF cannot silently change lineation. Keyed by the text of
-# the line the break follows.
-_LITANY_VALLEY_JOIN = frozenset({
-    "Bring those who are drawing to near to the light of faith to true",
-    # The one break in the litany that geometry cannot settle in either
-    # direction: at word precision the slack against "goodwill:" is -1.6 to
-    # +1.4pt depending on where the margin is taken, i.e. it straddles zero.
-    # Joined on the text instead — "peace and | goodwill:" splits a fixed phrase
-    # and would leave a dangling conjunction, and this form's own deliberate
-    # breaks land at x1 302-325 while its wraps land at 356+, which is where
-    # this one sits. Its deliberate break is after "goodwill:", not before.
-    "That your holy angels may lead us in the paths of peace and",
-})
-_LITANY_VALLEY_KEEP = frozenset({
-    "Let all peoples acknowledge your reign of justice and peace",
-    "help the Church to reveal the mystery of your love",
-    "Inspire the King, the Governor General, the Prime Minister,",
-    "Strengthen the faith of those who are preparing for baptism",
-    "Grant a peaceful end and eternal rest to all who are dying",
-    "For the poor, the persecuted, the sick, and all who suffer;",
-    "In the hour of death you heard the penitent thief",
-    # Unreachable today: this break carries 21.5pt of leading, so the paragraph
-    # rule keeps it before the valley lookup runs. Kept as a record that it was
-    # adjudicated, and so it still resolves correctly if that rule changes.
-    "Let us give thanks to the God of all the faithful.",
-    "Creator of the heavens, lead all peoples into a common life",
-    "O Branch of Jesse standing as a sign among the nations,",
-    "Inspire all who have consecrated their lives to your reign",
-    "let us offer our prayers before the throne of grace, saying,",
-    "Direct our lives in the same spirit of service and sacrifice",
-    "O God of our salvation, guard and direct your Church",
-    "Strengthen all who are persecuted for your name’s sake,",
-    # Also unreachable — 21.5pt of leading, as above.
-    "Let us pray, saying, “Giver of life, hear our prayer.”",
-    "Teach us to use your creation for your greater praise,",
-    "Source of all being, you call us to live together in unity:",
-    "May all who with Christ have entered the shadow of death",
-    "Let us pray to God the Holy Spirit, saying,",
-    "For all that is gracious in the lives of men and women,",
-    "Grant your salvation to all who are far from home,",
+# `slack` answers the question directly, so this list only catches breaks inside
+# the dead band where the measure's own precision (about a point) is the limit.
+# It went from 24 entries to 2 when the margin stopped being measured per page;
+# the other 22 were never ambiguous, only mis-measured. Keyed by the text of the
+# line the break follows.
+#
+# Both entries below are couplets whose first line happens to run nearly the full
+# measure, so the next word does not quite fit and the geometry reads as forced.
+# Their surrounding petitions are unambiguous couplets set to the same pattern
+# with a repeating response, and a wrap landing exactly on the couplet boundary
+# is not credible against that.
+#
+# tools/tests/test_special_cases.py pins the size of these lists: if extraction
+# starts needing more hand-adjudicated breaks, the geometry has stopped working
+# and the build fails until someone looks.
+_LITANY_VALLEY_JOIN: frozenset[str] = frozenset()
+_LITANY_VALLEY_KEEP: frozenset[str] = frozenset({
+    "May candidates for baptism and confirmation live by every word",
+    "Guide us into new and just ways of sharing the goods of the earth,",
 })
 
 
@@ -311,8 +293,9 @@ def _reflow_litany(segs: list, office_key: str = "") -> list:
             continue
         lines = seg["text"].split("\n")
         gaps = seg.get("break_gaps", [])
+        slacks = seg.get("break_slacks", [])
         leads = seg.get("break_leads", [])
-        if len(gaps) != len(lines) - 1 or len(leads) != len(gaps):
+        if len(gaps) != len(lines) - 1 or len(leads) != len(gaps) or len(slacks) != len(gaps):
             # Alignment lost — a later pass rewrote the text. Fall back to the
             # historical behaviour rather than guessing at which break is which.
             _dbg(f"  LITANY gap misalignment ({len(gaps)} gaps, {len(lines)} lines)"
@@ -321,16 +304,20 @@ def _reflow_litany(segs: list, office_key: str = "") -> list:
             continue
         out = lines[0]
         for i, nxt in enumerate(lines[1:]):
-            gap = gaps[i]
+            gap, slack = gaps[i], slacks[i]
             line = lines[i].strip()
             if (leads[i] or 0) > _LITANY_PARAGRAPH_LEAD:
                 # Extra leading below the line — a paragraph or stanza boundary.
                 # The typesetter cannot open up space by wrapping, so this is
                 # decisive regardless of how full the line ran.
                 join = False
-            elif gap < _LITANY_WRAP_MAX_GAP:
-                join = True
-            elif gap >= _LITANY_VERSE_MIN_GAP:
+            elif slack is not None and abs(slack) >= _SLACK_DECIDES:
+                # The decisive question: would the next line's first word have
+                # fitted here? If yes the break was chosen; if not it was forced.
+                join = slack < 0
+            elif slack is None and gap >= _LITANY_VERSE_MIN_GAP:
+                # Next line is on another page, so the word cannot be measured;
+                # only a break with room to spare can still be called deliberate.
                 join = False
             elif line in _LITANY_VALLEY_JOIN:
                 join = True
@@ -338,7 +325,8 @@ def _reflow_litany(segs: list, office_key: str = "") -> list:
                 join = False
             else:
                 join = False
-                print(f"  WARNING [{office_key}] unadjudicated litany break at "
+                where = "unmeasurable (page break)" if slack is None else f"slack={slack:.1f}pt"
+                print(f"  WARNING [{office_key}] unadjudicated litany break, {where}, "
                       f"gap={gap:.1f}pt, kept: {line[:60]!r}", file=sys.stderr)
             out += (" " if join else "\n") + nxt.strip()
         seg["text"] = re.sub(r"[ \t]+", " ", out).strip()
@@ -391,10 +379,12 @@ def _merge(segs: list[dict]) -> list[dict]:
                 # the break follows, and the leading opened up below it. Both
                 # lists stay index-aligned with the "\n"s in prev["text"].
                 prev.setdefault("break_gaps", []).append(prev.get("gap", 0.0))
+                prev.setdefault("break_slacks", []).append(prev.get("slack"))
                 prev.setdefault("break_leads", []).append(seg.get("lead", 0.0))
             prev["text"] += sep + seg["text"]
             # The segment now ends where `seg` ends.
             prev["gap"] = seg.get("gap", 0.0)
+            prev["slack"] = seg.get("slack")
         else:
             merged.append(dict(seg))
     return [s for s in merged if s["text"].strip()]
@@ -1028,13 +1018,13 @@ def _fix_shared_affirmation(offices: dict) -> dict:
 
 # ── Main extraction ───────────────────────────────────────────────────────────
 
-def extract_office(typed_lines: list[tuple[str, str, float, float]], office_key: str = "") -> dict:
+def extract_office(typed_lines: list, office_key: str = "") -> dict:
     title = ""
     subtitle = ""
     header_done = False
-    filtered_lines: list[tuple[str, str, float, float]] = []
+    filtered_lines: list = []
 
-    for typ, text, gap, lead in typed_lines:
+    for typ, text, gap, slack, lead in typed_lines:
         if _is_noise(typ, text):
             _dbg(f"  NOISE [{typ}] {repr(text[:60])}", office=office_key)
             continue
@@ -1050,7 +1040,7 @@ def extract_office(typed_lines: list[tuple[str, str, float, float]], office_key:
                 continue
             if title and typ == "heading":
                 header_done = True
-        filtered_lines.append((typ, text, gap, lead))
+        filtered_lines.append((typ, text, gap, slack, lead))
 
     _dbg(f"\n=== SECTION ASSIGNMENT: {office_key} ===", office=office_key)
 
@@ -1066,7 +1056,7 @@ def extract_office(typed_lines: list[tuple[str, str, float, float]], office_key:
             sections[current_key] = _merge(current_segs)
         current_segs = []
 
-    for typ, text, gap, lead in filtered_lines:
+    for typ, text, gap, slack, lead in filtered_lines:
         if typ == "heading":
             key = _heading_to_key(text)
             raw_disp = repr(text[:60])
@@ -1079,7 +1069,7 @@ def extract_office(typed_lines: list[tuple[str, str, float, float]], office_key:
                         break
                 _dbg(f"  UNKNOWN-HDR → content in {current_key!r} as {content_type}: {raw_disp}", office=office_key)
                 if current_key is not None:
-                    current_segs.append({"type": content_type, "text": text, "gap": gap, "lead": lead})
+                    current_segs.append({"type": content_type, "text": text, "gap": gap, "slack": slack, "lead": lead})
                 continue
             if key is _CONTINUE:
                 # Structural heading that keeps the current section active (e.g. Lord's Prayer
@@ -1094,12 +1084,12 @@ def extract_office(typed_lines: list[tuple[str, str, float, float]], office_key:
             # (invitatory headings carry the psalm citation, e.g. "Invitatory Psalm:
             # Psalm 95:1–7" — see issue #1).
             if key in ("phos_hilaron", "invitatory") and text:
-                current_segs.append({"type": "label", "text": text, "gap": gap, "lead": lead})
+                current_segs.append({"type": "label", "text": text, "gap": gap, "slack": slack, "lead": lead})
             continue
 
         if current_key is not None:
             _dbg(f"  [{current_key}] {typ} {repr(text[:60])}", office=office_key)
-            current_segs.append({"type": typ, "text": text, "gap": gap, "lead": lead})
+            current_segs.append({"type": typ, "text": text, "gap": gap, "slack": slack, "lead": lead})
         else:
             _dbg(f"  [NO-SECTION] {typ} {repr(text[:60])}", office=office_key)
 
@@ -1165,6 +1155,8 @@ def extract_office(typed_lines: list[tuple[str, str, float, float]], office_key:
         for seg in segs:
             seg.pop("gap", None)
             seg.pop("break_gaps", None)
+            seg.pop("break_slacks", None)
+            seg.pop("slack", None)
             seg.pop("break_leads", None)
             seg.pop("lead", None)
             for g in seg.get("groups", []):
@@ -1204,13 +1196,21 @@ def run():
 
     out_path = ROOT / "data" / "offices.json"
 
-    from extract_office_styles import extract_office_typed_lines  # noqa: PLC0415
+    from extract_office_styles import (  # noqa: PLC0415
+        document_metrics, extract_office_typed_lines,
+    )
 
     offices: dict[str, dict] = {}
     doc = fitz.open(pdf_path)
+    # Measure the book once: line geometry is judged against the text block, not
+    # against each page's widest line (#39).
+    office_pages = sorted({p for _, st, en in OFFICES for p in range(st - 1, en)})
+    metrics = document_metrics(doc, office_pages)
+    print(f"Text measure: {{{', '.join(f'{k}: {v:.1f}pt' for k, v in sorted(metrics[0].items()))}}}, "
+          f"space advance {metrics[1]:.2f}pt")
     for key, start, end in OFFICES:
         _dbg(f"\n{'='*60}\nEXTRACTING: {key} (pages {start}–{end})\n{'='*60}", office=key)
-        typed_lines = extract_office_typed_lines(doc, key, start, end)
+        typed_lines = extract_office_typed_lines(doc, key, start, end, metrics=metrics)
         offices[key] = extract_office(typed_lines, office_key=key)
         sections = [k for k in offices[key] if k not in ("title", "subtitle")]
         print(f"  {key}: {sections}")
