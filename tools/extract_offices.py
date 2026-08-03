@@ -97,6 +97,37 @@ _SUB_HDR_MAP: list[tuple] = [
     (re.compile(r'^the Psalm$',                         re.IGNORECASE), None),
 ]
 
+# Every section that reaches the renderer, in the order a form presents them.
+# This is the canonical list — `_SUB_HDR_MAP` above is NOT, and using it as one is
+# a repeated source of wrong measurements.
+SECTION_ORDER = (
+    "opening_responses", "thanksgiving_for_light", "phos_hilaron",
+    "invitatory", "responsory", "canticle", "affirmation",
+    "intercessions", "litany", "seasonal_collects", "lords_prayer_intro",
+    "dismissal",
+)
+
+# Sections no heading ever names. They are carved out of the litany block after
+# section assignment, by _split_litany_collects and _split_lords_prayer, so any
+# analysis that walks typed lines and assigns sections via _heading_to_key
+# reports ZERO for these rather than failing — which has silently produced wrong
+# answers more than once (a slack sweep that missed 334 breaks, an audit that
+# reported "no breaks sampled"). Walk SECTION_ORDER, or a built form, instead.
+SPLIT_SECTIONS = frozenset({"seasonal_collects", "lords_prayer_intro"})
+
+
+def sections_of(form: dict):
+    """Yield (section_key, segments) for a built form, in canonical order.
+
+    The accessor analyses should use: it cannot miss a split-out section the way
+    heading-derived assignment does.
+    """
+    for key in SECTION_ORDER:
+        segs = form.get(key)
+        if segs:
+            yield key, segs
+
+
 # Heading lines that are actually repeated congregational refrains (antiphon pattern).
 # Some PDF occurrences are rendered at heading font size/weight; reclassify as response.
 _RESPONSE_HDRS: list[re.Pattern] = [
@@ -1140,10 +1171,7 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
         result["subtitle"] = subtitle
 
     # Preserve canonical section order.
-    for key in ("opening_responses", "thanksgiving_for_light", "phos_hilaron",
-                "invitatory", "responsory", "canticle", "affirmation",
-                "intercessions", "litany", "seasonal_collects", "lords_prayer_intro",
-                "dismissal"):
+    for key in SECTION_ORDER:
         if key in sections and sections[key]:
             result[key] = sections[key]
 

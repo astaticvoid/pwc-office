@@ -52,7 +52,11 @@ NODE_OPTIONS = --localstorage-file=/tmp/pwc-ls.json
 test-unit:
 	npm test
 
-test: test-unit test-tools qa
+# check-integrity runs first and fails fast: it catches data/ that no longer
+# matches the manifest, which is the state left by editing an extractor and
+# forgetting to re-run the pipeline. A commit was once made in exactly that state
+# because the check was a separate command nobody ran (#50).
+test: check-integrity test-unit test-tools qa
 
 # Smoke — 4 cases: structural + reading citation check vs lectionary.anglican.ca.
 # Skips citation check if site is unreachable.
