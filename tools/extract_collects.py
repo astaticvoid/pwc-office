@@ -589,7 +589,11 @@ def run():
                     entry["date"] = date
                 collects[str(book_page)] = entry
                 print(f"  p.{book_page:3d}  {current_name!r}")
-            elif re.search(r'\bCollect\b', text):
+            # A collect page announces itself with a short heading line. The
+            # bare word anywhere flagged p.262 on every run — prose discussing
+            # "the Collect of the Day", which happens to begin a wrapped line,
+            # so requiring line-start is not enough; a heading is also short.
+            elif re.search(r'(?mi)^\s*(the\s+)?collect\b[^\n]{0,30}$', text):
                 failures.append(book_page)
 
         # ── Occasional Prayers section (pp.676-683) ───────────────────────────

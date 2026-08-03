@@ -41,11 +41,28 @@ def test_all_canonical_bounds_found_without_warnings(capsys):
 
 # ── Fuzzy match ───────────────────────────────────────────────────────────────
 
-def test_fuzzy_match_sets_bound_and_warns(capsys):
-    # "The First Sunday of Advent" contains the phrase but doesn't start with it
+def test_article_prefix_is_an_exact_match(capsys):
+    # The source writes every feast with a leading article. That is the normal
+    # form, not a near miss, so it must not warn (#45).
     rows = [_row('2025-11-30', 'The First Sunday of Advent')]
     bounds = detect_bounds(rows)
-    assert 'advent_i' in bounds
+    assert bounds['advent_i'] == '2025-11-30'
+    assert 'WARNING' not in capsys.readouterr().err
+
+
+def test_rank_and_colour_decorations_are_an_exact_match(capsys):
+    # "the baptism of the lord - hd [proper 1] (white)" is how the CSV writes
+    # a feast; the decorations are stripped before matching.
+    rows = [_row('2026-01-11', 'The Baptism of the Lord - HD [Proper 1] (white)')]
+    bounds = detect_bounds(rows)
+    assert bounds['epiphany'] == '2026-01-11'
+    assert 'WARNING' not in capsys.readouterr().err
+
+
+def test_phrase_buried_in_a_sentence_still_warns(capsys):
+    # A real near miss: the phrase appears, but not as this row's title.
+    rows = [_row('2025-11-30', 'Readings for the First Sunday of Advent begin overleaf')]
+    bounds = detect_bounds(rows)
     assert bounds['advent_i'] == '2025-11-30'
     err = capsys.readouterr().err
     assert 'WARNING' in err
@@ -60,10 +77,8 @@ def test_fuzzy_match_easter_with_suffix(capsys):
     assert 'WARNING' not in capsys.readouterr().err
 
 
-def test_fuzzy_match_pentecost_with_the_prefix(capsys):
+def test_pentecost_with_the_prefix_is_exact(capsys):
     rows = [_row('2026-05-24', 'The Day of Pentecost')]
     bounds = detect_bounds(rows)
     assert 'pentecost' in bounds
-    err = capsys.readouterr().err
-    assert 'WARNING' in err
-    assert 'pentecost' in err
+    assert 'WARNING' not in capsys.readouterr().err
