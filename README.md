@@ -38,8 +38,8 @@ make promote           # CloudFront origin-path swap to production
 make rollback          # revert to previous release
 ```
 
-Requires the AWS CLI, `BUCKET`, `CF_DISTRIBUTION_ID`, `STAGING_DOMAIN`, and
-`STAGING_CF_ID` in `.env` (see `.env.example`).
+Requires the AWS CLI plus `BUCKET` and `CF_DISTRIBUTION_ID` in `.env`, and
+`STAGING_DOMAIN` for `make test-staging` (see `.env.example`).
 
 Before promoting, review changes:
 
