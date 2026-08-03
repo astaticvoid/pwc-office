@@ -139,33 +139,6 @@ def _is_noise(typ: str, text: str) -> bool:
 
 # ── Segment merging ───────────────────────────────────────────────────────────
 
-def _reflow_leader_prose(segs: list) -> list:
-    """BUG-29: join PDF column-wrap line breaks in leader (prose) segments.
-    Recurses into alternatives groups. Rubric/response segments are left as-is.
-
-    Used for both seasonal_collects and litany. An earlier litany-specific
-    version (_reflow_litany_prose) tried to keep a break wherever a line
-    ended in "terminal punctuation" (comma/semicolon/colon/etc.), on the
-    theory that marked an intro-rubric -> petition boundary. Checked against
-    the source PDF (2026-07-26): every leader segment in the litany is one
-    continuous petition -- the leader/response type alternation is already
-    the real structural boundary, and mid-sentence commas/colons (extremely
-    common in this prose) aren't a break signal at all. That heuristic
-    produced 46 false breaks across the litany dataset, e.g. "Show your good
-    will to all who live in this city, the poor and the rich," / "the
-    elderly and the young, men and women." -- one sentence, split on an
-    ordinary comma. Unconditional join (this function) matches the source;
-    see issue #9.
-    """
-    for seg in segs:
-        if seg.get("type") == "leader" and seg.get("text"):
-            seg["text"] = re.sub(r"\s*\n\s*", " ", seg["text"]).strip()
-        elif seg.get("type") == "alternatives":
-            for g in seg.get("groups", []):
-                _reflow_leader_prose(g.get("segments", []))
-    return segs
-
-
 # Litany line breaks are decided per break from page geometry, not per section.
 # The litany is the one genuinely mixed section: seasonal forms set it as verse
 # (the Advent litany is the O Antiphons, lines ending 90-215pt short of the
@@ -278,16 +251,18 @@ _LITANY_VALLEY_KEEP: frozenset[str] = frozenset({
 })
 
 
-def _reflow_litany(segs: list, office_key: str = "") -> list:
-    """Join only those litany breaks the typesetter was forced into.
+def _reflow_by_geometry(segs: list, office_key: str = "", section: str = "",
+                        prose: bool = False) -> list:
+    """Join only those breaks the typesetter was forced into.
 
-    Replaces the unconditional join that _reflow_leader_prose applies, which
-    flattened every petition in all 31 forms (#39).
+    Replaces the unconditional joins that _reflow_leader_prose used to apply to
+    litany (#39) and seasonal_collects (#42), which flattened every petition in
+    all 30 forms and left the collects correct only by accident.
     """
     for seg in segs:
         if seg.get("type") == "alternatives":
             for g in seg.get("groups", []):
-                _reflow_litany(g.get("segments", []), office_key)
+                _reflow_by_geometry(g.get("segments", []), office_key, section, prose)
             continue
         if seg.get("type") != "leader" or not seg.get("text"):
             continue
@@ -320,7 +295,7 @@ def _reflow_litany(segs: list, office_key: str = "") -> list:
                 # The decisive question: would the next line's first word have
                 # fitted here? If yes the break was chosen; if not it was forced.
                 join = slack < 0
-            elif slack is None and gap >= _LITANY_VERSE_MIN_GAP:
+            elif slack is None and not prose and gap >= _LITANY_VERSE_MIN_GAP:
                 # Next line is on another page, so the word cannot be measured;
                 # only a break with room to spare can still be called deliberate.
                 join = False
@@ -329,10 +304,16 @@ def _reflow_litany(segs: list, office_key: str = "") -> list:
             elif line in _LITANY_VALLEY_KEEP:
                 join = False
             else:
-                join = False
-                where = "unmeasurable (page break)" if slack is None else f"slack={slack:.1f}pt"
-                print(f"  WARNING [{office_key}] unadjudicated litany break, {where}, "
-                      f"gap={gap:.1f}pt, kept: {line[:60]!r}", file=sys.stderr)
+                # Geometry could not decide. Fall back to the section's own mode:
+                # joining a prose wrap restores flowing text, while keeping a
+                # verse break preserves lineation. Each errs the harmless way for
+                # the material it governs.
+                join = prose
+                if not prose:
+                    where = ("unmeasurable (page break)" if slack is None
+                             else f"slack={slack:.1f}pt")
+                    print(f"  WARNING [{office_key}/{section}] unadjudicated break, {where}, "
+                          f"gap={gap:.1f}pt, kept: {line[:60]!r}", file=sys.stderr)
             sep = " " if join else ("\n\n" if para else "\n")
             out += sep + nxt.strip()
         seg["text"] = re.sub(r"[ \t]+", " ", out).strip()
@@ -380,7 +361,7 @@ def _merge(segs: list[dict]) -> list[dict]:
             # Truncated continues rubric: join with space (mid-sentence continuation).
             sep = " " if prev_is_truncated_continues else "\n"
             if sep == "\n":
-                # Record the geometry of the break, so _reflow_litany can judge
+                # Record the geometry of the break, so _reflow_by_geometry can judge
                 # each one individually later: the end-of-line gap of the line
                 # the break follows, and the leading opened up below it. Both
                 # lists stay index-aligned with the "\n"s in prev["text"].
@@ -849,7 +830,7 @@ def _normalize_whitespace(offices: dict) -> dict:
     # opening_responses, and 0% of thanksgiving_for_light. Do not reintroduce it;
     # see #38 and the revert of c81b341.
     # `litany` is here for a different reason than the rest. Its breaks are not
-    # all intentional in the source, but by the time this runs _reflow_litany has
+    # all intentional in the source, but by the time this runs _reflow_by_geometry has
     # already judged each one against the page geometry and joined the wraps, so
     # every break that survives to here is deliberate. Letting the blanket regex
     # run would silently undo that per-break work (#39).
@@ -1128,12 +1109,13 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
     # wraps are typographic, not semantic. Join them. Rubric segments (bullet
     # lists) and response segments keep their lineation.
     if "seasonal_collects" in sections:
-        _reflow_leader_prose(sections["seasonal_collects"])
+        _reflow_by_geometry(sections["seasonal_collects"], office_key,
+                            "seasonal_collects", prose=True)
 
     # Litany is mixed verse and prose, so each break is judged on its own
     # geometry rather than section-wide (#39).
     if "litany" in sections:
-        _reflow_litany(sections["litany"], office_key)
+        _reflow_by_geometry(sections["litany"], office_key, "litany")
 
     # Hymn stanza breaks come from the page's own leading, not an assumed
     # stanza length. Must run here, while break_leads is still attached.
