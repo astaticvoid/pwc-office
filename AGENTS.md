@@ -62,9 +62,9 @@ node tools/review_form.cjs FORM   # line-numbered text renderer for manual revie
 make check-text                   # scan for PDF extraction artifacts
 make check-text --strict          # same but exits non-zero on findings
 make check-integrity              # verify data/ hashes match extract manifest — fails if any
-# NOTE: after changing anything in extract_offices.py, re-run `make extract`
-# before `make check-integrity`.  The manifest stores hashes of the committed
-# data; stale hashes after a code change will fail the check.
+# NOTE: after changing any extractor, re-run `make extract`. The manifest stores
+# hashes of the committed data, so stale hashes after a code change fail this —
+# which is the point, and why it also gates `make test`.
 
 # Build & verify
 make build                        # assemble dist/ (copies web/, dereferences data symlink)
@@ -132,18 +132,66 @@ Copyrighted content in `data/` is permanently gitignored. Only `data/translation
 
 Extraction pipeline (run via `make extract`):
 
-1. `extract_offices.py` → `data/offices.json` (30 forms) — PyMuPDF span-level extraction
-2. `extract_office_styles.py` — span classification via font flags + sRGB color
-3. `normalize_offices.py` → deduplicates shared blocks into `_shared`
-4. `extract_psalter.py` → `data/psalter.json`
-5. `extract_collects.py` → `data/collects.json`
-6. `validate_corrections.py` + `apply_corrections.py` → applies `data/corrections.json`
-7. `convert_lectionary.py` → `data/lectionary/` (from `sources/bas_short_*.csv`)
-8. `update_extract_manifest.py` → `tools/extract_manifest.json` (SHA-256 + counts, committed)
+Each stage reads a named input and writes its own output; nothing is mutated in
+place. Intermediates live in `.build/` — outside `data/`, which is the tree that
+ships via the `web/data` symlink. Only the right-hand column is published.
 
-**Data integrity guard:** `check_data_integrity.py` compares current `data/*.json` hashes against `tools/extract_manifest.json`. Exits 1 if any file was edited outside the pipeline. Wired into `make deploy-staging` as a gate.
+| Stage | Writes |
+|---|---|
+| `extract_offices.py` (30 forms, PyMuPDF span-level) | `.build/offices.1-extract.json` |
+| `extract_office_styles.py` — span classification by font flags + sRGB colour | *(library)* |
+| `normalize_offices.py` — hoists shared blocks into `_shared` | `.build/offices.2-normalized.json` |
+| `extract_psalter.py` | `.build/psalter.1-extract.json` |
+| `extract_fats.py` | `.build/fats-saints.1-extract.json` |
+| `convert_lectionary.py` (from `sources/bas_short_*.csv`) | `.build/lectionary/YYYY-MM.json` |
+| `extract_collects.py` | `data/collects.json` |
+| `validate_corrections.py` — checks corrections against the pre-correction artifacts | *(read-only)* |
+| `apply_corrections.py` — applies `data/corrections.json` | `data/offices.json`, `data/psalter.json`, `data/fats/saints.json`, `data/lectionary/` |
+| `update_extract_manifest.py` | `tools/extract_manifest.json` (committed) |
+
+Because each stage names its input, the order is a data dependency rather than a
+rule to remember: `convert_lectionary.py` cannot discard published corrections,
+and `validate_corrections.py` cannot see corrected output, whenever they run
+(#49, closing the #37 failure mode).
+
+**Data integrity guard:** `check_data_integrity.py` compares current `data/*.json` hashes against `tools/extract_manifest.json`. Exits 1 if any file was edited outside the pipeline, or if an extractor changed without a re-run. Gates both `make test` and `make deploy-staging`.
 
 **Verse sections — one list, in the validator only.** `VERSE_SECTIONS` in `tools/validate_office.cjs` asks *"does this section contain any intentional line breaks?"*, so `no-prose-line-breaks` won't flag a `\n`. There is no longer a Python counterpart: extraction decides every break from the page (see below), so nothing needs a section-level exemption. `_VERSE_SECTIONS` and the `_LINE_JOIN` regex it gated were removed once the geometry reproduced the extraction exactly without them. When adding a verse-like section, update the JS list and the line-count assertions in `tests/unit/render.test.js`.
+
+### Changing an extractor
+
+Extraction output is copyrighted text nobody diffs by eye, and the test suite
+cannot see most of what can go wrong with it — the coherence score sat at 100/100
+through a change that collapsed every evening hymn into prose. So the diff is the
+verification, and it is not optional.
+
+```bash
+make extract-baseline          # full pipeline, snapshot
+# ...edit tools/extract_*.py...
+make extract-diff EXPECT=0     # a refactor must change nothing
+make extract-diff              # or read what actually moved
+```
+
+State the expected node count before running it, and make the change explain the
+number. "0 nodes" is the target for anything meant to be behaviour-preserving;
+a real fix should change exactly the nodes it claims and no others.
+
+**Each stage writes its own artifact.** `.build/*.1-extract.json` and friends are
+inputs to the next stage; only `data/` is published. Never treat an intermediate
+as final, and never point a diff at one — that comparison is meaningless and
+looks authoritative. Running a single extractor cannot corrupt `data/` any more
+(#48, #49), but it also does not produce it.
+
+**`_heading_to_key` is not a list of sections.** `seasonal_collects` and
+`lords_prayer_intro` are carved out of the litany block afterwards, so anything
+walking typed lines and assigning sections by heading reports zero for them
+rather than failing. Walk `SECTION_ORDER` or `sections_of(form)` instead. This
+has produced confidently wrong measurements more than once.
+
+**Count only what can exhibit the defect.** A paragraph-break count went 47 → 30
+→ 14 in one session because the first two included segment-type transitions that
+`_merge` already separates. Narrow the population before reporting a number, and
+say which population it is.
 
 **Deciding a break: measure the page, never a proxy.** Whether a line break is deliberate or a PDF column wrap is a physical question — did the line run out of horizontal room? Answer it from geometry (`gap`, the unused space at the end of the line, and `lead`, the leading opened up below it), both carried out of `spans_to_typed_lines`. Two attempts to use a proxy instead have shipped broken text: a "terminal punctuation" rule produced 46 false breaks (#9), and classifying by the trailing space PyMuPDF leaves on a span collapsed every evening hymn stanza into prose (#38, reverted in 0ac1b86) — that space marks "this line does not end the block", not "this line was wrapped". `litany` is the only section mixed enough to need per-break judgement; `_reflow_litany` does it, with the handful of ambiguous breaks adjudicated explicitly and anything new warned about rather than guessed at. See #39.
 
