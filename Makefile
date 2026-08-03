@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: venv test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa
+.PHONY: venv invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -254,8 +254,22 @@ promote:
 	  /tmp/cf-config.json > /tmp/cf-new.json && \
 	aws cloudfront update-distribution --id $(CF_DISTRIBUTION_ID) \
 	  --distribution-config file:///tmp/cf-new.json \
-	  --if-match $$(jq -r '.ETag' /tmp/cf-config.json) && \
-	echo "Promoted $$RELEASE to production"
+	  --if-match $$(jq -r '.ETag' /tmp/cf-config.json) > /dev/null && \
+	echo "Promoted $$RELEASE to production" && \
+	$(MAKE) invalidate-production --no-print-directory
+
+# CloudFront caches by URL path, not by origin path, so swapping the origin in
+# promote does not on its own change what anyone is served. Objects under
+# releases/ carry no cache-control and the distribution uses Managed-
+# CachingOptimized (24h default), so without this a promotion stays invisible
+# for up to a day. Split out so a rollback can reuse it.
+invalidate-production:
+	@echo "Invalidating production cache..."
+	@ID=$$(aws cloudfront create-invalidation --distribution-id $(CF_DISTRIBUTION_ID) \
+	  --paths "/*" --query 'Invalidation.Id' --output text) && \
+	echo "Invalidation $$ID created (typically completes in 1-3 min)."
+	@echo "Note: pwc-deploy cannot read invalidation status (cloudfront:GetInvalidation"
+	@echo "is denied), so this cannot be waited on — check the site in a minute or two."
 
 rollback:
 	@PREV=$$(aws s3 ls s3://$(BUCKET)/releases/ | sort -r | head -2 | tail -1 | awk '{print $$2}' | sed 's:/$$::') && \
@@ -267,8 +281,9 @@ rollback:
 	  /tmp/cf-config.json > /tmp/cf-new.json && \
 	aws cloudfront update-distribution --id $(CF_DISTRIBUTION_ID) \
 	  --distribution-config file:///tmp/cf-new.json \
-	  --if-match $$(jq -r '.ETag' /tmp/cf-config.json) && \
+	  --if-match $$(jq -r '.ETag' /tmp/cf-config.json) > /dev/null && \
 	echo "Rolled back to $$PREV"
+	@$(MAKE) invalidate-production --no-print-directory
 
 # Legacy single-step deploy — kept for compatibility during transition.
 # Use deploy-staging + test-staging + promote for production deploys.
