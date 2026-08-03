@@ -29,8 +29,8 @@ boneyard/data/
 # Python virtualenv — created by `make venv`
 .venv/
 
-# Extraction baseline — created by `make extract-baseline`
-.extract-baseline/
+# Generated pipeline artifacts and baselines — never published, always re-derivable
+.build/
 
 # Claude Code — machine-local settings only; shared settings (.claude/settings.json etc.) are tracked
 .claude/settings.local.json

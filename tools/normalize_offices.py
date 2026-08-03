@@ -95,10 +95,10 @@ def main():
     parser = argparse.ArgumentParser(description='Normalize shared blocks (stage 2 of the offices chain).')
     parser.add_argument('--dry-run', action='store_true', help='Print what would change without writing.')
     parser.add_argument('--in', dest='in_path', type=Path,
-                        default=root / 'data' / 'build' / 'offices.1-extract.json',
+                        default=root / '.build' / 'offices.1-extract.json',
                         help='extract_offices.py output')
     parser.add_argument('--out', dest='out_path', type=Path,
-                        default=root / 'data' / 'build' / 'offices.2-normalized.json',
+                        default=root / '.build' / 'offices.2-normalized.json',
                         help='normalized output, read by apply_corrections.py')
     args = parser.parse_args()
 

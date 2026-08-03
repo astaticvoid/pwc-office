@@ -1167,7 +1167,7 @@ def run():
     # mutates a predecessor's, so an intermediate can never be mistaken for the
     # finished file — running this script alone used to leave a complete-looking
     # data/offices.json whose _shared was missing three blocks (#48).
-    out_path = ROOT / "data" / "build" / "offices.1-extract.json"
+    out_path = ROOT / ".build" / "offices.1-extract.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     from extract_office_styles import (  # noqa: PLC0415
