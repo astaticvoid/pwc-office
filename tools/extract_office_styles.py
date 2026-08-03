@@ -117,7 +117,9 @@ def spans_to_typed_lines(page_spans: list[dict]) -> list[tuple[str, str, float, 
     # the line happens to run the full measure. First line of a page has no
     # predecessor, so it reports normal leading and the horizontal gap decides.
     for i, p in enumerate(prepared):
-        p["lead"] = (p["y0"] - prepared[i - 1]["y0"]) if i else 0.0
+        # None on the first line of a page: leading cannot be measured across a
+        # page break, and callers must treat that as unknown rather than "no gap".
+        p["lead"] = (p["y0"] - prepared[i - 1]["y0"]) if i else None
 
     margin = max(
         (max(s["x1"] for s in p["body"]) for p in prepared
