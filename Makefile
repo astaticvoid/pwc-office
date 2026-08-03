@@ -230,8 +230,8 @@ promote:
 	  echo "Checking coherence score..."; \
 	  node tools/validate_office.cjs --json > /tmp/pwc-promote-val.json 2>/dev/null; \
 	  node tools/audit_office.cjs --json > /tmp/pwc-promote-aud.json 2>/dev/null; \
-	  node tools/coherence_score.cjs --check-promote /tmp/pwc-promote-val.json /tmp/pwc-promote-aud.json \
-	    || (echo "Promotion blocked — score below 85. Fix issues or use PROMOTE_FORCE=1 to bypass."; \
+	  COHERENCE_THRESHOLD=100 node tools/coherence_score.cjs --check-promote /tmp/pwc-promote-val.json /tmp/pwc-promote-aud.json \
+	    || (echo "Promotion blocked — score below 100. Fix issues or use PROMOTE_FORCE=1 to bypass."; \
 	        rm -f /tmp/pwc-promote-val.json /tmp/pwc-promote-aud.json; exit 1); \
 	  rm -f /tmp/pwc-promote-val.json /tmp/pwc-promote-aud.json; \
 	fi

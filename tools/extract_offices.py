@@ -175,9 +175,67 @@ def _reflow_leader_prose(segs: list) -> list:
 # 30pt, 83 over 70pt, and 18 between. See #39.
 _LITANY_WRAP_MAX_GAP = 30.0    # below this the line ran to the margin -> wrap
 _LITANY_VERSE_MIN_GAP = 70.0   # above this the break was unambiguously chosen
-# Body leading is ~12.5pt and a paragraph boundary ~21pt; 16 sits between them,
-# the same split spans_to_typed_lines already uses for creed stanza breaks.
-_LITANY_PARAGRAPH_LEAD = 16.0
+# Body leading is ~12.5pt and a paragraph or stanza boundary is 16.5pt or more;
+# 15 sits between them, the same split spans_to_typed_lines already uses for
+# creed stanza breaks.
+_PARAGRAPH_LEAD = 15.0
+_LITANY_PARAGRAPH_LEAD = _PARAGRAPH_LEAD
+
+
+def _insert_stanza_breaks(segs: list) -> list:
+    """Insert a blank line at each stanza boundary the page actually shows.
+
+    Hymn stanza breaks are vertical whitespace, and spans_to_typed_lines only
+    emits a synthetic blank for `response` lines, so for a `leader` hymn the
+    structure is lost by the time the segment is built. This restores it from
+    the leading recorded per break, rather than assuming a stanza length.
+
+    Replaces _fix_phos_hilaron, which inserted a break every 4th line. That held
+    for six of the seven evening hymns but not for "O gladsome Light", which is
+    in 3-line stanzas: it printed 4/4/1 and split a sentence across the break
+    ("we see the evening light, / <break> / our hymn of praise outpouring").
+    """
+    for seg in segs:
+        if seg.get("type") == "alternatives":
+            for g in seg.get("groups", []):
+                _insert_stanza_breaks(g.get("segments", []))
+            continue
+        if seg.get("type") != "leader" or not seg.get("text"):
+            continue
+        lines = seg["text"].split("\n")
+        leads = seg.get("break_leads", [])
+        if len(leads) != len(lines) - 1:
+            continue  # alignment lost; leave the text alone
+
+        # A break whose leading is None sits at a page boundary, where leading
+        # cannot be measured. Resolve those from the stanza length the rest of
+        # this hymn actually shows: take the measurable boundaries first, and if
+        # they agree on one length, apply it. If they disagree, leave the break
+        # out rather than guess — that is what the old every-4 rule did wrong.
+        unknown = {i for i, lead in enumerate(leads) if lead is None}
+        measured = [i for i, lead in enumerate(leads) if lead is not None and lead > _PARAGRAPH_LEAD]
+        lengths, prev = [], -1
+        for i in measured:
+            # Skip any span containing an unknown break: its length is inflated by
+            # the very boundary being resolved, which would defeat the inference.
+            if not any(prev < u < i for u in unknown):
+                lengths.append(i - prev)
+            prev = i
+        uniform = lengths[0] if lengths and len(set(lengths)) == 1 else None
+
+        out, since_break = [lines[0]], 1
+        for i, nxt in enumerate(lines[1:]):
+            if leads[i] is None:
+                stanza_break = uniform is not None and since_break == uniform
+            else:
+                stanza_break = leads[i] > _PARAGRAPH_LEAD
+            if stanza_break:
+                out.append("")
+                since_break = 0
+            out.append(nxt)
+            since_break += 1
+        seg["text"] = "\n".join(out)
+    return segs
 
 # The 18 breaks in the valley, adjudicated by hand against the PDF (2026-08-02).
 # Only the joins need naming; a valley break that is not listed is kept, which is
@@ -244,7 +302,7 @@ def _reflow_litany(segs: list, office_key: str = "") -> list:
         for i, nxt in enumerate(lines[1:]):
             gap = gaps[i]
             line = lines[i].strip()
-            if leads[i] > _LITANY_PARAGRAPH_LEAD:
+            if (leads[i] or 0) > _LITANY_PARAGRAPH_LEAD:
                 # Extra leading below the line — a paragraph or stanza boundary.
                 # The typesetter cannot open up space by wrapping, so this is
                 # decisive regardless of how full the line ran.
@@ -789,21 +847,6 @@ def _normalize_whitespace(offices: dict) -> dict:
     #   (e.g., "power of the\nSpirit" vs "created;\nyou renew" which preserves ;).
     _LINE_JOIN = re.compile(r"(?<![.,;:!?])\n([a-zA-Z])")
 
-    def _fix_phos_hilaron(text):
-        """Insert stanza breaks in Phos Hilaron hymn text (4-line stanzas).
-
-        Insert an extra newline before every 4th line (1-indexed) so stanzas
-        have a visible separation when rendered.  Lines that end with . but are
-        not at a stanza boundary (e.g. line 2 of a 4-line stanza) are left alone.
-        """
-        lines = text.split('\n')
-        out = []
-        for i, line in enumerate(lines):
-            if i > 0 and i % 4 == 0:
-                out.append('')
-            out.append(line)
-        return '\n'.join(out)
-
     def _fix(text, seg_type=None, section_key=None):
         text = text.replace(" ,", ",")
         text = text.replace(" !", "!")
@@ -812,8 +855,6 @@ def _normalize_whitespace(offices: dict) -> dict:
         text = text.replace(" \n", "\n")
         if seg_type in ("leader", "response") and section_key not in _VERSE_SECTIONS:
             text = _LINE_JOIN.sub(r" \1", text)
-        if seg_type == "leader" and section_key == "phos_hilaron":
-            text = _fix_phos_hilaron(text)
         return text
 
     def _walk(segs, section_key=None):
@@ -1076,6 +1117,11 @@ def extract_office(typed_lines: list[tuple[str, str, float, float]], office_key:
     # geometry rather than section-wide (#39).
     if "litany" in sections:
         _reflow_litany(sections["litany"], office_key)
+
+    # Hymn stanza breaks come from the page's own leading, not an assumed
+    # stanza length. Must run here, while break_leads is still attached.
+    if "phos_hilaron" in sections:
+        _insert_stanza_breaks(sections["phos_hilaron"])
 
     # Fold Berakah prayer blessing conclusions into nested alternatives inside
     # group II of seasonal opening_responses (not applicable to ordinary-time).

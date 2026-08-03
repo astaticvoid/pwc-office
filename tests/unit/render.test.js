@@ -320,6 +320,41 @@ describe.skipIf(!HAS_DATA)('renderOfficeJSON sync with renderSegments', () => {
     }
   });
 
+  // Line counts alone cannot catch a misplaced stanza break: the old every-4th-line
+  // rule gave ordinary-sunday-ep stanzas of 4/4/1 where the page shows 3/3/3, and
+  // both come to 11 lines, so MIN_LINES passed on the wrong answer while a sentence
+  // was split across the break. Assert the shape, not just the total.
+  test('phos_hilaron stanza breaks fall where the page puts them', () => {
+    const SHAPE = {
+      'ordinary-sunday-ep':    [3, 3, 3],
+      'ordinary-monday-ep':    [4, 4, 4],
+      'ordinary-tuesday-ep':   [4, 4],
+      'ordinary-wednesday-ep': [4, 4, 4],
+      'ordinary-thursday-ep':  [4, 4, 4, 4, 4],
+      'ordinary-friday-ep':    [4, 4, 4],
+      'ordinary-saturday-ep':  [4, 4, 4, 4],
+    };
+    for (const [formKey, form] of forms) {
+      const expected = SHAPE[formKey];
+      if (!expected) continue;
+      const phos = form.phos_hilaron;
+      if (!phos || !phos.length) continue;
+      for (const seg of phos) {
+        if (seg.type !== 'leader') continue;
+        const shape = seg.text.split('\n')
+          .reduce((acc, l) => {
+            if (l.trim()) acc[acc.length - 1]++;
+            else if (acc[acc.length - 1]) acc.push(0);
+            return acc;
+          }, [0])
+          .filter(n => n > 0);
+        expect(shape,
+          `${formKey}: stanzas should be ${expected.join('/')}, got ${shape.join('/')}`)
+          .toEqual(expected);
+      }
+    }
+  });
+
   // The litany is verse in the seasonal forms and prose in the ordinary-time
   // collects, so its breaks are decided per break from page geometry by
   // _reflow_litany rather than section-wide. Before that, _reflow_leader_prose

@@ -7,7 +7,11 @@
  *
  * Usage:
  *   node tools/coherence_score.cjs <validate.json> <audit.json>
- *   Exit 0 if score >= 85, exit 1 if below threshold.
+ *   Exit 0 if score >= threshold, exit 1 if below. Both callers (make qa and
+ *   make promote) set COHERENCE_THRESHOLD=100; the 85 default is only a floor
+ *   for ad-hoc runs. They were 100 and 85 respectively, which meant the promote
+ *   gate would not have blocked the c81b341 breakage — it scored 97 while every
+ *   evening hymn stanza was collapsed into prose.
  *   Use --check-promote flag for promote-gate use (no output, just exit code).
  */
 
