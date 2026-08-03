@@ -26,6 +26,9 @@ boneyard/data/
 # Local secrets — never commit
 .env
 
+# Python virtualenv — created by `make venv`
+.venv/
+
 # Claude Code — machine-local settings only; shared settings (.claude/settings.json etc.) are tracked
 .claude/settings.local.json
 

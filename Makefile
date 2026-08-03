@@ -1,31 +1,44 @@
 -include .env
 export
 
-.PHONY: test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa
+.PHONY: venv test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
 
+# Python interpreter. Prefer the project venv (`make venv`) when present, so no
+# shell activation is needed; fall back to the ambient python3 (CI, which gets a
+# clean setup-python interpreter). Homebrew's python3 is externally managed
+# (PEP 668) and refuses direct installs, so the venv is the supported path.
+PYTHON := $(shell [ -x .venv/bin/python3 ] && echo .venv/bin/python3 || echo python3)
+
+# Create the venv and install Python dependencies.
+venv:
+	python3 -m venv .venv
+	.venv/bin/python3 -m pip install --quiet --upgrade pip
+	.venv/bin/python3 -m pip install --quiet pymupdf pytest
+	@echo "venv ready: $$(.venv/bin/python3 -V) — make will use it automatically"
+
 # Download all source files. Everything is publicly available — no manual steps.
 fetch-sources:
-	python3 tools/fetch_sources.py
+	$(PYTHON) tools/fetch_sources.py
 
 # Run the full extraction pipeline after sources are present.
 extract:
-	python3 tools/extract_offices.py
-	python3 tools/normalize_offices.py
-	python3 tools/extract_psalter.py
-	python3 tools/extract_collects.py
-	python3 tools/extract_fats.py
-	python3 tools/convert_lectionary.py --window 12
+	$(PYTHON) tools/extract_offices.py
+	$(PYTHON) tools/normalize_offices.py
+	$(PYTHON) tools/extract_psalter.py
+	$(PYTHON) tools/extract_collects.py
+	$(PYTHON) tools/extract_fats.py
+	$(PYTHON) tools/convert_lectionary.py --window 12
 # Corrections run last, after every extractor has produced pristine output.
 # convert_lectionary.py rewrites data/lectionary/ wholesale, so it must come
 # before apply_corrections.py or it discards the lectionary corrections; and
 # validate_corrections.py checks PRE-application state, so it must see freshly
 # converted data or it reports every lectionary correction as stale. See #37.
-	python3 tools/validate_corrections.py
-	python3 tools/apply_corrections.py
-	python3 tools/update_extract_manifest.py
+	$(PYTHON) tools/validate_corrections.py
+	$(PYTHON) tools/apply_corrections.py
+	$(PYTHON) tools/update_extract_manifest.py
 	@if [ -z "$$CI" ] && git -C data/ rev-parse --git-dir >/dev/null 2>&1; then \
 	  git -C data/ add -A && git -C data/ commit -m "extraction $(shell date +%Y-%m-%d)" || true; \
 	fi
@@ -59,20 +72,25 @@ build:
 	rm -rf dist
 	cp -rL web/. dist/
 	rm -rf dist/data/.git
-	python3 tools/generate_version_manifest.py --dist-dir dist
+	$(PYTHON) tools/generate_version_manifest.py --dist-dir dist
 	@echo "dist/ ready ($$(find dist -type f | wc -l | tr -d ' ') files)"
 
 # Verify dist/ has everything the app needs before deploying.
 check-dist: build test-unit
-	@python3 tools/check_dist.py
+	@$(PYTHON) tools/check_dist.py
 
 # Local server management (http://localhost:$(PORT)/).
 # Override port: make serve PORT=9000
 PID_FILE = .server-pid
 
+# Free a TCP port. `fuser -k PORT/tcp` is GNU-only — BSD fuser (macOS) takes
+# files, not ports, so it silently frees nothing. lsof works on both.
+# Usage: $(call kill_port,8080)
+kill_port = kill $$(lsof -ti tcp:$(1)) 2>/dev/null; true
+
 serve:
 	@$(MAKE) stop --no-print-directory 2>/dev/null; true
-	@nohup python3 -m http.server $(PORT) --directory web > /tmp/pwc-server.log 2>&1 & echo $$! > $(PID_FILE)
+	@nohup $(PYTHON) -m http.server $(PORT) --directory web > /tmp/pwc-server.log 2>&1 & echo $$! > $(PID_FILE)
 	@sleep 0.5
 	@if kill -0 $$(cat $(PID_FILE)) 2>/dev/null; then \
 	  echo "Server started: http://localhost:$(PORT) (pid $$(cat $(PID_FILE)))"; \
@@ -82,7 +100,7 @@ serve:
 
 stop:
 	@if [ -f $(PID_FILE) ]; then kill $$(cat $(PID_FILE)) 2>/dev/null && rm -f $(PID_FILE) && echo "Server stopped (port $(PORT))" || true; fi
-	@fuser -k $(PORT)/tcp 2>/dev/null; true
+	@$(call kill_port,$(PORT))
 
 status:
 	@if [ -f $(PID_FILE) ] && kill -0 $$(cat $(PID_FILE)) 2>/dev/null; then \
@@ -97,23 +115,25 @@ restart: stop serve
 # Serve web/ directly for local development — foreground mode (for debugging).
 # Override port: make serve-fg PORT=9000
 serve-fg:
-	@fuser -k $(PORT)/tcp 2>/dev/null; sleep 0.3
-	python3 -m http.server $(PORT) --directory web
+	@$(call kill_port,$(PORT))
+	@sleep 0.3
+	$(PYTHON) -m http.server $(PORT) --directory web
 
 # Build and serve dist/ as it will appear when deployed (http://localhost:$(PORT_DIST)/).
 # Required for E2E tests and pre-deploy checks.
 # Override port: make serve-dist PORT_DIST=9001
 serve-dist: check-dist
-	@fuser -k $(PORT_DIST)/tcp 2>/dev/null; sleep 0.3
-	python3 -m http.server $(PORT_DIST) --directory dist
+	@$(call kill_port,$(PORT_DIST))
+	@sleep 0.3
+	$(PYTHON) -m http.server $(PORT_DIST) --directory dist
 
-# Unit tests for Python extraction tools (requires pytest: brew install pytest).
+# Unit tests for Python extraction tools (pytest comes from `make venv`).
 test-tools:
-	pytest tools/tests/ -v
+	$(PYTHON) -m pytest tools/tests/ -v
 
 # Scan extracted JSON files for PDF extraction artifacts (missing spaces, etc.).
 check-text:
-	python3 tools/check_text_quality.py
+	$(PYTHON) tools/check_text_quality.py
 
 # Liturgical quality gate — runs validators and coherence scorer.
 # Used by 'make test' so every PR checks liturgical coherence.
@@ -137,7 +157,7 @@ qa:
 # Validate extracted lectionary data against the ACC HTML source.
 # Requires network access; run manually before a data re-extraction.
 validate: check-text
-	python3 tools/validate_lectionary.py
+	$(PYTHON) tools/validate_lectionary.py
 
 # Run E2E tests locally against web/ (default — no bandwidth cost).
 test-web:
@@ -145,7 +165,7 @@ test-web:
 
 # Verify data/ files match the last extraction — exits 1 if any file was edited directly.
 check-integrity:
-	python3 tools/check_data_integrity.py
+	$(PYTHON) tools/check_data_integrity.py
 
 # Mobile — build dist/ then sync web assets into iOS and Android native projects.
 # After mobile-sync, open the native project in Xcode / Android Studio to build and archive.
