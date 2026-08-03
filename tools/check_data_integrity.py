@@ -57,6 +57,37 @@ def check_tool_versions(manifest: dict) -> None:
             print(f"VERSION WARN fitz not found (manifest recorded {fitz_expected})")
 
 
+def check_sources(manifest: dict) -> list[str]:
+    """Sources that changed since the manifest was written.
+
+    data/ matching the manifest proves only that nobody hand-edited it. It says
+    nothing about whether the extractor that produced it is the one committed
+    beside it — change a threshold and skip `make extract`, and every hash still
+    matches while the data is stale. This closes that (#51).
+    """
+    expected = manifest.get("source_hashes")
+    if not expected:
+        print("SOURCES  not recorded in manifest — run `make extract` to add them")
+        return []
+    drifted = []
+    for rel, want in sorted(expected.items()):
+        path = ROOT / rel
+        if not path.exists():
+            drifted.append(f"{rel} (missing)")
+        elif file_sha256(path) != want:
+            drifted.append(rel)
+    if drifted:
+        print(f"SOURCE DRIFT  {len(drifted)} extraction source(s) changed since the "
+              f"last run:")
+        for rel in drifted:
+            print(f"    {rel}")
+        print("    data/ is stale with respect to the code that produces it.")
+        print("    Run `make extract`.")
+    else:
+        print(f"SOURCES OK   {len(expected)} extraction source(s) match the manifest")
+    return drifted
+
+
 def main():
     if not MANIFEST_PATH.exists():
         print(
@@ -68,6 +99,7 @@ def main():
 
     manifest = json.loads(MANIFEST_PATH.read_bytes())
     check_tool_versions(manifest)
+    source_drift = check_sources(manifest)
     tracked = manifest.get("files", {})
 
     drift = False
@@ -101,7 +133,7 @@ def main():
             print(f"           then re-run `make extract`.")
             drift = True
 
-    if drift:
+    if drift or source_drift:
         print("\nIntegrity check FAILED — deploy blocked.", file=sys.stderr)
         sys.exit(1)
     else:

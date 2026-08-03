@@ -46,6 +46,37 @@ def count_entries(path: Path) -> int:
     return 0
 
 
+# Sources that determine extraction output. Their hashes go in the manifest so
+# check_data_integrity.py can tell that an extractor changed without the pipeline
+# being re-run — data matching the manifest proves only that nobody edited it by
+# hand, not that it came from the code sitting beside it (#51).
+#
+# corrections.json is here for the same reason: it is an input, and editing it
+# changes output exactly as editing source does.
+EXTRACTION_SOURCES = (
+    "tools/extract_offices.py",
+    "tools/extract_office_styles.py",
+    "tools/normalize_offices.py",
+    "tools/extract_psalter.py",
+    "tools/extract_collects.py",
+    "tools/extract_fats.py",
+    "tools/convert_lectionary.py",
+    "tools/apply_corrections.py",
+    "tools/extract_lib.py",
+    "data/corrections.json",
+)
+
+
+def source_hashes(root: Path) -> dict[str, str]:
+    """SHA-256 of every source that determines extraction output."""
+    out = {}
+    for rel in EXTRACTION_SOURCES:
+        path = root / rel
+        if path.exists():
+            out[rel] = file_sha256(path)
+    return out
+
+
 def tool_versions() -> dict[str, str]:
     versions: dict[str, str] = {}
     try:
@@ -86,6 +117,7 @@ def main():
     manifest = {
         "extracted_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "tool_versions": tool_versions(),
+        "source_hashes": source_hashes(ROOT),
         "files": files_entry,
     }
 
