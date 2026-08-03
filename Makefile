@@ -223,6 +223,10 @@ mobile-android: mobile-sync
 #      (make test-staging-full  — optional: full e2e regression, not just @smoke)
 #   3. make promote             — CloudFront origin-path swap to production
 #
+# The steps are enforced, not merely recommended: promote refuses a release that
+# does not name the current HEAD or has not passed test-staging, and aborts if
+# the release is not actually in S3. PROMOTE_FORCE=1 bypasses the first two.
+#
 # Rollback: make rollback    — swaps to previous release
 
 RELEASE = $(shell date -u +%Y-%m-%dT%H%M%SZ)-$(shell git rev-parse --short HEAD)
@@ -260,9 +264,15 @@ deploy-staging: check-integrity check-dist
 	@echo "Staging deployed: $(RELEASE)"
 	@echo "$(RELEASE)" > .deploy-latest
 
+# On success, record which release was verified. promote requires this to name
+# the release it is about to ship, so a deploy that was never smoke-tested — or
+# one superseded by a later deploy-staging — cannot reach production (#52).
 test-staging:
+	@test -f .deploy-latest || (echo "Nothing deployed. Run 'make deploy-staging' first."; exit 1)
 	BASE_URL=https://$(STAGING_DOMAIN) \
 	  npx playwright test --grep "@smoke"
+	@cp .deploy-latest .staging-tested
+	@echo "Staging verified: $$(cat .staging-tested)"
 
 # Full regression against staging — every e2e spec, not just @smoke.
 # Slower (~3 min); run before a risky promote or after UI-touching changes.
@@ -270,9 +280,26 @@ test-staging-full:
 	BASE_URL=https://$(STAGING_DOMAIN) \
 	  npx playwright test
 
+# Gates, all bypassable with PROMOTE_FORCE=1:
+#   - the release names the current HEAD, so a deploy from days ago cannot ship
+#     silently after the code moved on
+#   - test-staging passed for that exact release
+#   - coherence is at threshold
+# The S3 existence check below is not a policy gate and always runs.
 promote:
 	@test -f .deploy-latest || (echo "Run deploy-staging first"; exit 1)
 	@if [ -z "$$PROMOTE_FORCE" ]; then \
+	  RELEASE=$$(cat .deploy-latest); HEAD_SHA=$$(git rev-parse --short HEAD); \
+	  case "$$RELEASE" in \
+	    *-$$HEAD_SHA) ;; \
+	    *) echo "Promotion blocked — .deploy-latest is $$RELEASE but HEAD is $$HEAD_SHA."; \
+	       echo "That release was built from different code. Re-run 'make deploy-staging',"; \
+	       echo "or PROMOTE_FORCE=1 to ship it anyway."; exit 1;; \
+	  esac; \
+	  if [ ! -f .staging-tested ] || [ "$$(cat .staging-tested)" != "$$RELEASE" ]; then \
+	    echo "Promotion blocked — $$RELEASE has not passed 'make test-staging'."; \
+	    echo "Run it, or PROMOTE_FORCE=1 to skip."; exit 1; \
+	  fi; \
 	  echo "Checking coherence score..."; \
 	  node tools/validate_office.cjs --json > /tmp/pwc-promote-val.json 2>/dev/null; \
 	  node tools/audit_office.cjs --json > /tmp/pwc-promote-aud.json 2>/dev/null; \
@@ -282,6 +309,10 @@ promote:
 	  rm -f /tmp/pwc-promote-val.json /tmp/pwc-promote-aud.json; \
 	fi
 	@RELEASE=$$(cat .deploy-latest) && \
+	(aws s3 ls s3://$(BUCKET)/releases/$$RELEASE/index.html >/dev/null 2>&1 || \
+	  (echo "Promotion aborted — s3://$(BUCKET)/releases/$$RELEASE/ has no index.html."; \
+	   echo "The release is missing or incomplete; swapping to it would break production."; \
+	   exit 1)) && \
 	aws cloudfront get-distribution-config --id $(CF_DISTRIBUTION_ID) \
 	  > /tmp/cf-config.json && \
 	jq '.DistributionConfig.Origins.Items[0].OriginPath = "/releases/'"$$RELEASE"'" | .DistributionConfig' \
