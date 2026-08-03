@@ -45,7 +45,6 @@ const officeData = lectionaryDay
 // ── Book-mode rendering options ─────────────────────────────────────────────
 
 const BK = {
-  verse: false,
   showLabel: true,
   skipRubrics: /continues with|may conclude with|^The Litany is said or sung\./i,
   skipShortLabels: true,
@@ -163,7 +162,7 @@ B.push(text(form.responsory));
 if (lessons[1]) B.push(renderLesson(lessons[1]));
 
 B.push('The Canticle');
-B.push(text(form.canticle, { showLabel: true, verse: true }));
+B.push(text(form.canticle, { showLabel: true }));
 
 // Affirmation
 B.push('Affirmation of Faith');

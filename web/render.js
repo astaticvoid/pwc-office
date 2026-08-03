@@ -578,7 +578,6 @@ export function* walkSegments(segs, shared) {
  * @param {Array} segs
  * @param {Object} shared
  * @param {Object} [opts]
- * @param {boolean} [opts.verse=false] Preserve internal line breaks
  * @param {boolean} [opts.showLabel=false] Include canticle citations as headers
  * @param {RegExp} [opts.skipRubrics] Rubric patterns to omit entirely
  * @param {boolean} [opts.skipShortLabels=false] Inline Roman-numeral labels
@@ -636,7 +635,12 @@ export function renderSegmentsText(segs, shared, opts = {}) {
       blocks.push({ type: 'label', text });
     } else {
       // leader or response
-      let formatted = opts.verse ? text : text.replace(/\n/g, ' ');
+      // Every newline surviving extraction is a break the book prints: forced
+      // column wraps are joined at extraction time, so a \n here is always
+      // deliberate and must never be flattened. This used to be opt-in via
+      // opts.verse, which left the CLI and the QA tools showing verse as prose
+      // and unable to see a whole class of lineation bug (#43).
+      let formatted = text;
       // Italicise the liturgical "N" placeholder (Name) in text mode
       formatted = formatted.replace(/\bN\b(?=[ ,.])/g, '(N)');
       blocks.push({ type: 'para', text: formatted });
