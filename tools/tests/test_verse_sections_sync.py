@@ -8,11 +8,16 @@ flag a `\\n` there.
 *all* breaks here intentional, so `_LINE_JOIN` must never fire?"
 
 A section can hold both real verse breaks and PDF column wraps, and then belongs
-in the first list but not the second. `thanksgiving_for_light` is the clear case:
-it prints as verse ("Blessed are you, Sovereign God, / creator of light and
-darkness,") but all four of its joinable breaks are column wraps, identified by
-the trailing space the PDF leaves on a wrapped line. Adding it to the Python set
-would preserve four artifacts.
+in the first list but not the second. `litany` is the clear case: roughly 110 of
+its 153 breaks are deliberate and the remainder are true wraps, so no
+section-level verdict is right for it.
+
+`thanksgiving_for_light` was previously described here as the clear case, on the
+grounds that all four of its joinable breaks were column wraps "identified by the
+trailing space the PDF leaves on a wrapped line". That identification was wrong —
+a trailing space marks a line that does not end its block, not a line that was
+wrapped. Remeasured by reflow (does the next line's first word fit?), all 70 of
+its breaks are deliberate, and it is now in the Python set as well.
 
 So the invariant is **Python ⊆ JS**, plus: neither list may name a section that
 does not exist. AGENTS.md previously said the two "must stay in sync", which is
