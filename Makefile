@@ -195,18 +195,17 @@ RELEASE = $(shell date -u +%Y-%m-%dT%H%M%SZ)-$(shell git rev-parse --short HEAD)
 
 deploy-staging: check-integrity check-dist
 	aws s3 sync dist/ s3://$(BUCKET)/releases/$(RELEASE)/ --delete
-	# App shell: short cache (1 min) — pick up changes quickly during testing
+	# Everything on staging gets a 1-minute cache. Staging exists to be deployed
+	# to and looked at immediately, so production-shaped TTLs are wrong here: the
+	# data files were cached for an hour and the images for a day, which meant a
+	# re-extraction could be verified as correct on the CDN while the browser
+	# kept serving the previous copy. Production caching is unaffected — the
+	# releases/ objects below carry no cache-control and promote swaps the
+	# CloudFront origin path.
 	aws s3 sync dist/ s3://$(BUCKET)/staging/ --delete \
 	  --exclude "*" --include "*.html" --include "*.js" --include "*.css" \
+	  --include "*.json" --include "*.png" --include "*.svg" --include "*.ico" \
 	  --cache-control "max-age=60"
-	# Data files: medium cache (1 hour) — change only on re-extraction
-	aws s3 sync dist/ s3://$(BUCKET)/staging/ --delete \
-	  --exclude "*" --include "*.json" \
-	  --cache-control "max-age=3600"
-	# Static assets: long cache (24 hours) — images, fonts, icons
-	aws s3 sync dist/ s3://$(BUCKET)/staging/ --delete \
-	  --exclude "*" --include "*.png" --include "*.svg" --include "*.ico" \
-	  --cache-control "max-age=86400"
 	# sw.js: never cache — kill-switch must always be fresh
 	aws s3 sync dist/ s3://$(BUCKET)/staging/ --delete \
 	  --exclude "*" --include "sw.js" \
