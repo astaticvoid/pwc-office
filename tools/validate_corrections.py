@@ -80,7 +80,7 @@ def validate_lectionary_citation(corrections: list) -> list[str]:
     for c in corrections:
         cid = c["id"]
         month = c["date"][:7]
-        path = DATA / "lectionary" / f"{month}.json"
+        path = BUILD / "lectionary" / f"{month}.json"
         if not path.exists():
             errors.append(f"{cid}: month file {month}.json not found")
             continue
@@ -103,7 +103,7 @@ def validate_lectionary_citation(corrections: list) -> list[str]:
 
 def load_lectionary():
     lec = {}
-    for f in sorted((DATA / "lectionary").glob("*.json")):
+    for f in sorted((BUILD / "lectionary").glob("*.json")):
         lec.update(json.loads(f.read_text()))
     return lec
 
@@ -172,7 +172,7 @@ def validate_psalter(corrections: list) -> list[str]:
     variants existed here previously but were never used by any real
     correction — removed 2026-07-26, see issue #13.)"""
     errors = []
-    psalter = json.loads((DATA / "psalter.json").read_text())
+    psalter = json.loads((BUILD / "psalter.1-extract.json").read_text())
     for c in corrections:
         cid = c["id"]
         pnum = str(c["psalm"])
@@ -192,7 +192,7 @@ def validate_fats(corrections: list) -> list[str]:
     field. (A "rename_key" action variant existed here previously but was
     never used by any real correction — removed 2026-07-26, see issue #13.)"""
     errors = []
-    fats = json.loads((DATA / "fats" / "saints.json").read_text())
+    fats = json.loads((BUILD / "fats-saints.1-extract.json").read_text())
     for c in corrections:
         cid = c["id"]
         saint = fats.get(c.get("saint") or c.get("saint_key", ""))

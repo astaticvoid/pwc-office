@@ -210,7 +210,9 @@ def main():
     psalms_by_num: dict[int, dict] = {p["number"]: p for p in psalms_list}
 
     # ── Write: combined dict ─────────────────────────────────────────────
-    psalter_path = root / "data" / "psalter.json"
+    # Stage 1: apply_corrections.py reads this and writes data/psalter.json.
+    psalter_path = root / ".build" / "psalter.1-extract.json"
+    psalter_path.parent.mkdir(parents=True, exist_ok=True)
     psalter_path.parent.mkdir(parents=True, exist_ok=True)
     combined = {str(n): p for n, p in sorted(psalms_by_num.items())}
     write_json(combined, psalter_path)

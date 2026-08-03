@@ -730,7 +730,8 @@ def main():
     args = ap.parse_args()
 
     root = Path(__file__).parent.parent
-    lect_dir = root / "data" / "lectionary"
+    # Stage 1: apply_corrections.py reads these and writes data/lectionary/.
+    lect_dir = root / ".build" / "lectionary"
     bounds_path = root / "data" / "season_bounds.json"
 
     if args.csv:
