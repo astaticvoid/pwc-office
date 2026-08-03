@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from extract_offices import (
     _group_alternatives,
-    _reflow_leader_prose,
+    _reflow_by_geometry,
     _normalize_whitespace,
 )
 
@@ -179,113 +179,92 @@ class TestGroupAlternatives:
         assert _group_alternatives([]) == []
 
 
-# ── _reflow_leader_prose ───────────────────────────────────────────────────────
+# ── _reflow_by_geometry ───────────────────────────────────────────────────────
 
 
-class TestReflowLeaderProse:
-    """Tests for joining PDF column-wrap line breaks in leader (prose)
-    segments — used for both seasonal_collects and litany.
+def _seg(text, slacks, leads=None, gaps=None):
+    """A merged leader segment with the per-break geometry _merge attaches."""
+    n = text.count("\n")
+    return {
+        "type": "leader",
+        "text": text,
+        "break_slacks": slacks,
+        "break_leads": leads if leads is not None else [12.5] * n,
+        "break_gaps": gaps if gaps is not None else [20.0] * n,
+    }
 
-    litany used to go through a separate _reflow_litany_prose that kept a
-    break after "terminal punctuation" (comma/semicolon/period/etc.), on the
-    theory that marked an intro-rubric -> petition boundary. Checked against
-    the source PDF: every litany leader is one continuous petition, and
-    ordinary mid-sentence commas/periods aren't a break signal — that
-    heuristic produced 46 false breaks across the real dataset (e.g. "Show
-    your good will to all who live in this city, the poor and the rich," /
-    "the elderly and the young, men and women." printed as one sentence,
-    split on the comma). Removed 2026-07-26 in favour of this function's
-    unconditional join; see issue #9."""
 
-    def test_joins_mid_clause_wraps(self):
-        segs = [
-            {
-                "type": "leader",
-                "text": "Watchful at all times, let us pray to God for strength to stand with\nconfidence.",
-            }
-        ]
-        _reflow_leader_prose(segs)
-        assert (
-            segs[0]["text"]
-            == "Watchful at all times, let us pray to God for strength to stand with confidence."
-        )
+class TestReflowByGeometry:
+    """Line breaks are decided per break from the page, not per section.
 
-    def test_joins_across_sentence_breaks_too(self):
-        # Regression guard: this used to preserve the break here (period
-        # before the \n) as an intro-rubric/petition boundary. It's an
-        # ordinary column wrap like any other and must join.
-        segs = [
-            {
-                "type": "leader",
-                "text": "Let us pray to the Creator of the universe.\nHoly One, by the good news of our salvation",
-            }
-        ]
-        _reflow_leader_prose(segs)
-        assert (
-            segs[0]["text"]
-            == "Let us pray to the Creator of the universe. Holy One, by the good news of our salvation"
-        )
+    `slack` is what would have been left over had the next line's first word
+    been pulled up. Negative means the typesetter had no choice and the break is
+    a column wrap; positive means the break was chosen. See #39.
 
-    def test_joins_across_comma_breaks_too(self):
-        # Regression guard: this used to preserve the break here (comma
-        # before the \n). Confirmed against the source PDF this is one
-        # continuous sentence wrapped by the printed column width.
-        segs = [
-            {
-                "type": "leader",
-                "text": "Encompass us with your light as with a cloak,\nand conquer the darkness of our night.",
-            }
-        ]
-        _reflow_leader_prose(segs)
-        assert (
-            segs[0]["text"]
-            == "Encompass us with your light as with a cloak, and conquer the darkness of our night."
-        )
+    These replace tests for _reflow_leader_prose, which joined unconditionally.
+    Two of those asserted behaviour now known to be wrong — it flattened the
+    litany bidding into the first petition (#40) and joined verse couplets — so
+    they are not preserved here.
+    """
 
-    def test_ignores_rubric_segments(self):
-        segs = [{"type": "rubric", "text": "The Litany is said or sung."}]
-        original = segs[0]["text"]
-        _reflow_leader_prose(segs)
-        assert segs[0]["text"] == original
+    def test_joins_a_forced_break(self):
+        segs = [_seg("...strength to stand with\nconfidence.", [-18.0])]
+        _reflow_by_geometry(segs)
+        assert segs[0]["text"] == "...strength to stand with confidence."
 
-    def test_ignores_response_segments(self):
-        segs = [{"type": "response", "text": "Holy One,\nhear and have mercy."}]
-        original = segs[0]["text"]
-        _reflow_leader_prose(segs)
-        assert segs[0]["text"] == original
+    def test_keeps_a_chosen_break(self):
+        segs = [_seg("Encompass us with your light as with a cloak,\n"
+                     "and conquer the darkness of our night.", [+64.0])]
+        _reflow_by_geometry(segs)
+        assert "\n" in segs[0]["text"]
+
+    def test_paragraph_leading_becomes_a_blank_line(self):
+        # The litany bidding stands apart from the first petition (#40); the
+        # leading is decisive even though the line ran nearly full.
+        segs = [_seg("Let us pray to the Creator of the universe.\n"
+                     "Holy One, by the good news of our salvation",
+                     [-5.0], leads=[21.5])]
+        _reflow_by_geometry(segs)
+        assert segs[0]["text"].startswith(
+            "Let us pray to the Creator of the universe.\n\nHoly One,")
+
+    def test_dead_band_keeps_verse_but_joins_prose(self):
+        # Geometry cannot decide within the measure's own precision, so each
+        # section falls back to its own mode.
+        text = "in your realm of glory the poor are blessed,\nthe hungry filled."
+        verse = [_seg(text, [+1.0])]
+        _reflow_by_geometry(verse, prose=False)
+        assert "\n" in verse[0]["text"]
+        prose = [_seg(text, [+1.0])]
+        _reflow_by_geometry(prose, prose=True)
+        assert "\n" not in prose[0]["text"]
+
+    def test_falls_back_to_joining_when_geometry_is_missing(self):
+        # A later pass rewrote the text, so the per-break lists no longer line
+        # up. Guessing which break is which would be worse than joining.
+        segs = {"type": "leader", "text": "one\ntwo\nthree", "break_slacks": [+50.0]}
+        _reflow_by_geometry([segs])
+        assert segs["text"] == "one two three"
+
+    def test_ignores_rubric_and_response_segments(self):
+        segs = [{"type": "rubric", "text": "The Litany is said or sung."},
+                {"type": "response", "text": "Holy One,\nhear and have mercy."}]
+        before = [s["text"] for s in segs]
+        _reflow_by_geometry(segs)
+        assert [s["text"] for s in segs] == before
 
     def test_single_line_unchanged(self):
-        segs = [
-            {
-                "type": "leader",
-                "text": "God of Israel, may this day be one of fulfillment and peace.",
-            }
-        ]
-        _reflow_leader_prose(segs)
-        assert (
-            segs[0]["text"]
-            == "God of Israel, may this day be one of fulfillment and peace."
-        )
+        segs = [_seg("God of Israel, may this day be one of fulfillment and peace.", [])]
+        _reflow_by_geometry(segs)
+        assert segs[0]["text"] == (
+            "God of Israel, may this day be one of fulfillment and peace.")
 
     def test_recurses_into_alternatives(self):
-        segs = [
-            {
-                "type": "alternatives",
-                "groups": [
-                    {
-                        "label": "I",
-                        "segments": [
-                            {
-                                "type": "leader",
-                                "text": "O God of our salvation, guard and direct your Church\nin the way of unity, service, and praise.",
-                            }
-                        ],
-                    }
-                ],
-            }
-        ]
-        _reflow_leader_prose(segs)
-        assert (
-            segs[0]["groups"][0]["segments"][0]["text"]
-            == "O God of our salvation, guard and direct your Church in the way of unity, service, and praise."
-        )
+        inner = _seg("O God of our salvation, guard and direct your Church\n"
+                     "in the way of unity, service, and praise.", [-12.0])
+        segs = [{"type": "alternatives",
+                 "groups": [{"label": "I", "segments": [inner]}]}]
+        _reflow_by_geometry(segs)
+        assert segs[0]["groups"][0]["segments"][0]["text"] == (
+            "O God of our salvation, guard and direct your Church "
+            "in the way of unity, service, and praise.")
