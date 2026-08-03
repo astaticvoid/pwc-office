@@ -1,4 +1,5 @@
 {
+  "data/build/offices.1-extract.json": "311f1d2b56fb18264112a5b0284821e92c46330f7b4194c2e4bef3236cebddb3",
   "data/collects.json": "c3680c6d9a694a2d8581fce958566798baf7e8f0e9b57bd43d2aa56b8f72c0ce",
   "data/lectionary/2025-11.json": "fc2313e8cadcfde6e330786c5bdeb26689618e3ba451375adbb9b315fd39126a",
   "data/lectionary/2025-12.json": "6ed0be608770583339d2d28f5d88040339205dc8d58a9af19b284f7e0cedfc87",
@@ -14,7 +15,6 @@
   "data/lectionary/2026-10.json": "75abef1d587732462b44adb74189ff8e4735dccc06cbb54ee9fae698109c713c",
   "data/lectionary/2026-11.json": "0d21cb35b9ea076a83e10fee36fa6338b069ffe854e5144474a68bfe3474558b",
   "data/lectionary/2026-12.json": "30651fee9be51a57fcbb36d8fc6995bf9e59291a37cc8d44bb00efe0ee223411",
-  "data/offices.json": "6a2ba2edf4498584c85d1c5c252882f87443c50f9caf0993f55ccb945fcf03f6",
   "data/psalter.json": "6627c22bad2f66fde8126fc8d55d4bfb69d9806f1ce375d09ff7de1f7732120e",
   "data/season_bounds.json": "0f76ec8d40a5e10059ab6171d817b91b12e1adbb141a9d40add6d40afb31033c"
 }
