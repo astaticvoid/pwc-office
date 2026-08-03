@@ -396,11 +396,42 @@ CANONICAL_BOUNDS_PHRASES = {
 }
 
 
+def _bounds_title_forms(desc):
+    """The candidate titles in a CSV description, with its decorations removed.
+
+    The source writes a feast as an article, one or two titles, then a rank code
+    and a colour: "the sunday of the resurrection: easter day - pf (white or
+    gold)". CANONICAL_BOUNDS_PHRASES holds the bare titles, so matching the raw
+    description could only ever succeed as a loose substring — every correct
+    match reported itself as fuzzy, and six such warnings printed on every
+    extraction. A warning that always fires trains people to ignore the ones
+    that mean something, so the decorations are stripped and a real match is
+    allowed to be exact.
+    """
+    text = re.sub(r"\s*[-–]\s*(pf|hd|fd)\b.*$", "", desc)   # rank code and after
+    text = re.sub(r"\s*\([^)]*\)\s*$", "", text)            # trailing colour
+    text = re.sub(r"\s*\[[^]]*\]", "", text)                # proper number
+    text = text.strip()
+    forms = {text}
+    if text.startswith("the "):
+        forms.add(text[4:])
+    for form in list(forms):                                # "title a: title b"
+        for part in form.split(":"):
+            part = part.strip()
+            if part:
+                forms.add(part)
+                if part.startswith("the "):
+                    forms.add(part[4:])
+    return forms
+
+
 def _bounds_match(desc, phrases):
     """Check exact (== or startswith) then fuzzy (in). Returns ('exact'|'fuzzy'|None, phrase|None)."""
+    forms = _bounds_title_forms(desc)
     for phrase in phrases:
-        if desc == phrase or desc.startswith(phrase):
-            return 'exact', phrase
+        for form in forms:
+            if form == phrase or form.startswith(phrase):
+                return 'exact', phrase
     for phrase in phrases:
         if phrase in desc:
             return 'fuzzy', phrase
@@ -836,13 +867,21 @@ def main():
         window_end_key = window_end.strftime("%Y-%m")
         months = {k: v for k, v in months.items()
                   if window_start_key <= k <= window_end_key}
-        # Remove existing files outside the window.
+        # Remove existing files the current source no longer accounts for:
+        # outside the window, or inside it but no longer produced by the CSV.
+        # Pruning by window alone stranded months from a previous lectionary
+        # year — they sat inside the date window, nothing regenerated them, and
+        # they failed validation with entries the current parser rejects. CI
+        # never saw it because a fresh checkout starts with an empty directory.
         if lect_dir.exists():
             for existing in sorted(lect_dir.glob("*.json")):
                 mk = existing.stem  # "YYYY-MM"
                 if mk < window_start_key or mk > window_end_key:
                     existing.unlink()
                     print(f"  removed {existing.name} (outside window)")
+                elif mk not in months:
+                    existing.unlink()
+                    print(f"  removed {existing.name} (not in current source)")
 
     lect_dir.mkdir(parents=True, exist_ok=True)
     with open(bounds_path, "w", encoding="utf-8") as f:
