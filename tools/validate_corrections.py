@@ -15,6 +15,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 DATA = ROOT / "data"
+# Intermediate pipeline artifacts. Deliberately outside data/, which is the
+# published tree — anything under it is copied into dist/ by the data symlink.
+BUILD = ROOT / ".build"
 CORRECTIONS = DATA / "corrections.json"
 
 
@@ -216,7 +219,7 @@ def main():
         # whether a correction still matches the text it was written against, so
         # it must never see corrected output — previously guaranteed by running
         # before apply_corrections, now by reading a different file (#48).
-        offices = json.loads((DATA / "build" / "offices.2-normalized.json").read_text())
+        offices = json.loads((BUILD / "offices.2-normalized.json").read_text())
         errors.extend(validate_office_text(corrections["office_text"], offices))
 
     if corrections.get("lectionary_citations"):

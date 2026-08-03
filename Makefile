@@ -72,9 +72,6 @@ build:
 	rm -rf dist
 	cp -rL web/. dist/
 	rm -rf dist/data/.git
-	# Intermediate pipeline artifacts are re-derivable and must not ship: cp -rL
-	# follows the data symlink and would otherwise publish ~760KB of them (#48).
-	rm -rf dist/data/build dist/data/.gitignore
 	$(PYTHON) tools/generate_version_manifest.py --dist-dir dist
 	@echo "dist/ ready ($$(find dist -type f | wc -l | tr -d ' ') files)"
 
@@ -179,7 +176,7 @@ test-web:
 # its own: that writes a complete-looking data/offices.json whose _shared is
 # missing the three blocks normalize_offices.py creates, and diffing against it
 # produces confident nonsense. See #48.
-BASELINE = .extract-baseline
+BASELINE = .build/baseline
 
 extract-baseline: extract
 	@mkdir -p $(BASELINE)

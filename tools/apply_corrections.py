@@ -17,6 +17,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 DATA = ROOT / "data"
+# Intermediate pipeline artifacts. Deliberately outside data/, which is the
+# published tree — anything under it is copied into dist/ by the data symlink.
+BUILD = ROOT / ".build"
 CORRECTIONS = DATA / "corrections.json"
 
 _misses: list[str] = []
@@ -103,7 +106,7 @@ def main():
         # and writes the file everything else consumes. Because the input is a
         # separate artifact, re-running this is idempotent — it re-derives from
         # normalized output rather than correcting already-corrected text (#48).
-        path = DATA / "build" / "offices.2-normalized.json"
+        path = BUILD / "offices.2-normalized.json"
         out_path = DATA / "offices.json"
         data = json.loads(path.read_text())
         applied = 0
