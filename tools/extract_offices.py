@@ -178,6 +178,15 @@ _LITANY_VERSE_MIN_GAP = 70.0   # above this the break was unambiguously chosen
 # Body leading is ~12.5pt and a paragraph or stanza boundary is 16.5pt or more;
 # 15 sits between them, the same split spans_to_typed_lines already uses for
 # creed stanza breaks.
+#
+# The real headroom is narrower than those figures suggest. The tightest true
+# boundary in the corpus is 16.5pt (ordinary-sunday-ep) and the widest gap that
+# is NOT a boundary is 14.5pt (also ordinary-sunday-ep, between "To you of right
+# belongs all praise of holy songs," and "O Son of God, life-giver;" — splitting
+# there would sever a subject from its verb). So the discriminating window is
+# 14.5 <-> 16.5, and this threshold sits 0.5pt off a false positive. Correct on
+# the current PDF and verified across all seven hymns, but re-check it if the
+# book is ever re-cut.
 _PARAGRAPH_LEAD = 15.0
 _LITANY_PARAGRAPH_LEAD = _PARAGRAPH_LEAD
 
@@ -237,16 +246,24 @@ def _insert_stanza_breaks(segs: list) -> list:
         seg["text"] = "\n".join(out)
     return segs
 
-# The 18 breaks in the valley, adjudicated by hand against the PDF (2026-08-02).
+# The 24 breaks in the valley, adjudicated by hand against the PDF (2026-08-02)
+# and independently re-verified against it (2026-08-03), by measuring the book's
+# true text measure and asking whether the next word would have fitted. Every
+# KEEP has 26.8-89.3pt to spare, so the typesetter chose those breaks.
+#
 # Only the joins need naming; a valley break that is not listed is kept, which is
 # the conservative direction (it preserves text rather than destroying it), and
 # warns so a re-cut PDF cannot silently change lineation. Keyed by the text of
 # the line the break follows.
 _LITANY_VALLEY_JOIN = frozenset({
     "Bring those who are drawing to near to the light of faith to true",
-    # Wrapped despite 42pt of slack: the next word ("goodwill:") is wide enough
-    # that it could not have fitted. Gap alone cannot see this; the adjudication
-    # is what covers it.
+    # The one break in the litany that geometry cannot settle in either
+    # direction: at word precision the slack against "goodwill:" is -1.6 to
+    # +1.4pt depending on where the margin is taken, i.e. it straddles zero.
+    # Joined on the text instead — "peace and | goodwill:" splits a fixed phrase
+    # and would leave a dangling conjunction, and this form's own deliberate
+    # breaks land at x1 302-325 while its wraps land at 356+, which is where
+    # this one sits. Its deliberate break is after "goodwill:", not before.
     "That your holy angels may lead us in the paths of peace and",
 })
 _LITANY_VALLEY_KEEP = frozenset({
@@ -257,6 +274,9 @@ _LITANY_VALLEY_KEEP = frozenset({
     "Grant a peaceful end and eternal rest to all who are dying",
     "For the poor, the persecuted, the sick, and all who suffer;",
     "In the hour of death you heard the penitent thief",
+    # Unreachable today: this break carries 21.5pt of leading, so the paragraph
+    # rule keeps it before the valley lookup runs. Kept as a record that it was
+    # adjudicated, and so it still resolves correctly if that rule changes.
     "Let us give thanks to the God of all the faithful.",
     "Creator of the heavens, lead all peoples into a common life",
     "O Branch of Jesse standing as a sign among the nations,",
@@ -265,6 +285,7 @@ _LITANY_VALLEY_KEEP = frozenset({
     "Direct our lives in the same spirit of service and sacrifice",
     "O God of our salvation, guard and direct your Church",
     "Strengthen all who are persecuted for your name’s sake,",
+    # Also unreachable — 21.5pt of leading, as above.
     "Let us pray, saying, “Giver of life, hear our prayer.”",
     "Teach us to use your creation for your greater praise,",
     "Source of all being, you call us to live together in unity:",
