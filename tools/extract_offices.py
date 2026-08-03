@@ -154,6 +154,17 @@ def _is_noise(typ: str, text: str) -> bool:
 # 26.8pt of slack and the single true wrap has -22.8pt, so nothing real sits
 # near the band.
 _SLACK_DECIDES = 3.0
+# Prose needs a much higher bar than verse. The book's prose is not composed
+# greedily: a word that would have fitted is pushed to the next line to even out
+# the paragraph, so a wrap can show several points of POSITIVE slack and the
+# "would it have fitted?" test alone reads it as chosen. Measured over every
+# break in the prose sections, that shuffling reaches 26.6pt, while the one
+# genuinely structural break — the Christmas dismissal couplet — leaves 256.4pt.
+# 60 sits clear of the first and nowhere near the second.
+#
+# Verse is unaffected: a chosen verse break leaves 26.8pt at minimum and usually
+# far more, so `slack < 0` settles it there without a threshold.
+_PROSE_STRUCTURAL_SLACK = 60.0
 # Used only where slack cannot be measured, i.e. the next line is on another page.
 _LITANY_VERSE_MIN_GAP = 70.0
 # Body leading is ~12.5pt and a paragraph or stanza boundary is 16.5pt or more;
@@ -291,11 +302,15 @@ def _reflow_by_geometry(segs: list, office_key: str = "", section: str = "",
                 # ("Let us pray, saying, ...") standing apart from the first
                 # petition (#40).
                 join, para = False, True
+            elif prose:
+                # Only an unmistakably short line is structural here; see
+                # _PROSE_STRUCTURAL_SLACK. Everything else is a wrap.
+                join = not (slack is not None and slack >= _PROSE_STRUCTURAL_SLACK)
             elif slack is not None and abs(slack) >= _SLACK_DECIDES:
                 # The decisive question: would the next line's first word have
                 # fitted here? If yes the break was chosen; if not it was forced.
                 join = slack < 0
-            elif slack is None and not prose and gap >= _LITANY_VERSE_MIN_GAP:
+            elif slack is None and gap >= _LITANY_VERSE_MIN_GAP:
                 # Next line is on another page, so the word cannot be measured;
                 # only a break with room to spare can still be called deliberate.
                 join = False
@@ -308,12 +323,11 @@ def _reflow_by_geometry(segs: list, office_key: str = "", section: str = "",
                 # joining a prose wrap restores flowing text, while keeping a
                 # verse break preserves lineation. Each errs the harmless way for
                 # the material it governs.
-                join = prose
-                if not prose:
-                    where = ("unmeasurable (page break)" if slack is None
-                             else f"slack={slack:.1f}pt")
-                    print(f"  WARNING [{office_key}/{section}] unadjudicated break, {where}, "
-                          f"gap={gap:.1f}pt, kept: {line[:60]!r}", file=sys.stderr)
+                join = False
+                where = ("unmeasurable (page break)" if slack is None
+                         else f"slack={slack:.1f}pt")
+                print(f"  WARNING [{office_key}/{section}] unadjudicated break, {where}, "
+                      f"gap={gap:.1f}pt, kept: {line[:60]!r}", file=sys.stderr)
             sep = " " if join else ("\n\n" if para else "\n")
             out += sep + nxt.strip()
         seg["text"] = re.sub(r"[ \t]+", " ", out).strip()
@@ -809,51 +823,12 @@ def _normalize_whitespace(offices: dict) -> dict:
     # Keep in sync with: validate_office.cjs VERSE_SECTIONS (line ~146),
     # validate_office.cjs PHOS_MIN_LINES (line ~177), and the Vitest unit test
     # phos_hilaron line-count assertion in tests/unit/render.test.js.
-    # Sections whose line breaks are intentional liturgical structure, so the
-    # PDF-column-wrap join below must not touch them. Must stay in sync with
-    # VERSE_SECTIONS in tools/validate_office.cjs — enforced by
-    # tools/tests/test_verse_sections_sync.py, not by this comment.
-    #
-    # responsory, opening_responses and thanksgiving_for_light were added after
-    # re-measuring every break with a reflow test — a break is a column wrap iff
-    # the next line's first word could not have fitted on the current line, which
-    # is a physical fact about the typeset page. Counts (deliberate/total):
-    # responsory 105/108, opening_responses 71/72, thanksgiving_for_light 70/70.
-    # Every apparent exception is a couplet that happens to end within ~30pt of
-    # the right margin, so nothing real is preserved by leaving them out.
-    #
-    # The earlier reading — that these sections were mostly column wraps — came
-    # from classifying breaks by the trailing space PyMuPDF leaves on a span.
-    # That signal marks "this line does not end the block", not "this line was
-    # wrapped", so verse lines carry it for the same reason prose lines do. It
-    # matched the reflow test on 63% of responsory breaks, 7% of
-    # opening_responses, and 0% of thanksgiving_for_light. Do not reintroduce it;
-    # see #38 and the revert of c81b341.
-    # `litany`, `dismissal` and `intercessions` are here for a different reason
-    # than the rest. Their breaks are not all intentional in the source, but by
-    # the time this runs _reflow_by_geometry has already judged each one against
-    # the page and joined the wraps, so every break that survives to here is
-    # deliberate. Letting the blanket regex run would silently undo that
-    # per-break work (#39, #41).
-    _VERSE_SECTIONS = frozenset({'affirmation', 'canticle', 'doxology', 'phos_hilaron',
-                                 'invitatory', 'lords_prayer_intro', 'responsory',
-                                 'opening_responses', 'thanksgiving_for_light',
-                                 'litany', 'dismissal', 'intercessions'})
-
-    # Join mid-sentence line breaks from PDF column wrapping.
-    # Rule 1: \n + lowercase → always join (no verse text starts lowercase).
-    # Rule 2: \n + uppercase but no punctuation before \n → join
-    #   (e.g., "power of the\nSpirit" vs "created;\nyou renew" which preserves ;).
-    _LINE_JOIN = re.compile(r"(?<![.,;:!?])\n([a-zA-Z])")
-
     def _fix(text, seg_type=None, section_key=None):
         text = text.replace(" ,", ",")
         text = text.replace(" !", "!")
         text = text.replace(" ?", "?")
         text = text.replace("Amen .", "Amen.")
         text = text.replace(" \n", "\n")
-        if seg_type in ("leader", "response") and section_key not in _VERSE_SECTIONS:
-            text = _LINE_JOIN.sub(r" \1", text)
         return text
 
     def _walk(segs, section_key=None):
@@ -1118,10 +1093,7 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
     if "litany" in sections:
         _reflow_by_geometry(sections["litany"], office_key, "litany")
 
-    # Prose sections. Their breaks were previously left to the _LINE_JOIN regex,
-    # whose stated rule ("no verse text starts lowercase") is false in this book;
-    # it agreed with the geometry on all 9 dismissal breaks by luck rather than
-    # by reasoning (#41).
+    # Prose sections: wraps joined, structural breaks kept (#41).
     for key in ("dismissal", "intercessions"):
         if key in sections:
             _reflow_by_geometry(sections[key], office_key, key, prose=True)
