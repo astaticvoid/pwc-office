@@ -829,15 +829,16 @@ def _normalize_whitespace(offices: dict) -> dict:
     # matched the reflow test on 63% of responsory breaks, 7% of
     # opening_responses, and 0% of thanksgiving_for_light. Do not reintroduce it;
     # see #38 and the revert of c81b341.
-    # `litany` is here for a different reason than the rest. Its breaks are not
-    # all intentional in the source, but by the time this runs _reflow_by_geometry has
-    # already judged each one against the page geometry and joined the wraps, so
-    # every break that survives to here is deliberate. Letting the blanket regex
-    # run would silently undo that per-break work (#39).
+    # `litany`, `dismissal` and `intercessions` are here for a different reason
+    # than the rest. Their breaks are not all intentional in the source, but by
+    # the time this runs _reflow_by_geometry has already judged each one against
+    # the page and joined the wraps, so every break that survives to here is
+    # deliberate. Letting the blanket regex run would silently undo that
+    # per-break work (#39, #41).
     _VERSE_SECTIONS = frozenset({'affirmation', 'canticle', 'doxology', 'phos_hilaron',
                                  'invitatory', 'lords_prayer_intro', 'responsory',
                                  'opening_responses', 'thanksgiving_for_light',
-                                 'litany'})
+                                 'litany', 'dismissal', 'intercessions'})
 
     # Join mid-sentence line breaks from PDF column wrapping.
     # Rule 1: \n + lowercase → always join (no verse text starts lowercase).
@@ -1116,6 +1117,14 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
     # geometry rather than section-wide (#39).
     if "litany" in sections:
         _reflow_by_geometry(sections["litany"], office_key, "litany")
+
+    # Prose sections. Their breaks were previously left to the _LINE_JOIN regex,
+    # whose stated rule ("no verse text starts lowercase") is false in this book;
+    # it agreed with the geometry on all 9 dismissal breaks by luck rather than
+    # by reasoning (#41).
+    for key in ("dismissal", "intercessions"):
+        if key in sections:
+            _reflow_by_geometry(sections[key], office_key, key, prose=True)
 
     # Hymn stanza breaks come from the page's own leading, not an assumed
     # stanza length. Must run here, while break_leads is still attached.
