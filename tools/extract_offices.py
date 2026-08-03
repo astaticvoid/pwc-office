@@ -1163,7 +1163,12 @@ def run():
         print(f"ERROR: {pdf_path} not found", file=sys.stderr)
         sys.exit(1)
 
-    out_path = ROOT / "data" / "offices.json"
+    # Stage 1 of the offices chain. Each stage writes its own artifact and never
+    # mutates a predecessor's, so an intermediate can never be mistaken for the
+    # finished file — running this script alone used to leave a complete-looking
+    # data/offices.json whose _shared was missing three blocks (#48).
+    out_path = ROOT / "data" / "build" / "offices.1-extract.json"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
 
     from extract_office_styles import (  # noqa: PLC0415
         document_metrics, extract_office_typed_lines,

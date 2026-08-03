@@ -99,7 +99,12 @@ def main():
 
     # Office text corrections — whole-field replace (old == entire field value).
     if corrections.get("office_text"):
-        path = DATA / "offices.json"
+        # Stage 3, the last of the offices chain: reads the normalized artifact
+        # and writes the file everything else consumes. Because the input is a
+        # separate artifact, re-running this is idempotent — it re-derives from
+        # normalized output rather than correcting already-corrected text (#48).
+        path = DATA / "build" / "offices.2-normalized.json"
+        out_path = DATA / "offices.json"
         data = json.loads(path.read_text())
         applied = 0
         for c in corrections["office_text"]:
@@ -110,9 +115,12 @@ def main():
                 print(f"  {c['id']}: {c['office']}.{c['field']}")
             else:
                 _misses.append(f"{c['id']}: {c['office']}.{c['field']} mismatch")
+        # Written unconditionally: this is the artifact the app, the manifest and
+        # the integrity check read, so it must exist and must be derived from the
+        # normalized input even when no correction applies.
+        out_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
         if applied:
-            path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
-            print(f"  Applied {applied} office text corrections → {path}")
+            print(f"  Applied {applied} office text corrections → {out_path}")
 
     # Psalter corrections — substring replace within one psalm's text, tagged
     # with source_corrections provenance for entries that carry a reason.

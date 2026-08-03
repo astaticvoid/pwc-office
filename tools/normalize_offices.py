@@ -91,12 +91,18 @@ def normalize(data, dry_run=False):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Normalize shared blocks in data/offices.json.')
+    root = Path(__file__).parent.parent
+    parser = argparse.ArgumentParser(description='Normalize shared blocks (stage 2 of the offices chain).')
     parser.add_argument('--dry-run', action='store_true', help='Print what would change without writing.')
+    parser.add_argument('--in', dest='in_path', type=Path,
+                        default=root / 'data' / 'build' / 'offices.1-extract.json',
+                        help='extract_offices.py output')
+    parser.add_argument('--out', dest='out_path', type=Path,
+                        default=root / 'data' / 'build' / 'offices.2-normalized.json',
+                        help='normalized output, read by apply_corrections.py')
     args = parser.parse_args()
 
-    root = Path(__file__).parent.parent
-    path = root / 'data' / 'offices.json'
+    path, out_path = args.in_path, args.out_path
 
     if not path.exists():
         sys.exit(f'Not found: {path}\nRun the extraction pipeline first.')
@@ -110,14 +116,13 @@ def main():
         print('(dry-run — no files written)')
         return
 
-    if changed == 0:
-        print('Already normalized — no changes needed.')
-        return
-
-    with open(path, 'w', encoding='utf-8') as f:
+    # Written unconditionally, including when nothing changed: the next stage
+    # reads this artifact by name, and skipping the write would leave it stale.
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
         f.write('\n')
-    print(f'Wrote {path}')
+    print(f'Wrote {out_path}' + ('' if changed else ' (no changes needed)'))
 
 
 if __name__ == '__main__':

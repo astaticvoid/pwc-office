@@ -212,7 +212,11 @@ def main():
     errors = []
 
     if corrections.get("office_text"):
-        offices = json.loads((DATA / "offices.json").read_text())
+        # The pre-correction artifact, named explicitly. This check is about
+        # whether a correction still matches the text it was written against, so
+        # it must never see corrected output — previously guaranteed by running
+        # before apply_corrections, now by reading a different file (#48).
+        offices = json.loads((DATA / "build" / "offices.2-normalized.json").read_text())
         errors.extend(validate_office_text(corrections["office_text"], offices))
 
     if corrections.get("lectionary_citations"):

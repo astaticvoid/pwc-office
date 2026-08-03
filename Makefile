@@ -72,6 +72,9 @@ build:
 	rm -rf dist
 	cp -rL web/. dist/
 	rm -rf dist/data/.git
+	# Intermediate pipeline artifacts are re-derivable and must not ship: cp -rL
+	# follows the data symlink and would otherwise publish ~760KB of them (#48).
+	rm -rf dist/data/build dist/data/.gitignore
 	$(PYTHON) tools/generate_version_manifest.py --dist-dir dist
 	@echo "dist/ ready ($$(find dist -type f | wc -l | tr -d ' ') files)"
 
