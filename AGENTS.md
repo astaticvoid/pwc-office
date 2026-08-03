@@ -22,7 +22,9 @@ supported — it is an externally-managed environment (PEP 668).
 Required environment variables in `.env` (gitignored):
 - No keys required. KJV scripture is bundled in `data/translations/kjv/` and works offline.
 - NRSVUE scripture is not distributable — if a local copy is placed at `data/translations/nrsvue/` the app will use it.
-- Deploy targets need `BUCKET`, `CF_DISTRIBUTION_ID`, `STAGING_DOMAIN`, `STAGING_CF_ID`.
+- `make deploy-staging` / `promote` / `rollback` need `BUCKET` and `CF_DISTRIBUTION_ID`.
+- `make test-staging` needs `STAGING_DOMAIN`; it is only used to build `BASE_URL` for Playwright.
+- `STAGING_CF_ID` is not read by anything today — staging freshness comes from the short cache-control headers `deploy-staging` sets, not from an invalidation.
 - Also provide `AWS_PROFILE` in `.env` so AWS CLI credentials resolve automatically.
 
 **All build, test, and deploy operations should be run through `make`.**
