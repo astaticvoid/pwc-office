@@ -62,9 +62,9 @@ node tools/review_form.cjs FORM   # line-numbered text renderer for manual revie
 make check-text                   # scan for PDF extraction artifacts
 make check-text --strict          # same but exits non-zero on findings
 make check-integrity              # verify data/ hashes match extract manifest — fails if any
-# NOTE: after changing _VERSE_SECTIONS or _fix_* in extract_offices.py, re-run
-# `make extract` before `make check-integrity`.  The manifest stores hashes of
-# the committed data; stale hashes after a code change will fail the check.
+# NOTE: after changing anything in extract_offices.py, re-run `make extract`
+# before `make check-integrity`.  The manifest stores hashes of the committed
+# data; stale hashes after a code change will fail the check.
 
 # Build & verify
 make build                        # assemble dist/ (copies web/, dereferences data symlink)
@@ -143,7 +143,7 @@ Extraction pipeline (run via `make extract`):
 
 **Data integrity guard:** `check_data_integrity.py` compares current `data/*.json` hashes against `tools/extract_manifest.json`. Exits 1 if any file was edited outside the pipeline. Wired into `make deploy-staging` as a gate.
 
-**Verse sections — two lists, two questions.** `VERSE_SECTIONS` in `tools/validate_office.cjs` asks *"does this section contain any intentional line breaks?"* so `no-prose-line-breaks` won't flag a `\n`. `_VERSE_SECTIONS` in `tools/extract_offices.py` asks the stricter *"are all breaks here intentional, so `_LINE_JOIN` must never fire?"* A section can hold both real verse breaks and PDF column wraps and then belongs in the first but not the second. So the invariant is **Python ⊆ JS**, not equality, plus neither list may name a section that doesn't reach the renderer. Both are enforced by `tools/tests/test_verse_sections_sync.py`. When adding a verse-like section, update the relevant list(s) and the line-count assertions in `tests/unit/render.test.js`.
+**Verse sections — one list, in the validator only.** `VERSE_SECTIONS` in `tools/validate_office.cjs` asks *"does this section contain any intentional line breaks?"*, so `no-prose-line-breaks` won't flag a `\n`. There is no longer a Python counterpart: extraction decides every break from the page (see below), so nothing needs a section-level exemption. `_VERSE_SECTIONS` and the `_LINE_JOIN` regex it gated were removed once the geometry reproduced the extraction exactly without them. When adding a verse-like section, update the JS list and the line-count assertions in `tests/unit/render.test.js`.
 
 **Deciding a break: measure the page, never a proxy.** Whether a line break is deliberate or a PDF column wrap is a physical question — did the line run out of horizontal room? Answer it from geometry (`gap`, the unused space at the end of the line, and `lead`, the leading opened up below it), both carried out of `spans_to_typed_lines`. Two attempts to use a proxy instead have shipped broken text: a "terminal punctuation" rule produced 46 false breaks (#9), and classifying by the trailing space PyMuPDF leaves on a span collapsed every evening hymn stanza into prose (#38, reverted in 0ac1b86) — that space marks "this line does not end the block", not "this line was wrapped". `litany` is the only section mixed enough to need per-break judgement; `_reflow_litany` does it, with the handful of ambiguous breaks adjudicated explicitly and anything new warned about rather than guessed at. See #39.
 
