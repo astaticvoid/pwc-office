@@ -229,7 +229,13 @@ mobile-android: mobile-sync
 #
 # Rollback: make rollback    — swaps to previous release
 
-RELEASE = $(shell date -u +%Y-%m-%dT%H%M%SZ)-$(shell git rev-parse --short HEAD)
+# A release name is what promote and rollback reason about later, so it has to be
+# honest about what went into it. An uncommitted tree gets a -dirty suffix rather
+# than a hard block: staging is exactly where uncommitted work belongs, and the
+# tree is dirty by default right after `make extract` (the manifest timestamp).
+# promote refuses a -dirty release unless forced, which is where it matters (#53).
+GIT_DIRTY := $(shell git status --porcelain 2>/dev/null | head -1)
+RELEASE = $(shell date -u +%Y-%m-%dT%H%M%SZ)-$(shell git rev-parse --short HEAD)$(if $(GIT_DIRTY),-dirty,)
 
 deploy-staging: check-integrity check-dist
 	aws s3 sync dist/ s3://$(BUCKET)/releases/$(RELEASE)/ --delete
@@ -292,6 +298,10 @@ promote:
 	  RELEASE=$$(cat .deploy-latest); HEAD_SHA=$$(git rev-parse --short HEAD); \
 	  case "$$RELEASE" in \
 	    *-$$HEAD_SHA) ;; \
+	    *-$$HEAD_SHA-dirty) \
+	       echo "Promotion blocked — $$RELEASE was built from an uncommitted tree."; \
+	       echo "Its name records $$HEAD_SHA but its contents do not match that commit."; \
+	       echo "Commit, re-deploy, or PROMOTE_FORCE=1 to ship it anyway."; exit 1;; \
 	    *) echo "Promotion blocked — .deploy-latest is $$RELEASE but HEAD is $$HEAD_SHA."; \
 	       echo "That release was built from different code. Re-run 'make deploy-staging',"; \
 	       echo "or PROMOTE_FORCE=1 to ship it anyway."; exit 1;; \
@@ -336,9 +346,23 @@ invalidate-production:
 	@echo "Note: pwc-deploy cannot read invalidation status (cloudfront:GetInvalidation"
 	@echo "is denied), so this cannot be waited on — check the site in a minute or two."
 
+# Rolls back to the newest release strictly older than the one currently live,
+# rather than "second newest in the bucket" — those differ as soon as a deploy
+# happens after the bad promote, which is a normal way to discover the problem.
+# The target is checked for an index.html first: rollback runs when something is
+# already wrong, so swapping to an incomplete prefix is the worst possible
+# outcome. See #53.
 rollback:
-	@PREV=$$(aws s3 ls s3://$(BUCKET)/releases/ | sort -r | head -2 | tail -1 | awk '{print $$2}' | sed 's:/$$::') && \
-	test -n "$$PREV" || (echo "No previous release found — nothing to roll back to"; exit 1) && \
+	@CURRENT=$$(aws cloudfront get-distribution-config --id $(CF_DISTRIBUTION_ID) \
+	  --query 'DistributionConfig.Origins.Items[0].OriginPath' --output text \
+	  | sed 's:^/releases/::') && \
+	echo "Currently live: $$CURRENT" && \
+	PREV=$$(aws s3 ls s3://$(BUCKET)/releases/ | awk '{print $$2}' | sed 's:/$$::' \
+	  | grep -v '^$$' | sort | awk -v cur="$$CURRENT" '$$0 < cur' | tail -1) && \
+	test -n "$$PREV" || (echo "No release older than $$CURRENT — nothing to roll back to"; exit 1) && \
+	(aws s3 ls s3://$(BUCKET)/releases/$$PREV/index.html >/dev/null 2>&1 || \
+	  (echo "Rollback aborted — releases/$$PREV/ has no index.html and is incomplete."; \
+	   exit 1)) && \
 	echo "Rolling back to $$PREV" && \
 	aws cloudfront get-distribution-config --id $(CF_DISTRIBUTION_ID) \
 	  > /tmp/cf-config.json && \
