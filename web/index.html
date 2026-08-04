@@ -18,19 +18,13 @@
       <div class="nav-row nav-top">
         <a id="nav-brand" href="#" aria-label="Pray Without Ceasing — go to today">
           <svg class="nav-logo" width="48" height="48" viewBox="0 0 2085.03 2084.82" aria-hidden="true"><use href="assets/bas-cross.svg#cross"/></svg>
-
           <span class="nav-brand-name">Pray Without Ceasing</span>
         </a>
-        <button id="nav-settings-btn" class="nav-settings-btn" aria-label="Settings" aria-expanded="false">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-          </svg>
-        </button>
       </div>
     </div><!-- #nav-inner -->
   </nav>
 
-  <!-- Settings bottom sheet -->
+  <!-- Combined settings + date picker bottom sheet -->
   <div id="settings-sheet" class="settings-sheet" aria-hidden="true" aria-label="Settings">
     <div class="settings-backdrop" id="settings-backdrop"></div>
     <div class="settings-panel" role="dialog" aria-modal="true">
@@ -41,6 +35,20 @@
         </button>
       </div>
       <div class="settings-body">
+        <div class="settings-row">
+          <span class="settings-label">Office</span>
+          <div class="settings-mini-seg" id="day-picker-office-seg">
+            <button id="day-picker-mp" type="button" aria-pressed="false">Morning</button>
+            <button id="day-picker-ep" type="button" aria-pressed="false">Evening</button>
+          </div>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">Date</span>
+          <div class="date-picker-row">
+            <input type="date" id="day-date-picker" aria-label="Go to date">
+            <button id="today-btn" type="button" class="today-btn">Today</button>
+          </div>
+        </div>
         <div class="settings-row">
           <div>
             <div class="settings-label">View</div>
@@ -66,33 +74,6 @@
           <span class="settings-label">Text size</span>
           <button id="font-size-toggle" aria-label="Adjust text size">Medium</button>
         </label>
-
-      </div>
-    </div>
-  </div>
-
-  <!-- Date/office picker bottom sheet -->
-  <div id="day-picker-sheet" class="settings-sheet" aria-hidden="true" aria-label="Go to date">
-    <div class="settings-backdrop" id="day-picker-backdrop"></div>
-    <div class="settings-panel" role="dialog" aria-modal="true">
-      <div class="settings-header">
-        <span>Go to Date</span>
-        <button id="day-picker-close-btn" aria-label="Close date picker">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div>
-      <div class="settings-body">
-        <div class="settings-row">
-          <span class="settings-label">Office</span>
-          <div class="settings-mini-seg" id="day-picker-office-seg">
-            <button id="day-picker-mp" type="button" aria-pressed="false">Morning</button>
-            <button id="day-picker-ep" type="button" aria-pressed="false">Evening</button>
-          </div>
-        </div>
-        <label class="settings-row" for="day-date-picker">
-          <span class="settings-label">Date</span>
-          <input type="date" id="day-date-picker" aria-label="Go to date">
-        </label>
       </div>
     </div>
   </div>
@@ -102,6 +83,11 @@
   <main id="main">
     <header id="day-header">
       <div id="day-brand">Pray Without Ceasing</div>
+      <button id="header-settings-btn" class="header-settings-btn" aria-label="Settings">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
       <div id="day-office-name" role="button" tabindex="0"></div>
       <h1 id="day-title" role="button" tabindex="0" aria-label="Choose date"></h1>
       <div id="day-subtitle"></div>

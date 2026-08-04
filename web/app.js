@@ -1210,16 +1210,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     navigateTo(todayStr(), defaultOffice());
   });
 
-  // Settings sheet
+  // Combined settings + date picker sheet
   const settingsSheet = document.getElementById('settings-sheet');
-  const settingsBtn = document.getElementById('nav-settings-btn');
+  const settingsBtn = document.getElementById('header-settings-btn');
   const settingsClose = document.getElementById('settings-close-btn');
   const settingsBackdrop = document.getElementById('settings-backdrop');
 
   function openSettings() {
     settingsSheet.setAttribute('aria-hidden', 'false');
     settingsBtn.setAttribute('aria-expanded', 'true');
-    const firstCtrl = settingsSheet.querySelector('button, select');
+    const firstCtrl = settingsSheet.querySelector('button, select, input');
     if (firstCtrl) firstCtrl.focus();
   }
   function closeSettings() {
@@ -1264,7 +1264,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { closeSettings(); closeDayPicker(); }
+    if (e.key === 'Escape') { closeSettings(); }
   });
 
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
@@ -1274,29 +1274,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   sel.value = state.translation;
   sel.addEventListener('change', () => { switchTranslation(sel.value); });
 
-  // Date/office picker sheet — opened by tapping either the date or the day title.
-  const dayPickerSheet = document.getElementById('day-picker-sheet');
-  const dayPickerBackdrop = document.getElementById('day-picker-backdrop');
-  const dayPickerClose = document.getElementById('day-picker-close-btn');
+  // Date/office picker — now part of the combined settings sheet.
   const dayTitleEl = document.getElementById('day-title');
   const dayDatePicker = document.getElementById('day-date-picker');
   const dayPickerMpBtn = document.getElementById('day-picker-mp');
   const dayPickerEpBtn = document.getElementById('day-picker-ep');
+  const todayBtn = document.getElementById('today-btn');
 
   function openDayPicker() {
-    dayPickerSheet.setAttribute('aria-hidden', 'false');
+    openSettings();
   }
   function closeDayPicker() {
-    dayPickerSheet.setAttribute('aria-hidden', 'true');
-    dayDatePicker.blur();
+    closeSettings();
   }
   document.getElementById('day-date-nav').addEventListener('click', openDayPicker);
   dayTitleEl.addEventListener('click', openDayPicker);
   dayTitleEl.addEventListener('keydown', e => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDayPicker(); }
   });
-  dayPickerClose.addEventListener('click', closeDayPicker);
-  dayPickerBackdrop.addEventListener('click', closeDayPicker);
 
   // Tapping the native date input only reliably opens its calendar UI when
   // the tap lands on the small calendar glyph itself (esp. mobile Chrome) —
@@ -1304,8 +1299,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   dayDatePicker.addEventListener('click', () => { try { dayDatePicker.showPicker(); } catch (_) {} });
   dayDatePicker.addEventListener('change', e => {
     if (e.target.value) navigateTo(e.target.value, state.office);
-    closeDayPicker();
+    closeSettings();
   });
+
+  if (todayBtn) {
+    todayBtn.addEventListener('click', () => {
+      navigateTo(todayStr(), state.office);
+      closeSettings();
+    });
+  }
 
   dayPickerMpBtn.addEventListener('click', () => { if (state.office !== 'mp') navigateTo(state.date, 'mp'); });
   dayPickerEpBtn.addEventListener('click', () => { if (state.office !== 'ep') navigateTo(state.date, 'ep'); });
