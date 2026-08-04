@@ -94,7 +94,6 @@ body {
   -webkit-font-smoothing: antialiased;
   touch-action: manipulation;
   min-height: 100vh;
-  padding-top: var(--safe-top);
   padding-left: var(--safe-left);
   padding-right: var(--safe-right);
   transition: background 0.25s, color 0.25s;
@@ -154,26 +153,6 @@ body {
 @media (max-width: 520px) {
   .nav-brand-name { font-size: 1rem; }
 }
-.nav-settings-btn {
-  position: absolute; right: 0; top: 50%; transform: translateY(-50%);
-  background: none; border: none; cursor: pointer;
-  color: var(--color-brass-on-nav); opacity: 0.7;
-  padding: 0.25rem; border-radius: 4px;
-  display: flex; align-items: center;
-  transition: opacity 0.1s;
-}
-.nav-settings-btn:hover { opacity: 1; }
-
-/* Settings button */
-#nav-settings-btn {
-  flex: 0; width: 34px; height: 34px; border-radius: 9px;
-  background: rgba(255,255,255,0.1); border: none; padding: 0; margin: 0;
-  color: var(--color-nav-text); cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  opacity: 0.85; transition: background 0.15s, opacity 0.15s;
-  flex-shrink: 0; line-height: 0;
-}
-@media (hover: hover) { #nav-settings-btn:hover { background: rgba(255,255,255,0.18); opacity: 1; } }
 
 /* Nav links */
 #nav a {
@@ -255,6 +234,18 @@ body {
   border-radius: 7px; padding: 0.3rem 0.65rem;
   color: var(--color-text); cursor: pointer;
 }
+.date-picker-row {
+  display: flex; gap: 0.5rem; align-items: center; flex: 1;
+}
+.date-picker-row input[type=date] { flex: 1; }
+.today-btn {
+  font-family: var(--font-ui); font-size: 0.78rem; font-weight: 500;
+  background: var(--color-nav-bg); color: var(--color-nav-text);
+  border: none; border-radius: 7px; padding: 0.35rem 0.75rem;
+  cursor: pointer; white-space: nowrap;
+  transition: opacity 0.15s;
+}
+.today-btn:hover { opacity: 0.85; }
 /* Mini segmented control inside settings */
 .settings-mini-seg {
   display: flex; gap: 3px; padding: 3px;
@@ -286,9 +277,27 @@ body {
 #day-brand { display: none; }
 
 #day-header {
-  padding: 1rem 0 0;
+  padding: 1rem 0 1.5rem;
   text-align: center;
+  position: relative;
 }
+
+.header-settings-btn {
+  position: absolute;
+  right: 0;
+  top: 0.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-muted);
+  padding: 0.4rem;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  opacity: 0.6;
+  transition: opacity 0.15s, background 0.15s;
+}
+.header-settings-btn:hover { opacity: 1; background: var(--color-surface); }
 #day-meta { justify-content: center; }
 
 #day-office-name {
