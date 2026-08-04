@@ -5,9 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
   <title>Pray Without Ceasing — Daily Office</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/fonts/fonts.css">
   <link rel="stylesheet" href="office.css">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -118,14 +116,7 @@
     <div id="office-content">
       <p class="loading">Loading…</p>
     </div>
-    <pre id="debug-log" style="position:fixed;bottom:0;left:0;right:0;max-height:40vh;overflow:auto;background:#111;color:#0f0;font:10px monospace;padding:8px;z-index:999;display:none"></pre>
   </main>
-  <script>
-    var dlog = document.getElementById('debug-log');
-    function dbg(m) { dlog.style.display='block'; dlog.textContent += m + '\n'; }
-    window.onerror = function(m,s,l,c,e) { dbg('ERROR: '+m+' at '+s+':'+l+':'+c); };
-    window.addEventListener('unhandledrejection', function(e) { dbg('PROMISE: '+e.reason); });
-  </script>
   <script src="capacitor-plugins.js"></script>
   <script type="module" src="app.js"></script>
 </body>
