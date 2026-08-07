@@ -44,7 +44,16 @@ def test_manifest_records_source_hashes(manifest):
         "extract_manifest.json has no source_hashes. Without them, editing an "
         "extractor and skipping `make extract` passes every check. Run `make extract`."
     )
-    expected = {rel for rel in manifest_tool.EXTRACTION_SOURCES if (ROOT / rel).exists()}
+    # Globbed entries are recorded under their concrete paths, so the lectionary
+    # CSV appears as the year it is actually for. Expanded independently here
+    # rather than by calling source_hashes(), which would compare the function
+    # against itself.
+    expected = set()
+    for rel in manifest_tool.EXTRACTION_SOURCES:
+        if "*" in rel:
+            expected |= {str(p.relative_to(ROOT)) for p in ROOT.glob(rel)}
+        elif (ROOT / rel).exists():
+            expected.add(rel)
     assert set(recorded) == expected, (
         f"source_hashes covers {sorted(set(recorded))} but EXTRACTION_SOURCES "
         f"expects {sorted(expected)} — re-run `make extract` after changing the list."

@@ -1,5 +1,5 @@
 {
-  "extracted_at": "2026-08-07T03:01:21Z",
+  "extracted_at": "2026-08-07T06:05:55Z",
   "tool_versions": {
     "fitz": [
       "1.28.0",
@@ -18,7 +18,8 @@
     "tools/apply_corrections.py": "2b269b10b11bf737c177fcbb16ec38cb36571f7d270185a7f26cdfc89e233fa5",
     "tools/corrections_lib.py": "20a98d9f99830ab24d5bcbd32613929929e6eaa72c085352b16a0a7385f4e70d",
     "tools/extract_lib.py": "bc1681ebbb5c6be0c197f39aeb594d02f4e85d953384ade8a83319dd4978d91f",
-    "data/corrections.json": "2d7b722d9b8a4fb14bcd0862b928cca6fb6d208f4f70dec918a7f5fbe4945623"
+    "data/corrections.json": "2d7b722d9b8a4fb14bcd0862b928cca6fb6d208f4f70dec918a7f5fbe4945623",
+    "sources/bas_short_2026.csv": "909616851bf8c627428fbaf50ce894d72fc122a3b702843f1bad7c070850b89e"
   },
   "files": {
     "data/offices.json": {
@@ -32,6 +33,10 @@
     "data/psalter.json": {
       "sha256": "0fa1d871c3ae614dc260085ee387dbb015f1db9d654029625135717b6b13b6d0",
       "entries": 150
+    },
+    "data/season_bounds.json": {
+      "sha256": "0f76ec8d40a5e10059ab6171d817b91b12e1adbb141a9d40add6d40afb31033c",
+      "entries": 14
     },
     "data/fats/saints.json": {
       "sha256": "5cbe42fdb0e657d246a17e1dd57320bb54f28f5f7ce935aed80321b7c30d1e70",
