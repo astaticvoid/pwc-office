@@ -13,6 +13,8 @@ import json
 import sys
 from pathlib import Path
 
+from corrections_lib import check_office_text
+
 ROOT = Path(__file__).parent.parent
 DATA = ROOT / "data"
 # Intermediate pipeline artifacts. Deliberately outside data/, which is the
@@ -33,27 +35,12 @@ def get_at_path(obj, path: list):
     return obj
 
 
-def find_text_in_segments(segments, target_text):
-    """Recursively search segments for exact text match, trying both nbsp and regular space."""
-    for seg in segments:
-        if not isinstance(seg, dict):
-            continue
-        if seg.get("type") == "alternatives":
-            for group in seg.get("groups", []):
-                if find_text_in_segments(group.get("segments", []), target_text):
-                    return True
-        elif seg.get("type") in ("response", "label", "leader"):
-            t = seg.get("text", "")
-            if t == target_text:
-                return True
-            if "\xa0" in t and target_text.replace(" ", "\xa0", 1) == t:
-                return True
-            if "\xa0" in target_text and t.replace("\xa0", " ") == target_text:
-                return True
-    return False
-
-
 def validate_office_text(corrections: list, data: dict) -> list[str]:
+    """Check every office_text correction against the pre-correction offices.
+
+    The match itself is decided by corrections_lib, which is also what
+    apply_corrections.py uses — so anything that validates here applies there.
+    """
     errors = []
     for c in corrections:
         cid = c["id"]
@@ -65,13 +52,9 @@ def validate_office_text(corrections: list, data: dict) -> list[str]:
         if field is None:
             errors.append(f"{cid}: field '{c['field']}' not in {c['office']}")
             continue
-        old = c.get("old", "")
-        if isinstance(field, str):
-            if field != old and old not in field:
-                errors.append(f"{cid}: old value mismatch in {c['office']}.{c['field']}")
-        elif isinstance(field, list):
-            if not find_text_in_segments(field, old):
-                errors.append(f"{cid}: old value not found in {c['office']}.{c['field']} segments")
+        problem = check_office_text(c, field)
+        if problem:
+            errors.append(f"{cid}: {c['office']}.{c['field']} — {problem}")
     return errors
 
 

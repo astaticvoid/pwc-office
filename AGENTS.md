@@ -145,6 +145,7 @@ ships via the `web/data` symlink. Only the right-hand column is published.
 | `extract_fats.py` | `.build/fats-saints.1-extract.json` |
 | `convert_lectionary.py` (from `sources/bas_short_*.csv`) | `.build/lectionary/YYYY-MM.json` |
 | `extract_collects.py` | `data/collects.json` |
+| `corrections_lib.py` — shared matching for `office_text`, used by both scripts below | *(library)* |
 | `validate_corrections.py` — checks corrections against the pre-correction artifacts | *(read-only)* |
 | `apply_corrections.py` — applies `data/corrections.json` | `data/offices.json`, `data/psalter.json`, `data/fats/saints.json`, `data/lectionary/` |
 | `update_extract_manifest.py` | `tools/extract_manifest.json` (committed) |
@@ -260,13 +261,34 @@ All task tracking lives in [GitHub Issues](https://github.com/astaticvoid/pwc-of
 
 | Correction type | Manifest category | Target locator |
 |----------------|-------------------|----------------|
-| Office text (wording, casing, whitespace) | `office_text` | `{office, field}` |
+| Office text (wording, casing, whitespace) | `office_text` | `{office, field}` + substring replace |
 | Psalter: missing/incorrect verse text | `psalter` | psalm number + substring replace |
 | Saint biographies | `fats` | saint + field + substring replace |
 | Lectionary: wrong citation | `lectionary_citations` | date + office + lesson index |
 | Lectionary: wrong lesson list | `lectionary_lessons` | date + office (whole-list replace) |
 | Lectionary: name / rank / colour | `lectionary_names`, `lectionary_ranks`, `lectionary_colours` | date (whole-value replace) |
 | Lectionary: garbled note | `lectionary_notes` | date (`clear` action only) |
+
+`office_text` takes two shapes, chosen by the type of `old` (see
+`tools/corrections_lib.py`, which both the validator and the applier call so
+they cannot disagree):
+
+- **Substring** — `old`/`new` are strings. Every occurrence in every
+  text-bearing segment of the field is replaced. `count` states how many
+  occurrences are expected and defaults to 1; a mismatch fails the run rather
+  than applying partially. This is what almost everything wants — the
+  alternative is restating an entire canticle to change one word.
+- **Whole-field** — `old`/`new` are lists/dicts. The field must equal `old`.
+  For structural edits only: deleting segments, reordering, retyping a segment.
+
+The walk does **not** follow `{"type": "shared"}` references. A shared block is
+reachable from many forms, so correcting it through one form would silently
+rewrite the others; address `_shared` directly instead. One correction to
+`_shared.reading_response_ordinary` fixes all 14 Ordinary forms at once.
+
+Editorial errata from the ACC live in `docs/errata/` — see the README there for
+which items became corrections, which the extraction already handles, and which
+of the errata's own transcription slips must not be propagated.
 
 Systemic parsing problems are **not** corrections — fix those in the extractor (`_normalize_whitespace()` and friends in `tools/extract_offices.py`) so every instance resolves at once. The hardcoded fix dicts that used to live in `extract_psalter.py`, `extract_fats.py`, and `convert_lectionary.py` were migrated into the manifest and deleted; don't reintroduce that pattern (see issue #13).
 

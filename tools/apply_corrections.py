@@ -15,6 +15,8 @@ import json
 import sys
 from pathlib import Path
 
+from corrections_lib import check_office_text, replace_occurrences
+
 ROOT = Path(__file__).parent.parent
 DATA = ROOT / "data"
 # Intermediate pipeline artifacts. Deliberately outside data/, which is the
@@ -132,8 +134,8 @@ def main():
 
     corrections = json.loads(CORRECTIONS.read_text())
 
-    # Office text corrections — whole-field replace (old == entire field value).
-    #
+    # Office text corrections — substring replace within the field's segments
+    # when 'old' is a string, whole-field replace otherwise. See corrections_lib.
     # Stage 3, the last of the offices chain: reads the normalized artifact and
     # writes the file everything else consumes. Because the input is a separate
     # artifact, re-running this is idempotent — it re-derives from normalized
@@ -151,12 +153,31 @@ def main():
     applied = 0
     for c in corrections.get("office_text", []):
         office = data.get(c["office"])
-        if office and office.get(c["field"]) == c.get("old"):
-            office[c["field"]] = c["new"]
-            applied += 1
-            print(f"  {c['id']}: {c['office']}.{c['field']}")
+        field = office.get(c["field"]) if office else None
+        if field is None:
+            _misses.append(f"{c['id']}: {c['office']}.{c['field']} not found")
+            continue
+        # Same check the validator ran, so nothing applies on a state it would
+        # have rejected — including the occurrence count, which is what stops a
+        # substring correction applying to fewer (or more) segments than its
+        # author counted.
+        problem = check_office_text(c, field)
+        if problem:
+            _misses.append(f"{c['id']}: {c['office']}.{c['field']} — {problem}")
+            continue
+        if isinstance(c["old"], str):
+            if isinstance(field, str):
+                # A plain-string field (every office `title`) — replaced on the
+                # office dict, since a str cannot be corrected in place.
+                n = field.count(c["old"])
+                office[c["field"]] = field.replace(c["old"], c["new"])
+            else:
+                n = replace_occurrences(field, c["old"], c["new"])
+            print(f"  {c['id']}: {c['office']}.{c['field']} ({n}×)")
         else:
-            _misses.append(f"{c['id']}: {c['office']}.{c['field']} mismatch")
+            office[c["field"]] = c["new"]
+            print(f"  {c['id']}: {c['office']}.{c['field']}")
+        applied += 1
     # This is the artifact the app, the manifest and the integrity check read,
     # so it must exist and must be derived from the normalized input even when
     # no correction applies.
