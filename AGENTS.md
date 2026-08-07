@@ -194,6 +194,18 @@ make extract-diff EXPECT=0     # a refactor must change nothing
 make extract-diff              # or read what actually moved
 ```
 
+**Upgrading PyMuPDF is changing an extractor.** It supplies every coordinate the
+line-break decision reads, against a window documented below as sitting 0.5pt
+off a false positive, so treat a version bump exactly like an edit to
+`extract_offices.py`: re-extract and `make extract-diff EXPECT=0`. The file
+hashes will not tell you — `make extract` rewrites them and the recorded version
+together, so they agree with whatever produced them. `make check-integrity`
+prints a `VERSION WARN` when the installed PyMuPDF differs from the manifest,
+and that warning is the only automatic signal for this (ADR 0011). It warns
+rather than fails only because `make test` depends on check-integrity, and
+failing would lock out any contributor whose PyMuPDF differs until they re-run a
+network extraction.
+
 State the expected node count before running it, and make the change explain the
 number. "0 nodes" is the target for anything meant to be behaviour-preserving;
 a real fix should change exactly the nodes it claims and no others.
