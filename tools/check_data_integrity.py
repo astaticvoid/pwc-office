@@ -111,7 +111,18 @@ def check_sources(manifest: dict) -> list[str]:
     drifted = []
     for rel, want in sorted(expected.items()):
         path = ROOT / rel
-        if not path.exists():
+        if want is None:
+            # An input EXTRACTION_SOURCES names, that was gone when the manifest
+            # was written. Fatal either way: still absent means data/ was
+            # published without an input the pipeline declares it needs; back
+            # again means data/ predates it. Retiring an input for real is an
+            # edit to EXTRACTION_SOURCES, which is a reviewable change — not a
+            # file quietly disappearing from a worktree.
+            drifted.append(
+                f"{rel} (absent when the manifest was written"
+                f"{'; present again now' if path.exists() else ''})"
+            )
+        elif not path.exists():
             drifted.append(f"{rel} (missing)")
         elif file_sha256(path) != want:
             drifted.append(rel)
@@ -121,7 +132,9 @@ def check_sources(manifest: dict) -> list[str]:
         for rel in drifted:
             print(f"    {rel}")
         print("    data/ is stale with respect to the code that produces it.")
-        print("    Run `make extract`.")
+        print("    Run `make extract`. If an input was removed deliberately,")
+        print("    drop it from EXTRACTION_SOURCES in update_extract_manifest.py")
+        print("    in the same commit — that is what retires it.")
     else:
         print(f"SOURCES OK   {len(expected)} extraction source(s) match the manifest")
     return drifted

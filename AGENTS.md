@@ -178,6 +178,29 @@ and `validate_corrections.py` cannot see corrected output, whenever they run
 
 **Data integrity guard:** `check_data_integrity.py` compares current `data/*.json` hashes against `tools/extract_manifest.json`. Exits 1 if any file was edited outside the pipeline, or if an extractor changed without a re-run. Gates both `make test` and `make deploy-staging`.
 
+`source_hashes` in that manifest has three states, and the third is load-bearing:
+
+| value | meaning |
+|---|---|
+| a hash | the input must still hash to this |
+| `null` | the input was **absent** when the manifest was written — drift, exits 1 |
+| key absent | not tracked; either a pre-#51 manifest or a retired input |
+
+An input that disappears is recorded rather than dropped. Omitting it let the
+key vanish from the committed manifest on the next `make extract`, so nothing
+recorded that the input had ever been expected: `rm data/corrections.json &&
+make extract && make test` was green while every office was republished with all
+corrections silently dropped, the Synod errata among them. A warning was not
+enough — check-integrity is the deploy gate, so anything exiting 0 ships the
+tree regardless.
+
+**Retiring an input is removing it from `EXTRACTION_SOURCES`**, in the same
+commit as whatever removed the file. That is a reviewable edit; a file missing
+from a worktree is not. Glob entries (`sources/bas_short_*.csv`) name a set, so
+they record only concrete matches and never a null — zero matches is
+indistinguishable from a year not yet added, and `convert_lectionary.py` already
+fails loudly on a missing CSV.
+
 **Verse sections — one list, in the validator only.** `VERSE_SECTIONS` in `tools/validate_office.cjs` asks *"does this section contain any intentional line breaks?"*, so `no-prose-line-breaks` won't flag a `\n`. There is no longer a Python counterpart: extraction decides every break from the page (see below), so nothing needs a section-level exemption. `_VERSE_SECTIONS` and the `_LINE_JOIN` regex it gated were removed once the geometry reproduced the extraction exactly without them. When adding a verse-like section, update the JS list and the line-count assertions in `tests/unit/render.test.js`.
 
 ### Changing an extractor

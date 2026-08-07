@@ -52,7 +52,12 @@ def test_manifest_records_source_hashes(manifest):
     for rel in manifest_tool.EXTRACTION_SOURCES:
         if "*" in rel:
             expected |= {str(p.relative_to(ROOT)) for p in ROOT.glob(rel)}
-        elif (ROOT / rel).exists():
+        else:
+            # Named sources are recorded whether or not they exist — an absent
+            # one is a null, which check_sources treats as drift. Requiring
+            # existence here made a deleted input fail *this* test instead,
+            # with a message telling the reader to re-run `make extract`, which
+            # regenerates the identical null and cannot clear it.
             expected.add(rel)
     assert set(recorded) == expected, (
         f"source_hashes covers {sorted(set(recorded))} but EXTRACTION_SOURCES "
