@@ -133,29 +133,36 @@ def main():
     corrections = json.loads(CORRECTIONS.read_text())
 
     # Office text corrections — whole-field replace (old == entire field value).
-    if corrections.get("office_text"):
-        # Stage 3, the last of the offices chain: reads the normalized artifact
-        # and writes the file everything else consumes. Because the input is a
-        # separate artifact, re-running this is idempotent — it re-derives from
-        # normalized output rather than correcting already-corrected text (#48).
-        path = BUILD / "offices.2-normalized.json"
-        out_path = DATA / "offices.json"
-        data = json.loads(path.read_text())
-        applied = 0
-        for c in corrections["office_text"]:
-            office = data.get(c["office"])
-            if office and office.get(c["field"]) == c.get("old"):
-                office[c["field"]] = c["new"]
-                applied += 1
-                print(f"  {c['id']}: {c['office']}.{c['field']}")
-            else:
-                _misses.append(f"{c['id']}: {c['office']}.{c['field']} mismatch")
-        # Written unconditionally: this is the artifact the app, the manifest and
-        # the integrity check read, so it must exist and must be derived from the
-        # normalized input even when no correction applies.
-        out_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
-        if applied:
-            print(f"  Applied {applied} office text corrections → {out_path}")
+    #
+    # Stage 3, the last of the offices chain: reads the normalized artifact and
+    # writes the file everything else consumes. Because the input is a separate
+    # artifact, re-running this is idempotent — it re-derives from normalized
+    # output rather than correcting already-corrected text (#48).
+    #
+    # Deliberately not guarded on a non-empty office_text list. This stage
+    # *derives* the published file; correcting it is the incidental part. Behind
+    # such a guard the write below was unconditional in name only, and with no
+    # office_text corrections data/offices.json was never rebuilt at all — an
+    # extractor change then left the published file stale through a full
+    # `make extract` that reported success, and check-integrity passed because
+    # the manifest was rehashed from the same stale file.
+    out_path = DATA / "offices.json"
+    data = json.loads((BUILD / "offices.2-normalized.json").read_text())
+    applied = 0
+    for c in corrections.get("office_text", []):
+        office = data.get(c["office"])
+        if office and office.get(c["field"]) == c.get("old"):
+            office[c["field"]] = c["new"]
+            applied += 1
+            print(f"  {c['id']}: {c['office']}.{c['field']}")
+        else:
+            _misses.append(f"{c['id']}: {c['office']}.{c['field']} mismatch")
+    # This is the artifact the app, the manifest and the integrity check read,
+    # so it must exist and must be derived from the normalized input even when
+    # no correction applies.
+    out_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+    if applied:
+        print(f"  Applied {applied} office text corrections → {out_path}")
 
     # Psalter corrections — substring replace within one psalm's text, tagged
     # with source_corrections provenance for entries that carry a reason.
