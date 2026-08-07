@@ -41,7 +41,14 @@ extract:
 	$(PYTHON) tools/validate_corrections.py
 	$(PYTHON) tools/apply_corrections.py
 	$(PYTHON) tools/update_extract_manifest.py
-	@if [ -z "$$CI" ] && git -C data/ rev-parse --git-dir >/dev/null 2>&1; then \
+# Auto-commit the extraction, but only when data/ is its OWN repository — the
+# separate-data-repo setup this was written for. `rev-parse --git-dir` succeeds
+# from anywhere inside any repo, so in a normal checkout it found *this* repo and
+# the `git add -A` that followed staged the entire working tree, committing
+# unrelated in-progress work under an "extraction" message. Comparing toplevels
+# is the question actually being asked: is data/ a repo root?
+	@if [ -z "$$CI" ] && \
+	   [ "$$(git -C data/ rev-parse --show-toplevel 2>/dev/null)" = "$$(cd data/ && pwd -P)" ]; then \
 	  git -C data/ add -A && git -C data/ commit -m "extraction $(shell date +%Y-%m-%d)" || true; \
 	fi
 
