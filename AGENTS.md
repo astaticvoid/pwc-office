@@ -149,6 +149,14 @@ ships via the `web/data` symlink. Only the right-hand column is published.
 | `apply_corrections.py` — applies `data/corrections.json` | `data/offices.json`, `data/psalter.json`, `data/fats/saints.json`, `data/lectionary/` |
 | `update_extract_manifest.py` | `tools/extract_manifest.json` (committed) |
 
+`apply_corrections.py` writes `data/offices.json` on every run, including when
+there are no `office_text` corrections at all — it is the stage that *derives*
+the published file from `.build/offices.2-normalized.json`, not merely the stage
+that patches it. Guarding that work on a non-empty correction list once left the
+published file stale after an extractor change, through a `make extract` that
+reported success and a `check-integrity` that passed, because the manifest was
+rehashed from the same stale file.
+
 Because each stage names its input, the order is a data dependency rather than a
 rule to remember: `convert_lectionary.py` cannot discard published corrections,
 and `validate_corrections.py` cannot see corrected output, whenever they run
