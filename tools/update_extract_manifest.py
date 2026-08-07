@@ -62,6 +62,7 @@ EXTRACTION_SOURCES = (
     "tools/extract_fats.py",
     "tools/convert_lectionary.py",
     "tools/apply_corrections.py",
+    "tools/corrections_lib.py",
     "tools/extract_lib.py",
     "data/corrections.json",
 )

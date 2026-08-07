@@ -1,6 +1,133 @@
 {
   "version": 1,
-  "office_text": [],
+  "office_text": [
+    {
+      "id": "errata-reading-response-ordinary",
+      "source": "pwc-errata-ordinary",
+      "office": "_shared",
+      "field": "reading_response_ordinary",
+      "old": "Holy wisdom, holy word.",
+      "new": "Holy Word, holy Wisdom.",
+      "reason": "Errata, Ordinary Time, every form: 'PWC has the wrong order.' The printed book reverses the two nouns and lowercases both. Corrected in the shared block, which all 14 Ordinary forms reference."
+    },
+    {
+      "id": "errata-sunday-mp-hidden",
+      "source": "pwc-errata-ordinary",
+      "office": "ordinary-sunday-mp",
+      "field": "responsory",
+      "old": "your life is hid with Christ",
+      "new": "your life is hidden with Christ",
+      "reason": "Errata, Ordinary Time p. 132: \"'hid' should read as 'hidden'\"."
+    },
+    {
+      "id": "errata-sunday-ep-on-either-side",
+      "source": "pwc-errata-ordinary",
+      "office": "ordinary-sunday-ep",
+      "field": "canticle",
+      "old": "And either side of the river",
+      "new": "And on either side of the river",
+      "reason": "Errata, Ordinary Time p. 142: omission of 'on' in 'A Song of the Heavenly City'."
+    },
+    {
+      "id": "errata-friday-mp-the-members",
+      "source": "pwc-errata-ordinary",
+      "office": "ordinary-friday-mp",
+      "field": "intercessions",
+      "old": "• the King, members of Parliament,",
+      "new": "• the King, the members of Parliament,",
+      "reason": "Errata, Ordinary Time p. 208: omission of 'the' in the bulleted list."
+    },
+    {
+      "id": "errata-friday-ep-the-members",
+      "source": "pwc-errata-ordinary",
+      "office": "ordinary-friday-ep",
+      "field": "intercessions",
+      "old": "• the King, members of Parliament,",
+      "new": "• the King, the members of Parliament,",
+      "reason": "Errata, Ordinary Time p. 215: omission of 'the' in the bulleted list."
+    },
+    {
+      "id": "errata-friday-mp-drawing-near",
+      "source": "pwc-errata-ordinary",
+      "office": "ordinary-friday-mp",
+      "field": "litany",
+      "old": "those who are drawing to near to the light of faith",
+      "new": "those who are drawing near to the light of faith",
+      "reason": "Errata, Ordinary Time p. 208 prints 'drawing near'; the book has a stray 'to'. The erratum claims only a formatting defect, but its corrected text drops the duplicated preposition."
+    },
+    {
+      "id": "errata-saturday-mp-lowercase-you",
+      "source": "pwc-errata-ordinary",
+      "office": "ordinary-saturday-mp",
+      "field": "canticle",
+      "old": "You shall see and your heart shall rejoice;",
+      "new": "you shall see and your heart shall rejoice;",
+      "reason": "Errata, Ordinary Time p. 220: capital 'You' in the final line of 'A Song of Jerusalem' should be lowercase, matching the predominant formatting."
+    },
+    {
+      "id": "errata-allsaints-mp-wisdom-period",
+      "source": "pwc-errata-seasonal",
+      "office": "allsaints-mp",
+      "field": "canticle",
+      "old": "do not reject us from among your servants,",
+      "new": "do not reject us from among your servants.",
+      "reason": "Errata, Seasonal p. 117: period missing in the fourth verse of 'A Song of Wisdom'."
+    },
+    {
+      "id": "errata-christmas-ep-your-feet",
+      "source": "pwc-errata-seasonal",
+      "office": "christmas-ep",
+      "field": "responsory",
+      "old": "a pathway for you feet.",
+      "new": "a pathway for your feet.",
+      "reason": "Errata, Seasonal p. 37: \"In the final Versicle 'you' should be 'your'.\""
+    },
+    {
+      "id": "errata-passiontide-mp-fault-period",
+      "source": "pwc-errata-seasonal",
+      "office": "passiontide-mp",
+      "field": "opening_responses",
+      "old": "bruised for no fault but ours",
+      "new": "bruised for no fault but ours.",
+      "reason": "Errata, Seasonal p. 72: missing period after 'no fault but ours'. (The errata's own corrected text misspells this as 'faulty' — not propagated; see docs/errata/README.md.)"
+    },
+    {
+      "id": "errata-pentecost-mp-loved-and-died",
+      "source": "pwc-errata-seasonal",
+      "office": "pentecost-mp",
+      "field": "seasonal_collects",
+      "old": "the world he lived and died to save",
+      "new": "the world he loved and died to save",
+      "reason": "Errata, Seasonal p. 105: in the Collect for the Sunday after Ascension to Pentecost, 'lived' should be 'loved'."
+    },
+    {
+      "id": "errata-pentecost-ep-loved-and-died",
+      "source": "pwc-errata-seasonal",
+      "office": "pentecost-ep",
+      "field": "seasonal_collects",
+      "old": "the world he lived and died to save",
+      "new": "the world he loved and died to save",
+      "reason": "Errata, Seasonal p. 112: in the Collect for the Sunday after Ascension to Pentecost, 'lived' should be 'loved'."
+    },
+    {
+      "id": "errata-pentecost-mp-you-entrust",
+      "source": "pwc-errata-seasonal",
+      "office": "pentecost-mp",
+      "field": "seasonal_collects",
+      "old": "the diverse ministries your entrust to us",
+      "new": "the diverse ministries you entrust to us",
+      "reason": "Errata, Seasonal p. 105: in the Collect for the Week of Trinity Sunday, 'your entrust to us' should read 'you entrust to us'."
+    },
+    {
+      "id": "errata-pentecost-ep-you-entrust",
+      "source": "pwc-errata-seasonal",
+      "office": "pentecost-ep",
+      "field": "seasonal_collects",
+      "old": "the diverse ministries your entrust to us",
+      "new": "the diverse ministries you entrust to us",
+      "reason": "Errata, Seasonal p. 113: in the Collect for the Week of Trinity Sunday, 'your entrust to us' should read 'you entrust to us'."
+    }
+  ],
   "lectionary_citations": [],
   "lectionary_lessons": [
     {
