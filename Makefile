@@ -47,10 +47,11 @@ extract:
 # the `git add -A` that followed staged the entire working tree, committing
 # unrelated in-progress work under an "extraction" message. Comparing toplevels
 # is the question actually being asked: is data/ a repo root?
-	@if [ -z "$$CI" ] && \
-	   [ "$$(git -C data/ rev-parse --show-toplevel 2>/dev/null)" = "$$(cd data/ && pwd -P)" ]; then \
-	  git -C data/ add -A && git -C data/ commit -m "extraction $(shell date +%Y-%m-%d)" || true; \
-	fi
+	@top=$$(git -C data/ rev-parse --show-toplevel 2>/dev/null); \
+	 if [ -z "$$CI" ] && [ -n "$$top" ] && \
+	    [ "$$top" = "$$(cd data/ && pwd -P)" ]; then \
+	   git -C data/ add -A && git -C data/ commit -m "extraction $(shell date +%Y-%m-%d)" || true; \
+	 fi
 
 # Suppress Node 22 localStorage experimental warning (render.js has polyfill).
 NODE_OPTIONS = --localstorage-file=/tmp/pwc-ls.json
