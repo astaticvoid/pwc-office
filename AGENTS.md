@@ -6,6 +6,14 @@ Instructions for automated tooling working in this repository.
 
 **Pray Without Ceasing (PWC)** — a Daily Office web app and Node CLI for Anglican liturgy. The web SPA is the primary product; the CLI shares the same data layer. Data is extracted from PDFs (ACC/BAS) via Python scripts and stored as JSON.
 
+This file is the authoritative one, and `CLAUDE.md` is a pointer to it.
+`README.md` (what the app is, how to run it) and `CONTRIBUTING.md` (setup, test
+tiers, deploy) cover the same ground for humans at less depth. They had drifted
+badly enough to mislead — CONTRIBUTING described extractors writing straight into
+`data/`, three releases after #48/#49 moved them to `.build/` — so when a change
+here invalidates something there, fix it in the same commit. The Makefile and the
+tools are the tiebreaker for all three.
+
 ## One-time setup
 
 ```bash
@@ -44,17 +52,29 @@ make fetch-sources                # download ACC PDFs + CSVs → sources/
 make extract                      # full pipeline → data/*.json + data/lectionary/
 
 # Testing
-make test                         # Vitest (fast, no network) — go-to test command
+make test                         # go-to command, no network. Composite:
+                                  #   check-integrity → test-unit → test-tools → qa
+make test-unit                    # Vitest only (tests/unit/) — `npm test`
+make test-tools                   # pytest only (tools/tests/) — extraction-tool units
 make test-full                    # structural check: every day × MP+EP in lectionary
 make test-smoke                   # 4 cases: citation check vs lectionary.anglican.ca
 make test-seasonal                # 26 cases: one MP+EP per liturgical form
-make test-web                     # Playwright E2E — auto-starts web/ server on :8080
+make test-web                     # Playwright E2E (tests/e2e/) — starts web/ on :8080 itself
+make validate                     # check-text + validate_lectionary.py vs ACC HTML (network)
 
-# Quality assurance
+# Quality assurance — `make qa` runs ALL of these, and `make test` runs `qa`.
+# Reach for one directly to read a failure in full, not to add coverage after
+# `make test`: that adds none.
 node tools/validate_office.cjs    # 20 liturgical rules across 3 tiers, all 30 forms
+node tools/validate_render.cjs    # rendered-DOM structure for all 30 forms
 node tools/validate_css.cjs       # structural CSS validity (web/*.css)
 node tools/validate_lectionary.cjs # every date × office: citation syntax + resolution
 node tools/audit_office.cjs       # cross-form statistical outlier detection (z-score)
+node tools/audit_text.cjs         # cross-form text-length outliers within peer groups
+node tools/audit_a11y.cjs         # heading hierarchy + ARIA on rendered HTML, no browser
+node tools/coherence_score.cjs V.json A.json  # composite 0–100 from the two --json outputs
+
+# Human review steps — not run by `make qa`
 node tools/compare_staging.cjs [date] [mp|ep]  # A/B diff staging vs production rendered DOM
 node tools/review_form.cjs FORM   # line-numbered text renderer for manual review
 
@@ -90,8 +110,16 @@ python3 tools/detect_office_bounds.py --write   # regenerate after PDF change
 ### Focused test commands
 
 ```bash
-npx vitest run -t "pattern"       # run a single Vitest test
+npx vitest run -t "pattern"                    # a single Vitest test
+.venv/bin/python3 -m pytest tools/tests/test_x.py -k name   # a single pytest
+COHERENCE_THRESHOLD=100 node tools/coherence_score.cjs …  # what qa uses; the
+                                               # 85 default is an ad-hoc floor only
 ```
+
+Test suites live in three places, and the three `make` tiers map onto them
+one-to-one: `tests/unit/` (Vitest, imports `web/render.js` directly),
+`tests/e2e/` (Playwright, both a `chromium` and a `mobile` project), and
+`tools/tests/` (pytest over the extraction tools).
 
 ## Architecture
 
@@ -273,7 +301,11 @@ say which population it is.
 | File | Role |
 |------|------|
 | `validate_css.cjs` | Structural CSS validity for every file in `web/*.css`: no style rule nested inside another style rule's declaration block (only `@media`/`@supports`/etc. and `@keyframes` bodies may nest), and brace-balance at end of file. Catches an unclosed/stray rule silently swallowing the rest of the stylesheet — this happened for real (see issue #22) and nothing else in this project's test suite validates CSS syntax at all. |
-| `validate_office.cjs` | 6 liturgical rules checked against all 30 forms (Amen presence, line breaks, stray spaces, section completeness) |
+| `validate_office.cjs` | 20 liturgical rules against all 30 forms, in 3 tiers — T1 structural (Amen presence, non-empty responses, leader/response alternation, collect resolvable), T2 textual (prose line breaks, orphan rubrics, Phos Hilaron line count), T3 seasonal coherence. The 10 rules in `DYNAMIC_RULES` need lectionary data, so they are skipped in the static pass and checked per date against fully assembled offices instead. Tier drives the `coherence_score.cjs` penalty. |
+| `validate_render.cjs` | Rendered-DOM structure for all 30 forms: section headings present, segment counts match, no empty liturgy blocks, valid heading hierarchy. Complements `validate_office.cjs`, which checks the data rather than the HTML. |
+| `audit_text.cjs` | Cross-form text-length outliers for shared subsections within a peer group — a section much shorter or longer than its peers signals an extraction artifact. |
+| `audit_a11y.cjs` | Static a11y checks over the rendered HTML (heading hierarchy, ARIA on interactive elements). No browser, so it runs in `qa` rather than in Playwright. |
+| `coherence_score.cjs` | Composite 0–100 from `validate_office --json` + `audit_office --json`, with exemptions from `tools/audit_expected.json`. `make qa` and the promote gate both set `COHERENCE_THRESHOLD=100`; the promote gate was 85 and so would not have blocked c81b341, which scored 97 with every evening hymn stanza collapsed into prose. |
 | `validate_lectionary.cjs` | Every date × office (397 × 2) in the lectionary: syntax checks (well-formed citations) **and** resolution checks (collect page/psalm number/lesson citation actually resolves to real data in collects.json/psalter.json/translations — not just a well-formed reference). Reuses the exact runtime resolution functions from `web/render.js`, not reimplementations. Run this after any re-extraction, especially a new lectionary year. |
 | `audit_office.cjs` | Cross-form statistical audit — 14 metrics, 4 peer groups, 2σ z-score outlier detection |
 | `compare_staging.cjs` | A/B rendered DOM diff between staging and production (use before `make promote`) |
@@ -352,8 +384,8 @@ Systemic parsing problems are **not** corrections — fix those in the extractor
 
 Before merging to main:
 ```bash
-make check-integrity && make test
-node tools/validate_office.cjs && node tools/audit_office.cjs
+make test          # already includes check-integrity and the full qa gate
+make test-web      # after any web/app.js, render.js, or CSS change
 ```
 
 Before promoting staging to production:
