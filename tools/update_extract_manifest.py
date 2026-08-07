@@ -102,21 +102,34 @@ PUBLISHED_FILES = (
 )
 
 
-def source_hashes(root: Path) -> dict[str, str]:
+def source_hashes(root: Path) -> dict[str, str | None]:
     """SHA-256 of every source that determines extraction output.
 
     Entries containing `*` are globbed and recorded under their concrete paths,
     so the lectionary CSV is hashed under the year it is actually for.
+
+    A named source that does not exist is recorded as `null`, not omitted.
+    Omitting it means the key simply disappears from the committed manifest on
+    the next run, taking with it any record that the input was ever expected —
+    so `rm data/corrections.json && make extract && make test` was green while
+    republishing every office with the corrections silently dropped, including
+    the Synod errata. Recording the absence keeps the manifest a statement of
+    the full expected input set rather than of whatever happened to be present,
+    and check_data_integrity.py treats a null as drift, so that sequence now
+    fails instead of deploying. Retiring an input means removing it from
+    EXTRACTION_SOURCES — a reviewable edit, not a file vanishing from a worktree.
     """
-    out = {}
+    out: dict[str, str | None] = {}
     for rel in EXTRACTION_SOURCES:
         if "*" in rel:
+            # A pattern names a set, not a file, so there is no absence to
+            # record — zero matches is indistinguishable from a year not yet
+            # added. convert_lectionary.py fails loudly on a missing CSV.
             for path in sorted(root.glob(rel)):
                 out[str(path.relative_to(root))] = file_sha256(path)
             continue
         path = root / rel
-        if path.exists():
-            out[rel] = file_sha256(path)
+        out[rel] = file_sha256(path) if path.exists() else None
     return out
 
 
