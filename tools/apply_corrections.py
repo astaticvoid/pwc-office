@@ -27,6 +27,33 @@ CORRECTIONS = DATA / "corrections.json"
 _misses: list[str] = []
 
 
+def _stage_input(path: Path) -> Path:
+    """Return `path`, or fail with the remediation rather than a traceback.
+
+    Every input here is written by an earlier stage of `make extract`. If one is
+    absent the pipeline did not run, and that is worth saying in the same terms
+    check_data_integrity.py uses — not a bare FileNotFoundError from whichever
+    stage happened to be first.
+    """
+    missing = not path.exists()
+    if not missing and path.is_dir():
+        # For the one directory input, "the pipeline did not run" is an empty
+        # directory, not an absent one — convert_lectionary.py creates
+        # .build/lectionary/ and can then prune every month out of it. That
+        # matters more here than anywhere else: _seed_lectionary mirrors the
+        # source exactly, so an empty source does not mean "nothing to copy",
+        # it means "delete all 14 published months", and it did so at exit 0.
+        missing = not any(path.glob("*.json"))
+    if missing:
+        print(
+            f"ERROR: {path.relative_to(ROOT)} is missing or empty — it is written\n"
+            f"       by an earlier stage of the pipeline. Run `make extract`.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return path
+
+
 def _apply_replace(in_path: Path, out_path: Path, corrections: list, locate,
                    describe, on_applied=None):
     """Generic 'find old substring, replace with new' applier for a list of
@@ -38,10 +65,10 @@ def _apply_replace(in_path: Path, out_path: Path, corrections: list, locate,
 
     Reads `in_path` and writes `out_path`, always — the output is a separate
     artifact that downstream stages read by name, so skipping the write when
-    nothing applied would leave them consuming a stale copy (#49)."""
-    if not corrections:
-        return
-    data = json.loads(in_path.read_text())
+    nothing applied would leave them consuming a stale copy (#49). That is why
+    an empty `corrections` list is not an early return: this function derives
+    the published file, and correcting it is the incidental part."""
+    data = json.loads(_stage_input(in_path).read_text())
     applied = 0
     for c in corrections:
         located = locate(data, c)
@@ -77,9 +104,7 @@ def _seed_lectionary() -> None:
     build artifact is still never written, and months that lost their corrections
     or dropped out of the source cannot linger, because the mirror is exact.
     """
-    src, dst = BUILD / "lectionary", DATA / "lectionary"
-    if not src.exists():
-        return
+    src, dst = _stage_input(BUILD / "lectionary"), DATA / "lectionary"
     dst.mkdir(parents=True, exist_ok=True)
     wanted = {p.name for p in src.glob("*.json")}
     for stale in dst.glob("*.json"):
@@ -128,11 +153,31 @@ def _apply_by_date(corrections: list, mutate, describe=None):
 
 
 def main():
-    if not CORRECTIONS.exists():
-        print("No corrections.json found — nothing to apply.")
-        return
+    # A missing manifest means there is nothing to correct, not nothing to do:
+    # every stage below derives a published file from a build artifact, and
+    # returning here would leave all four of them underived. Once the last
+    # correction is migrated into an extractor — which AGENTS.md actively asks
+    # for — deleting this file would otherwise publish nothing while reporting
+    # success.
+    have_manifest = CORRECTIONS.exists()
+    corrections = json.loads(CORRECTIONS.read_text()) if have_manifest else {}
+    if not have_manifest:
+        print("No corrections.json — deriving published files with no corrections applied.")
 
-    corrections = json.loads(CORRECTIONS.read_text())
+    # Check every stage input before the first write. Validating lazily, in
+    # derivation order, means a missing lectionary artifact exits only after the
+    # three JSON files have been rewritten, leaving data/ half-re-derived against
+    # a stale manifest — and check-integrity then reports that as "modified
+    # outside the extraction pipeline", which is the wrong remediation entirely.
+    # Built here rather than at module scope so tests that repoint BUILD are
+    # honoured.
+    for stage_input in (
+        BUILD / "offices.2-normalized.json",
+        BUILD / "psalter.1-extract.json",
+        BUILD / "fats-saints.1-extract.json",
+        BUILD / "lectionary",
+    ):
+        _stage_input(stage_input)
 
     # Office text corrections — substring replace within the field's segments
     # when 'old' is a string, whole-field replace otherwise. See corrections_lib.
@@ -149,7 +194,7 @@ def main():
     # `make extract` that reported success, and check-integrity passed because
     # the manifest was rehashed from the same stale file.
     out_path = DATA / "offices.json"
-    data = json.loads((BUILD / "offices.2-normalized.json").read_text())
+    data = json.loads(_stage_input(BUILD / "offices.2-normalized.json").read_text())
     applied = 0
     for c in corrections.get("office_text", []):
         office = data.get(c["office"])
@@ -195,30 +240,27 @@ def main():
             entry = {"verse": c["verse"], **entry}
         psalm.setdefault("source_corrections", []).append(entry)
 
-    if corrections.get("psalter"):
-        _apply_replace(
-            BUILD / "psalter.1-extract.json", DATA / "psalter.json",
-            corrections["psalter"],
-            locate=lambda data, c: (
-                (data[pnum], "text") if (pnum := str(c["psalm"])) in data else None
-            ),
-            describe=lambda c: f"Psalm {c['psalm']}",
-            on_applied=_stamp_source_correction,
-        )
+    _apply_replace(
+        BUILD / "psalter.1-extract.json", DATA / "psalter.json",
+        corrections.get("psalter", []),
+        locate=lambda data, c: (
+            (data[pnum], "text") if (pnum := str(c["psalm"])) in data else None
+        ),
+        describe=lambda c: f"Psalm {c['psalm']}",
+        on_applied=_stamp_source_correction,
+    )
 
     # FATS (saint biography) corrections — substring replace within one field.
-    if corrections.get("fats"):
-        path = BUILD / "fats-saints.1-extract.json"
-        if path.exists():
-            _apply_replace(
-                path, DATA / "fats" / "saints.json", corrections["fats"],
-                locate=lambda data, c: (
-                    (data[skey], c["field"])
-                    if (skey := c.get("saint") or c.get("saint_key")) in data and c.get("field")
-                    else None
-                ),
-                describe=lambda c: f"{c.get('saint') or c.get('saint_key')}.{c.get('field')}",
-            )
+    _apply_replace(
+        BUILD / "fats-saints.1-extract.json", DATA / "fats" / "saints.json",
+        corrections.get("fats", []),
+        locate=lambda data, c: (
+            (data[skey], c["field"])
+            if (skey := c.get("saint") or c.get("saint_key")) in data and c.get("field")
+            else None
+        ),
+        describe=lambda c: f"{c.get('saint') or c.get('saint_key')}.{c.get('field')}",
+    )
 
     # Lectionary citation corrections — one indexed lesson within a day's office.
     def _mutate_citation(day, c):

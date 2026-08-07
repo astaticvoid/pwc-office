@@ -150,13 +150,26 @@ ships via the `web/data` symlink. Only the right-hand column is published.
 | `apply_corrections.py` — applies `data/corrections.json` | `data/offices.json`, `data/psalter.json`, `data/fats/saints.json`, `data/lectionary/` |
 | `update_extract_manifest.py` | `tools/extract_manifest.json` (committed) |
 
-`apply_corrections.py` writes `data/offices.json` on every run, including when
-there are no `office_text` corrections at all — it is the stage that *derives*
-the published file from `.build/offices.2-normalized.json`, not merely the stage
-that patches it. Guarding that work on a non-empty correction list once left the
-published file stale after an extractor change, through a `make extract` that
-reported success and a `check-integrity` that passed, because the manifest was
-rehashed from the same stale file.
+`apply_corrections.py` writes **every** file it publishes on every run —
+`offices.json`, `psalter.json`, `fats/saints.json`, `lectionary/` — including
+when the matching correction list is empty or `data/corrections.json` is absent
+entirely. It is the stage that *derives* those files from their `.build/`
+artifacts, not merely the stage that patches them. Never make a derivation
+conditional on there being a correction to apply: that guard shipped on all four
+chains, and on the offices chain it left the published file stale after an
+extractor change through a `make extract` that reported success and a
+`check-integrity` that passed, because the manifest was rehashed from the same
+stale file. It also turned CI red for four days with `missing data files`, since
+there the file is absent rather than stale.
+
+Correction lists are *meant* to drain — "Data correction locations" below directs
+systemic problems into the extractor — so an empty list is the expected steady
+state, not a signal that there is no work to do.
+
+Every stage input is checked before the first write, and a missing one exits 1
+with the remediation. For `.build/lectionary/` "missing" includes *empty*:
+`_seed_lectionary` mirrors it exactly, so an empty source deletes every published
+month rather than copying none.
 
 Because each stage names its input, the order is a data dependency rather than a
 rule to remember: `convert_lectionary.py` cannot discard published corrections,
