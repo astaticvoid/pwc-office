@@ -143,7 +143,7 @@ ships via the `web/data` symlink. Only the right-hand column is published.
 | `normalize_offices.py` — hoists shared blocks into `_shared` | `.build/offices.2-normalized.json` |
 | `extract_psalter.py` | `.build/psalter.1-extract.json` |
 | `extract_fats.py` | `.build/fats-saints.1-extract.json` |
-| `convert_lectionary.py` (from `sources/bas_short_*.csv`) | `.build/lectionary/YYYY-MM.json` |
+| `convert_lectionary.py` (from `sources/bas_short_*.csv`) | `.build/lectionary/YYYY-MM.json`, `data/season_bounds.json` |
 | `extract_collects.py` | `data/collects.json` |
 | `corrections_lib.py` — shared matching for `office_text`, used by both scripts below | *(library)* |
 | `validate_corrections.py` — checks corrections against the pre-correction artifacts | *(read-only)* |
@@ -215,6 +215,14 @@ inputs to the next stage; only `data/` is published. Never treat an intermediate
 as final, and never point a diff at one — that comparison is meaningless and
 looks authoritative. Running a single extractor cannot corrupt `data/` any more
 (#48, #49), but it also does not produce it.
+
+One exception, and it is the only one: `convert_lectionary.py` writes
+`data/season_bounds.json` straight into the published tree rather than through
+`.build/`. So running that extractor standalone *does* rewrite a published,
+manifest-tracked file. It is safe as it stands — the write is unconditional and
+`detect_bounds()` runs before the `--window` pruning, so the content does not
+depend on the day it ran — but it is a real carve-out from the paragraph above,
+not an oversight to be tidied away without moving the file to `.build/` first.
 
 **`_heading_to_key` is not a list of sections.** `seasonal_collects` and
 `lords_prayer_intro` are carved out of the litany block afterwards, so anything

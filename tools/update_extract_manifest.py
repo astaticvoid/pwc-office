@@ -65,13 +65,55 @@ EXTRACTION_SOURCES = (
     "tools/corrections_lib.py",
     "tools/extract_lib.py",
     "data/corrections.json",
+    # The lectionary CSV is committed, and is the sole input to detect_bounds()
+    # — so data/season_bounds.json can be stale with respect to it while its own
+    # hash still matches. Same argument as the tools above: a matching output
+    # hash proves nobody hand-edited the output, not that it came from the input
+    # sitting beside it. The source PDFs are legitimately absent from this list;
+    # they are gitignored and obtained separately, so there is no committed
+    # state for them to drift from.
+    "sources/bas_short_*.csv",
+)
+
+
+# Every file the pipeline publishes under data/ that the app or the CLI reads.
+# `data/lectionary` is hashed separately as a composite of its monthly files.
+#
+# A published file missing from here is invisible to check_data_integrity.py:
+# with no recorded hash there is nothing to compare, so it can be hand-edited or
+# left stale and the integrity check still passes. season_bounds.json was absent
+# for exactly that reason — written by convert_lectionary.py, fetched by
+# web/app.js and cli/office.js, required by check_dist.py, and unguarded.
+#
+# Deliberately absent, all for the same reason — git already guards them, so a
+# hand-edit shows in `git status`, which sets the release's `-dirty` suffix and
+# makes `make promote` refuse it (#53):
+#   data/corrections.json   committed input, also hashed in EXTRACTION_SOURCES
+#   data/paragraphs.json    committed static asset, not pipeline output
+#   data/translations/kjv/  74 committed public-domain files
+# data/translations/nrsvue/ must stay out for a stronger reason: it is absent in
+# most checkouts, and a listed file that does not exist is a hard failure below.
+PUBLISHED_FILES = (
+    "data/offices.json",
+    "data/collects.json",
+    "data/psalter.json",
+    "data/season_bounds.json",
+    "data/fats/saints.json",
 )
 
 
 def source_hashes(root: Path) -> dict[str, str]:
-    """SHA-256 of every source that determines extraction output."""
+    """SHA-256 of every source that determines extraction output.
+
+    Entries containing `*` are globbed and recorded under their concrete paths,
+    so the lectionary CSV is hashed under the year it is actually for.
+    """
     out = {}
     for rel in EXTRACTION_SOURCES:
+        if "*" in rel:
+            for path in sorted(root.glob(rel)):
+                out[str(path.relative_to(root))] = file_sha256(path)
+            continue
         path = root / rel
         if path.exists():
             out[rel] = file_sha256(path)
@@ -89,12 +131,7 @@ def tool_versions() -> dict[str, str]:
 
 
 def main():
-    tracked_files = {
-        "data/offices.json": ROOT / "data" / "offices.json",
-        "data/collects.json": ROOT / "data" / "collects.json",
-        "data/psalter.json": ROOT / "data" / "psalter.json",
-        "data/fats/saints.json": ROOT / "data" / "fats" / "saints.json",
-    }
+    tracked_files = {rel: ROOT / rel for rel in PUBLISHED_FILES}
     lect_dir = ROOT / "data" / "lectionary"
 
     missing = [k for k, p in tracked_files.items() if not p.exists()]
