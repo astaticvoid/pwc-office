@@ -29,13 +29,6 @@ function storageSet(key, value) {
   }
 }
 
-function storageRemove(key) {
-  localStorage.removeItem(key);
-  if (isNative) {
-    window.__pwcPlugins.Preferences.remove({ key }).catch(() => {});
-  }
-}
-
 async function migrateStorageToPreferences() {
   if (!isNative) return;
   try {
@@ -666,13 +659,6 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared, fatsEntry
 }
 
 // ── Date formatting ───────────────────────────────────────────────────────────
-
-function fmtNavDate(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00Z');
-  return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getUTCDay()]
-       + ' ' + d.getUTCDate()
-       + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()];
-}
 
 function fmtFullDate(dateStr) {
   const d = new Date(dateStr + 'T00:00:00Z');
