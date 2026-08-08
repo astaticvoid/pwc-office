@@ -11,8 +11,8 @@ casing correction carried in `extract_offices.py`: `_fix_casing` force-
 capitalised the first letter of every `response` segment (except a short
 allowlist of continuation words), `_DIVINE_FIXES` restored ~14 divine titles
 regex-by-regex, and `_TEXT_PATCHES` patched specific known-bad segments by
-exact text match. `check_casing.py` was added later (Batch 19, per
-`docs/ASSESSMENT-2026-07.md`) as an independent pdftotext-based oracle to
+exact text match. `check_casing.py` was added later (Batch 19, per the
+July 2026 assessment, since deleted) as an independent pdftotext-based oracle to
 catch regressions in these corrections — at the time called *"the highest-
 leverage quality tool available to this project."*
 
@@ -123,7 +123,7 @@ proposal.
   effect against a rendered pixmap of the actual page — is reusable for
   auditing whether any future extraction "fix" is still earning its keep.
   Full trail recorded in issue #4.
-- `docs/ASSESSMENT-2026-07.md` and `docs/CORRECTNESS.md` are historical audit
+- `docs/CORRECTNESS.md` is a historical audit
   records from when `check_casing.py` was introduced and still describe it
   as load-bearing; they are left unedited as a record of what was true when
   written, not updated to reflect this ADR.

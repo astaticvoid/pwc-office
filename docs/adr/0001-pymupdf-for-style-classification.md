@@ -1,7 +1,7 @@
 # ADR 0001: Use PyMuPDF for PDF style classification
 
 ## Status
-Proposed
+Accepted
 
 ## Context
 The extraction pipeline must classify every text run in the source PDF as one

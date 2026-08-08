@@ -1,7 +1,7 @@
 # ADR 0009: Automated liturgical quality gating
 
 ## Status
-Proposed
+Accepted
 
 ## Context
 
@@ -11,6 +11,8 @@ independently and decides whether output is acceptable:
 | Tool | Scope | Exit code |
 |------|-------|-----------|
 | `validate_office.cjs` | 6 rules across 30 static forms | 1 on any failure |
+
+*(Rule count as of writing. The suite is 20 rules today.)*
 | `audit_office.cjs` | 14 metrics × 4 peer groups (z-score) | 0 still reports outliers |
 | `check_text_quality.py` | PDF extraction artifacts | 0 unless `--strict` |
 
@@ -141,7 +143,7 @@ dates (one per weekday) to cover all 14 weekday variants.
 
 ### Rule suite overview
 
-16 rules across 3 tiers. Full details in `docs/qa-strategy-spec.md`.
+16 rules across 3 tiers as specified here; 20 today.
 
 **Tier 1 (structural, 10 rules):** `dismissal-has-amen`,
 `no-stray-space-before-period`, `non-empty-responses`,
@@ -193,3 +195,25 @@ dates (one per weekday) to cover all 14 weekday variants.
 - Performance: ~15 lectionary files + 30 form traversals + rule checks.
   Estimated at <2s warm, <5s cold (slower CI disk I/O). Fast enough for
   per-commit CI.
+
+
+## Amendment (2026-08-07): the threshold is 100, not 85
+
+The decision above gates promotion at a score of 85 and calls the number an
+initial value to be tuned. It was tuned the hard way. Commit `c81b341` collapsed
+every evening hymn stanza into prose and **scored 97** — comfortably above 85,
+so the gate would have waved it through. It was caught by eye and reverted in
+`0ac1b86`.
+
+`make qa` and the promote gate both set `COHERENCE_THRESHOLD=100`. A composite
+score is too blunt to express "some defects are tolerable": the penalty weights
+mean a real, whole-corpus text regression can cost less than a handful of
+cosmetic Tier 3 warnings. At 100 the score stops being a tolerance dial and
+becomes what it is useful as — a single signal that something changed, with
+`audit_expected.json` carrying the exemptions that have been looked at and
+justified individually.
+
+`docs/qa-strategy-spec.md`, referenced above for the rule list, was deleted in
+the same cleanup: it still specified 16 rules and the 85 threshold, and a
+Phase 1/Phase 2 implementation plan that completed long ago. `AGENTS.md` and
+`tools/validate_office.cjs` are the live description of the rule suite.

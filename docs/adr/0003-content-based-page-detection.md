@@ -1,7 +1,7 @@
 # ADR 0003: Detect office page bounds from content, not hardcoded numbers
 
 ## Status
-Proposed
+Accepted
 
 ## Context
 The extraction pipeline must know which PDF pages contain each of the 31 Daily

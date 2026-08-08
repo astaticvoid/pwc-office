@@ -1,7 +1,7 @@
 # ADR 0006: Versioned directory deploys with staged promotion
 
 ## Status
-Proposed
+Accepted
 
 ## Context
 The project deploys as a static site to S3 + CloudFront. The deploy mechanism

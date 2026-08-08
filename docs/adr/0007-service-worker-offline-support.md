@@ -1,7 +1,7 @@
 # ADR 0007: Browser cache and Capacitor bundle for offline support
 
 ## Status
-Proposed
+Accepted
 
 ## Context
 The Daily Office is a static SPA — all assets are JSON, JS, CSS, and HTML files
