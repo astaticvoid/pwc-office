@@ -579,9 +579,7 @@ export function* walkSegments(segs, shared) {
  * @param {Object} shared
  * @param {Object} [opts]
  * @param {boolean} [opts.showLabel=false] Include canticle citations as headers
- * @param {RegExp} [opts.skipRubrics] Rubric patterns to omit entirely
  * @param {boolean} [opts.skipShortLabels=false] Inline Roman-numeral labels
- * @param {Object} [opts.condenseRubrics] Pattern→replacement map for rubric shorthand
  * @param {boolean} [opts.alleluia=false] Append Alleluia after each alt group
  * @returns {Array<{type:string, text:string}>}
  */
@@ -618,18 +616,16 @@ export function renderSegmentsText(segs, shared, opts = {}) {
     if (!text) continue;
 
     if (seg.type === 'rubric') {
-      // Check skip patterns
-      if (opts.skipRubrics && opts.skipRubrics.test(text)) continue;
-      // Check condense patterns
-      if (opts.condenseRubrics) {
-        for (const [pattern, replacement] of Object.entries(opts.condenseRubrics)) {
-          if (text.includes(pattern)) {
-            blocks.push({ type: 'rubric', text: replacement });
-            continue;
-          }
-        }
-        continue;
-      }
+      // One suppression allowlist, shared with renderSegments — ADR 0004
+      // requires the two modes to agree, and a rule set passed per caller
+      // cannot be one policy. The options this replaces (skipRubrics,
+      // condenseRubrics) also dropped every rubric matching no condense
+      // pattern, so the callers that set them rendered 14 of 321 (#58).
+      // The modes are not yet fully aligned: renderSegments still applies
+      // INTERCESSIONS_CONDENSED and BOOK_ONLY_RUBRICS, which this mode has no
+      // equivalent of, so text output is currently the fuller of the two.
+      // ADR 0013 closes that by deleting both (#59, #60).
+      if (SKIP_RUBRICS.test(text)) continue;
       blocks.push({ type: 'rubric', text });
     } else if (seg.type === 'label') {
       blocks.push({ type: 'label', text });
