@@ -33,6 +33,8 @@ async function main() {
 
   const rules = [];
   const failures = [];
+  // qa_dates entries whose date or form did not resolve; see the dynamic pass below.
+  const unresolved = [];
 
   // Line breaks the ACC errata prints deliberately, lifted from the corrections
   // that introduce them (ADR 0012). A break after a line with no terminal
@@ -442,6 +444,11 @@ async function main() {
 
   if (bounds) {
 
+  // A qa_dates entry that does not resolve silently removes every DYNAMIC_RULE
+  // from the forms it names, while the summary still reports the full form
+  // count. That is how allsaints-mp/-ep lost all 10 dynamic rules when
+  // 2025-11-01 rolled out of the lectionary's 12-month window, with `make qa`
+  // green throughout. Record rather than skip, and fail loudly below.
   const dateCache = {};
   for (const entry of qaDates) {
     const [year, month] = entry.date.split('-');
@@ -453,14 +460,23 @@ async function main() {
       try {
         lect = JSON.parse(readFileSync(join(root, `data/lectionary/${year}-${month}.json`), 'utf8'));
         dateCache[cacheKey] = lect;
-      } catch (_) { continue; }
+      } catch (_) {
+        unresolved.push({ date: entry.date, forms: entry.forms, reason: `no lectionary file for ${cacheKey}` });
+        continue;
+      }
     }
     const day = lect[entry.date];
-    if (!day) continue;
+    if (!day) {
+      unresolved.push({ date: entry.date, forms: entry.forms, reason: 'date not in the lectionary window' });
+      continue;
+    }
 
     for (const fk of entry.forms) {
       const form = offices[fk];
-      if (!form) continue;
+      if (!form) {
+        unresolved.push({ date: entry.date, forms: [fk], reason: 'form not in offices.json' });
+        continue;
+      }
       const officeType = fk.endsWith('-ep') ? 'ep' : 'mp';
       const officeData = officeType === 'ep' ? (day.evening || {}) : (day.morning || {});
       const fSeason = officeFormSeason(entry.date, bounds);
@@ -503,6 +519,7 @@ async function main() {
       forms_checked: formKeys.length,
       rules_checked: rules.length,
       total_checks: totalChecks,
+      unresolved_qa_dates: unresolved,
       failures: failures.map(f => ({ rule: f.rule, tier: f.tier, form: f.form, detail: f.detail })),
       perFormScores: perForm,
     };
@@ -512,8 +529,21 @@ async function main() {
 
   // Human-readable output
   console.log(`Checked ${formKeys.length} forms × ${rules.length} rules + dynamic lectionary context`);
+
+  // Reported before rule failures: an unresolved entry means the dynamic rules
+  // never ran for those forms, so "all rules passed" would be a claim about
+  // checks that did not happen.
+  if (unresolved.length) {
+    console.error(`\n${unresolved.length} qa_dates entry(s) did not resolve — dynamic rules were NOT run for:\n`);
+    for (const u of unresolved) {
+      console.error(`  ${u.date}  ${u.forms.join(', ')}  — ${u.reason}`);
+    }
+    console.error('\nUpdate tools/qa_dates.json to a date inside the current lectionary window.');
+    process.exitCode = 1;
+  }
+
   if (failures.length === 0) {
-    console.log('All rules passed.');
+    if (!unresolved.length) console.log('All rules passed.');
     return;
   }
 
