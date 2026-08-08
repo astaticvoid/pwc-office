@@ -7,9 +7,7 @@
     { "form": "ordinary-sunday-mp", "metric": "rubricCount", "reason": "Sunday MP has additional navigation rubrics" },
     { "form": "easter-mp", "metric": "rubricCount", "reason": "Easter MP has seasonal liturgical variations" },
     { "form": "easter-ep", "metric": "rubricCount", "reason": "Easter EP has seasonal liturgical variations" },
-    { "form": "easter-ep", "metric": "totalSegments", "reason": "Easter EP is the longest seasonal EP (54 segments). It became an outlier without changing: deleting the Epiphany EP doxologies per Seasonal errata p. 52 took that form from 51 to 45 segments, lowering the peer mean and tightening the spread. No correction touches Easter EP." },
-    { "form": "easter-ep", "metric": "leaderCount", "reason": "Same cause as totalSegments above — the seasonal-EP peer group tightened when Epiphany EP lost its six doxology segments." },
-    { "form": "allsaints-mp", "metric": "litanySegments", "reason": "All Saints litany is longer than other seasonal MP forms" },
-    { "form": "pentecost-ep", "metric": "responseCount", "reason": "Pentecost EP has additional seasonal responses" }
+    { "form": "easter-ep", "metric": "leaderCount", "reason": "Easter EP is the longest seasonal EP and became an outlier without changing: deleting the Epiphany EP doxologies per Seasonal errata p. 52 took that form from 51 to 45 segments, lowering the seasonal-EP peer mean and tightening the spread. No correction touches Easter EP itself." },
+    { "form": "allsaints-mp", "metric": "litanySegments", "reason": "All Saints litany is longer than other seasonal MP forms" }
   ]
 }
