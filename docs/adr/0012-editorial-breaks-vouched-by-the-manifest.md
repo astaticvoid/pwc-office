@@ -5,7 +5,7 @@ Accepted (implemented 2026-08-07)
 
 ## Context
 
-The ACC errata asks for line breaks the printed book does not have:
+The errata asks for line breaks the printed book does not have:
 
     May God, who has called us out of darkness
     into the marvellous light of Christ,

@@ -35,8 +35,8 @@ PERMITTED_SOURCES = {
     "acc-csv-error":           "an error in the ACC lectionary CSV",
     "pwc-pdf-error":           "an error in the printed Pray Without Ceasing PDF",
     "pdf-extraction-artifact": "an artifact of extraction rather than a defect in the source",
-    "pwc-errata-ordinary":     "the ACC errata for Ordinary Time (docs/errata/ordinary-time.md)",
-    "pwc-errata-seasonal":     "the ACC errata for the seasonal offices (docs/errata/seasonal.md)",
+    "pwc-errata-ordinary":     "the errata for Ordinary Time (docs/errata/ordinary-time.md)",
+    "pwc-errata-seasonal":     "the errata for the seasonal offices (docs/errata/seasonal.md)",
 }
 
 # The prefix ADR 0012's exemption keys on. Adding a source that starts with it

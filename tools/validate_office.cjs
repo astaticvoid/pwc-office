@@ -38,7 +38,7 @@ async function main() {
   // Forms whose dynamic render threw; every DYNAMIC_RULE is lost for them, same as `unresolved`.
   const renderErrors = [];
 
-  // Line breaks the ACC errata prints deliberately, lifted from the corrections
+  // Line breaks the errata prints deliberately, lifted from the corrections
   // that introduce them (ADR 0012). A break after a line with no terminal
   // punctuation usually means a column wrap leaked through — except where an
   // editorial source says the line ends there on purpose:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-audit_errata.py — does data/offices.json carry what the ACC errata asks for?
+audit_errata.py — does data/offices.json carry what the errata asks for?
 
 The errata corrects the printed book, not our extractor: the geometry we read
 off the page is faithful and the page is what is wrong. So its requests become

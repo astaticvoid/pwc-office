@@ -179,8 +179,8 @@ which this ADR requires but nothing verified either:
 | `acc-csv-error` | an error in the ACC lectionary CSV |
 | `pwc-pdf-error` | an error in the printed *Pray Without Ceasing* PDF |
 | `pdf-extraction-artifact` | an artifact of extraction, not a defect in the source |
-| `pwc-errata-ordinary` | the ACC errata for Ordinary Time |
-| `pwc-errata-seasonal` | the ACC errata for the seasonal offices |
+| `pwc-errata-ordinary` | the errata for Ordinary Time |
+| `pwc-errata-seasonal` | the errata for the seasonal offices |
 
 Code rather than a JSON Schema file because the constraint that matters is a
 coupling between two other tools, and it belongs where the reason for it can be

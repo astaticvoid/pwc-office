@@ -161,7 +161,7 @@ serve-dist: check-dist
 test-tools:
 	$(PYTHON) -m pytest tools/tests/ -v
 
-# Check data/offices.json against the ACC errata: every line break it asks for
+# Check data/offices.json against the errata: every line break it asks for
 # present, every wording divergence declared. Reports; does not gate. Run it
 # whenever docs/errata/ or the office_text corrections change.
 audit-errata:
