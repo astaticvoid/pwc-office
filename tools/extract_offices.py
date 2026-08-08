@@ -883,12 +883,14 @@ def _normalize_whitespace(offices: dict) -> dict:
 def _add_reading_responses(offices: dict) -> dict:
     """
     Add reading_response to each office. The three alternatives are the same
-    across all offices except the third option, whose leader text differs:
-      - seasonal offices:  "Holy Word, Holy Wisdom."
-      - ordinary offices:  "Holy wisdom, holy word."
-    This is not captured by PDF extraction — it comes from PWC rubrics.
+    across all offices. The third option's leader is "Holy Word, Holy Wisdom."
+    in every form, confirmed by upstream review of the app (ADR 0015): the
+    seasonal/ordinary distinction previously encoded here reproduced the
+    printed book's error, which the errata corrects (Ordinary p. 132,
+    "PWC has the wrong order"). This is not captured by PDF extraction — it
+    comes from PWC rubrics.
     """
-    def _make(third_leader: str) -> dict:
+    def _make() -> dict:
         return {
             "type": "alternatives",
             "groups": [
@@ -901,7 +903,7 @@ def _add_reading_responses(offices: dict) -> dict:
                     {"type": "response", "text": "Thanks be to God."},
                 ]},
                 {"label": "III", "segments": [
-                    {"type": "leader",   "text": third_leader},
+                    {"type": "leader",   "text": "Holy Word, Holy Wisdom."},
                     {"type": "response", "text": "Thanks be to God."},
                 ]},
             ],
@@ -912,9 +914,7 @@ def _add_reading_responses(offices: dict) -> dict:
         if office_key.startswith('_'):
             result[office_key] = office
             continue
-        third = ("Holy wisdom, holy word." if office_key.startswith('ordinary-')
-                 else "Holy Word, Holy Wisdom.")
-        result[office_key] = {**office, 'reading_response': _make(third)}
+        result[office_key] = {**office, 'reading_response': _make()}
     return result
 
 

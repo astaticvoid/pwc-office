@@ -408,8 +408,7 @@ they cannot disagree):
 
 The walk does **not** follow `{"type": "shared"}` references. A shared block is
 reachable from many forms, so correcting it through one form would silently
-rewrite the others; address `_shared` directly instead. One correction to
-`_shared.reading_response_ordinary` fixes all 14 Ordinary forms at once.
+rewrite the others; address `_shared` directly instead.
 
 Editorial errata from the ACC live in `docs/errata/` — see the README there for
 which items became corrections, which the extraction already handles, and which

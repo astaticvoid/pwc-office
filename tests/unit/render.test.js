@@ -157,6 +157,13 @@ describe('all forms: shared-ref fields render non-empty HTML', () => {
     if (rr?.type === 'shared') rr = shared[rr.key];
     expect(Array.isArray(rr) ? rr.length : rr?.groups?.length,
       `${name} reading_response resolves to empty`).toBeGreaterThan(0);
+    // The third alternative's leader is "Holy Word, Holy Wisdom." in every
+    // form (ADR 0015, issue #62): the seasonal/ordinary split encoded here
+    // reproduced the printed book's error, which the errata corrects.
+    const third = rr?.groups?.[2];
+    expect(third?.label, `${name} reading_response third alternative`).toBe('III');
+    expect(third?.segments?.[0]?.text,
+      `${name} reading_response third leader`).toBe('Holy Word, Holy Wisdom.');
   });
 });
 

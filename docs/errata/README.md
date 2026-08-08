@@ -62,8 +62,9 @@ says nothing about the comma, so the serial comma stands.
 
 All of it, as 45 `office_text` entries in `data/corrections.json`. Three kinds:
 
-1. **Wording, punctuation and casing** — 13 substantive defects. One corrects
-   `_shared.reading_response_ordinary`, fixing all 14 Ordinary forms at once.
+1. **Wording, punctuation and casing** — 12 substantive defects, plus the
+   reading-response correction below moving into the extractor (see
+   "Upstream review" below).
 2. **Line breaks and reflow** — 31 segments, newline-only, no wording altered.
    Far fewer than the errata's 46 reflow items suggest: most ask for a break
    between versicle and response, and our extraction already splits those into
@@ -85,6 +86,16 @@ a divergence tabulated above. Align per line *pair*, and run
 
 The errata author types two spaces after a sentence. No office text contains a
 double space; lift the line structure without the spacing.
+
+## Upstream review
+
+Decisions from review of the app recorded under ADR 0015. Each row states its
+provenance; a row backed by an errata document is also aligned by
+`audit_errata.py`, which exists to check the errata documents.
+
+| What | Was | Now | Decided |
+|---|---|---|---|
+| Reading-response third alternative | "Holy wisdom, holy word." in the 14 Ordinary forms | "Holy Word, Holy Wisdom." in all 30 forms | The reading response is synthesized rather than extracted, and the Ordinary form reproduced the printed book's error, which the errata corrects (Ordinary p. 132, "PWC has the wrong order"). The corrected form applies to every season. Fixed in `_add_reading_responses` (extractor) rather than the manifest, per AGENTS.md's systemic-fix rule; the errata correction that used to patch `_shared.reading_response_ordinary` was retired. |
 
 ## Breaks the QA rules are told about
 
