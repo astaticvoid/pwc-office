@@ -1,7 +1,7 @@
 # ADR 0015: Provenance for app-authored liturgical text
 
 ## Status
-Proposed
+Accepted (2026-08-07)
 
 ## Context
 

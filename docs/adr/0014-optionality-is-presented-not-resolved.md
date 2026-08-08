@@ -1,8 +1,7 @@
 # ADR 0014: Optionality is presented, not resolved
 
 ## Status
-Proposed — one open question, below, is pending upstream review before this can
-be Accepted.
+Accepted (2026-08-07)
 
 ## Context
 
@@ -18,7 +17,7 @@ The app currently answers a branch three different ways, and the three disagree:
 | Branch | Present behaviour | Chosen because |
 |---|---|---|
 | `alternatives` blocks (canticle, affirmation, collect) | tab widget, one panel visible, selection persisted in `localStorage` | interactive-app convention |
-| Multiple psalms | all rendered, no selector — the selector was built, then removed | *"you should just read all the Psalms"* |
+| Multiple psalms | all rendered, no selector — the selector was built, then removed | maintainer's devotional preference |
 | Multiple readings | all rendered, no selector; optional ones parenthesized; an advisory rubric from `lessonsPickText` (`render.js:526-535`, BUG-28) | no interaction was built |
 
 The psalm row is the problem in miniature: a control that presented an
@@ -66,22 +65,21 @@ Applied:
   longer Evening Prayer form ("Evening Prayer continues with the Responsory or
   the Canticle or both…") is book text and returns on its own under ADR 0013 —
   we do not need to author it.
-- **Alternatives tabs** — retained, subject to the open question.
+- **Alternatives tabs** — retained; see below.
 
-### Open question
+### Tabs satisfy obligation 3
 
-Does a tab satisfy obligation 3? What upstream review approved was a *toggle*
-for psalms and readings, which suggests a control showing one option at a time
-is fine when the other options are named on screen. The canticle and affirmation
-tabs weren't part of that, and they hide authorized text behind a click in a way
-the printed book doesn't. Extending the approval to cover them is an inference,
-not something anyone approved.
+Upstream review confirmed that a tab is an acceptable way to present an
+authorized choice, for canticles and affirmations as well as for the psalm and
+reading selectors. The reasoning holds together: the other options stay named on
+screen, so the reader is never shown a resolved choice they cannot see was a
+choice. Combined with ADR 0013 restoring the governing rubric above the tab
+strip, the reader is told a choice exists and given the control that takes it —
+where today the rubric is hidden and the tabs are the only hint.
 
-This ADR states the rule as written above — tabs qualify — because that is the
-most probable reading and it keeps the existing widget. It stays Proposed until
-confirmed. If the answer is that all alternatives must be visible at once,
-obligation 3 tightens and the tab widget becomes book-mode-only behaviour
-throughout, which is a larger change than anything else here.
+This is revisitable. If wider user testing shows the tabs read as "this is the
+canticle" rather than "here are three", obligation 3 tightens and the widget
+changes. That is an amendment on evidence, not a defect in this decision.
 
 ## Consequences
 

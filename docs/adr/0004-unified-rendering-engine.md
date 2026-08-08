@@ -77,3 +77,9 @@ exercises a realistic combination of `verse`, `showLabel`, `skipRubrics`, and
 - The text mode must agree with the HTML mode on structural decisions (which
   rubrics to suppress, how to label alternatives groups). These decisions are
   encoded in the options object rather than duplicated in code.
+  **Amended by ADR 0013.** The options object is what let the two modes disagree
+  — each caller set its own rubric policy, and `cli/book.js` passed a rule set
+  the web never used — so ADR 0013 removes `opts.skipRubrics` and
+  `opts.condenseRubrics` and gives both modes one shared allowlist. The
+  requirement in this bullet stands; the mechanism named for meeting it does
+  not. Everything else in this ADR is unaffected.
