@@ -137,6 +137,19 @@ PDFs  →  PyMuPDF (fitz)  →  data/*.json + data/lectionary/YYYY-MM.json
 
 Copyrighted content in `data/` is permanently gitignored. Only `data/translations/kjv/`, `data/corrections.json`, and `data/paragraphs.json` are committed. `web/data` is a symlink to `../data` — `make build` dereferences it via `cp -rL` into `dist/`; `make serve` follows the symlink live.
 
+**Distribution posture.** The open-source repo must not contain or ship
+copyrighted ACC/BAS text; the ACC-distributed app builds may, under rights ACC
+is obtaining. `sources/*` is gitignored except the public `bas_short` CSVs,
+along with golden fixtures, Capacitor-synced assets (`ios/App/App/public/`,
+`android/…/assets/public/`), and audit artifacts. `make fetch-sources && make
+extract` is the path from a clean checkout; `extract_manifest.json` carries
+hashes and counts, never content.
+
+The residual risk is that **Capacitor store builds bundle the texts into the app
+binary**, and until rights are granted a TestFlight or Play internal track counts
+as distribution to testers. Keep beta distribution inside the Synod evaluation
+group under ACC's direction, and carry this into any store-submission checklist.
+
 ### Web SPA (`web/`)
 
 `web/render.js` contains all office rendering functions and is imported by the browser SPA (`web/app.js`), the Node CLI (`cli/book.js`, `cli/office.js`), QA tools, and Vitest tests. A change to `render.js` affects all consumers.

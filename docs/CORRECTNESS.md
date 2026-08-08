@@ -170,15 +170,19 @@ _Severity:_ P3 — invisible to most users; not a doctrinal error. _Lesson:_ cas
 
 ---
 
-## Potential correctness risks (still to check)
+## Potential correctness risks (as identified in June 2026)
 
-| Item | Risk | Where to check |
-|------|------|----------------|
-| Seasonal forms (Advent, Lent, etc.) | Different canticles, litanies, and collects | Post-review audit — see AUDIT_PLAN.md |
-| Other weekday litany capitalisation | BUG-18 may affect other weekdays | Spot-check Monday and Thursday litanies |
-| O Antiphons (Dec 17–23) | Render as plain italic; liturgically significant | UX-09 in audit |
-| Collect of the Day accuracy | Verify collected text matches lectionary source | Spot-check a known date |
-| Year B → Year A transition | Coverage ends Dec 2026 | Boundary gated by `boundsMax` |
+Status added 2026-08-07. Three of the five have since been answered; the table
+is kept because what a past audit thought was risky is worth knowing, not
+because it is a live worklist.
+
+| Item | Risk as stated | Status |
+|------|----------------|--------|
+| Seasonal forms (Advent, Lent, etc.) | Different canticles, litanies, and collects | **Largely answered.** The ACC errata pass (2026-08) applied 46 corrections across the seasonal and ordinary forms, and `make audit-errata` now checks every errata block against the published data on demand. Not a line-by-line audit of unerrata'd text, so not closed outright. |
+| Other weekday litany capitalisation | BUG-18 may affect other weekdays | **Moot.** BUG-18's premise came from pdfplumber decoding small-caps as lowercase. fitz decodes the glyphs correctly and the casing corrections were removed wholesale (ADR 0011). |
+| O Antiphons (Dec 17–23) | Render as plain italic; liturgically significant | **Open.** They are present and typed (14 `o_antiphon` notes in the published lectionary); how they render is still a UX question. The tracker referenced here as "UX-09" is gone — see GitHub Issues. |
+| Collect of the Day accuracy | Verify collected text matches lectionary source | **Answered mechanically.** `validate_lectionary.cjs` resolves every collect reference for all 397 dates × 2 offices against `collects.json`, using the runtime resolution functions rather than a reimplementation. |
+| Year B → Year A transition | Coverage ends Dec 2026 | **Open and approaching.** The window is 2025-11 → 2026-12. Gated by `boundsMax`, so it degrades safely rather than silently, but new source CSVs are needed before the rollover. |
 
 ---
 
