@@ -3,12 +3,15 @@ Unit tests for check_text_quality.py — column-wrap detector (Batch 19.2).
 
 Run: python3 -m pytest tools/tests/ -v  (from the repo root)
 """
+import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from check_text_quality import _check_prose_wraps, _seasonal_collect_leaders, _litany_leaders
+import check_text_quality
+from check_text_quality import (_check_prose_wraps, _seasonal_collect_leaders,
+                                _litany_leaders, check_prose_fields)
 
 
 class TestColumnWrap:
@@ -88,3 +91,50 @@ class TestLitanyLeaders:
         wraps = []
         _check_prose_wraps("Let us pray to the Creator of the universe.\nHoly One, by the good news of our salvation", "loc", wraps)
         assert wraps == []
+
+
+class TestEachLeaderScannedOnce:
+    """A stray `_check_prose_wraps` call sat outside the litany loop, re-scanning
+    on the loop's leaked `text`/`loc`. It double-reported the last leader of every
+    litany, and where a form's litany yielded no leaders at all it reported again
+    against whatever the previous form or section had left in those names — a
+    finding attributed to a location that had already been scanned."""
+
+    def _findings(self, tmp_path, monkeypatch, offices):
+        data = tmp_path / "data"
+        data.mkdir()
+        (data / "offices.json").write_text(json.dumps(offices))
+        monkeypatch.setattr(check_text_quality, "ROOT", tmp_path)
+        findings = []
+        check_prose_fields(findings)
+        return findings
+
+    def test_last_litany_leader_reported_once(self, tmp_path, monkeypatch):
+        findings = self._findings(tmp_path, monkeypatch, {
+            "form-a": {"litany": [
+                {"type": "leader", "text": "Comfort and sustain\nthose who are lonely."},
+                {"type": "leader", "text": "Give your peace to all\nwho have passed from this life."},
+            ]},
+        })
+        assert len(findings) == len(set(findings)) == 2
+
+    def test_a_litany_with_no_leaders_reports_nothing_of_its_own(self, tmp_path, monkeypatch):
+        # form-b's litany has no leader to scan. Nothing about form-b may be
+        # reported, and form-a must not be reported a second time under it.
+        findings = self._findings(tmp_path, monkeypatch, {
+            "form-a": {"litany": [
+                {"type": "leader", "text": "Fill all who proclaim the word\nof truth."},
+            ]},
+            "form-b": {
+                "seasonal_collects": [
+                    {"type": "leader", "text": "Almighty God, you sent your Son\nto be the light."},
+                ],
+                "litany": [{"type": "response", "text": "Hear and have mercy."}],
+            },
+        })
+        locations = [loc for loc, _, _ in findings]
+        assert len(locations) == len(set(locations)) == 2
+        assert sorted(locations) == [
+            "offices.json['form-a'].litany[0]",
+            "offices.json['form-b'].seasonal_collects[0]",
+        ]
