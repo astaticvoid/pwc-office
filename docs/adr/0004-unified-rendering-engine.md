@@ -1,7 +1,7 @@
 # ADR 0004: Single rendering engine with HTML and text output modes
 
 ## Status
-Proposed
+Accepted
 
 ## Context
 The project has three consumers that render office form data:

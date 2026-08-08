@@ -1,7 +1,7 @@
 # ADR 0008: Full-office structured output for validators
 
 ## Status
-Proposed
+Accepted
 
 ## Context
 
@@ -80,7 +80,7 @@ code (~200 lines for JSON output).
   - Reading response presence after each lesson
   - Section ordering: Gathering → Proclamation → Affirmation → Prayers → Sending
 - Produces `OfficeJSON` — a typed object with sections, subsections, segment
-  arrays, and dynamic metadata (see `docs/qa-strategy-spec.md` for full schema).
+  arrays, and dynamic metadata. `segmentsToJSON` in `web/render.js` is the schema.
 - Does **not** load psalter text or scripture text. Psalm
   citations and reading citations are captured as references.
 
@@ -135,5 +135,5 @@ primary negative consequence of this decision. A future refactor could extract
 a shared `assembleSections()` function from `renderOfficeJSON` and have both
 `render()` and `renderOfficeJSON` call it, eliminating the duplication. The
 sync test makes this refactor safe — it passes before and after, guaranteeing
-no behavioral change. See `docs/qa-strategy-spec.md` for the full implementation
+no behavioral change. See `web/render.js` for the implementation
 plan.

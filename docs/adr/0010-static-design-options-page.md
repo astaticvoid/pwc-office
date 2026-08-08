@@ -1,7 +1,7 @@
 # ADR 0010: Static design-options page for visual decision-making
 
 ## Status
-Proposed
+Accepted
 
 ## Context
 
