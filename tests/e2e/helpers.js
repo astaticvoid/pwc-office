@@ -44,7 +44,7 @@ export async function ensureOffice(page, office) {
     if (await isMobileLayout(page)) {
       await el.click();
       await page.locator(office === 'ep' ? '#day-picker-ep' : '#day-picker-mp').click();
-      await page.locator('#day-picker-close-btn').click();
+      await page.locator('#settings-close-btn').click();
     } else {
       await el.click();
     }
