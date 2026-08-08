@@ -167,7 +167,6 @@ body {
 @media (hover: hover) {
   #nav a:hover { opacity: 1; background: rgba(255,255,255,0.08); }
 }
-#nav a.nav-active { opacity: 1; background: rgba(255,255,255,0.12); font-weight: 500; }
 
 /* ── Settings bottom sheet ──────────────────────────────────────────────────── */
 
