@@ -91,8 +91,69 @@ export const BOOK_ONLY_RUBRICS = /one of the following may be said or sung|the f
 export const SC_HEADER = /^Additional\s+intercessions/i;
 export const SC_FOOTER = /^the\s+Lord['’]s\s+Prayer/i;
 
+// ── App-authored liturgical text register (ADR 0015) ─────────────────────────
+// Rubrics the app authors rather than extracts, held to the same provenance
+// standard as extracted text. Each entry records what the text is and what
+// authorizes it; `source` uses the manifest vocabulary (PERMITTED_SOURCES in
+// tools/validate_corrections.py), `upstream-review` marking the four corrected
+// by review (see docs/errata/README.md "Upstream review"). Call sites read
+// from here rather than re-declaring the string. `{office}` is substituted by
+// the caller.
+export const LITURGICAL_TEXT_REGISTER = {
+  intercessionsPrompt: {
+    text: 'Offer intercessions, petitions, and thanksgivings, silently or aloud.',
+    source: 'editorial',
+    note: 'Condensed stand-in for the seasonal biddings; removed by ADR 0013 (#60).',
+  },
+  readingIntro: {
+    text: 'A Reading is read.',
+    source: 'upstream-review',
+    note: 'Review: drop "from the appointed lectionary".',
+  },
+  reflectionPrompt: {
+    text: 'After a period of silent reflection one of the following is said.',
+    source: 'editorial',
+    note: 'Matches the printed book rubric.',
+  },
+  readingsPick: {
+    text: '{cap} of the following {total} readings are read.',
+    source: 'editorial',
+    note: 'BUG-28: generated when the lectionary appoints N of M readings.',
+  },
+  psalmEnd: {
+    text: 'At the end of the Psalm one of the following may be said or sung.',
+    source: 'editorial',
+    note: 'Matches the printed book rubric.',
+  },
+  psalmIntro: {
+    text: 'A Psalm is said or sung.',
+    source: 'upstream-review',
+    note: 'Review: drop "from the appointed lectionary".',
+  },
+  psalmsIntro: {
+    text: 'The following Psalms are said or sung.',
+    source: 'upstream-review',
+    note: 'Review: drop "from the appointed lectionary".',
+  },
+  singlePsalmIntro: {
+    text: 'The following Psalm is said or sung.',
+    source: 'upstream-review',
+    note: 'Review: drop "from the appointed lectionary".',
+  },
+  affirmationTransition: {
+    text: '{office} Prayer continues with an Affirmation of Faith or the Prayers.',
+    source: 'upstream-review',
+    note: 'Review: "or the Litany" → "or the Prayers", both offices.',
+  },
+  litanyTransition: {
+    text: '{office} Prayer continues with the Litany.',
+    source: 'editorial',
+    note: 'Pre-Litany transition, emitted before the Litany subsection; not part of the review change (ADR 0015), left as-is.',
+  },
+};
+
 const INTERCESSIONS_RE = /^(The community may offer|Additional intercessions)/;
-const INTERCESSIONS_CONDENSED = '<p class="seg-rubric"><em>Offer intercessions, petitions, and thanksgivings, silently or aloud.</em></p>';
+const INTERCESSIONS_CONDENSED = `<p class="seg-rubric"><em>${LITURGICAL_TEXT_REGISTER.intercessionsPrompt.text}</em></p>`;
 
 // Roman numerals and "Form X" labels don't need a repeated source heading inside the panel.
 const SHORT_LABEL_RE = /^(?:Form\s+)?(?:I{1,3}|IV|V|VI{0,3}|IX|X)$/i;
@@ -506,8 +567,8 @@ export function lessonHtml(lesson, shared, form) {
   const optional = typeof lesson === 'object' && lesson.optional;
   const displayCitation = expandCitationForDisplay(rawCitation);
   const display = optional ? `(${displayCitation})` : displayCitation;
-  const preambleRubric = `<p class="seg-rubric rubric-book-only">A Reading from the appointed lectionary is read.</p>`;
-  const reflectionRubric = `<p class="seg-rubric rubric-book-only">After a period of silent reflection one of the following is said.</p>`;
+  const preambleRubric = `<p class="seg-rubric rubric-book-only">${LITURGICAL_TEXT_REGISTER.readingIntro.text}</p>`;
+  const reflectionRubric = `<p class="seg-rubric rubric-book-only">${LITURGICAL_TEXT_REGISTER.reflectionPrompt.text}</p>`;
   if (!form || !form.reading_response) console.warn('lessonHtml: no reading_response on form, using fallback');
   let readingResponse = (form && form.reading_response) || READING_RESPONSE;
   if (readingResponse?.type === 'shared' && shared) {
@@ -531,7 +592,8 @@ export function lessonsPickText(pick, total) {
   const p = _NUM_WORDS[pick] || String(pick);
   const t = _NUM_WORDS[total] || String(total);
   const cap = p.charAt(0).toUpperCase() + p.slice(1);
-  return `${cap} of the following ${t} readings are read.`;
+  return LITURGICAL_TEXT_REGISTER.readingsPick.text
+    .replace('{cap}', cap).replace('{total}', t);
 }
 
 export function lessonsPickRubricHtml(pick, total) {

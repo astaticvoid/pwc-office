@@ -96,6 +96,9 @@ provenance; a row backed by an errata document is also aligned by
 | What | Was | Now | Decided |
 |---|---|---|---|
 | Reading-response third alternative | "Holy wisdom, holy word." in the 14 Ordinary forms | "Holy Word, Holy Wisdom." in all 30 forms | The reading response is synthesized rather than extracted, and the Ordinary form reproduced the printed book's error, which the errata corrects (Ordinary p. 132, "PWC has the wrong order"). The corrected form applies to every season. Fixed in `_add_reading_responses` (extractor) rather than the manifest, per AGENTS.md's systemic-fix rule; the errata correction that used to patch `_shared.reading_response_ordinary` was retired. |
+| Psalm introductions (3 variants) | "A Psalm from the appointed lectionary is said or sung." / "The following Psalms from the appointed lectionary are said or sung." / "The following Psalm from the appointed lectionary is said or sung." | "A Psalm is said or sung." / "The following Psalms are said or sung." / "The following Psalm is said or sung." | App-authored rubrics; review: drop "from the appointed lectionary". Rendered from `LITURGICAL_TEXT_REGISTER` in `web/app.js` (ADR 0015). |
+| Reading introduction | "A Reading from the appointed lectionary is read." | "A Reading is read." | App-authored rubric; review: drop "from the appointed lectionary". Rendered from `LITURGICAL_TEXT_REGISTER` in `web/render.js` (ADR 0015). |
+| Morning/Evening Prayer affirmation transition | "{Morning,Evening} Prayer continues with an Affirmation of Faith or the Litany." | "{Morning,Evening} Prayer continues with an Affirmation of Faith or the Prayers." | App-authored rubric; review: "or the Litany" → "or the Prayers", both offices. Rendered from `LITURGICAL_TEXT_REGISTER` in `web/app.js` (ADR 0015). |
 
 ## Breaks the QA rules are told about
 
