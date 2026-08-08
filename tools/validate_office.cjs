@@ -97,10 +97,22 @@ async function main() {
     return { pass: stray.length === 0, detail: stray.length ? `${stray.length} segments` : '' };
   }});
 
-  rules.push({ name: 'non-empty-responses', tier: 1, check(form, formKey, data) {
-    const all = data.sections.flatMap(s => s.subsections.flatMap(sub => sub.segments));
-    const empty = all.filter(i => i.type === 'response' && i.text.length < 3);
-    return { pass: empty.length === 0, detail: empty.length ? `${empty.length} near-empty responses` : '' };
+  rules.push({ name: 'non-empty-responses', tier: 1, check(form, _formKey, _data) {
+    // Walks form's own segments via walkSegments directly, not the rendered
+    // `data` structure: segmentsToJSON/flattenSegs (web/render.js) drop any
+    // segment whose text is empty or whitespace-only before it ever reaches
+    // that structure, so a rule filtering `data` for near-empty responses
+    // could never encounter one (#70, #72). Raw segments still have it.
+    const near = [];
+    for (const [sectionKey, segs] of Object.entries(form)) {
+      if (sectionKey.startsWith('_') || sectionKey === 'title' || sectionKey === 'subtitle') continue;
+      for (const event of walkSegments(segs, shared)) {
+        if (event.type === 'segment' && event.seg.type === 'response' && event.seg.text.trim().length < 3) {
+          near.push(event.seg.text);
+        }
+      }
+    }
+    return { pass: near.length === 0, detail: near.length ? `${near.length} near-empty responses` : '' };
   }});
 
   rules.push({ name: 'opening-has-leader-and-response', tier: 1, check(form, formKey, data) {

@@ -7,19 +7,19 @@
  * run the real validator against it in an isolated harness, and assert the
  * rule actually fires. Grew out of the manual, throwaway mutation harness
  * used to investigate #70, which found two rules that could not fail on the
- * exact input their name describes — intercessions-nonempty (fixed) and
- * non-empty-responses (a structural gap, not fixed — see KNOWN_GAPS) — and
- * #71, where a thrown dynamic render was swallowed with no failure and no
- * exit code (fixed).
+ * exact input their name describes — intercessions-nonempty and
+ * non-empty-responses (both fixed; see git history for non-empty-responses,
+ * fixed as #72) — and #71, where a thrown dynamic render was swallowed with
+ * no failure and no exit code (fixed).
  *
- * Coverage: 9 of the 10 static (qa_dates-independent) rules assert a rule
- * fires (the 10th, non-empty-responses, is a documented KNOWN_GAPS entry —
- * it cannot fire at all, see #72), plus 3 of the 10 dynamic rules
- * (intercessions-nonempty, canticle-has-verse-content, evening-has-light).
- * The other 7 dynamic rules have no entry here at all — not asserted and
- * not documented as a gap, same as any rule added after this file. main()
- * prints which rules that is on every run rather than hand-counting it in
- * this comment, so the number can't quietly drift out of date.
+ * Coverage: all 10 static (qa_dates-independent) rules assert a rule fires,
+ * plus 3 of the 10 dynamic rules (intercessions-nonempty,
+ * canticle-has-verse-content, evening-has-light). The other 7 dynamic rules
+ * have no entry here at all — not asserted and not documented as a gap,
+ * same as any rule added after this file. main() prints which rules that is
+ * on every run rather than hand-counting it in this comment, so the number
+ * can't quietly drift out of date. KNOWN_GAPS documents rules found to be
+ * unfalsifiable by construction — empty today, but kept as a mechanism.
  *
  * Usage: node tools/test_rule_mutations.cjs
  */
@@ -314,26 +314,24 @@ const CASES = [
     }),
     check: result => hasFailure(result, 'evening-has-light', 'ordinary-sunday-ep'),
   },
+  {
+    name: 'non-empty-responses fires when every response in the corpus is emptied (regression for #72)',
+    rule: 'non-empty-responses',
+    // Same corpus-wide mutation #70 used to show this rule was
+    // unfalsifiable: emptying every response segment, including through
+    // _shared, didn't make it fire. Now checks raw form segments before
+    // web/render.js's empty-segment filter runs, so it should.
+    run: () => runValidator({ officesMutator: emptyAllResponsesInCorpus }),
+    check: result => result.failures.some(f => f.rule === 'non-empty-responses'),
+  },
 ];
 
 // ── Known gaps: documented, not asserted ───────────────────────────────────
-// non-empty-responses is unfalsifiable by construction: flattenSegs and
-// segmentsToJSON (web/render.js) drop any segment whose text is empty
-// before the validator ever sees it, so a rule filtering for
-// type==='response' && text.length<3 can never encounter one. Fixing this
-// needs a design decision (check pre-render segments, or retire the rule in
-// favour of opening-has-leader-and-response, which catches the consequence
-// in the one subsection it covers) — tracked as #72, not fixed here. Run
-// and reported, not pass/failed, so the gap stays visible without failing
-// this suite on a limitation nobody has decided how to close yet.
-const KNOWN_GAPS = [
-  {
-    name: 'non-empty-responses (see #72 — cannot fire by construction)',
-    rule: 'non-empty-responses',
-    run: () => runValidator({ officesMutator: emptyAllResponsesInCorpus }),
-    stillGap: result => !result.failures.some(f => f.rule === 'non-empty-responses'),
-  },
-];
+// Currently empty. Kept as a mechanism (rather than removed) for the next
+// rule that turns out to be unfalsifiable by construction — non-empty-
+// responses lived here until the fix in this commit; see git history for
+// the write-up if a case needs the same treatment again.
+const KNOWN_GAPS = [];
 
 // ── Coverage check ──────────────────────────────────────────────────────────
 // Reads rule names directly out of validate_office.cjs rather than
@@ -370,14 +368,16 @@ function main() {
     }
   }
 
-  console.log('\nKnown gaps (informational, not scored):');
-  for (const g of KNOWN_GAPS) {
-    process.stdout.write(`  ${g.name} ... `);
-    try {
-      const result = g.run();
-      console.log(g.stillGap(result) ? 'still a gap' : 'NOTE: this now fires — consider promoting it to CASES and updating the comment above');
-    } catch (e) {
-      console.log(`could not evaluate (${e.message})`);
+  if (KNOWN_GAPS.length) {
+    console.log('\nKnown gaps (informational, not scored):');
+    for (const g of KNOWN_GAPS) {
+      process.stdout.write(`  ${g.name} ... `);
+      try {
+        const result = g.run();
+        console.log(g.stillGap(result) ? 'still a gap' : 'NOTE: this now fires — consider promoting it to CASES and updating the comment above');
+      } catch (e) {
+        console.log(`could not evaluate (${e.message})`);
+      }
     }
   }
 
