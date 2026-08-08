@@ -2,15 +2,6 @@
   "version": 1,
   "office_text": [
     {
-      "id": "errata-reading-response-ordinary",
-      "source": "pwc-errata-ordinary",
-      "office": "_shared",
-      "field": "reading_response_ordinary",
-      "old": "Holy wisdom, holy word.",
-      "new": "Holy Word, holy Wisdom.",
-      "reason": "Errata, Ordinary Time, every form: 'PWC has the wrong order.' The printed book reverses the two nouns and lowercases both. Corrected in the shared block, which all 14 Ordinary forms reference."
-    },
-    {
       "id": "errata-sunday-mp-hidden",
       "source": "pwc-errata-ordinary",
       "office": "ordinary-sunday-mp",

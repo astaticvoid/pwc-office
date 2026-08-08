@@ -48,7 +48,7 @@ Web: fetches and renders actual lectionary readings (Ecclesiastes 5:8–20, Gala
 
 #### Reading Response
 
-PDF: three alternatives ("The word of the Lord" / "Hear what the Spirit…" / "Holy wisdom, holy word.").  
+PDF: three alternatives ("The word of the Lord" / "Hear what the Spirit…" / "Holy Word, Holy Wisdom.").  
 Web: three tabs. ✓
 
 #### The Responsory
