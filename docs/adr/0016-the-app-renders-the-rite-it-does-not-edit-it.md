@@ -1,7 +1,7 @@
 # ADR 0016: The app renders the authorized rite; it does not edit it
 
 ## Status
-Proposed
+Accepted (2026-08-07)
 
 ## Context
 
@@ -24,12 +24,12 @@ intercession bidding reads better than seven bullets. The defect is not bad
 design judgement — it is design judgement applied to something that was never
 ours to design.
 
-Note also what the warrants were. The psalm selector was removed because "you
-should just read all the Psalms," a devotional opinion. `BOOK_ONLY_RUBRICS` is
-commented "noisy in the interactive app," an aesthetic one. Both are perfectly
-reasonable opinions to hold. Neither is authority over authorized text, and in
-the absence of a stated rule, the maintainer's preferences became the de facto
-authority by default.
+Note also what the warrants were. The psalm selector was removed on a devotional
+preference about how the psalms ought to be read. `BOOK_ONLY_RUBRICS` is
+commented "noisy in the interactive app" — an aesthetic judgement. Both are
+perfectly reasonable opinions to hold. Neither is authority over authorized
+text, and in the absence of a stated rule, the maintainer's preferences became
+the de facto authority by default.
 
 ## Decision
 

@@ -1,7 +1,7 @@
 # ADR 0013: Authorized rubrics are rendered, not curated
 
 ## Status
-Proposed
+Accepted (2026-08-07)
 
 ## Context
 
@@ -125,13 +125,35 @@ Paraphrase and hide-by-mode are not on the list.
   `cli/book.js:46-53` and `tools/review_form.cjs:35-38` lose their local rule
   sets.
 
-**A validator holds the line.** `validate_render.cjs` gains a rule: for all 30
-forms, every rubric segment in the assembled office appears in the rendered
-Office-mode DOM, except those on the `SKIP_RUBRICS` allowlist, each of which
-must produce its named duplicate. This is the ADR 0012 shape — the exemption
-lives at the thing it exempts and dies with it — rather than a regex nobody
-re-reads. The rule counts rubrics in the text mode against the same expectation,
-so the two modes cannot drift apart again without failing.
+**A validator holds the line, over the fields it can currently reach.**
+`validate_render.cjs` gains a rule: every rubric segment in a checked field
+appears in the rendered Office-mode DOM, except those on the `SKIP_RUBRICS`
+allowlist, each of which must produce its named duplicate. This is the ADR 0012
+shape — the exemption lives at the thing it exempts and dies with it — rather
+than a regex nobody re-reads. The rule counts rubrics in the text mode against
+the same expectation, so the two modes cannot drift apart again without failing.
+
+**`seasonal_collects` is out of reach today, and it is 112 of the 321 rubric
+segments (35%).** Rubrics by field: `seasonal_collects` 112, `responsory` 60,
+`canticle` 60, `affirmation` 30, `litany` 30, `opening_responses` 14,
+`intercessions` 14, `invitatory` 1. `validate_render.cjs`'s `renderableFields`
+map (`:47-59`) covers eleven fields and excludes this one, and it cannot be
+fixed by adding a twelfth entry:
+
+- The field needs `filterSeasonalCollects(segs, weekIdx)` (`render.js:213-240`)
+  to narrow to the right week first — per-date, not per-form, so the check must
+  iterate weeks rather than render the field once.
+- The narrowed result is rendered by `collectToggleHtml` (`app.js:554`), which
+  is not exported.
+- `app.js` calls `document.addEventListener` at module top level (`:1200`), so
+  it cannot be imported under plain Node at all.
+
+Extracting `collectToggleHtml` into `render.js` is therefore a **prerequisite**
+for covering the largest single share of the rubrics, and it is a real refactor,
+not a line in a config map. Until it happens the rule protects 209 of 321
+segments and the ADR should not be read as claiming more. Do not widen the
+`renderableFields` map to make the number look better — a rule that renders
+`seasonal_collects` through the wrong path would pass while checking nothing.
 
 ## Consequences
 
@@ -159,6 +181,11 @@ so the two modes cannot drift apart again without failing.
   likely needs a pass through ADR 0010's design-options process before it ships.
   We are accepting a worse-looking app for a correct one, with the design debt
   named rather than deferred silently.
+- The validator lands with 35% of the rubrics uncovered until `collectToggleHtml`
+  is extracted from `app.js`. That is a genuine hole in the guarantee, named
+  here rather than discovered later: `seasonal_collects` is exactly where the
+  intercession biddings live, so the field this ADR most wants to protect is the
+  one the rule reaches last.
 - The bidding lists arrive as one rubric segment containing bulleted lines. They
   will render as a `<br>`-separated block, not a list. Acceptable but ugly;
   turning them into real list markup is a data-shape change and is out of scope
