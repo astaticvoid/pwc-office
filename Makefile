@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa
+.PHONY: venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -144,6 +144,12 @@ serve-dist: check-dist
 # Unit tests for Python extraction tools (pytest comes from `make venv`).
 test-tools:
 	$(PYTHON) -m pytest tools/tests/ -v
+
+# Check data/offices.json against the ACC errata: every line break it asks for
+# present, every wording divergence declared. Reports; does not gate. Run it
+# whenever docs/errata/ or the office_text corrections change.
+audit-errata:
+	$(PYTHON) tools/audit_errata.py
 
 # Scan extracted JSON files for PDF extraction artifacts (missing spaces, etc.).
 check-text:
