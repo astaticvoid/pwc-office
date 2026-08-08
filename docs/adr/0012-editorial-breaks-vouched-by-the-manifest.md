@@ -44,8 +44,9 @@ Both rules build their sanctioned set from `data/corrections.json`:
   `corrections_lib.iter_text_segments`, which refuses to follow shared
   references: *applying* through one would rewrite siblings silently, but
   *vouching* through one is right, because the text really is at every form.
-- Per line, not per section. Non-empty lines only — a blank line in an errata
-  block currently puts `""` in the set, inert only because both call sites test
+- Per line, not per section. Non-empty lines only: an errata stanza gap yields
+  an empty string from the split, which is dropped rather than added. The first
+  implementation added it, inert only because both call sites happened to test
   truthiness first.
 - `collects.json` gets no sanctioned set, passed explicitly. No correction
   category reaches it.
@@ -103,10 +104,12 @@ has a track record.
 ### Negative
 - The validators gain a dependency on `data/corrections.json`.
 - The same schema is read by two hand-written implementations, in two
-  languages, with no shared library possible across the boundary. The parked
-  code already diverges (JS `trimEnd()`, Python `strip()`). A conformance test —
-  one fixture, both readers, identical sets asserted — is the substitute for
-  what `corrections_lib.py` does within Python.
+  languages, with no shared library possible across the boundary. A conformance
+  test — one fixture, both readers, identical sets asserted — is the substitute
+  for what `corrections_lib.py` does within Python. It is not theatre: the two
+  sides had already drifted on whether a line is trimmed at one end or both,
+  and it also caught a NUL byte standing where a space belonged in the JS key
+  template, which would have meant no exemption ever matching anything.
 - `source` is made load-bearing while ADR 0005's `source` enum has drifted from
   3 documented values to 6, and the JSON Schema that ADR promises was never
   written.
@@ -114,11 +117,24 @@ has a track record.
   than gates; it would not be if it blocked `qa`.
 
 ### Neutral / Notes
-- Known unadjudicated items the audit surfaces immediately: four
-  `MISSING-BREAK`s, three undeclared `WORDING` divergences (Seasonal p. 43
-  `voices`, p. 80 `I`, p. 100 `been`), Ordinary p. 156 (our `“Abba,` /
-  `Father.”` break is genuinely wrong), and Seasonal p. 52 (delete the Epiphany
-  EP doxologies — a whole-field correction).
+- **Implemented ahead of acceptance.** `docs/adr/README.md`'s gate is that a
+  Proposed ADR becomes Accepted before implementation begins. This one is
+  written after the fact, for a mechanism that had already shipped once with no
+  ADR at all, and the implementation landed alongside it. That inversion is the
+  thing to weigh when accepting or rejecting it.
+- What the audit found on first run, all since cleared: four `MISSING-BREAK`s;
+  three undeclared `WORDING` divergences (Seasonal p. 43 `voices`, p. 80 `I`,
+  p. 100 `been`); Ordinary p. 156, where our `“Abba,` / `Father.”` break is
+  genuinely wrong; and Seasonal p. 52, deleting the Epiphany EP doxologies as a
+  whole-field correction. `make audit-errata` now reports the errata fully
+  applied — that is the baseline a future regression is measured against.
+- Applying p. 52 shortened `epiphany-ep` from 51 segments to 45, which lowered
+  the seasonal-EP peer mean and tightened its spread enough to push `easter-ep`
+  past 2σ on two metrics without `easter-ep` changing at all. Both are recorded
+  in `audit_expected.json` naming that cause. A correction to one form can move
+  the statistics of its peers; the cross-form audit reports the form that moved
+  least as readily as the one that changed.
 - Hard breaks are not a new rendering category: `render.js` maps `\n` to `<br>`,
   and 3,205 such lines already ship with a length distribution the errata's 65
-  are indistinguishable from.
+  are indistinguishable from. An earlier draft treated this as a blocking
+  question about fluid versus fixed measure; the data says it is not one.
