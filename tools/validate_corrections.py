@@ -22,6 +22,57 @@ DATA = ROOT / "data"
 BUILD = ROOT / ".build"
 CORRECTIONS = DATA / "corrections.json"
 
+# ADR 0005 declared three values and said the full schema lived in a JSON Schema
+# file "checked into the repository alongside the manifest". That file was never
+# written, and the field grew to six values unremarked. It stopped being merely
+# untidy when ADR 0012 made `source` load-bearing: the QA rules decide which
+# corrections may vouch for a deliberate line break by testing for the
+# `pwc-errata-` prefix, so a typo here silently withdraws an exemption and the
+# break it covered gets reported as a column wrap. An unchecked string cannot
+# decide what a validator enforces.
+PERMITTED_SOURCES = {
+    "editorial":               "a project editorial decision, with no upstream error behind it",
+    "acc-csv-error":           "an error in the ACC lectionary CSV",
+    "pwc-pdf-error":           "an error in the printed Pray Without Ceasing PDF",
+    "pdf-extraction-artifact": "an artifact of extraction rather than a defect in the source",
+    "pwc-errata-ordinary":     "the ACC errata for Ordinary Time (docs/errata/ordinary-time.md)",
+    "pwc-errata-seasonal":     "the ACC errata for the seasonal offices (docs/errata/seasonal.md)",
+}
+
+# The prefix ADR 0012's exemption keys on. Adding a source that starts with it
+# grants the power to vouch for a line break, so it is named here rather than
+# left implicit in two other files.
+VOUCHING_PREFIX = "pwc-errata-"
+
+
+def validate_provenance(corrections: dict) -> list[str]:
+    """Every correction carries a known `source` and a unique `id`."""
+    errors = []
+    seen: dict = {}
+    for category, entries in corrections.items():
+        if not isinstance(entries, list):
+            continue          # "version" and any future scalar metadata
+        for i, entry in enumerate(entries):
+            where = f"{category}[{i}]"
+            cid = entry.get("id")
+            if not cid:
+                errors.append(f"{where}: no 'id'")
+            elif cid in seen:
+                errors.append(f"{where}: duplicate id {cid!r}, already used by {seen[cid]}")
+            else:
+                seen[cid] = where
+
+            source = entry.get("source")
+            if source not in PERMITTED_SOURCES:
+                known = ", ".join(sorted(PERMITTED_SOURCES))
+                errors.append(
+                    f"{where} ({cid or 'no id'}): unknown source {source!r}. "
+                    f"Permitted: {known}. Add it to PERMITTED_SOURCES in "
+                    f"validate_corrections.py if it is genuinely new — note that "
+                    f"a source starting with {VOUCHING_PREFIX!r} may vouch for a "
+                    f"deliberate line break (ADR 0012).")
+    return errors
+
 
 def get_at_path(obj, path: list):
     """Navigate a JSON object by path segments (string keys or int indices)."""
@@ -195,7 +246,7 @@ def main():
         return
 
     corrections = json.loads(CORRECTIONS.read_text())
-    errors = []
+    errors = validate_provenance(corrections)
 
     if corrections.get("office_text"):
         # The pre-correction artifact, named explicitly. This check is about

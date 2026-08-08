@@ -31,7 +31,7 @@ correction mechanisms, which are removed as part of the implementation.
 ### Manifest structure
 Corrections are organized by data type as top-level keys. Each entry carries:
 - `id` — unique identifier; maps to a GitHub issue
-- `source` — provenance: `"editorial"`, `"acc-csv-error"`, or `"pwc-pdf-error"`
+- `source` — provenance; see "The `source` enum" below for the current values
 - Target locator — varies by category. Office text uses `{office, field}`.
   Lectionary uses `{date, office, index}`. Psalter uses `{psalm, …}`.
   FATS uses `{saint, field}`.
@@ -40,6 +40,10 @@ Corrections are organized by data type as top-level keys. Each entry carries:
 
 The full schema is defined in a JSON Schema file checked into the repository
 alongside the manifest, not specified inline in this ADR.
+
+**Correction (2026-08-07): that file was never written.** See the note on
+`source` at the end of this ADR — the enum is now enforced in code rather than
+in a schema, and this paragraph describes an artifact that does not exist.
 
 ### Tooling
 Two tools operate on this manifest:
@@ -150,3 +154,35 @@ isn't a correction of something. `_fix_shared_affirmation` in
 block the `office_text` category's `{office, field}` locator can't reach)
 was evaluated and deliberately left as code for the same reason: not enough
 of a pattern yet to justify a new correction category for one instance.
+
+## The `source` enum (2026-08-07)
+
+The decision above names three values — `editorial`, `acc-csv-error`,
+`pwc-pdf-error` — and defers the rest to a JSON Schema that was never written.
+The field grew to six without amendment, and nothing checked it.
+
+That stopped being cosmetic when ADR 0012 made `source` load-bearing: the QA
+rules decide which corrections may vouch for a deliberate line break by testing
+for a `pwc-errata-` prefix. A typo that keeps the prefix vouches for a break
+nobody sanctioned; one that loses it silently withdraws an exemption, and the
+break it covered is reported as a column wrap by a rule that feeds the deploy
+gate. An unchecked string cannot decide what a validator enforces.
+
+The permitted values now live in `PERMITTED_SOURCES` in
+`validate_corrections.py`, each with a sentence saying when to reach for it, and
+are enforced there for every category — along with `id` being present and unique,
+which this ADR requires but nothing verified either:
+
+| value | meaning |
+|---|---|
+| `editorial` | a project editorial decision, no upstream error behind it |
+| `acc-csv-error` | an error in the ACC lectionary CSV |
+| `pwc-pdf-error` | an error in the printed *Pray Without Ceasing* PDF |
+| `pdf-extraction-artifact` | an artifact of extraction, not a defect in the source |
+| `pwc-errata-ordinary` | the ACC errata for Ordinary Time |
+| `pwc-errata-seasonal` | the ACC errata for the seasonal offices |
+
+Code rather than a JSON Schema file because the constraint that matters is a
+coupling between two other tools, and it belongs where the reason for it can be
+written down. Adding a value is a reviewable edit next to that explanation;
+adding one beginning `pwc-errata-` grants the power to exempt a line break.
