@@ -46,11 +46,7 @@ const officeData = lectionaryDay
 
 const BK = {
   showLabel: true,
-  skipRubrics: /continues with|may conclude with|^The Litany is said or sung\./i,
   skipShortLabels: true,
-  condenseRubrics: {
-    'The community may offer': 'Offer intercessions, petitions, and thanksgivings, silently or aloud.',
-  },
 };
 
 function text(segs, opts = {}) {
