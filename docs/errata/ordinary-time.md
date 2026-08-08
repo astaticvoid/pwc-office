@@ -1,7 +1,7 @@
 # Pray Without Ceasing — Ordinary Time Errata
 
 Errata for the Ordinary Time offices of *Pray Without Ceasing*, as received
-from the Anglican Church of Canada.
+for this project.
 
 **Scope.** Corrections are restricted to the text as approved by General
 Synod. The compiler's own marginal editorial preferences are deliberately

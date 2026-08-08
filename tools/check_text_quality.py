@@ -138,7 +138,7 @@ _TERMINAL_PUNCT = tuple(",;:.!?—’”)")
 
 
 def errata_breaks(offices: dict) -> set:
-    """Lines the ACC errata deliberately breaks after (ADR 0012).
+    """Lines the errata deliberately breaks after (ADR 0012).
 
     A line ending mid-clause is normally a PDF column wrap that
     `_reflow_litany_prose` should have joined. Where an editorial source says

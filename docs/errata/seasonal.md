@@ -1,7 +1,7 @@
 # Pray Without Ceasing — Seasonal Errata
 
-Errata for the seasonal offices of *Pray Without Ceasing*, as received from
-the Anglican Church of Canada. Dated 17 November 2025.
+Errata for the seasonal offices of *Pray Without Ceasing*, as received for
+this project. Dated 17 November 2025.
 
 **Scope.** Corrections are restricted to the text as approved by General
 Synod.

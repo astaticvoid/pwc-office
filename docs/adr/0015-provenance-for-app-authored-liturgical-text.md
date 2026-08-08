@@ -3,6 +3,13 @@
 ## Status
 Accepted (2026-08-07)
 
+Corrected (2026-08-08): the Context's claim that the Holy Word erratum "is in
+neither errata document" was wrong — it is documented at Ordinary p. 132
+("PWC has the wrong order"). The decision is unchanged: the reading response
+is synthesized rather than extracted, so the fix belongs in the extractor.
+`upstream-review` remains the source for the four app-rubric wording
+corrections, which genuinely have no errata document behind them.
+
 ## Context
 
 ADR 0005 established one manifest for every correction to *extracted* data, and
@@ -72,7 +79,7 @@ text it extracts.**
    Scattered template literals cannot be reviewed as a set; a table can, and the
    next liturgist to read the app can be handed it directly.
 2. **A new `source` value, `upstream-review`** — *a correction from upstream
-   review of the app, with no ACC errata document behind it.* Added to
+   review of the app, with no errata document behind it.* Added to
    `PERMITTED_SOURCES` (`validate_corrections.py:33`) and usable in the
    register. It deliberately does **not** begin with `pwc-errata-`: ADR 0012
    keys break-vouching on that prefix, and a source with no document behind it
@@ -129,11 +136,11 @@ part of it. Flagged for confirmation rather than guessed at.
   correction to one form can move its peers' statistics.
 
 ### Neutral / Notes
-- The Holy Word correction has no ACC document behind it, so `make audit-errata`
-  cannot see it. That is correct — the errata audit's job is to align our data
-  against the errata documents, and this is not in them. The
-  `docs/errata/README.md` table is the substitute, and it is a weaker one:
-  reviewed by humans, checked by nothing.
+- The Holy Word correction is errata-documented (Ordinary p. 132), not
+  `upstream-review` — the Context said otherwise and the Status note above
+  corrects it. It still cannot be an `office_text` correction: the text is
+  synthesized rather than extracted, so the fix lives in the extractor and the
+  provenance in the `docs/errata/README.md` table.
 - ADR 0016 states the general constraint this applies, and defers to this ADR
   for text the app authors rather than extracts.
 - The errata documents are published here with their letter headers pruned, as

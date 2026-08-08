@@ -410,7 +410,7 @@ The walk does **not** follow `{"type": "shared"}` references. A shared block is
 reachable from many forms, so correcting it through one form would silently
 rewrite the others; address `_shared` directly instead.
 
-Editorial errata from the ACC live in `docs/errata/` — see the README there for
+Editorial errata for the printed PWC live in `docs/errata/` — see the README there for
 which items became corrections, which the extraction already handles, and which
 of the errata's own transcription slips must not be propagated.
 

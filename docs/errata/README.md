@@ -1,7 +1,7 @@
 # PWC errata
 
-Editorial errata for *Pray Without Ceasing*, received from the Anglican
-Church of Canada and imported verbatim:
+Editorial errata for *Pray Without Ceasing*, received for this project and
+imported verbatim:
 
 | Document | Items |
 |---|---|
