@@ -34,6 +34,49 @@ async function main() {
   const rules = [];
   const failures = [];
 
+  // Line breaks the ACC errata prints deliberately, lifted from the corrections
+  // that introduce them (ADR 0012). A break after a line with no terminal
+  // punctuation usually means a column wrap leaked through — except where an
+  // editorial source says the line ends there on purpose:
+  //
+  //     May God, who has called us out of darkness
+  //     into the marvellous light of Christ,
+  //
+  // Keyed on `office|field` so a correction vouches only where it points, and
+  // on `source` rather than an id prefix, because an id is a label. Derived so
+  // the exemption cannot outlive its reason: drop the correction and the line
+  // stops being sanctioned on the next run.
+  const ERRATA_BREAKS = new Set();
+  try {
+    const corr = JSON.parse(readFileSync(join(root, 'data/corrections.json'), 'utf8'));
+    // A correction on _shared.K vouches at every form whose field references K.
+    // The opposite of corrections_lib.iter_text_segments, which refuses to
+    // follow shared references: applying through one would rewrite siblings
+    // silently, but the text really does appear at every form that uses it.
+    const sharedUsers = {};
+    for (const [fk, form] of Object.entries(offices)) {
+      if (fk.startsWith('_')) continue;
+      for (const [field, value] of Object.entries(form)) {
+        if (value && value.type === 'shared' && value.key) {
+          (sharedUsers[value.key] ||= []).push(`${fk}|${field}`);
+        }
+      }
+    }
+    for (const c of corr.office_text || []) {
+      if (!String(c.source || '').startsWith('pwc-errata-')) continue;
+      if (typeof c.new !== 'string') continue;
+      const targets = c.office === '_shared'
+        ? (sharedUsers[c.field] || [])
+        : [`${c.office}|${c.field}`];
+      const lines = c.new.split('\n');
+      for (let i = 0; i < lines.length - 1; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;          // a blank line vouches for nothing
+        for (const t of targets) ERRATA_BREAKS.add(`${t} ${line}`);
+      }
+    }
+  } catch (_) { /* no manifest — every break is checked, the safe default */ }
+
   // ── Tier 1: Structural (penalty: -10) ────────────────────────────────
 
   rules.push({ name: 'dismissal-has-amen', tier: 1, check(form, formKey, data) {
@@ -212,14 +255,16 @@ async function main() {
         const isCollect = collectLabels.includes(sub.label) || sub.label.includes('Collect');
         const isDismissal = sub.label === 'The Dismissal';
         if (!isCollect && !isDismissal) continue;
+        const field = isDismissal ? 'dismissal' : 'seasonal_collects';
         for (const seg of sub.segments) {
           // Only check leader/response segments — rubric bullet lists are intentional
           if (seg.type !== 'leader' && seg.type !== 'response') continue;
           const lines = seg.text.split('\n');
           for (let i = 0; i < lines.length - 1; i++) {
             const line = lines[i];
-            const trimmed = line.trimEnd();
-            if (trimmed && !/[.,;:!?]\s*$/.test(trimmed)) {
+            const trimmed = line.trim();
+            if (trimmed && !/[.,;:!?]\s*$/.test(trimmed)
+                && !ERRATA_BREAKS.has(`${formKey}|${field} ${trimmed}`)) {
               dumpTexts.push(seg.text.slice(0, 60));
             }
           }
