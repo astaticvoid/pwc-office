@@ -4,6 +4,7 @@ import { join } from 'path';
 import {
   formKey, officeFormSeason, renderSegments, renderSubsection, lessonHtml,
   lessonsPickText, lessonsPickRubricHtml, renderOfficeJSON,
+  LITURGICAL_TEXT_REGISTER,
 } from '../../web/render.js';
 
 const DATA_DIR = join(import.meta.dirname, '../../data');
@@ -164,6 +165,52 @@ describe('all forms: shared-ref fields render non-empty HTML', () => {
     expect(third?.label, `${name} reading_response third alternative`).toBe('III');
     expect(third?.segments?.[0]?.text,
       `${name} reading_response third leader`).toBe('Holy Word, Holy Wisdom.');
+  });
+});
+
+// ── App-authored liturgical text register (ADR 0015) ─────────────────────────
+
+describe('liturgical text register', () => {
+  const ALLOWED_SOURCES = new Set(['editorial', 'upstream-review']);
+
+  test('holds the ten app-authored strings, each with provenance', () => {
+    expect(Object.keys(LITURGICAL_TEXT_REGISTER)).toHaveLength(10);
+    for (const [key, entry] of Object.entries(LITURGICAL_TEXT_REGISTER)) {
+      expect(entry.text, `${key} text`).toBeTruthy();
+      expect(entry.note, `${key} note`).toBeTruthy();
+      expect(ALLOWED_SOURCES.has(entry.source), `${key} source ${entry.source}`).toBe(true);
+    }
+  });
+
+  test('review-corrected rubrics no longer carry the wrong wording', () => {
+    const all = Object.values(LITURGICAL_TEXT_REGISTER).map(e => e.text).join('\n');
+    expect(all).not.toContain('from the appointed lectionary');
+    expect(all).not.toContain('or the Litany');
+  });
+
+  test('the review-corrected strings are applied in the register', () => {
+    expect(LITURGICAL_TEXT_REGISTER.readingIntro.text).toBe('A Reading is read.');
+    expect(LITURGICAL_TEXT_REGISTER.psalmIntro.text).toBe('A Psalm is said or sung.');
+    expect(LITURGICAL_TEXT_REGISTER.psalmsIntro.text).toBe('The following Psalms are said or sung.');
+    expect(LITURGICAL_TEXT_REGISTER.singlePsalmIntro.text).toBe('The following Psalm is said or sung.');
+    expect(LITURGICAL_TEXT_REGISTER.affirmationTransition.text)
+      .toBe('{office} Prayer continues with an Affirmation of Faith or the Prayers.');
+    for (const k of ['readingIntro', 'psalmIntro', 'psalmsIntro', 'singlePsalmIntro', 'affirmationTransition']) {
+      expect(LITURGICAL_TEXT_REGISTER[k].source, `${k} source`).toBe('upstream-review');
+    }
+  });
+
+  test('the pre-Litany transition keeps its approved wording', () => {
+    // ADR 0015: the app.js:999 rubric ("continues with the Litany.") is a
+    // different rubric from the reviewed one and was left alone.
+    expect(LITURGICAL_TEXT_REGISTER.litanyTransition.text)
+      .toBe('{office} Prayer continues with the Litany.');
+    expect(LITURGICAL_TEXT_REGISTER.litanyTransition.source).toBe('editorial');
+  });
+
+  test('lessonsPickText renders from the register template', () => {
+    expect(lessonsPickText(2, 3)).toBe('Two of the following three readings are read.');
+    expect(lessonsPickText(1, 4)).toBe('One of the following four readings are read.');
   });
 });
 

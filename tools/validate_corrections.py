@@ -37,6 +37,7 @@ PERMITTED_SOURCES = {
     "pdf-extraction-artifact": "an artifact of extraction rather than a defect in the source",
     "pwc-errata-ordinary":     "the errata for Ordinary Time (docs/errata/ordinary-time.md)",
     "pwc-errata-seasonal":     "the errata for the seasonal offices (docs/errata/seasonal.md)",
+    "upstream-review":         "a correction from upstream review of the app, with no errata document behind it (ADR 0015)",
 }
 
 # The prefix ADR 0012's exemption keys on. Adding a source that starts with it
