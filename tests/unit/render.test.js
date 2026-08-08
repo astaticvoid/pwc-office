@@ -4,7 +4,7 @@ import { join } from 'path';
 import {
   formKey, officeFormSeason, renderSegments, renderSubsection, lessonHtml,
   lessonsPickText, lessonsPickRubricHtml, renderOfficeJSON,
-  LITURGICAL_TEXT_REGISTER,
+  LITURGICAL_TEXT_REGISTER, SKIP_RUBRICS, assembleSections, esc,
 } from '../../web/render.js';
 
 const DATA_DIR = join(import.meta.dirname, '../../data');
@@ -119,8 +119,11 @@ describe('lessonsPick', () => {
       '<p class="seg-rubric">Two of the following three readings are read.</p>');
   });
 
-  test('rubric is not book-only (must show in the interactive app)', () => {
-    expect(lessonsPickRubricHtml(2, 3)).not.toContain('rubric-book-only');
+  test('rubric is not hidden in the interactive app (BUG-28 load-bearing)', () => {
+    // The class that used to hide book-navigation rubrics in Office mode is
+    // gone (ADR 0013 #59); the pick rubric must render unconditionally.
+    expect(lessonsPickRubricHtml(2, 3)).toContain('Two of the following three readings are read.');
+    expect(lessonsPickRubricHtml(2, 3)).not.toMatch(/hidden|display:\s*none/);
   });
 
   test('no rubric when pick >= total or pick is falsy', () => {
@@ -230,6 +233,60 @@ describe('intercession biddings', () => {
     const html = renderSegments([bidding], {});
     expect(html).toContain('Additional intercessions, petitions, and thanksgivings');
     expect(html).not.toContain('Offer intercessions, petitions, and thanksgivings');
+  });
+});
+
+// ── SKIP_RUBRICS is falsifiable (ADR 0013, #59) ─────────────────────────────
+
+describe.skipIf(!HAS_DATA)('SKIP_RUBRICS duplicate headings', () => {
+  test('every SKIP_RUBRICS entry fires on at least one real rubric in the corpus', () => {
+    // Guards against dead entries: a pattern that matches no data would
+    // suppress nothing and the falsifiability contract would silently rot.
+    for (const entry of SKIP_RUBRICS) {
+      let hits = 0;
+      for (const [, form] of forms) {
+        for (const segs of Object.values(form)) {
+          if (!Array.isArray(segs)) continue;
+          for (const seg of segs) {
+            if (seg && seg.type === 'rubric' && entry.re.test(seg.text || '')) hits++;
+          }
+        }
+      }
+      if (hits === 0) {
+        throw new Error(`SKIP_RUBRICS entry ${entry.re} matches no rubric in the data`);
+      }
+    }
+  });
+
+  test('every suppressed rubric has its duplicate heading in the rendered office', () => {
+    // Each SKIP_RUBRICS entry names the heading that already renders the same
+    // text elsewhere. If that heading stops being emitted, the suppression
+    // silently swallows the rubric — so assert every heading renders, scoped
+    // per form to the entries that actually fire there (a form with no litany
+    // suppresses nothing and must not be held to The Litany's heading).
+    const officeType = 'mp';
+    const season = 'OrdinaryTime';
+    for (const [name, form] of forms) {
+      const fired = SKIP_RUBRICS.filter(entry =>
+        Object.values(form).some(segs =>
+          Array.isArray(segs) && segs.some(seg =>
+            seg && seg.type === 'rubric' && entry.re.test(seg.text || ''))));
+      if (!fired.length) continue;
+      const cfg = { form, shared, officeData: {}, officeType, season, weekIdx: 0 };
+      const { sections } = assembleSections(cfg);
+      let html = '';
+      for (const section of sections) {
+        for (const sub of section.subsections) {
+          html += renderSubsection(sub.label, sub.segments, shared, false);
+        }
+      }
+      for (const entry of fired) {
+        const heading = `<h3 class="office-subsection-title">${esc(entry.duplicate)}</h3>`;
+        if (!html.includes(heading)) {
+          throw new Error(`${name}: SKIP_RUBRICS duplicate heading "${entry.duplicate}" not in rendered office`);
+        }
+      }
+    }
   });
 });
 

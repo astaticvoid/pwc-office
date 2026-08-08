@@ -469,7 +469,7 @@ function buildParagraphHtml(verses, paraMap) {
 
 function gloriaHtml(shared) {
   if (!shared || !shared.doxology) return '';
-  return `<p class="seg-rubric rubric-book-only">${LITURGICAL_TEXT_REGISTER.psalmEnd.text}</p>`
+  return `<p class="seg-rubric">${LITURGICAL_TEXT_REGISTER.psalmEnd.text}</p>`
        + `<div class="psalm-gloria">${renderAlternatives(shared.doxology, shared, 'doxology')}</div>`;
 }
 
@@ -487,14 +487,14 @@ function psalmHtml(officeData, shared) {
   let html = '';
   if (psalmSets && psalmSets.length) {
     const allFlat = psalmSets.flat();
-    html += `<p class="seg-rubric rubric-book-only">${LITURGICAL_TEXT_REGISTER.psalmIntro.text}</p>`;
+    html += `<p class="seg-rubric">${LITURGICAL_TEXT_REGISTER.psalmIntro.text}</p>`;
     allFlat.forEach(p => { html += psalmPlaceholder(p); });
     html += gloriaHtml(shared);
   } else if (psalms.length) {
     if (psalms.length > 1) {
-      html += `<p class="seg-rubric rubric-book-only">${LITURGICAL_TEXT_REGISTER.psalmsIntro.text}</p>`;
+      html += `<p class="seg-rubric">${LITURGICAL_TEXT_REGISTER.psalmsIntro.text}</p>`;
     } else {
-      html += `<p class="seg-rubric rubric-book-only">${LITURGICAL_TEXT_REGISTER.singlePsalmIntro.text}</p>`;
+      html += `<p class="seg-rubric">${LITURGICAL_TEXT_REGISTER.singlePsalmIntro.text}</p>`;
     }
     psalms.forEach(p => { html += psalmPlaceholder(p); });
     html += gloriaHtml(shared);
@@ -982,7 +982,7 @@ async function render(dateStr, officeType, translation) {
       const affirmTransition = hasLitany
         ? LITURGICAL_TEXT_REGISTER.affirmationTransition.text.replace('{office}', mpOrEp)
         : `${mpOrEp} Prayer continues with the Affirmation of Faith.`;
-      html += `<p class="seg-rubric rubric-book-only">${esc(affirmTransition)}</p>`;
+      html += `<p class="seg-rubric">${esc(affirmTransition)}</p>`;
       html += renderSubsection('Affirmation of Faith', form.affirmation, shared);
     }
   }
@@ -996,7 +996,7 @@ async function render(dateStr, officeType, translation) {
     if (form.litany && form.litany.length) {
       if (form.affirmation && form.affirmation.length) {
         const mpOrEp2 = (form.title || '').toLowerCase().startsWith('evening') ? 'Evening' : 'Morning';
-        html += `<p class="seg-rubric rubric-book-only">${esc(LITURGICAL_TEXT_REGISTER.litanyTransition.text.replace('{office}', mpOrEp2))}</p>`;
+        html += `<p class="seg-rubric">${esc(LITURGICAL_TEXT_REGISTER.litanyTransition.text.replace('{office}', mpOrEp2))}</p>`;
       }
       html += renderSubsection('The Litany', form.litany, shared);
     }

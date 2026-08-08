@@ -368,10 +368,6 @@ body {
 
 /* ── View toggle (book mode) ────────────────────────────────────────────────── */
 
-/* Book-only rubrics: hidden in normal mode, visible in book mode */
-.rubric-book-only { display: none; }
-body.book-mode .rubric-book-only { display: block; }
-
 body.book-mode .verse-num { display: inline; }
 body.book-mode .alt-panel         { display: block !important; }
 body.book-mode .alt-panel-hidden  { display: block !important; }

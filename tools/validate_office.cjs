@@ -16,7 +16,7 @@ const root = join(dirname(__filename), '..');
 
 async function main() {
   const { renderOfficeJSON, segmentsToJSON, walkSegments, seasonOf, officeFormSeason, seasonWeekIndex,
-          SKIP_RUBRICS, BOOK_ONLY_RUBRICS } = await import('../web/render.js');
+          isSkippedRubric } = await import('../web/render.js');
 
   const useJson = process.argv.includes('--json');
 
@@ -298,13 +298,22 @@ async function main() {
 
   rules.push({ name: 'no-orphan-rubrics', tier: 2, check(form, formKey, data) {
     const orphans = [];
+    // Rubrics that legitimately close a subsection with nothing after them —
+    // the intercessions free-prayer prompt and the EP responsory transition.
+    // BOOK_ONLY_RUBRICS used to exempt them by regex; ADR 0013 deleted that
+    // regex (#59), so the exemption now names the texts it covers.
+    const trailingOk = [
+      'The community may offer its intercessions, petitions, and thanksgivings',
+      'Evening Prayer continues with [the Second Reading or] the Canticle',
+    ];
     for (const section of data.sections) {
       for (const sub of section.subsections) {
         if (!sub.segments.length) continue;
         const last = sub.segments[sub.segments.length - 1];
         if (last.type !== 'rubric') continue;
         const txt = last.text;
-        if (!SKIP_RUBRICS.test(txt) && !BOOK_ONLY_RUBRICS.test(txt)) {
+        if (!isSkippedRubric(txt)
+            && !trailingOk.some(prefix => txt.trim().startsWith(prefix))) {
           orphans.push(`${sub.label}: "${txt.slice(0, 50)}..."`);
         }
       }

@@ -14,7 +14,8 @@ const { join, dirname } = require('path');
 const root = join(dirname(__filename), '..');
 
 async function main() {
-  const { assembleSections, renderSegments, walkSegments, SKIP_RUBRICS } = await import('../web/render.js');
+  const { assembleSections, renderSegments, renderSegmentsText, renderSubsection,
+          walkSegments, SKIP_RUBRICS, isSkippedRubric, esc } = await import('../web/render.js');
 
   const offices = JSON.parse(readFileSync(join(root, 'data/offices.json'), 'utf8'));
   const shared = offices._shared || {};
@@ -71,7 +72,7 @@ async function main() {
       const items = [];
       for (const event of walkSegments(segs, shared)) {
         if (event.type === 'segment' && event.seg.text && event.seg.text.trim()
-            && !SKIP_RUBRICS.test(event.seg.text)) {
+            && !isSkippedRubric(event.seg.text)) {
           items.push(event.seg);
         }
       }
@@ -91,7 +92,59 @@ async function main() {
       }
     }
 
-    // 4. Seasonal collect must have content
+    // 4. Rubric presence (ADR 0013): every rubric in a checked field appears
+    // in the rendered Office-mode DOM; SKIP_RUBRICS entries must produce their
+    // named duplicate heading instead. Text mode must render the same rubrics.
+    // (seasonal_collects is out of reach until collectToggleHtml moves — the
+    // ADR names that hole explicitly.)
+    const officeJSON = assembleSections({
+      form, shared, officeData: {}, officeType: fk.endsWith('-ep') ? 'ep' : 'mp',
+      season: fk.startsWith('ordinary-') ? 'OrdinaryTime' : 'Seasonal', weekIdx: 0,
+    });
+    let officeHtml = '';
+    for (const section of officeJSON.sections) {
+      for (const sub of section.subsections) {
+        officeHtml += renderSubsection(sub.label, sub.segments, shared, false);
+      }
+    }
+    const norm = s => s.replace(/\s+/g, ' ').trim();
+    const officeNorm = norm(officeHtml.replace(/<[^>]+>/g, ' '));
+    for (const field of Object.keys(renderableFields)) {
+      const segs = form[field];
+      if (!segs || !Array.isArray(segs)) continue;
+      // HTML mode: every rubric renders; SKIP'd ones must have their duplicate heading
+      for (const event of walkSegments(segs, shared)) {
+        if (event.type !== 'segment' || event.seg.type !== 'rubric') continue;
+        const txt = (event.seg.text || '').trim();
+        if (!txt) continue;
+        const skip = SKIP_RUBRICS.find(e => e.re.test(txt));
+        if (skip) {
+          // The duplicate must render as a subsection heading, matching
+          // renderSubsection's markup — a raw substring could false-match a
+          // longer heading containing the duplicate, or false-fail on
+          // entities the heading would escape.
+          const heading = `<h3 class="office-subsection-title">${esc(skip.duplicate)}</h3>`;
+          if (!officeHtml.includes(heading)) {
+            formFailures.push(`${fk}.${field}: SKIP'd rubric "${txt.slice(0, 40)}..." has no duplicate heading "${skip.duplicate}" in DOM`);
+          }
+        } else if (!officeNorm.includes(norm(txt))) {
+          formFailures.push(`${fk}.${field}: rubric "${txt.slice(0, 40)}..." missing from Office-mode DOM`);
+        }
+      }
+      // Text mode: the same rubrics (minus SKIP'd) must appear
+      const textBlocks = renderSegmentsText(segs, shared);
+      const textRubrics = textBlocks.filter(b => b.type === 'rubric').map(b => norm(b.text));
+      for (const event of walkSegments(segs, shared)) {
+        if (event.type !== 'segment' || event.seg.type !== 'rubric') continue;
+        const txt = (event.seg.text || '').trim();
+        if (!txt || isSkippedRubric(txt)) continue;
+        if (!textRubrics.includes(norm(txt))) {
+          formFailures.push(`${fk}.${field}: rubric "${txt.slice(0, 40)}..." missing from text mode`);
+        }
+      }
+    }
+
+    // 5. Seasonal collect must have content
     if (form.seasonal_collects && Array.isArray(form.seasonal_collects)) {
       const scHtml = renderSegments(form.seasonal_collects, shared, false);
       const scParaCount = (scHtml.match(/<p\b/g) || []).length;

@@ -79,13 +79,21 @@ export const CANTICLE_SOURCE = {
   'Hear, O Israel': '',
 };
 
-// Rubrics that are section-navigation cues in the printed book but are either
-// rendered as explicit headings or added programmatically as inter-section transitions.
-export const SKIP_RUBRICS = /^(Affirmation of Faith|[Tt]he Lord['\u2019]?s Prayer)\.?\s*$|may conclude with|^The (Responsory|Litany) is said or sung\./i;
+// Rubrics suppressed as duplicates (ADR 0013): each is already emitted as the
+// heading named in `duplicate` by renderSubsection / the app, in the same view
+// and mode. The exemption lives at the thing it exempts: validate_render.cjs
+// asserts the duplicate heading is in the rendered DOM, so a suppression whose
+// heading stops being emitted fails rather than silently swallowing the rubric.
+export const SKIP_RUBRICS = [
+  { re: /^Affirmation of Faith\.?\s*$/i, duplicate: 'Affirmation of Faith' },
+  { re: /^The Lord['\u2019]?s Prayer\.?\s*$/i, duplicate: "The Lord's Prayer" },
+  { re: /^The Responsory is said or sung\.$/i, duplicate: 'The Responsory' },
+  { re: /^The Litany is said or sung\.$/i, duplicate: 'The Litany' },
+];
 
-// Rubrics that are book-navigation instructions (pick one, introduces a section,
-// etc.) — noisy in the interactive app but needed in flat book mode.
-export const BOOK_ONLY_RUBRICS = /one of the following may be said or sung|the following psalms|at the end of the (psalm|canticle)|after the (psalm|canticle)|may be said or sung\.|one of the following affirmations|continues with|Evening Prayer continues|The community may offer|may be offered silently/i;
+export function isSkippedRubric(text) {
+  return SKIP_RUBRICS.some(e => e.re.test(text || ''));
+}
 
 // Exported so app.js can use them in collectToggleHtml without re-declaration.
 export const SC_HEADER = /^Additional\s+intercessions/i;
@@ -500,11 +508,10 @@ export function renderSegments(segs, shared, verse = false) {
     let contextKey;
     if (seg.type === 'shared' && shared) { contextKey = seg.key; seg = shared[seg.key] || seg; }
     if (seg.type === 'alternatives') return renderAlternatives(seg, shared, contextKey, verse);
-    if (seg.type === 'rubric' && SKIP_RUBRICS.test(seg.text || '')) return '';
+    if (seg.type === 'rubric' && isSkippedRubric(seg.text)) return '';
     const text = seg.text || '';
     if (seg.type === 'rubric') {
-      const cls = BOOK_ONLY_RUBRICS.test(text) ? 'seg-rubric rubric-book-only' : 'seg-rubric';
-      return `<p class="${cls}">${esc(text)}</p>`;
+      return `<p class="seg-rubric">${esc(text)}</p>`;
     }
     if (seg.type === 'label')    return `<p class="seg-label">${esc(text)}</p>`;
     if (seg.type === 'response') return `<p class="seg-response">${italicisePlaceholderN(bindMidpoints(formatLiturgicalText(text)))}</p>`;
@@ -558,8 +565,8 @@ export function lessonHtml(lesson, shared, form) {
   const optional = typeof lesson === 'object' && lesson.optional;
   const displayCitation = expandCitationForDisplay(rawCitation);
   const display = optional ? `(${displayCitation})` : displayCitation;
-  const preambleRubric = `<p class="seg-rubric rubric-book-only">${LITURGICAL_TEXT_REGISTER.readingIntro.text}</p>`;
-  const reflectionRubric = `<p class="seg-rubric rubric-book-only">${LITURGICAL_TEXT_REGISTER.reflectionPrompt.text}</p>`;
+  const preambleRubric = `<p class="seg-rubric">${LITURGICAL_TEXT_REGISTER.readingIntro.text}</p>`;
+  const reflectionRubric = `<p class="seg-rubric">${LITURGICAL_TEXT_REGISTER.reflectionPrompt.text}</p>`;
   if (!form || !form.reading_response) console.warn('lessonHtml: no reading_response on form, using fallback');
   let readingResponse = (form && form.reading_response) || READING_RESPONSE;
   if (readingResponse?.type === 'shared' && shared) {
@@ -671,11 +678,9 @@ export function renderSegmentsText(segs, shared, opts = {}) {
       // cannot be one policy. The options this replaces (skipRubrics,
       // condenseRubrics) also dropped every rubric matching no condense
       // pattern, so the callers that set them rendered 14 of 321 (#58).
-      // The modes are not yet fully aligned: renderSegments still applies
-      // BOOK_ONLY_RUBRICS, which this mode has no equivalent of, so text
-      // output is currently the fuller of the two.
-      // ADR 0013 closes that by deleting it (#59).
-      if (SKIP_RUBRICS.test(text)) continue;
+      // ADR 0013 (#59) deleted BOOK_ONLY_RUBRICS, so the two modes now share
+      // the same SKIP_RUBRICS allowlist.
+      if (isSkippedRubric(text)) continue;
       blocks.push({ type: 'rubric', text });
     } else if (seg.type === 'label') {
       blocks.push({ type: 'label', text });

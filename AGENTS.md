@@ -373,11 +373,11 @@ All task tracking lives in [GitHub Issues](https://github.com/astaticvoid/pwc-of
   changed. Worked applications: ADR 0013 (rubrics), 0014 (choices), 0015
   (text the app authors itself).
   **The shipped code does not comply yet, and this rule is not a licence to make
-  it comply.** `BOOK_ONLY_RUBRICS` still hides 39 rubric texts outside book
-  mode, and there is no psalm or reading selector. That is known, and tracked
-  in issues #58-#63 and #65. Do not start deleting those mechanisms unprompted —
-  they come out as their ADRs are implemented, in the order those ADRs set. The
-  rule binds *new* work: don't add a mechanism of the same kind.
+  it comply.** `BOOK_ONLY_RUBRICS` is gone (deleted under ADR 0013, #59), and
+  `SKIP_RUBRICS` survives only as four named duplicates, each pinned to the
+  heading it defers to by `validate_render.cjs` and a corpus test — but there is
+  still no psalm or reading selector. That is known, and tracked in issues
+  #63-#65. The rule binds *new* work: don't add a mechanism of the same kind.
 
 ## Data correction locations
 
