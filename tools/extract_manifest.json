@@ -1,5 +1,5 @@
 {
-  "extracted_at": "2026-08-08T00:50:31Z",
+  "extracted_at": "2026-08-08T01:18:01Z",
   "tool_versions": {
     "fitz": [
       "1.28.0",
@@ -18,12 +18,12 @@
     "tools/apply_corrections.py": "2b269b10b11bf737c177fcbb16ec38cb36571f7d270185a7f26cdfc89e233fa5",
     "tools/corrections_lib.py": "20a98d9f99830ab24d5bcbd32613929929e6eaa72c085352b16a0a7385f4e70d",
     "tools/extract_lib.py": "bc1681ebbb5c6be0c197f39aeb594d02f4e85d953384ade8a83319dd4978d91f",
-    "data/corrections.json": "450b009ee74e05def1c351ceea0a5cb4b6e04d7b457283ef57c82751207106f5",
+    "data/corrections.json": "39ffd3a3e247ee023fbbf0b77af7aab4461098b64e868b114e8078741dc4c55c",
     "sources/bas_short_2026.csv": "909616851bf8c627428fbaf50ce894d72fc122a3b702843f1bad7c070850b89e"
   },
   "files": {
     "data/offices.json": {
-      "sha256": "a71072a8fa97adce075d85870ccf7cfd19067e4c26f047e9878eef97fe28b5d2",
+      "sha256": "92971c24dd3c172c22d45ae081c919b245daef375bbb43db73bff834b87a3d0c",
       "entries": 31
     },
     "data/collects.json": {

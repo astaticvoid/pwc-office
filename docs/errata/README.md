@@ -68,8 +68,13 @@ All of it, as 45 `office_text` entries in `data/corrections.json`. Three kinds:
    Far fewer than the errata's 46 reflow items suggest: most ask for a break
    between versicle and response, and our extraction already splits those into
    separate `leader` and `response` segments.
-3. **Structural** — Seasonal p. 52, deleting the Epiphany EP doxologies, as a
-   whole-field replace.
+3. **Structural** — two whole-field replaces: Seasonal p. 52, deleting the
+   Epiphany EP doxologies; and Seasonal p. 66, splitting "The Responsory is said
+   or sung." out of the Lent EP first leader segment so it stands as its own
+   rubric. The second is not what that erratum asks for — its complaint about
+   indentation and italics is still not applicable — but it is a defect found
+   while checking it, one case against 59 where the same rubric is already its
+   own segment.
 
 **The trap that caught the first pass.** Aligning an errata block against our
 segments as a whole fails silently wherever the block contains a wording

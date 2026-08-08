@@ -499,6 +499,109 @@
         }
       ],
       "reason": "Errata, Seasonal p. 52: 'The doxologies printed on the top of the page following the Responsory should be deleted entirely.' Removing segments is structural, so this is a whole-field replace; the three alternatives collapse to the flat sequence the erratum prints, closing rubric included."
+    },
+    {
+      "id": "errata-lent-ep-responsory-rubric",
+      "source": "pwc-errata-seasonal",
+      "office": "lent-ep",
+      "field": "responsory",
+      "old": [
+        {
+          "type": "leader",
+          "text": "The Responsory is said or sung.\nIncline your ear to me;\nmake haste to answer when I call."
+        },
+        {
+          "type": "response",
+          "text": "Incline your ear to me;\nmake haste to answer when I call."
+        },
+        {
+          "type": "leader",
+          "text": "Lord, hear my prayer\nand let my cry come before you."
+        },
+        {
+          "type": "response",
+          "text": "Make haste to answer when I call."
+        },
+        {
+          "type": "leader",
+          "text": "Hide not your face from me\nin the day of my trouble."
+        },
+        {
+          "type": "response",
+          "text": "Make haste to answer when I call."
+        },
+        {
+          "type": "leader",
+          "text": "You endure for ever\nand your name from age to age."
+        },
+        {
+          "type": "response",
+          "text": "Make haste to answer when I call."
+        },
+        {
+          "type": "leader",
+          "text": "You will arise and have compassion on Zion,\nfor it is time to have pity upon her."
+        },
+        {
+          "type": "response",
+          "text": "Make haste to answer when I call."
+        },
+        {
+          "type": "rubric",
+          "text": "Affirmation of Faith."
+        }
+      ],
+      "new": [
+        {
+          "type": "rubric",
+          "text": "The Responsory is said or sung."
+        },
+        {
+          "type": "leader",
+          "text": "Incline your ear to me;\nmake haste to answer when I call."
+        },
+        {
+          "type": "response",
+          "text": "Incline your ear to me;\nmake haste to answer when I call."
+        },
+        {
+          "type": "leader",
+          "text": "Lord, hear my prayer\nand let my cry come before you."
+        },
+        {
+          "type": "response",
+          "text": "Make haste to answer when I call."
+        },
+        {
+          "type": "leader",
+          "text": "Hide not your face from me\nin the day of my trouble."
+        },
+        {
+          "type": "response",
+          "text": "Make haste to answer when I call."
+        },
+        {
+          "type": "leader",
+          "text": "You endure for ever\nand your name from age to age."
+        },
+        {
+          "type": "response",
+          "text": "Make haste to answer when I call."
+        },
+        {
+          "type": "leader",
+          "text": "You will arise and have compassion on Zion,\nfor it is time to have pity upon her."
+        },
+        {
+          "type": "response",
+          "text": "Make haste to answer when I call."
+        },
+        {
+          "type": "rubric",
+          "text": "Affirmation of Faith."
+        }
+      ],
+      "reason": "Errata, Seasonal p. 66: the rubric 'The Responsory is said or sung.' is glued into the first leader segment instead of standing on its own, so it renders in leader styling. One case against 59 where the same rubric is its own segment, so it is a single-form data defect rather than an extractor bug. Splitting a segment is structural, hence whole-field. The erratum's own complaint about p. 66 — indentation and italics — remains not applicable; this is the separate structural defect that was found while checking it."
     }
   ],
   "lectionary_citations": [],
