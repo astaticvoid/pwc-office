@@ -137,12 +137,59 @@ def check_file(rel_path: str, findings: list) -> None:
 _TERMINAL_PUNCT = tuple(",;:.!?—’”)")
 
 
-def _check_prose_wraps(text: str, location: str, findings: list) -> None:
+def errata_breaks(offices: dict) -> set:
+    """Lines the ACC errata deliberately breaks after (ADR 0012).
+
+    A line ending mid-clause is normally a PDF column wrap that
+    `_reflow_litany_prose` should have joined. Where an editorial source says
+    the line ends there on purpose, it is neither a wrap nor anything the
+    extractor could have known.
+
+    Entries are `"office|field line"`, so a correction vouches only where it
+    points. Keyed on `source`, not an id prefix — an id is a label. Derived from
+    the manifest rather than listed here, so the exemption disappears with the
+    correction it came from.
+    """
+    path = ROOT / "data" / "corrections.json"
+    if not path.exists():
+        return set()
+    try:
+        manifest = json.loads(path.read_bytes())
+    except (ValueError, OSError):
+        return set()          # unreadable manifest — check every break
+
+    # A correction on _shared.K vouches at every form whose field references K.
+    shared_users: dict = {}
+    for form_key, form in offices.items():
+        if form_key.startswith("_") or not isinstance(form, dict):
+            continue
+        for field, value in form.items():
+            if isinstance(value, dict) and value.get("type") == "shared" and value.get("key"):
+                shared_users.setdefault(value["key"], []).append(f"{form_key}|{field}")
+
+    out = set()
+    for c in manifest.get("office_text", []):
+        if not str(c.get("source", "")).startswith("pwc-errata-"):
+            continue
+        if not isinstance(c.get("new"), str):
+            continue
+        targets = (shared_users.get(c.get("field"), []) if c.get("office") == "_shared"
+                   else [f"{c.get('office')}|{c.get('field')}"])
+        for line in c["new"].split("\n")[:-1]:
+            line = line.strip()
+            if not line:              # a blank line vouches for nothing
+                continue
+            out.update(f"{t} {line}" for t in targets)
+    return out
+
+
+def _check_prose_wraps(text: str, location: str, findings: list,
+                       sanctioned: frozenset = frozenset(), scope: str = "") -> None:
     if not isinstance(text, str) or "\n" not in text:
         return
     lines = [ln.strip() for ln in text.split("\n")]
     for ln in lines[:-1]:              # every line except the last
-        if ln and not ln.endswith(_TERMINAL_PUNCT):
+        if ln and not ln.endswith(_TERMINAL_PUNCT) and f"{scope} {ln}" not in sanctioned:
             snippet = ln[-40:] if len(ln) > 40 else ln
             findings.append((location, "column_wrap", f"line ends mid-clause: …{snippet!r}"))
 
@@ -186,6 +233,8 @@ def check_prose_fields(findings: list) -> None:
     and litany leader segments. Litanies are prose (not verse); line breaks without
     terminal punctuation are PDF column wraps that _reflow_litany_prose should have
     joined at extraction time."""
+    # No correction category reaches collects.json, so it is passed no
+    # sanctioned set — explicitly, rather than as a property assumed to hold.
     collects_path = ROOT / "data" / "collects.json"
     if collects_path.exists():
         collects = json.loads(collects_path.read_bytes())
@@ -196,6 +245,7 @@ def check_prose_fields(findings: list) -> None:
     offices_path = ROOT / "data" / "offices.json"
     if offices_path.exists():
         offices = json.loads(offices_path.read_bytes())
+        sanctioned = errata_breaks(offices)
         for office_key, form in offices.items():
             if office_key.startswith("_") or not isinstance(form, dict):
                 continue
@@ -204,13 +254,15 @@ def check_prose_fields(findings: list) -> None:
                 leaders: list = []
                 _seasonal_collect_leaders(sc, f"offices.json[{office_key!r}].seasonal_collects", leaders)
                 for loc, text in leaders:
-                    _check_prose_wraps(text, loc, findings)
+                    _check_prose_wraps(text, loc, findings, sanctioned,
+                                       f"{office_key}|seasonal_collects")
             lit = form.get("litany")
             if lit is not None:
                 l_leaders: list = []
                 _litany_leaders(lit, f"offices.json[{office_key!r}].litany", l_leaders)
                 for loc, text in l_leaders:
-                    _check_prose_wraps(text, loc, findings)
+                    _check_prose_wraps(text, loc, findings, sanctioned,
+                                       f"{office_key}|litany")
 
 
 # ── Entry point ──────────────────────────────────────────────────────────────
