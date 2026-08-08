@@ -100,11 +100,6 @@ export const SC_FOOTER = /^the\s+Lord['’]s\s+Prayer/i;
 // from here rather than re-declaring the string. `{office}` is substituted by
 // the caller.
 export const LITURGICAL_TEXT_REGISTER = {
-  intercessionsPrompt: {
-    text: 'Offer intercessions, petitions, and thanksgivings, silently or aloud.',
-    source: 'editorial',
-    note: 'Condensed stand-in for the seasonal biddings; removed by ADR 0013 (#60).',
-  },
   readingIntro: {
     text: 'A Reading is read.',
     source: 'upstream-review',
@@ -151,9 +146,6 @@ export const LITURGICAL_TEXT_REGISTER = {
     note: 'Pre-Litany transition, emitted before the Litany subsection; not part of the review change (ADR 0015), left as-is.',
   },
 };
-
-const INTERCESSIONS_RE = /^(The community may offer|Additional intercessions)/;
-const INTERCESSIONS_CONDENSED = `<p class="seg-rubric"><em>${LITURGICAL_TEXT_REGISTER.intercessionsPrompt.text}</em></p>`;
 
 // Roman numerals and "Form X" labels don't need a repeated source heading inside the panel.
 const SHORT_LABEL_RE = /^(?:Form\s+)?(?:I{1,3}|IV|V|VI{0,3}|IX|X)$/i;
@@ -508,7 +500,6 @@ export function renderSegments(segs, shared, verse = false) {
     let contextKey;
     if (seg.type === 'shared' && shared) { contextKey = seg.key; seg = shared[seg.key] || seg; }
     if (seg.type === 'alternatives') return renderAlternatives(seg, shared, contextKey, verse);
-    if (seg.type === 'rubric' && INTERCESSIONS_RE.test(seg.text || '')) return INTERCESSIONS_CONDENSED;
     if (seg.type === 'rubric' && SKIP_RUBRICS.test(seg.text || '')) return '';
     const text = seg.text || '';
     if (seg.type === 'rubric') {
@@ -681,9 +672,9 @@ export function renderSegmentsText(segs, shared, opts = {}) {
       // condenseRubrics) also dropped every rubric matching no condense
       // pattern, so the callers that set them rendered 14 of 321 (#58).
       // The modes are not yet fully aligned: renderSegments still applies
-      // INTERCESSIONS_CONDENSED and BOOK_ONLY_RUBRICS, which this mode has no
-      // equivalent of, so text output is currently the fuller of the two.
-      // ADR 0013 closes that by deleting both (#59, #60).
+      // BOOK_ONLY_RUBRICS, which this mode has no equivalent of, so text
+      // output is currently the fuller of the two.
+      // ADR 0013 closes that by deleting it (#59).
       if (SKIP_RUBRICS.test(text)) continue;
       blocks.push({ type: 'rubric', text });
     } else if (seg.type === 'label') {
