@@ -14,6 +14,10 @@
 | [0010](./0010-static-design-options-page.md) | Static design-options page for visual decision-making | Accepted |
 | [0011](./0011-single-pass-fitz-no-casing-oracle.md) | Single-pass fitz extraction; no independent casing oracle | Accepted |
 | [0012](./0012-editorial-breaks-vouched-by-the-manifest.md) | Editorial line breaks vouched for by the correction manifest, audited against the errata | Accepted |
+| [0013](./0013-authorized-rubrics-are-rendered-not-curated.md) | Authorized rubrics are rendered, not curated | Proposed |
+| [0014](./0014-optionality-is-presented-not-resolved.md) | Optionality is presented, not resolved | Proposed |
+| [0015](./0015-provenance-for-app-authored-liturgical-text.md) | Provenance for app-authored liturgical text | Proposed |
+| [0016](./0016-the-app-renders-the-rite-it-does-not-edit-it.md) | The app renders the authorized rite; it does not edit it | Proposed |
 
 ## Status values
 - **Proposed** — decision documented, awaiting review/adoption

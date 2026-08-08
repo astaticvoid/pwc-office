@@ -356,6 +356,18 @@ All task tracking lives in [GitHub Issues](https://github.com/astaticvoid/pwc-of
 - **Subagent code review before commit.** Every change must be reviewed by a hostile subagent before committing. The subagent checks for bugs, edge cases, silent failures, performance issues, and integration problems. Fix all high-severity findings before committing.
 - **Deploy requires user go-ahead.** Never run `make promote` unprompted. Staging deploys are always safe.
 - **Systemic fixes over patches.** When a bug is found, categorize it: systemic (fix in extractor/renderer), pattern (multiple forms), or data (single form). Fix the root cause so all instances are resolved, not just the one found.
+- **Render the rite; do not edit it** (ADR 0016). Text from PWC, the BAS, or the
+  lectionary renders, renders as written, and keeps its choices: no hiding it
+  behind a mode, no paraphrasing or condensing it, no picking a branch on the
+  reader's behalf. Presentation — typography, spacing, ordering, interaction —
+  is yours. Any exception must be named at its own location and testable, the
+  way ADR 0012 vouches for a line break; a regex or a section allowlist is not
+  an exception, it is an unfalsifiable one. This does not restrict the app's own
+  chrome (settings, navigation, error states). It also does not forbid changes
+  that move rendered text *toward* what is authorized, such as the errata
+  breaks or whitespace normalisation — the test is direction, not whether text
+  changed. Worked applications: ADR 0013 (rubrics), 0014 (choices), 0015
+  (text the app authors itself).
 
 ## Data correction locations
 
