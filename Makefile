@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa lint lint-js lint-py
+.PHONY: venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa lint lint-js lint-py test-mutations
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -80,7 +80,7 @@ lint: lint-js lint-py
 # matches the manifest, which is the state left by editing an extractor and
 # forgetting to re-run the pipeline. A commit was once made in exactly that state
 # because the check was a separate command nobody ran (#50).
-test: lint check-integrity test-unit test-tools qa
+test: lint check-integrity test-unit test-tools qa test-mutations
 
 # Smoke — 4 cases: structural + reading citation check vs lectionary.anglican.ca.
 # Skips citation check if site is unreachable.
@@ -189,6 +189,14 @@ qa:
 	@node tools/audit_text.cjs
 	@echo "=== Accessibility ==="
 	@node tools/audit_a11y.cjs
+
+# Mutation tests for the qa rules themselves: apply a targeted violation to a
+# temp copy of the data and assert the rule actually fires. Catches a rule
+# quietly losing the ability to fail — the failure mode in #70 and #71 — at
+# the commit that breaks it instead of at the next manual audit.
+test-mutations:
+	@echo "=== Rule mutation tests ==="
+	@node tools/test_rule_mutations.cjs
 
 # Validate extracted lectionary data against the ACC HTML source.
 # Requires network access; run manually before a data re-extraction.

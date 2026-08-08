@@ -120,7 +120,11 @@ COHERENCE_THRESHOLD=100 node tools/coherence_score.cjs …  # what qa uses; the
 Test suites live in three places, and the three `make` tiers map onto them
 one-to-one: `tests/unit/` (Vitest, imports `web/render.js` directly),
 `tests/e2e/` (Playwright, both a `chromium` and a `mobile` project), and
-`tools/tests/` (pytest over the extraction tools).
+`tools/tests/` (pytest over the extraction tools). `tools/test_rule_mutations.cjs`
+is a fourth, narrower one — mutation tests for the qa rules themselves
+(`make test-mutations`) — living directly in `tools/` rather than
+`tools/tests/` because it drives `tools/validate_office.cjs` as a subprocess
+instead of importing it.
 
 ## Architecture
 

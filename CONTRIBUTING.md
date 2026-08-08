@@ -125,8 +125,9 @@ instance resolves at once.
 
 | Command | What it runs | When to use |
 |---------|-------------|-------------|
-| `make test` | lint → check-integrity → Vitest → pytest → the `qa` gate. No network | Always, before committing |
+| `make test` | lint → check-integrity → Vitest → pytest → the `qa` gate → rule mutation tests. No network | Always, before committing |
 | `make qa` | Liturgical validators, audits, a11y, coherence score (threshold 100) | Included in `make test`; run alone to read a failure in full |
+| `make test-mutations` | Mutation tests for the qa rules themselves — asserts each rule still fires on a targeted violation | Included in `make test`; run alone after changing `tools/validate_office.cjs` |
 | `make check-integrity` | `data/` hashes vs `tools/extract_manifest.json` | Included in `make test`; run alone after any pipeline work |
 | `make test-full` | Structural check of every day in the lectionary window | Before a data re-extraction |
 | `make test-smoke` | 4 key dates: structure + reading cross-check | After office rendering changes |
@@ -138,7 +139,7 @@ instance resolves at once.
 **Typical pre-commit workflow:**
 
 ```bash
-make test          # integrity, unit, tools, QA gate
+make test          # integrity, unit, tools, QA gate, rule mutation tests
 make test-web      # Playwright suite (starts web/ on :8080 itself)
 ```
 
