@@ -35,6 +35,8 @@ async function main() {
   const failures = [];
   // qa_dates entries whose date or form did not resolve; see the dynamic pass below.
   const unresolved = [];
+  // Forms whose dynamic render threw; every DYNAMIC_RULE is lost for them, same as `unresolved`.
+  const renderErrors = [];
 
   // Line breaks the ACC errata prints deliberately, lifted from the corrections
   // that introduce them (ADR 0012). A break after a line with no terminal
@@ -299,11 +301,14 @@ async function main() {
   }});
 
   rules.push({ name: 'intercessions-nonempty', tier: 2, check(form, formKey, data) {
+    // form.intercessions absent: the form legitimately has no intercessions.
+    // form.intercessions present but empty: assembleSections drops the
+    // subsection entirely (render.js), so `sub` below would be missing too —
+    // that must fail, not read as "no intercessions" like the absent case.
+    if (!form.intercessions) return { pass: true, detail: 'no intercessions' };
     const pr = data.sections.find(s => s.name === 'Prayers');
-    if (!pr) return { pass: true, detail: 'no Prayers' };
-    const sub = pr.subsections.find(s => s.label === 'Intercessions and Thanksgivings');
-    if (!sub) return { pass: true, detail: 'no intercessions' };
-    const nonEmpty = sub.segments.some(i => i.text.length > 2 && i.text !== 'N');
+    const sub = pr && pr.subsections.find(s => s.label === 'Intercessions and Thanksgivings');
+    const nonEmpty = !!sub && sub.segments.some(i => i.text.length > 2 && i.text !== 'N');
     return { pass: nonEmpty, detail: nonEmpty ? '' : 'intercessions empty' };
   }});
 
@@ -501,7 +506,7 @@ async function main() {
           totalChecks++;
         }
       } catch (e) {
-        if (!useJson) console.error(`  renderOfficeJSON error for ${fk} on ${entry.date}: ${e.message}`);
+        renderErrors.push({ date: entry.date, form: fk, error: e.message });
       }
     }
   }
@@ -520,6 +525,7 @@ async function main() {
       rules_checked: rules.length,
       total_checks: totalChecks,
       unresolved_qa_dates: unresolved,
+      render_errors: renderErrors,
       failures: failures.map(f => ({ rule: f.rule, tier: f.tier, form: f.form, detail: f.detail })),
       perFormScores: perForm,
     };
@@ -542,8 +548,19 @@ async function main() {
     process.exitCode = 1;
   }
 
+  // Reported before rule failures for the same reason as `unresolved`: a form
+  // whose dynamic render threw never ran the rules it would otherwise be
+  // charged for, so "all rules passed" would misstate what was checked.
+  if (renderErrors.length) {
+    console.error(`\n${renderErrors.length} render error(s) — dynamic rules were NOT run for:\n`);
+    for (const r of renderErrors) {
+      console.error(`  ${r.date}  ${r.form}  — ${r.error}`);
+    }
+    process.exitCode = 1;
+  }
+
   if (failures.length === 0) {
-    if (!unresolved.length) console.log('All rules passed.');
+    if (!unresolved.length && !renderErrors.length) console.log('All rules passed.');
     return;
   }
 
