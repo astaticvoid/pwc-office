@@ -1,7 +1,7 @@
 # ADR 0012: Editorial line breaks are vouched for by the correction manifest
 
 ## Status
-Proposed
+Accepted (implemented 2026-08-07)
 
 ## Context
 
@@ -117,11 +117,11 @@ has a track record.
   than gates; it would not be if it blocked `qa`.
 
 ### Neutral / Notes
-- **Implemented ahead of acceptance.** `docs/adr/README.md`'s gate is that a
-  Proposed ADR becomes Accepted before implementation begins. This one is
-  written after the fact, for a mechanism that had already shipped once with no
-  ADR at all, and the implementation landed alongside it. That inversion is the
-  thing to weigh when accepting or rejecting it.
+- **Written after the fact.** `docs/adr/README.md`'s gate is that a Proposed ADR
+  becomes Accepted before implementation begins. This one records a mechanism
+  that had already shipped once with no ADR at all; the design here is what it
+  should have been, and the implementation was corrected to match. Recorded so
+  the next reader knows the order things happened in.
 - What the audit found on first run, all since cleared: four `MISSING-BREAK`s;
   three undeclared `WORDING` divergences (Seasonal p. 43 `voices`, p. 80 `I`,
   p. 100 `been`); Ordinary p. 156, where our `“Abba,` / `Father.”` break is
