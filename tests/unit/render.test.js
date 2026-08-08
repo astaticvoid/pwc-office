@@ -173,8 +173,11 @@ describe('all forms: shared-ref fields render non-empty HTML', () => {
 describe('liturgical text register', () => {
   const ALLOWED_SOURCES = new Set(['editorial', 'upstream-review']);
 
-  test('holds the ten app-authored strings, each with provenance', () => {
-    expect(Object.keys(LITURGICAL_TEXT_REGISTER)).toHaveLength(10);
+  test('holds the app-authored strings, each with provenance', () => {
+    // Ten registered in ADR 0015; intercessionsPrompt removed with
+    // INTERCESSIONS_CONDENSED by ADR 0013 (#60) — the biddings render now.
+    expect(Object.keys(LITURGICAL_TEXT_REGISTER)).toHaveLength(9);
+    expect(LITURGICAL_TEXT_REGISTER.intercessionsPrompt).toBeUndefined();
     for (const [key, entry] of Object.entries(LITURGICAL_TEXT_REGISTER)) {
       expect(entry.text, `${key} text`).toBeTruthy();
       expect(entry.note, `${key} note`).toBeTruthy();
@@ -211,6 +214,22 @@ describe('liturgical text register', () => {
   test('lessonsPickText renders from the register template', () => {
     expect(lessonsPickText(2, 3)).toBe('Two of the following three readings are read.');
     expect(lessonsPickText(1, 4)).toBe('One of the following four readings are read.');
+  });
+});
+
+// ── Intercession biddings render (ADR 0013, #60) ─────────────────────────────
+
+describe('intercession biddings', () => {
+  test('the seasonal bidding text renders, not the retired app prose', () => {
+    // INTERCESSIONS_CONDENSED replaced biddings with "Offer intercessions…";
+    // ADR 0013 (#60) deleted it so the authorized text renders.
+    const bidding = {
+      type: 'rubric',
+      text: 'Additional intercessions, petitions, and thanksgivings may be offered silently or aloud.',
+    };
+    const html = renderSegments([bidding], {});
+    expect(html).toContain('Additional intercessions, petitions, and thanksgivings');
+    expect(html).not.toContain('Offer intercessions, petitions, and thanksgivings');
   });
 });
 
