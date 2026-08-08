@@ -115,7 +115,8 @@ def diff(before, after):
         # An edited segment shows up as both a removal and an addition. Pair them
         # so one edit counts once — reporting it as two is how a 14-node change
         # gets described as 28.
-        gone.sort(); came.sort()
+        gone.sort()
+        came.sort()
         for old, new in zip(gone, came):
             report["modified"].append((key, old, new))
         for old in gone[len(came):]:

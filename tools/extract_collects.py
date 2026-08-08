@@ -24,7 +24,6 @@ import sys
 from pathlib import Path
 
 import fitz  # PyMuPDF
-
 from extract_lib import check_manifest, pdf_as_text, write_json
 
 ROOT = Path(__file__).parent.parent
@@ -274,7 +273,7 @@ def _feast_name_from_page(text: str) -> str:
         return ""
 
     before = text[: m.start()]
-    lines = [l.strip() for l in before.splitlines() if l.strip()]
+    lines = [line.strip() for line in before.splitlines() if line.strip()]
 
     for line in reversed(lines):
         if not line:
@@ -302,7 +301,7 @@ def _feast_name_from_page(text: str) -> str:
 
 def _special_service_heading(text: str) -> str:
     """Detect feast names on special-service pages (no Sentence in standard position)."""
-    lines = [l.strip() for l in text.strip().splitlines() if l.strip()]
+    lines = [line.strip() for line in text.strip().splitlines() if line.strip()]
     if len(lines) < 2:
         return ""
 
@@ -500,7 +499,7 @@ def _extract_supplemental_collect(pdf, collects: dict, bas_txt: str) -> None:
             end = _SUPPLEMENTAL_END.search(body)
             if end:
                 text = body[:end.end()].strip()
-                print(f"  supplemental p.668  (txt fallback)")
+                print("  supplemental p.668  (txt fallback)")
 
     if not text:
         print("ERROR: could not extract supplemental collect on p.668",
@@ -512,7 +511,7 @@ def _extract_supplemental_collect(pdf, collects: dict, bas_txt: str) -> None:
         "section": "Occasional Services",
         "text": text,
     }
-    print(f"  supplemental p.668  'Anniversary of a Parish / Feast of Dedication'")
+    print("  supplemental p.668  'Anniversary of a Parish / Feast of Dedication'")
 
 
 # ── Main extraction loop ──────────────────────────────────────────────────────

@@ -42,7 +42,6 @@ from datetime import date, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
 
-
 PORTAL_URL = "https://lectionary.anglican.ca/"
 ROOT = Path(__file__).parent.parent
 CACHE_DIR = Path(__file__).parent / ".daily_cache"
@@ -87,7 +86,7 @@ def _request_html(d: date) -> tuple[str | None, str]:
         reason = str(e.reason) if hasattr(e, "reason") else str(e)
         if "timed out" in reason.lower():
             return None, "timeout"
-        return None, f"network_error"
+        return None, "network_error"
 
 
 def fetch_day_html(d: date, *, delay: float = 1.0, no_cache: bool = False) -> str | None:

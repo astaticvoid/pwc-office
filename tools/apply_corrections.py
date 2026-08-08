@@ -134,7 +134,6 @@ def _apply_by_date(corrections: list, mutate, describe=None):
                 _misses.append(f"{c['id']}: month file {month}.json not found")
             continue
         data = json.loads(path.read_text())
-        changed = False
         for c in month_corrections:
             day = data.get(c["date"])
             if day is None:
@@ -142,7 +141,6 @@ def _apply_by_date(corrections: list, mutate, describe=None):
                 continue
             if mutate(day, c):
                 applied += 1
-                changed = True
                 print(f"  {c['id']}: {describe(c) if describe else c['date']}")
             else:
                 _misses.append(f"{c['id']}: {describe(c) if describe else c['date']} — old value mismatch")

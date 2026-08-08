@@ -135,7 +135,7 @@ async function main() {
     return { pass: has, detail: has ? '' : 'EP has no Phos Hilaron or Thanksgiving for Light' };
   }});
 
-  rules.push({ name: 'leader-response-alternation', tier: 1, check(form, formKey, data) {
+  rules.push({ name: 'leader-response-alternation', tier: 1, check(form, _formKey, _data) {
     // Check alternation in non-alternative dialogic sections.
     // Sections with alternatives (opening_responses, affirmation, canticle)
     // naturally have consecutive same-type segments across group boundaries
@@ -236,7 +236,7 @@ async function main() {
     'ordinary-wednesday-ep': 14, 'ordinary-thursday-ep': 24, 'ordinary-friday-ep':   14,
     'ordinary-saturday-ep':  19,
   };
-  rules.push({ name: 'phos-hilaron-line-count', tier: 2, check(form, formKey, data) {
+  rules.push({ name: 'phos-hilaron-line-count', tier: 2, check(form, formKey, _data) {
     const expected = PHOS_MIN_LINES[formKey];
     if (expected == null) return { pass: true, detail: 'no phos hilaron' };
     const phos = form.phos_hilaron;

@@ -11,7 +11,6 @@ detect files edited outside the extraction pipeline.
 
 import hashlib
 import json
-import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path

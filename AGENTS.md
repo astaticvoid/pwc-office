@@ -53,7 +53,7 @@ make extract                      # full pipeline → data/*.json + data/lection
 
 # Testing
 make test                         # go-to command, no network. Composite:
-                                  #   check-integrity → test-unit → test-tools → qa
+                                  #   lint → check-integrity → test-unit → test-tools → qa
 make test-unit                    # Vitest only (tests/unit/) — `npm test`
 make test-tools                   # pytest only (tools/tests/) — extraction-tool units
 make test-full                    # structural check: every day × MP+EP in lectionary

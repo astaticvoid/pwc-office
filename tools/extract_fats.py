@@ -152,8 +152,8 @@ def is_propers_page(page: str) -> bool:
 
 
 def has_date_near_top(page: str, n: int = 8) -> bool:
-    non_blank = [l for l in page.split('\n') if l.strip()]
-    return any(is_date_like(l) for l in non_blank[:n])
+    non_blank = [line for line in page.split('\n') if line.strip()]
+    return any(is_date_like(line) for line in non_blank[:n])
 
 
 def is_bio_page(page: str) -> bool:
@@ -180,8 +180,8 @@ def _extract_name(lines: list[str], first_date_idx: int) -> str:
     Skips "Either X or Y may be commemorated..." note lines.
     """
     name_lines: list[str] = []
-    for l in lines[:first_date_idx]:
-        s = l.strip()
+    for line in lines[:first_date_idx]:
+        s = line.strip()
         if not s:
             if name_lines:
                 break  # blank line after name = done

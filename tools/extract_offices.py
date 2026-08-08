@@ -22,7 +22,6 @@ import sys
 from pathlib import Path
 
 import fitz  # PyMuPDF
-
 from extract_lib import check_manifest
 
 # Set DEBUG=1 to emit a full extraction trace to stderr.
@@ -547,7 +546,7 @@ def _group_alternatives(segs: list[dict], office="", section="") -> list[dict]:
         if typ == 'rubric' and _CANTICLE_INTRO.match(text):
             lines = text.strip().split('\n')
             # The intro spans multiple PDF lines — join with space for a single rubric.
-            intro_part = ' '.join(l.strip() for l in lines[:-1] if l.strip())
+            intro_part = ' '.join(line.strip() for line in lines[:-1] if line.strip())
             last_line = lines[-1]
             _dbg(f"    CANTICLE-INTRO → flush, start named group {repr(_alt_label(last_line))}: {repr(text[:60])}", office=office, section=section)
             _flush_groups()
@@ -564,7 +563,7 @@ def _group_alternatives(segs: list[dict], office="", section="") -> list[dict]:
         if typ == 'rubric' and _GENERAL_INTRO.search(text) and not _BLOCK_SEP_ONLY.search(text):
             lines = text.strip().split('\n')
             # Join intro lines with space; they're PDF line-break artefacts.
-            intro_part = ' '.join(l.strip() for l in lines[:-1] if l.strip())
+            intro_part = ' '.join(line.strip() for line in lines[:-1] if line.strip())
             last_line = lines[-1]
             _dbg(f"    GENERAL-INTRO → flush, start named group {repr(_alt_label(last_line))}: {repr(text[:60])}", office=office, section=section)
             _flush_groups()
@@ -646,7 +645,7 @@ def _fold_berakah_blessings(segs: list[dict], office="") -> list[dict]:
         labels = [g['label'] for g in groups]
         _dbg(f"  BERAKAH-FOLD? groups={labels}", office=office, section="opening_responses")
         if len(groups) < 3:
-            _dbg(f"    SKIP: fewer than 3 groups", office=office, section="opening_responses")
+            _dbg("    SKIP: fewer than 3 groups", office=office, section="opening_responses")
             result.append(seg)
             continue
 
@@ -673,14 +672,14 @@ def _fold_berakah_blessings(segs: list[dict], office="") -> list[dict]:
         # Confirm group[1] ends with a response (the "Blessed be God for ever." close).
         g1_segs = list(groups[1]['segments'])
         if not g1_segs or g1_segs[-1]['type'] != 'response':
-            _dbg(f"    SKIP: group[1] doesn't end with response", office=office, section="opening_responses")
+            _dbg("    SKIP: group[1] doesn't end with response", office=office, section="opening_responses")
             result.append(seg)
             continue
 
         # Find the last leader in group[1]; its final line should be the first blessing option.
         leaders = [(i, s) for i, s in enumerate(g1_segs) if s['type'] == 'leader']
         if not leaders:
-            _dbg(f"    SKIP: group[1] has no leader segments", office=office, section="opening_responses")
+            _dbg("    SKIP: group[1] has no leader segments", office=office, section="opening_responses")
             result.append(seg)
             continue
         last_i, last_leader = leaders[-1]
@@ -1201,7 +1200,8 @@ def run():
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     from extract_office_styles import (  # noqa: PLC0415
-        document_metrics, extract_office_typed_lines,
+        document_metrics,
+        extract_office_typed_lines,
     )
 
     offices: dict[str, dict] = {}

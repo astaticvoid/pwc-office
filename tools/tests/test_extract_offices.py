@@ -12,10 +12,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from extract_offices import (
     _group_alternatives,
-    _reflow_by_geometry,
     _normalize_whitespace,
+    _reflow_by_geometry,
 )
-
 
 # ── normalize_whitespace space-punct fix ─────────────────────────────────────
 

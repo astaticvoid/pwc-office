@@ -29,6 +29,9 @@ boneyard/data/
 # Python virtualenv — created by `make venv`
 .venv/
 
+# Ruff cache — linter local state
+.ruff_cache/
+
 # Generated pipeline artifacts and baselines — never published, always re-derivable
 .build/
 

@@ -103,7 +103,6 @@ test.describe('Office loads', () => {
     const affirmation = page.locator('.office-subsection-title', { hasText: 'Affirmation' });
     await expect(affirmation).toBeVisible({ timeout: 5000 });
     // Affirmation title must appear BEFORE the Prayers section title
-    const proclamation = page.locator('.office-section-title', { hasText: 'Proclamation' });
     const prayers      = page.locator('.office-section-title', { hasText: 'Prayers' });
     const affirmBB = await affirmation.boundingBox();
     const prayersBB = await prayers.boundingBox();

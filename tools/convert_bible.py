@@ -20,7 +20,6 @@ Run from repo root:
 
 import json
 import re
-import sys
 from pathlib import Path
 
 root = Path(__file__).parent.parent

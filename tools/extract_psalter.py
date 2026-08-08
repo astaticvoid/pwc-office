@@ -24,13 +24,11 @@ Run from repo root:
 """
 
 import argparse
-import json
 import re
 import sys
 from pathlib import Path
 
 from extract_lib import check_manifest, normalise_quotes, write_json
-
 
 # ── Patterns ──────────────────────────────────────────────────────────────────
 
@@ -124,10 +122,14 @@ def extract_psalms(lines: list[tuple[float, str]]) -> list[dict]:
     baseline_x0: float | None = None
 
     def psalm_book(n: int) -> int:
-        if n <= 41:  return 1
-        if n <= 72:  return 2
-        if n <= 89:  return 3
-        if n <= 106: return 4
+        if n <= 41:
+            return 1
+        if n <= 72:
+            return 2
+        if n <= 89:
+            return 3
+        if n <= 106:
+            return 4
         return 5
 
     def flush():
@@ -249,7 +251,7 @@ def main():
     # typos, missing words — are checked separately by apply_corrections.py,
     # which is what actually applies them; see data/corrections.json "psalter").
     checks += [
-        ("Ps 2 v12 present",       any(l.startswith("12 ") for l in t(2).split("\n"))),
+        ("Ps 2 v12 present",       any(line.startswith("12 ") for line in t(2).split("\n"))),
         # "Hallelujah!" sits on its own line, flush with "When Israel came out
         # of Egypt," below it (both at PDF x0=30.0 — verified against source
         # geometry) — no leading space, since it's the first half of v1, not

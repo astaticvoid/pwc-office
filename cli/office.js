@@ -7,9 +7,9 @@ import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import {
-  seasonOf, officeFormSeason, seasonWeekIndex, formKey,
-  filterSeasonalCollects, renderSegmentsText, blocksToString,
-  lessonHtml, lessonsPickText,
+  officeFormSeason, formKey,
+  renderSegmentsText, blocksToString,
+  lessonsPickText,
 } from '../web/render.js';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -30,7 +30,6 @@ try {
 
 const fSeason = officeFormSeason(dateStr, bounds);
 const weekday = new Date(dateStr + 'T12:00:00Z').getUTCDay();
-const weekIdx = seasonWeekIndex(dateStr, fSeason, bounds);
 const key     = formKey(fSeason, officeType, weekday);
 const form    = offices[key];
 const shared  = offices._shared || {};

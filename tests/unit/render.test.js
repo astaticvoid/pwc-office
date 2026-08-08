@@ -2,8 +2,8 @@ import { describe, test, expect } from 'vitest';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import {
-  formKey, officeFormSeason, renderSegments, renderSubsection, lessonHtml, filterSeasonalCollects,
-  lessonsPickText, lessonsPickRubricHtml, renderOfficeJSON
+  formKey, officeFormSeason, renderSegments, renderSubsection, lessonHtml,
+  lessonsPickText, lessonsPickRubricHtml, renderOfficeJSON,
 } from '../../web/render.js';
 
 const DATA_DIR = join(import.meta.dirname, '../../data');

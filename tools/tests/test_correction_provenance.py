@@ -14,8 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from validate_corrections import (PERMITTED_SOURCES, VOUCHING_PREFIX,
-                                  validate_provenance)
+from validate_corrections import PERMITTED_SOURCES, VOUCHING_PREFIX, validate_provenance
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 

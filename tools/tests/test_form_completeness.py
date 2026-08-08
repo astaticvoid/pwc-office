@@ -8,8 +8,10 @@ BUG-14: opening_responses is intentionally normalized to a shared ref for 7
 seasonal EP forms — the test allows either an inline array or a valid shared ref.
 lords_prayer_intro and dismissal must always be inline arrays.
 """
-import json, pytest
+import json
 from pathlib import Path
+
+import pytest
 
 DATA = Path(__file__).parent.parent.parent / 'data' / 'offices.json'
 

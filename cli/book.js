@@ -10,7 +10,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import {
   renderSegmentsText, blocksToString,
-  ABBREV_TO_FILE, CANTICLE_SOURCE, lessonsPickText,
+  ABBREV_TO_FILE, lessonsPickText,
 } from '../web/render.js';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
