@@ -304,7 +304,7 @@ say which population it is.
 
 **Page bounds:** `detect_office_bounds.py` detects office form page ranges from PDF content (title patterns). Output is committed as `tools/office_bounds.json`. No hardcoded page numbers.
 
-**Design review process (ADR 0010):** Visual changes to UI elements (layout, typography, interactive controls) are prototyped on a static design-options page before touching production CSS. See `web/_design-options.html` for the current example. The workflow is:
+**Design review process (ADR 0010):** Visual changes to UI elements (layout, typography, interactive controls) are prototyped on a static design-options page before touching production CSS. Usually no such page exists — step 4 below deletes it once it has served its purpose, so an empty tree is the expected steady state rather than a missing file. The workflow is:
 1. Create a self-contained HTML file in `web/` (e.g. `_design-foo.html`) with inline CSS using the same custom properties as `office.css`.
 2. For each variant, render a desktop (58rem) and mobile (390px) mockup stacked vertically.
 3. Review, pick a direction, then implement the real CSS change.
