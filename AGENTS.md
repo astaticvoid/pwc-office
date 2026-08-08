@@ -79,6 +79,7 @@ node tools/compare_staging.cjs [date] [mp|ep]  # A/B diff staging vs production 
 node tools/review_form.cjs FORM   # line-numbered text renderer for manual review
 
 # Quality gates
+make audit-errata                 # data/offices.json vs docs/errata/ — reports, does not gate
 make check-text                   # scan for PDF extraction artifacts
 make check-text --strict          # same but exits non-zero on findings
 make check-integrity              # verify data/ hashes match extract manifest — fails if any
@@ -377,6 +378,25 @@ rewrite the others; address `_shared` directly instead. One correction to
 Editorial errata from the ACC live in `docs/errata/` — see the README there for
 which items became corrections, which the extraction already handles, and which
 of the errata's own transcription slips must not be propagated.
+
+**Run `make audit-errata` after touching `docs/errata/` or any `office_text`
+correction.** It aligns every errata block against `data/offices.json` and
+reports breaks the errata asks for that are missing, breaks we have that it does
+not, and wording divergences not declared in the errata README. Nothing else can
+see this: the first reflow pass dropped four breaks — three of them beside a
+divergence the README already tabulated, because aligning a block as a whole
+drops every break inside it when any line fails to match — and `make test`,
+`make qa` and a 100/100 coherence score were all green over them.
+
+Errata line breaks land mid-clause by design, which the orphan-break rule in
+`validate_office.cjs` and the litany scan in `check_text_quality.py` would
+otherwise read as column wraps. Both take their exemptions from the corrections
+that introduce the breaks, keyed on `{office, field}` and on the exact line, so
+a correction vouches only where it points and the exemption disappears with it
+(ADR 0012). Do not widen either rule to make a correction fit; add the
+correction and let it vouch. The two readers are hand-rolled in different
+languages and are held to one reading by a conformance test in
+`tools/tests/test_errata_breaks.py` — extend it when either side changes.
 
 Systemic parsing problems are **not** corrections — fix those in the extractor (`_normalize_whitespace()` and friends in `tools/extract_offices.py`) so every instance resolves at once. The hardcoded fix dicts that used to live in `extract_psalter.py`, `extract_fats.py`, and `convert_lectionary.py` were migrated into the manifest and deleted; don't reintroduce that pattern (see issue #13).
 

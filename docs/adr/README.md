@@ -13,6 +13,7 @@
 | [0009](./0009-automated-liturgical-quality-gating.md) | Automated liturgical quality gating with coherence scoring | Accepted |
 | [0010](./0010-static-design-options-page.md) | Static design-options page for visual decision-making | Accepted |
 | [0011](./0011-single-pass-fitz-no-casing-oracle.md) | Single-pass fitz extraction; no independent casing oracle | Accepted |
+| [0012](./0012-editorial-breaks-vouched-by-the-manifest.md) | Editorial line breaks vouched for by the correction manifest, audited against the errata | Proposed |
 
 ## Status values
 - **Proposed** — decision documented, awaiting review/adoption
