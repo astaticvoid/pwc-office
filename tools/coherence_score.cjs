@@ -35,6 +35,11 @@ const PENALTY = {
   audit_z25: 5,
   audit_z30: 15,
   audit_bool: 5,
+  // An unresolved qa_dates entry or a thrown dynamic render costs a form all
+  // 10 DYNAMIC_RULES at once — worse than any single rule failure, and
+  // unlike one, it means nothing was actually checked. Score it to 0 rather
+  // than let it hide under a threshold tuned for ordinary tier penalties.
+  unresolved_or_render_error: 100,
 };
 
 function main() {
@@ -72,6 +77,20 @@ function main() {
     if (!penalties[key]) penalties[key] = 0;
     const tierKey = `tier${f.tier}`;
     penalties[key] += PENALTY[tierKey] || 0;
+  }
+
+  // From validator — qa_dates entries that never resolved and forms whose
+  // dynamic render threw. Both mean DYNAMIC_RULES never ran for those forms;
+  // validate_office.cjs --json exits 0 regardless (documented contract), so
+  // this is the only gate that sees them.
+  for (const u of (validate.unresolved_qa_dates || [])) {
+    for (const form of (u.forms || [])) {
+      penalties[form] = (penalties[form] || 0) + PENALTY.unresolved_or_render_error;
+    }
+  }
+  for (const r of (validate.render_errors || [])) {
+    const key = r.form || '__global__';
+    penalties[key] = (penalties[key] || 0) + PENALTY.unresolved_or_render_error;
   }
 
   // From audit — z-score outliers and boolean minority flags
