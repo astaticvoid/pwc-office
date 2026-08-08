@@ -211,7 +211,6 @@ def check_prose_fields(findings: list) -> None:
                 _litany_leaders(lit, f"offices.json[{office_key!r}].litany", l_leaders)
                 for loc, text in l_leaders:
                     _check_prose_wraps(text, loc, findings)
-                _check_prose_wraps(text, loc, findings)
 
 
 # ── Entry point ──────────────────────────────────────────────────────────────
