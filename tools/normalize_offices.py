@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Normalize shared office blocks in data/offices.json.
+"""Hoist shared office blocks — pipeline stage 2 of `make extract`.
+
+Reads  .build/offices.1-extract.json
+Writes .build/offices.2-normalized.json
+
+Nothing is published from here; `apply_corrections.py` derives data/offices.json
+from this artifact later in the pipeline (#48, #49).
 
 Three blocks are identical across many forms and belong in `_shared`:
   - reading_response_seasonal   (all seasonal forms)
@@ -10,7 +16,15 @@ Three blocks are identical across many forms and belong in `_shared`:
 Each repeated block is replaced with a {"type": "shared", "key": "..."} reference.
 The app already handles shared references via lookupShared() — no app change needed.
 
-Run from the repo root:
+This is not redundant with _dedup_shared() in extract_offices.py, which runs
+first: that one matches `alternatives` blocks structurally and catches
+affirmation, doxology and berakah_blessings. The three keys here are named
+fields identified by liturgical rule (which forms count as seasonal, and that
+AllSaints EP is the one seasonal EP with different opening responses), which a
+structural match cannot derive. Together: 6 keys, 127 references.
+
+Normally run as part of the pipeline (`make extract`). Standalone, from the
+repo root, for inspection:
   python3 tools/normalize_offices.py [--dry-run]
 """
 

@@ -845,16 +845,18 @@ def _canonical_doxology(alt_block: dict) -> dict:
 
 def _normalize_whitespace(offices: dict) -> dict:
     """Fix common PyMuPDF whitespace artifacts across all forms."""
-    import copy, re
+    import copy
     offices = copy.deepcopy(offices)
 
-    # Sections where line breaks are intentional liturgical structure
-    # (affirmation verse text, canticle lines, doxology invocations).
-    # The line-join regex skips these to preserve intentional verse formatting.
-    # Keep in sync with: validate_office.cjs VERSE_SECTIONS (line ~146),
-    # validate_office.cjs PHOS_MIN_LINES (line ~177), and the Vitest unit test
-    # phos_hilaron line-count assertion in tests/unit/render.test.js.
-    def _fix(text, seg_type=None, section_key=None):
+    # Span-join artifacts, not book typography: PyMuPDF leaves a space before
+    # some punctuation and splits a trailing "Amen ." off its block. Every
+    # section wants these fixed, so the replacements are unconditional and no
+    # section needs an exemption — there is no line-join step here to opt out
+    # of, extraction decides each break from the page geometry instead (#39).
+    # "Amen ." is the bulk of it, 84 of the 86 occurrences, and it is
+    # load-bearing rather than cosmetic: render.js's Amen match and
+    # validate_office.cjs's tier-1 Amen rule both require "Amen." exactly.
+    def _fix(text):
         text = text.replace(" ,", ",")
         text = text.replace(" !", "!")
         text = text.replace(" ?", "?")
@@ -862,20 +864,20 @@ def _normalize_whitespace(offices: dict) -> dict:
         text = text.replace(" \n", "\n")
         return text
 
-    def _walk(segs, section_key=None):
+    def _walk(segs):
         for seg in segs:
             if seg.get("type") == "alternatives":
                 for g in seg.get("groups", []):
-                    _walk(g.get("segments", []), section_key)
+                    _walk(g.get("segments", []))
             elif "text" in seg:
-                seg["text"] = _fix(seg["text"], seg.get("type"), section_key)
+                seg["text"] = _fix(seg["text"])
 
     for office_key, form in offices.items():
         if office_key.startswith("_") and office_key != "_shared":
             continue
-        for section_key, segs in form.items():
+        for segs in form.values():
             if isinstance(segs, list):
-                _walk(segs, section_key if office_key != "_shared" else None)
+                _walk(segs)
     return offices
 
 
