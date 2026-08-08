@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from convert_lectionary import detect_bounds, CANONICAL_BOUNDS_PHRASES
+from convert_lectionary import CANONICAL_BOUNDS_PHRASES, detect_bounds
 
 
 def _row(date, name):

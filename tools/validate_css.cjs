@@ -86,7 +86,7 @@ function validateCss(css, filename) {
       const parent = stack[stack.length - 1];
 
       if (selector.startsWith('@')) {
-        const name = (selector.match(/^@([-\w]+)/) || [, ''])[1].toLowerCase();
+        const name = (selector.match(/^@([-\w]+)/)?.[1] || '').toLowerCase();
         if (NESTING_ATRULES.has(name)) {
           stack.push({ kind: 'atrule-nesting', selector, line });
         } else if (KEYFRAMES_ATRULES.has(name)) {

@@ -1,23 +1,23 @@
 {
-  "extracted_at": "2026-08-08T05:33:09Z",
+  "extracted_at": "2026-08-08T06:50:03Z",
   "tool_versions": {
     "fitz": [
-      "1.28.0",
-      "1.28.0",
+      "1.28.2",
+      "1.28.2",
       null
     ]
   },
   "source_hashes": {
-    "tools/extract_offices.py": "7e06b258b548da0c2df3923ab1df51ced541b26f4fe9237fd7c6ac85c82939d9",
+    "tools/extract_offices.py": "c3e3478b3506edf6704f5772862a884e7f76bbd7620d2cf5e1fbeb13fd37dde0",
     "tools/extract_office_styles.py": "8e3afe0189b37ab6c695b8341bf1610c0b779143d4c539324a15fc95d2dfb991",
     "tools/normalize_offices.py": "c102458a91e8e1774a9ab4df4afc4144e250b9b45aa1e3d103bd3e8fc6319685",
-    "tools/extract_psalter.py": "a1f87ec4b7cec3e74797c9fd698c03a016c284b2e2bfe9abd086388b5f3e5161",
-    "tools/extract_collects.py": "9123a60ec0c572af643e27cb084965726c3c464b9e5f96967978f6e19c59bcf6",
-    "tools/extract_fats.py": "0fd6e41b3e9aa473bedc5974985322748540e023189b4b07a7502e78f1f6d66d",
-    "tools/convert_lectionary.py": "33805d7240d342a31d8a665b87c6c450477a52f7e5373e4aa7954802117d1f00",
-    "tools/apply_corrections.py": "2b269b10b11bf737c177fcbb16ec38cb36571f7d270185a7f26cdfc89e233fa5",
+    "tools/extract_psalter.py": "49abfe5e67a8d0bfadd73aac88da4ba6811fcda71eb1b5f3583e3e184c511e11",
+    "tools/extract_collects.py": "e5406ec72298ddd63b7b26f8eea21604ffac0922ad4402ce8921d08860e800b2",
+    "tools/extract_fats.py": "4b9d31740c789801b49a6914593298b6677863c65a29eb1d712ecf56a8ec4cd4",
+    "tools/convert_lectionary.py": "df5f2db6161cb6978a21e7a83eeda5bd02f1c360d1d28f38509ed946da99b3df",
+    "tools/apply_corrections.py": "d8bf6345cdea6080961af118664fa1415540dd5639279ac8e591079f9b852458",
     "tools/corrections_lib.py": "20a98d9f99830ab24d5bcbd32613929929e6eaa72c085352b16a0a7385f4e70d",
-    "tools/extract_lib.py": "bc1681ebbb5c6be0c197f39aeb594d02f4e85d953384ade8a83319dd4978d91f",
+    "tools/extract_lib.py": "2d77e3c60dad78a693e88557fd84115815a62128355c04d78bd0c6f42014d72e",
     "data/corrections.json": "39ffd3a3e247ee023fbbf0b77af7aab4461098b64e868b114e8078741dc4c55c",
     "sources/bas_short_2026.csv": "909616851bf8c627428fbaf50ce894d72fc122a3b702843f1bad7c070850b89e"
   },

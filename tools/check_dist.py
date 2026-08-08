@@ -13,6 +13,7 @@ Usage: python3 tools/check_dist.py   (or via `make check-dist`)
 Exit 0 = ready to deploy, 1 = failures found.
 """
 
+import datetime
 import json
 import re
 import sys
@@ -103,7 +104,6 @@ def first_digits(ref: str):
     m = re.search(r"\d+", str(ref))
     return m.group() if m else None
 
-import datetime
 
 bounds_path = dist / "data" / "season_bounds.json"
 bounds = json.loads(bounds_path.read_text()) if bounds_path.exists() else {}
@@ -198,7 +198,7 @@ else:
 
 # ── Report ─────────────────────────────────────────────────────────────────────
 
-print(f"web files:   index.html, app.js, office.css")
+print("web files:   index.html, app.js, office.css")
 print(f"offices:     {len(offices)} forms")
 print(f"collects:    {len(collects)} entries")
 

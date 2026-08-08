@@ -156,8 +156,6 @@ def main():
 
     drift = False
     for rel, expected in tracked.items():
-        path = ROOT / rel if rel != "data/lectionary" else ROOT / "data" / "lectionary"
-
         if rel == "data/lectionary":
             lect_dir = ROOT / "data" / "lectionary"
             if not lect_dir.exists():
@@ -180,9 +178,9 @@ def main():
             print(f"DRIFT    {rel}")
             print(f"         expected: {exp_hash[:12]}…")
             print(f"         actual:   {actual_hash[:12]}…")
-            print(f"         → File was modified outside the extraction pipeline.")
-            print(f"           Migrate the change to the extractor or data/corrections.json,")
-            print(f"           then re-run `make extract`.")
+            print("         → File was modified outside the extraction pipeline.")
+            print("           Migrate the change to the extractor or data/corrections.json,")
+            print("           then re-run `make extract`.")
             drift = True
 
     if drift or source_drift:

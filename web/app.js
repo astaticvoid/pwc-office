@@ -1,10 +1,10 @@
 'use strict';
 
 import {
-  esc, parseDate, seasonOf, officeFormSeason, seasonWeekIndex, formKey,
+  esc, seasonOf, officeFormSeason, seasonWeekIndex, formKey,
   filterSeasonalCollects, renderAlternatives, renderSegments, renderSubsection,
   lessonHtml, lessonsPickRubricHtml, bindMidpoints, parseCitation,
-  READING_RESPONSE, CANTICLE_SOURCE, SKIP_RUBRICS, SC_HEADER, SC_FOOTER,
+  SC_HEADER, SC_FOOTER,
   collectSecondaryPage, assembleSections, formatLiturgicalText, invitatorySegments, phosHilaronSegments,
   parseRanges, extractVersesWithChapter, parsePsalmCitation,
   collectPageNum, lookupCollect,
@@ -767,7 +767,6 @@ async function render(dateStr, officeType, translation) {
       <p class="out-of-range-title">Office form not available</p>
       <p>No liturgical form found for <strong>${esc(officeName)}</strong> on ${esc(fmtFullDate(dateStr))}.</p>
     </div>`;
-    updateControls();
     return;
   }
   const activeObs = state.observance === 'alternate' && officeData.alternate ? 'alternate' : 'primary';
@@ -1269,9 +1268,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function openDayPicker() {
     openSettings();
-  }
-  function closeDayPicker() {
-    closeSettings();
   }
   document.getElementById('day-date-nav').addEventListener('click', openDayPicker);
   dayTitleEl.addEventListener('click', openDayPicker);

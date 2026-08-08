@@ -70,8 +70,8 @@ into `data/`. Runs in order:
 9. `tools/update_extract_manifest.py` → `tools/extract_manifest.json` (committed hashes)
 
 Re-run the whole pipeline after updating any source PDF or CSV, and after
-changing any extractor — `make check-integrity` (which `make test` runs first)
-fails on data that no longer matches the manifest. Running a single extractor
+changing any extractor — `make check-integrity` (which `make test` runs after
+lint) fails on data that no longer matches the manifest. Running a single extractor
 produces an intermediate, not a publishable file.
 
 `tools/validate_lectionary.py` cross-checks the result against the ACC HTML and
@@ -125,7 +125,7 @@ instance resolves at once.
 
 | Command | What it runs | When to use |
 |---------|-------------|-------------|
-| `make test` | check-integrity → Vitest → pytest → the `qa` gate. No network | Always, before committing |
+| `make test` | lint → check-integrity → Vitest → pytest → the `qa` gate. No network | Always, before committing |
 | `make qa` | Liturgical validators, audits, a11y, coherence score (threshold 100) | Included in `make test`; run alone to read a failure in full |
 | `make check-integrity` | `data/` hashes vs `tools/extract_manifest.json` | Included in `make test`; run alone after any pipeline work |
 | `make test-full` | Structural check of every day in the lectionary window | Before a data re-extraction |

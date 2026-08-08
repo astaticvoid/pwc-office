@@ -10,8 +10,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import check_text_quality
-from check_text_quality import (_check_prose_wraps, _seasonal_collect_leaders,
-                                _litany_leaders, check_prose_fields)
+from check_text_quality import (
+    _check_prose_wraps,
+    _litany_leaders,
+    _seasonal_collect_leaders,
+    check_prose_fields,
+)
 
 
 class TestColumnWrap:

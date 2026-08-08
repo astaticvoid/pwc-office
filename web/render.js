@@ -585,14 +585,11 @@ export function* walkSegments(segs, shared) {
  */
 export function renderSegmentsText(segs, shared, opts = {}) {
   const blocks = [];
-  let inAlt = false;
   for (const event of walkSegments(segs, shared)) {
     if (event.type === 'enter_alt') {
-      inAlt = true;
       continue;
     }
     if (event.type === 'exit_alt') {
-      inAlt = false;
       continue;
     }
     if (event.type === 'enter_group') {

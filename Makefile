@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa
+.PHONY: venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa lint lint-js lint-py
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -12,11 +12,15 @@ PORT_DIST ?= 8081
 # (PEP 668) and refuses direct installs, so the venv is the supported path.
 PYTHON := $(shell [ -x .venv/bin/python3 ] && echo .venv/bin/python3 || echo python3)
 
+# Ruff binary — same venv-first, ambient-fallback policy as PYTHON. CI installs
+# `ruff` into the runner's python3, so it falls back to the ambient ruff.
+RUFF := $(shell [ -x .venv/bin/ruff ] && echo .venv/bin/ruff || echo ruff)
+
 # Create the venv and install Python dependencies.
 venv:
 	python3 -m venv .venv
 	.venv/bin/python3 -m pip install --quiet --upgrade pip
-	.venv/bin/python3 -m pip install --quiet pymupdf pytest
+	.venv/bin/python3 -m pip install --quiet pymupdf pytest ruff
 	@echo "venv ready: $$(.venv/bin/python3 -V) — make will use it automatically"
 
 # Download all source files. Everything is publicly available — no manual steps.
@@ -60,11 +64,23 @@ NODE_OPTIONS = --localstorage-file=/tmp/pwc-ls.json
 test-unit:
 	npm test
 
+# Lint — JS via ESLint (eslint.config.js), Python via Ruff (ruff.toml).
+# Fast (~1–2s) and part of `make test`, so a formatting or dead-code slip
+# cannot land. Configs are curated low-noise: advice is to ADD a rule only
+# when it catches a real class of mistake and the existing code passes it.
+lint-js:
+	npx eslint .
+
+lint-py:
+	$(RUFF) check tools/
+
+lint: lint-js lint-py
+
 # check-integrity runs first and fails fast: it catches data/ that no longer
 # matches the manifest, which is the state left by editing an extractor and
 # forgetting to re-run the pipeline. A commit was once made in exactly that state
 # because the check was a separate command nobody ran (#50).
-test: check-integrity test-unit test-tools qa
+test: lint check-integrity test-unit test-tools qa
 
 # Smoke — 4 cases: structural + reading citation check vs lectionary.anglican.ca.
 # Skips citation check if site is unreachable.

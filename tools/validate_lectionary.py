@@ -26,7 +26,6 @@ import argparse
 import json
 import re
 import sys
-import time
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -34,8 +33,9 @@ ROOT = Path(__file__).parent.parent
 DATA_DIR = ROOT / "data" / "lectionary"
 sys.path.insert(0, str(Path(__file__).parent))
 
-from scrape_daily import CACHE_DIR, fetch_day_html, parse_day_html
-
+# Local sibling module loaded via the sys.path shim above — E402 is expected
+# here and not actionable.
+from scrape_daily import CACHE_DIR, fetch_day_html, parse_day_html  # noqa: E402
 
 # ── Normalisation ─────────────────────────────────────────────────────────────
 
@@ -108,8 +108,8 @@ def _cmp_office(csv_off: dict, html_off: dict, label: str) -> list[str]:
     if csv_yn != html_yn:
         issues.append(f"  {label} year_note: csv={csv_yn!r}  html={html_yn!r}")
 
-    csv_les = [_lesson_key(l) for l in csv_off.get('lessons', [])]
-    html_les = [_lesson_key(l) for l in html_off.get('lessons', [])]
+    csv_les = [_lesson_key(line) for line in csv_off.get('lessons', [])]
+    html_les = [_lesson_key(line) for line in html_off.get('lessons', [])]
 
     if len(csv_les) != len(html_les):
         issues.append(f"  {label} lesson count: csv={len(csv_les)}  html={len(html_les)}")

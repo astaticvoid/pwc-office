@@ -37,14 +37,14 @@ async function renderOffice(browser, url) {
       if (!el) return;
       // Skip loading placeholders and hidden elements
       if (el.classList.contains('loading')) return;
-      
+
       // Flag unexpected elements
       const style = window.getComputedStyle(el);
       if (el.id === 'debug-log' && style.display !== 'none') {
         warnings.push('Debug-log panel is visible (should be hidden): ' + el.textContent.trim().slice(0, 80));
       }
       // Flag fixed/sticky elements at the bottom of the viewport
-      if ((style.position === 'fixed' || style.position === 'sticky') 
+      if ((style.position === 'fixed' || style.position === 'sticky')
           && parseInt(style.bottom) === 0 && el.id !== 'nav' && el.id !== 'settings-sheet') {
         warnings.push('Unexpected fixed element at page bottom: id=' + (el.id || '(none)') + ' ' + el.textContent.trim().slice(0, 80));
       }

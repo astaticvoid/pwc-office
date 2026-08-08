@@ -12,7 +12,6 @@ import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 
-
 # ── PDF → text ────────────────────────────────────────────────────────────────
 
 def _generate_txt(pdf_path: Path, dest: Path) -> None:

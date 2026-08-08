@@ -28,7 +28,7 @@ jobs:
       - name: Install dependencies
         run: |
           npm install
-          python3 -m pip install pymupdf
+          python3 -m pip install pymupdf ruff
 
       - name: Fetch sources
         run: make fetch-sources

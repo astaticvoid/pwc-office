@@ -33,7 +33,6 @@ from pathlib import Path
 
 from extract_lib import check_manifest
 
-
 # One-off corrections for lesson citations, names, ranks, colours, and notes
 # where the CSV source has errors (missing separators, typos, mis-parsed
 # markers) used to be hardcoded dicts here (LESSON_FIXES, NAME_FIXES,

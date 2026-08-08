@@ -13,7 +13,7 @@ const { join, dirname } = require('path');
 const root = join(dirname(__filename), '..');
 
 async function main() {
-  const { assembleSections, renderSegments, walkSegments, renderSubsection } = await import('../web/render.js');
+  const { assembleSections, renderSegments } = await import('../web/render.js');
   const offices = JSON.parse(readFileSync(join(root, 'data/offices.json'), 'utf8'));
   const shared = offices._shared || {};
   const useJson = process.argv.includes('--json');
@@ -62,10 +62,6 @@ async function main() {
       }
     }
 
-    // 2. Heading hierarchy: render a full section and check
-    const dismissalHtml = form.dismissal && Array.isArray(form.dismissal)
-      ? renderSubsection('Dismissal', form.dismissal, shared, true) : '';
-
     // 3. No empty alt attributes on meaningful content
   }
 
@@ -83,7 +79,6 @@ async function main() {
 
     // Verify h2/h3 count matches section structure
     const expectedH2 = asm.sections.filter(s => s.visible && s.name !== 'Unknown').length;
-    const expectedH3 = asm.sections.reduce((sum, s) => sum + s.subsections.length, 0);
 
     // Build the HTML to verify
     let html = '';

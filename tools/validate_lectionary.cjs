@@ -36,11 +36,6 @@ const LESSON_RE = /^\d?\s*[A-Z][A-Za-z]*\s+\d+/;
 // Accepts: "384", "438/9", "430 or FAS 359", "268 (Com: 434 or FAS 361)"
 const COLLECT_RE = /^\d+/;
 
-const KNOWN_HOLIDAY_NOTE_PREFIXES = [
-  'The Christmas Cycle', 'Notes on Festivals', 'Notes on Holy Days',
-  'Other Notes on the Christian Year', 'The Liturgical Year', 'Calendar',
-];
-
 function checkCitation(cit) {
   const results = [];
   const parts = cit.split(/\s+or\s+/);
