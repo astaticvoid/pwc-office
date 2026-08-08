@@ -51,9 +51,9 @@
       "source": "pwc-errata-ordinary",
       "office": "ordinary-friday-mp",
       "field": "litany",
-      "old": "those who are drawing to near to the light of faith",
-      "new": "those who are drawing near to the light of faith",
-      "reason": "Errata, Ordinary Time p. 208 prints 'drawing near'; the book has a stray 'to'. The erratum claims only a formatting defect, but its corrected text drops the duplicated preposition."
+      "old": "Bring those who are drawing to near to the light of faith to true knowledge of you.",
+      "new": "Bring those who are drawing near to the light of faith\nto true knowledge of you.",
+      "reason": "Errata, Ordinary Time p. 208: the book has a stray 'to' in 'drawing to near', and runs the petition onto one line. Corrected together in one entry because they touch the same segment: as two entries the second's 'old' would have to assume the first had already applied, which validate_corrections.py — which checks each correction against the pristine artifact — would report as stale."
     },
     {
       "id": "errata-saturday-mp-lowercase-you",
@@ -126,6 +126,379 @@
       "old": "the diverse ministries your entrust to us",
       "new": "the diverse ministries you entrust to us",
       "reason": "Errata, Seasonal p. 113: in the Collect for the Week of Trinity Sunday, 'your entrust to us' should read 'you entrust to us'."
+    },
+    {
+      "id": "errata-reflow-ordinary-wednesday-mp-litany",
+      "source": "pwc-errata-ordinary",
+      "office": "ordinary-wednesday-mp",
+      "field": "litany",
+      "old": "Show your kindness and mercy to all who are facing trials and difficulties,\nto those who are sick and to those who are dying.",
+      "new": "Show your kindness and mercy\nto all who are facing trials and difficulties,\nto those who are sick and to those who are dying.",
+      "reason": "Errata, Ordinary Time p. 179: The formatting of the petition makes is awkward. The text below is the corrected text. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-ordinary-wednesday-mp-dismissal",
+      "source": "pwc-errata-ordinary",
+      "office": "ordinary-wednesday-mp",
+      "field": "dismissal",
+      "old": "May God, who has called us out of darkness into the marvellous light of Christ, bless us and fill us with peace. Amen.",
+      "new": "May God, who has called us out of darkness\ninto the marvellous light of Christ,\nbless us and fill us with peace. Amen.",
+      "reason": "Errata, Ordinary Time p. 181: The formatting of the Sentence is awkward. Here’s the corrected text. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-ordinary-wednesday-ep-dismissal",
+      "source": "pwc-errata-ordinary",
+      "office": "ordinary-wednesday-ep",
+      "field": "dismissal",
+      "old": "May God, who has called us out of darkness into the marvellous light of Christ, bless us and fill us with peace. Amen.",
+      "new": "May God, who has called us out of darkness\ninto the marvellous light of Christ,\nbless us and fill us with peace. Amen.",
+      "reason": "Errata, Ordinary Time p. 188: The formatting of the Sentence is awkward. Here’s the corrected text. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-ordinary-thursday-mp-litany",
+      "source": "pwc-errata-ordinary",
+      "office": "ordinary-thursday-mp",
+      "field": "litany",
+      "old": "Creator of the heavens, lead all peoples into a common life\nof justice, faith, and peace:",
+      "new": "Creator of the heavens, lead all peoples\ninto a common life of justice, faith, and peace:",
+      "reason": "Errata, Ordinary Time p. 194: The formatting of the petition is awkward. The corrected text is below. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-ordinary-thursday-mp-dismissal",
+      "source": "pwc-errata-ordinary",
+      "office": "ordinary-thursday-mp",
+      "field": "dismissal",
+      "old": "May Christ, who sends us to the nations, give us the power of the Holy Spirit.",
+      "new": "May Christ, who sends us to the nations,\ngive us the power of the Holy Spirit.",
+      "reason": "Errata, Ordinary Time p. 195: The formatting of the Sentence is awkward. The corrected text is below. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-ordinary-thursday-ep-dismissal",
+      "source": "pwc-errata-ordinary",
+      "office": "ordinary-thursday-ep",
+      "field": "dismissal",
+      "old": "May Christ, who sends us to the nations, give us the power of the Holy Spirit.",
+      "new": "May Christ, who sends us to the nations,\ngive us the power of the Holy Spirit.",
+      "reason": "Errata, Ordinary Time p. 202: The formatting of the Sentence is awkward. The corrected text is below. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-ordinary-saturday-mp-litany-1",
+      "source": "pwc-errata-ordinary",
+      "office": "ordinary-saturday-mp",
+      "field": "litany",
+      "old": "Fill all who proclaim the word of truth with the infinite wisdom of Christ.",
+      "new": "Fill all who proclaim the word of truth\nwith the infinite wisdom of Christ.",
+      "reason": "Errata, Ordinary Time p. 222: The formatting of the Litany is awkward. The corrected text appears below. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-ordinary-saturday-mp-litany-2",
+      "source": "pwc-errata-ordinary",
+      "office": "ordinary-saturday-mp",
+      "field": "litany",
+      "old": "Inspire all who have consecrated their lives to your reign\nand all who are struggling to follow the way of Christ with the gifts of the Spirit.",
+      "new": "Inspire all who have consecrated their lives to your reign\nand all who are struggling to follow the way of Christ\nwith the gifts of the Spirit.",
+      "reason": "Errata, Ordinary Time p. 222: The formatting of the Litany is awkward. The corrected text appears below. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-ordinary-saturday-mp-litany-3",
+      "source": "pwc-errata-ordinary",
+      "office": "ordinary-saturday-mp",
+      "field": "litany",
+      "old": "Strengthen Charles our King, the Prime Minister, and all who govern the nations,\nso that they strive for justice and peace.",
+      "new": "Strengthen Charles our King, the Prime Minister,\nand all who govern the nations,\nso that they strive for justice and peace.",
+      "reason": "Errata, Ordinary Time p. 222: The formatting of the Litany is awkward. The corrected text appears below. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-ordinary-saturday-mp-litany-4",
+      "source": "pwc-errata-ordinary",
+      "office": "ordinary-saturday-mp",
+      "field": "litany",
+      "old": "Give your peace to all who have passed from this life in faith and obedience.",
+      "new": "Give your peace to all who have passed from this life\nin faith and obedience.",
+      "reason": "Errata, Ordinary Time p. 222: The formatting of the Litany is awkward. The corrected text appears below. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-ordinary-saturday-mp-dismissal",
+      "source": "pwc-errata-ordinary",
+      "office": "ordinary-saturday-mp",
+      "field": "dismissal",
+      "old": "May Christ, who has opened the gates of heaven, bring us to reign with him in glory. Amen.",
+      "new": "May Christ, who has opened the gates of heaven,\nbring us to reign with him in glory. Amen.",
+      "reason": "Errata, Ordinary Time p. 223: The formatting of the Sentence is awkward. Here is the corrected text. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-ordinary-saturday-ep-dismissal",
+      "source": "pwc-errata-ordinary",
+      "office": "ordinary-saturday-ep",
+      "field": "dismissal",
+      "old": "May Christ, who has opened the gates of heaven, bring us to reign with him in glory. Amen.",
+      "new": "May Christ, who has opened the gates of heaven,\nbring us to reign with him in glory. Amen.",
+      "reason": "Errata, Ordinary Time p. 230: The formatting of the Sentence is awkward. Here is the corrected text. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-christmas-mp-dismissal",
+      "source": "pwc-errata-seasonal",
+      "office": "christmas-mp",
+      "field": "dismissal",
+      "old": "May God, who has called us out of darkness into the marvellous light of Christ,\nbless us and fill us with peace. Amen.",
+      "new": "May God, who has called us out of darkness\ninto the marvellous light of Christ,\nbless us and fill us with peace. Amen.",
+      "reason": "Errata, Seasonal p. 35: The concluding Sentence is awkwardly formatted. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-christmas-ep-dismissal",
+      "source": "pwc-errata-seasonal",
+      "office": "christmas-ep",
+      "field": "dismissal",
+      "old": "May God, who has called us out of darkness into the marvellous light of Christ, bless us and fill us with peace. Amen.",
+      "new": "May God, who has called us out of darkness\ninto the marvellous light of Christ,\nbless us and fill us with peace. Amen.",
+      "reason": "Errata, Seasonal p. 42: The concluding Sentence is awkwardly formatted. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-epiphany-mp-dismissal",
+      "source": "pwc-errata-seasonal",
+      "office": "epiphany-mp",
+      "field": "dismissal",
+      "old": "May Christ, who sends us to the nations, give us the power of the Spirit. Amen.",
+      "new": "May Christ, who sends us to the nations,\ngive us the power of the Spirit. Amen.",
+      "reason": "Errata, Seasonal p. 49: The concluding Sentence is awkwardly formatted. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-epiphany-ep-litany",
+      "source": "pwc-errata-seasonal",
+      "office": "epiphany-ep",
+      "field": "litany",
+      "old": "Feed the hunger of your people in desert places with your eternal bread.",
+      "new": "Feed the hunger of your people in desert places\nwith your eternal bread.",
+      "reason": "Errata, Seasonal p. 54: The fourth petition is awkwardly formatted. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-epiphany-ep-dismissal",
+      "source": "pwc-errata-seasonal",
+      "office": "epiphany-ep",
+      "field": "dismissal",
+      "old": "May Christ, who sends us to the nations, give us the power of the Spirit. Amen.",
+      "new": "May Christ, who sends us to the nations,\ngive us the power of the Spirit. Amen.",
+      "reason": "Errata, Seasonal p. 56: The concluding Sentence is awkwardly formatted. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-lent-ep-litany",
+      "source": "pwc-errata-seasonal",
+      "office": "lent-ep",
+      "field": "litany",
+      "old": "May candidates for baptism and confirmation live by every word\nthat proceeds from your mouth.",
+      "new": "May candidates for baptism and confirmation\nlive by every word that proceeds from your mouth.",
+      "reason": "Errata, Seasonal p. 70: The petition at the top of the page is awkwardly formatted. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-passiontide-mp-dismissal",
+      "source": "pwc-errata-seasonal",
+      "office": "passiontide-mp",
+      "field": "dismissal",
+      "old": "May Christ, who bore our sins on the cross, set us free to serve with him in joy. Amen.",
+      "new": "May Christ, who bore our sins on the cross,\nset us free to serve with him in joy. Amen.",
+      "reason": "Errata, Seasonal p. 78: The concluding Sentence is awkwardly formatted. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-passiontide-ep-dismissal",
+      "source": "pwc-errata-seasonal",
+      "office": "passiontide-ep",
+      "field": "dismissal",
+      "old": "May Christ, who bore our sins on the cross, set us free to serve with him in joy. Amen.",
+      "new": "May Christ, who bore our sins on the cross,\nset us free to serve with him in joy. Amen.",
+      "reason": "Errata, Seasonal p. 85: The concluding Sentence is awkwardly formatted. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-ordinary-tuesday-mp-litany",
+      "source": "pwc-errata-ordinary",
+      "office": "ordinary-tuesday-mp",
+      "field": "litany",
+      "old": "Count us among all your faithful witnesses:\nall the saints who have found favour in your sight from earliest times, prophets, apostles, martyrs, and those whose names are known to you alone.",
+      "new": "Count us among all your faithful witnesses:\nall the saints who have found favour\nin your sight from earliest times, prophets, apostles, martyrs,\nand those whose names are known to you alone.",
+      "reason": "Errata, Ordinary Time p. 165: PWC has a floating preposition that hinders ease in reading. Line breaks only — wording unchanged. The errata's final line reads 'those who names'; ours reads 'whose', which is correct, and the break before it is taken from the errata regardless."
+    },
+    {
+      "id": "errata-reflow-ordinary-friday-mp-litany-1",
+      "source": "pwc-errata-ordinary",
+      "office": "ordinary-friday-mp",
+      "field": "litany",
+      "old": "God who restores us, may your people be true and faithful servants of Christ.",
+      "new": "God who restores us,\nmay your people be true and faithful servants of Christ.",
+      "reason": "Errata, Ordinary Time p. 208: The formatting of the Litany is awkward. The corrected text is below. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-advent-ep-litany-1",
+      "source": "pwc-errata-seasonal",
+      "office": "advent-ep",
+      "field": "litany",
+      "old": "Watchful at all times, let us pray to God for strength to stand with confidence.\n\nGod, our Maker and Redeemer, fill the earth with justice and compassion.",
+      "new": "Watchful at all times, let us pray to God for strength to stand with confidence.\n\nGod, our Maker and Redeemer,\nfill the earth with justice and compassion.",
+      "reason": "Errata, Seasonal p. 26: The Litany is awkwardly formatted. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-advent-ep-litany-2",
+      "source": "pwc-errata-seasonal",
+      "office": "advent-ep",
+      "field": "litany",
+      "old": "Bind up the broken-hearted, restore the sick, and raise up all who have fallen.",
+      "new": "Bind up the broken-hearted, restore the sick,\nand raise up all who have fallen.",
+      "reason": "Errata, Seasonal p. 26: The Litany is awkwardly formatted. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-advent-ep-litany-3",
+      "source": "pwc-errata-seasonal",
+      "office": "advent-ep",
+      "field": "litany",
+      "old": "Shine the light of Christ on all who live in darkness and the shadow of death.",
+      "new": "Shine the light of Christ\non all who live in darkness and the shadow of death.",
+      "reason": "Errata, Seasonal p. 26: The Litany is awkwardly formatted. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-allsaints-mp-dismissal",
+      "source": "pwc-errata-seasonal",
+      "office": "allsaints-mp",
+      "field": "dismissal",
+      "old": "May Christ, who has opened to us the gates of heaven, bring us to reign with him in glory. Amen.",
+      "new": "May Christ, who has opened to us the gates of heaven,\nbring us to reign with him in glory. Amen.",
+      "reason": "Errata, Seasonal p. 120: The concluding Sentence is indented out of alignment with all the texts that precede it. It is also awkwardly formatted. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-allsaints-ep-dismissal",
+      "source": "pwc-errata-seasonal",
+      "office": "allsaints-ep",
+      "field": "dismissal",
+      "old": "May Christ, who has opened to us the gates of heaven, bring us to reign with him in glory. Amen.",
+      "new": "May Christ, who has opened to us the gates of heaven,\nbring us to reign with him in glory. Amen.",
+      "reason": "Errata, Seasonal p. 127: The concluding Sentence is awkwardly formatted. Line breaks only — wording unchanged."
+    },
+    {
+      "id": "errata-reflow-ordinary-friday-mp-litany-2",
+      "source": "pwc-errata-ordinary",
+      "office": "ordinary-friday-mp",
+      "field": "litany",
+      "old": "Comfort and sustain those who are lonely, sick, hungry, persecuted, or ignored.",
+      "new": "Comfort and sustain\nthose who are lonely, sick, hungry, persecuted, or ignored.",
+      "reason": "Errata, Ordinary Time p. 208: The formatting of the Litany is awkward. Line breaks only — wording unchanged. The errata drops the serial comma before 'or ignored'; it claims only a formatting defect, so ours stands."
+    },
+    {
+      "id": "errata-reflow-advent-ep-litany-4",
+      "source": "pwc-errata-seasonal",
+      "office": "advent-ep",
+      "field": "litany",
+      "old": "Empower us, with all the saints in light, to be your witnesses in the world.",
+      "new": "Empower us, with all the saints in light,\nto be your witnesses in the world.",
+      "reason": "Errata, Seasonal p. 26: The Litany is awkwardly formatted. Line breaks only — wording unchanged. The errata reads 'with the saints'; ours reads 'with all the saints', which stands."
+    },
+    {
+      "id": "errata-reflow-ordinary-monday-ep-canticle",
+      "source": "pwc-errata-ordinary",
+      "office": "ordinary-monday-ep",
+      "field": "canticle",
+      "old": " for we have received the Spirit that enables us to cry, “Abba,\nFather.”",
+      "new": " for we have received the Spirit\n that enables us to cry, “Abba, Father.”",
+      "reason": "Errata, Ordinary Time p. 156: in 'A Song of God's Children', the line beginning 'All who are led' is formatted incorrectly. Unlike the other reflow items this one fixes a break of ours that is genuinely wrong — the page split '“Abba, / Father.”' mid-phrase. The leading space is the continuation marker formatLiturgicalText renders as an indent."
+    },
+    {
+      "id": "errata-epiphany-ep-delete-doxologies",
+      "source": "pwc-errata-seasonal",
+      "office": "epiphany-ep",
+      "field": "responsory",
+      "old": [
+        {
+          "type": "alternatives",
+          "groups": [
+            {
+              "label": "I",
+              "segments": [
+                {
+                  "type": "rubric",
+                  "text": "The Responsory is said or sung."
+                },
+                {
+                  "type": "leader",
+                  "text": "Arise, shine, for your light has come;\nthe glory of the Lord is rising upon you."
+                },
+                {
+                  "type": "response",
+                  "text": "Arise, shine, for your light has come;\nthe glory of the Lord is rising upon you."
+                },
+                {
+                  "type": "leader",
+                  "text": "God’s salvation has been openly shown to all people."
+                },
+                {
+                  "type": "response",
+                  "text": "The glory of the Lord is rising upon you."
+                },
+                {
+                  "type": "leader",
+                  "text": "Glory to God, Source of all being, eternal Word, and Holy Spirit:"
+                },
+                {
+                  "type": "response",
+                  "text": "Arise, shine, for your light has come;\nthe glory of the Lord is rising upon you."
+                }
+              ]
+            },
+            {
+              "label": "II",
+              "segments": [
+                {
+                  "type": "leader",
+                  "text": "Glory to the Father, and to the Son, and to the Holy Spirit:"
+                },
+                {
+                  "type": "response",
+                  "text": "Arise, shine, for your light has come;\nthe glory of the Lord is rising upon you."
+                }
+              ]
+            },
+            {
+              "label": "III",
+              "segments": [
+                {
+                  "type": "leader",
+                  "text": "Glory to the holy and undivided Trinity, one God:"
+                },
+                {
+                  "type": "response",
+                  "text": "Arise, shine, for your light has come;\nthe glory of the Lord is rising upon you."
+                },
+                {
+                  "type": "rubric",
+                  "text": "Affirmation of Faith."
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "new": [
+        {
+          "type": "rubric",
+          "text": "The Responsory is said or sung."
+        },
+        {
+          "type": "leader",
+          "text": "Arise, shine, for your light has come;\nthe glory of the Lord is rising upon you."
+        },
+        {
+          "type": "response",
+          "text": "Arise, shine, for your light has come;\nthe glory of the Lord is rising upon you."
+        },
+        {
+          "type": "leader",
+          "text": "God’s salvation has been openly shown to all people."
+        },
+        {
+          "type": "response",
+          "text": "The glory of the Lord is rising upon you."
+        },
+        {
+          "type": "rubric",
+          "text": "Evening Prayer continues with [the Second Reading or] the Canticle or an Affirmation of Faith."
+        }
+      ],
+      "reason": "Errata, Seasonal p. 52: 'The doxologies printed on the top of the page following the Responsory should be deleted entirely.' Removing segments is structural, so this is a whole-field replace; the three alternatives collapse to the flat sequence the erratum prints, closing rubric included."
     }
   ],
   "lectionary_citations": [],
@@ -135,8 +508,13 @@
       "source": "acc-csv-error",
       "date": "2025-12-19",
       "office": "morning",
-      "old": ["Zeph 3:14-20 Tit 1:1-16"],
-      "new": ["Zeph 3:14-20", "Tit 1:1-16"],
+      "old": [
+        "Zeph 3:14-20 Tit 1:1-16"
+      ],
+      "new": [
+        "Zeph 3:14-20",
+        "Tit 1:1-16"
+      ],
       "reason": "CSV has \"Zeph 3:14-20 Tit 1:1-16\" — missing semicolon separator."
     },
     {
@@ -144,8 +522,20 @@
       "source": "acc-csv-error",
       "date": "2026-03-23",
       "office": "evening",
-      "old": [{"citation": "Jer 24:-10", "optional": true}, "Mk 9:30-41"],
-      "new": [{"citation": "Jer 24:1-10", "optional": true}, "Mk 9:30-41"],
+      "old": [
+        {
+          "citation": "Jer 24:-10",
+          "optional": true
+        },
+        "Mk 9:30-41"
+      ],
+      "new": [
+        {
+          "citation": "Jer 24:1-10",
+          "optional": true
+        },
+        "Mk 9:30-41"
+      ],
       "reason": "CSV has \"Jer 24:-10\" — typo, missing \"1-\"."
     },
     {
@@ -153,8 +543,20 @@
       "source": "acc-csv-error",
       "date": "2026-04-20",
       "office": "evening",
-      "old": [{"citation": "Dan 4:19-27", "optional": true}, "Mt (1:1-17), 3:1-6"],
-      "new": [{"citation": "Dan 4:19-27", "optional": true}, "Mt 1:1-17, 3:1-6"],
+      "old": [
+        {
+          "citation": "Dan 4:19-27",
+          "optional": true
+        },
+        "Mt (1:1-17), 3:1-6"
+      ],
+      "new": [
+        {
+          "citation": "Dan 4:19-27",
+          "optional": true
+        },
+        "Mt 1:1-17, 3:1-6"
+      ],
       "reason": "CSV has \"Mt (1:1-17), 3:1-6\" — optional prefix merged into citation."
     },
     {
@@ -162,8 +564,16 @@
       "source": "acc-csv-error",
       "date": "2026-08-28",
       "office": "morning",
-      "old": ["Job 9:1-15", "32-35", "Acts 10:34-48"],
-      "new": ["Job 9:1-15", "Job 9:32-35", "Acts 10:34-48"],
+      "old": [
+        "Job 9:1-15",
+        "32-35",
+        "Acts 10:34-48"
+      ],
+      "new": [
+        "Job 9:1-15",
+        "Job 9:32-35",
+        "Acts 10:34-48"
+      ],
       "reason": "CSV has \"32-35\" without book/chapter prefix — continuation of Job 9."
     },
     {
@@ -171,8 +581,16 @@
       "source": "acc-csv-error",
       "date": "2026-11-21",
       "office": "morning",
-      "old": ["108:1-6, (7-13)", "Mal 3:13—4:6", "Jas 5:13-20"],
-      "new": ["Ps 108:1-6, (7-13)", "Mal 3:13—4:6", "Jas 5:13-20"],
+      "old": [
+        "108:1-6, (7-13)",
+        "Mal 3:13—4:6",
+        "Jas 5:13-20"
+      ],
+      "new": [
+        "Ps 108:1-6, (7-13)",
+        "Mal 3:13—4:6",
+        "Jas 5:13-20"
+      ],
       "reason": "CSV has \"108:1-6, (7-13)\" without \"Ps\" prefix."
     },
     {
@@ -180,8 +598,16 @@
       "source": "acc-csv-error",
       "date": "2026-09-27",
       "office": "evening",
-      "old": ["(2 Kgs 17:1-18), Mt 13:44-52"],
-      "new": [{"citation": "2 Kgs 17:1-18", "optional": true}, "Mt 13:44-52"],
+      "old": [
+        "(2 Kgs 17:1-18), Mt 13:44-52"
+      ],
+      "new": [
+        {
+          "citation": "2 Kgs 17:1-18",
+          "optional": true
+        },
+        "Mt 13:44-52"
+      ],
       "reason": "CSV has \"(2 Kgs 17:1-18), Mt 13:44-52\" — optional citation comma-merged with the following lesson. BUG-32."
     }
   ],
