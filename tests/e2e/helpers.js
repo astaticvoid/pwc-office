@@ -9,9 +9,10 @@ import { expect } from '@playwright/test';
 // the date, then the office toggle for MP/EP.
 
 /**
- * #day-date-picker lives inside the day-picker bottom sheet (#day-picker-sheet,
- * aria-hidden by default) — open it via the date button or the day title
- * before interacting with the input.
+ * #day-date-picker lives inside the settings sheet (#settings-sheet, aria-hidden
+ * by default) — open it via the date button or the day title before interacting
+ * with the input. The picker was once its own bottom sheet; it now shares the
+ * settings dialog, which is why closing it uses #settings-close-btn.
  */
 export async function openDatePicker(page) {
   await page.locator('#day-date-btn').click();
