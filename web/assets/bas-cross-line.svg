@@ -1,3 +1,4 @@
+<!-- Alternate logo variant, kept as an asset for use as needed. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-label="Cross and circle emblem">
   <g id="cross" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round" stroke-linecap="butt">
     <path d="M 165.33 154.67 Q 170 81.34 188.09 8 L 131.91 8 Q 150 81.34 154.67 154.67 Q 81.34 150 8 131.91 L 8 188.09 Q 81.34 170 154.67 165.33 Q 150 238.66 131.91 312 L 188.09 312 Q 170 238.66 165.33 165.33 Q 238.66 170 312 188.09 L 312 131.91 Q 238.66 150 165.33 154.67 Z"/>

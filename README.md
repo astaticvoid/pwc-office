@@ -133,6 +133,9 @@ web/          Pure client-side SPA — HTML/CSS/vanilla JS, no build step
   render.js   Shared rendering functions (HTML + text modes, structured output)
   office.css  Styling and seasonal theming
   sw.js       Service worker — kill-switch only (unregisters old installs)
+  assets/     bas-cross*.svg — logo variants; only bas-cross-simple-ring.svg is
+              wired into index.html today, the rest are alternates kept as
+              assets for use as needed
 
 cli/          Node CLI tools (ES modules)
   book.js     Book-mode plain-text renderer — node cli/book.js FORM [DATE]
@@ -144,6 +147,7 @@ tools/        Extraction, validation, QA, and testing
   extract_psalter.py        Psalter extraction
   extract_collects.py       BAS collects extraction
   extract_fats.py           For All The Saints — saint biographies
+  extract_paragraphs.py     WEB USFX → data/paragraphs.json (not in `make extract`)
   convert_lectionary.py     CSV → monthly JSON lectionary
   detect_office_bounds.py   Content-based page detection
   normalize_offices.py      Shared-block deduplication

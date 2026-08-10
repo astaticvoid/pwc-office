@@ -196,6 +196,13 @@ ships via the `web/data` symlink. Only the right-hand column is published.
 | `apply_corrections.py` — applies `data/corrections.json` | `data/offices.json`, `data/psalter.json`, `data/fats/saints.json`, `data/lectionary/` |
 | `update_extract_manifest.py` | `tools/extract_manifest.json` (committed) |
 
+Not part of this chain: `extract_paragraphs.py` generates `data/paragraphs.json`
+from a hand-fetched WEB USFX XML (source URL in the script's docstring). It has
+no Makefile target — `data/paragraphs.json` is a committed static asset, not
+pipeline output (see `update_extract_manifest.py`'s `PUBLISHED_FILES` comment),
+and the WEB changes approximately never. Run by hand only when it needs
+regenerating: `python3 tools/extract_paragraphs.py [path-to-usfx-xml]`.
+
 `apply_corrections.py` writes **every** file it publishes on every run —
 `offices.json`, `psalter.json`, `fats/saints.json`, `lectionary/` — including
 when the matching correction list is empty or `data/corrections.json` is absent

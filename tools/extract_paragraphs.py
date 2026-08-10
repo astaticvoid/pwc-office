@@ -6,15 +6,26 @@ The World English Bible (WEB) is public domain and includes Apocrypha.
 Its USFX XML uses <p> elements to group verses into paragraphs.
 This script extracts the starting verse of each paragraph per chapter.
 
+Not part of the `make extract` pipeline: data/paragraphs.json is a committed
+static asset (see update_extract_manifest.py's PUBLISHED_FILES comment and
+AGENTS.md's Python tools table), not pipeline output, so this script has no
+Makefile target and is run by hand only when the source XML changes.
+
+Source: eBible.org's USFX build of the WEB, fetched by hand (no `make
+fetch-sources` step — see AGENTS.md):
+  curl -sLo /tmp/eng-web_usfx.zip https://eBible.org/Scriptures/eng-web_usfx.zip
+  unzip -o /tmp/eng-web_usfx.zip -d /tmp/
+
 Output format: {"Book Name": {"chapter": [first_verse_of_each_paragraph]}}
 """
 
+import argparse
 import json
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-USFX_PATH = Path("/tmp/eng-web_usfx.xml")
+DEFAULT_USFX_PATH = Path("/tmp/eng-web_usfx.xml")
 OUTPUT_PATH = Path(__file__).resolve().parent.parent / "data" / "paragraphs.json"
 
 # WEB book name → our data file name (from ABBREV_TO_FILE values in render.js)
@@ -96,13 +107,20 @@ def extract_paragraphs(xml_path):
 
 
 def main():
-    if not USFX_PATH.exists():
-        print(f"USFX not found at {USFX_PATH}. Download it first:")
+    ap = argparse.ArgumentParser(
+        description="Extract paragraph boundaries from WEB USFX XML → data/paragraphs.json"
+    )
+    ap.add_argument("usfx_path", nargs="?", type=Path, default=DEFAULT_USFX_PATH,
+                     help=f"Path to the WEB USFX XML (default: {DEFAULT_USFX_PATH})")
+    args = ap.parse_args()
+
+    if not args.usfx_path.exists():
+        print(f"USFX not found at {args.usfx_path}. Download it first:")
         print("  curl -sLo /tmp/eng-web_usfx.zip https://eBible.org/Scriptures/eng-web_usfx.zip")
         print("  unzip -o /tmp/eng-web_usfx.zip -d /tmp/")
         sys.exit(1)
 
-    result, skipped = extract_paragraphs(USFX_PATH)
+    result, skipped = extract_paragraphs(args.usfx_path)
 
     with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, separators=(",", ":"))
