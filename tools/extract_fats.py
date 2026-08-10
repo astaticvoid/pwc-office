@@ -133,6 +133,31 @@ def normalize_date(s: str) -> str:
     return s  # already "Month D" or unrecognised
 
 
+def _page_text_without_margin_artifacts(page) -> str:
+    """Extract page text excluding production artifacts outside the page.
+
+    The FATS PDF contains stray 3pt fragments (drop-cap remnants of the
+    running month header) positioned off-page in the left margin (bbox x0
+    < 0). ``get_text()`` includes them, corrupting the first line of 119
+    bios — 'mber' for Martin of Tours, 'y' for January saints. They are
+    exactly the spans whose bbox starts left of the page edge, so those
+    lines are dropped by exact text match.
+    """
+    text = page.get_text() or ""
+    artifacts = {
+        span["text"].strip()
+        for block in page.get_text("dict")["blocks"]
+        for line in block.get("lines", [])
+        for span in line["spans"]
+        if span["bbox"][0] < 0 and span["text"].strip()
+    }
+    if not artifacts:
+        return text
+    return "\n".join(
+        line for line in text.split("\n") if line.strip() not in artifacts
+    )
+
+
 def strip_garbage_header(page: str) -> str:
     """Strip 'Color profile: Disabled / Composite Default screen' prefix lines."""
     lines = page.split('\n')
@@ -261,14 +286,18 @@ def parse_bio(page: str) -> dict | None:
             break
 
         # Complete rank on one line: "Reformer, 1415 — Commemoration"
-        # (has em-dash but does not END with it, so the rank word follows on same line)
+        # (has em-dash but does NOT end with it, so the rank word follows on same line).
+        # Only a real rank suffix ends the header — prose em-dashes like Canada
+        # Day's "citizens — all these" must not truncate the bio.
         if '—' in line and not line.rstrip().endswith('—'):
-            if not rank:
-                m = re.search(r'—\s*(.+)$', line)
-                if m:
-                    rank = RANK_SUFFIX_MAP.get(m.group(1).strip().lower())
-            bio_start = i + 1
-            break
+            m = re.search(r'—\s*(.+)$', line)
+            if m and m.group(1).strip().lower() in RANK_SUFFIX_MAP:
+                if not rank:
+                    rank = RANK_SUFFIX_MAP[m.group(1).strip().lower()]
+                bio_start = i + 1
+                break
+            rank_lines.append(line)
+            continue
 
         # Partial rank line ending with "—" (wraps to next line) or misc descriptor
         rank_lines.append(line)
@@ -334,7 +363,7 @@ def parse_propers(page: str) -> dict:
 
 def extract_fats(pdf_path: Path) -> dict:
     with fitz.open(pdf_path) as pdf:
-        raw_pages = [page.get_text() or "" for page in pdf]
+        raw_pages = [_page_text_without_margin_artifacts(page) for page in pdf]
     pages = [strip_garbage_header(p) for p in raw_pages]
 
     # Main section: PDF pages 37–385 (0-indexed 36–384)
