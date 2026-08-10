@@ -3,6 +3,12 @@
 ## Status
 Accepted (implemented 2026-07-27)
 
+Corrected (2026-08-10): ADR 0017 replaced `convert_lectionary.py`'s
+hand-transcribed `OBSERVANCES` dict with real extraction from the CSV name
+column. The decision recorded here is unchanged — observances still get no
+`corrections.json` category, because they remain classification output rather
+than a correction of a wrong value.
+
 ## Context
 The extraction pipeline must correct errors in upstream data sources. Corrected
 data spans multiple types: office text (PDF extraction artifacts, editorial

@@ -18,6 +18,8 @@
 | [0014](./0014-optionality-is-presented-not-resolved.md) | Optionality is presented, not resolved | Accepted |
 | [0015](./0015-provenance-for-app-authored-liturgical-text.md) | Provenance for app-authored liturgical text | Accepted |
 | [0016](./0016-the-app-renders-the-rite-it-does-not-edit-it.md) | The app renders the authorized rite; it does not edit it | Accepted |
+| [0017](./0017-secondary-observances-are-extracted-not-transcribed.md) | Secondary observances are extracted, not transcribed | Accepted |
+| [0018](./0018-alternate-observance-toggle-presents-the-days-identity.md) | The alternate-observance toggle presents the day's identity | Accepted |
 
 ## Status values
 - **Proposed** — decision documented, awaiting review/adoption
