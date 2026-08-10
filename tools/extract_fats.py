@@ -141,7 +141,10 @@ def _page_text_without_margin_artifacts(page) -> str:
     < 0). ``get_text()`` includes them, corrupting the first line of 119
     bios — 'mber' for Martin of Tours, 'y' for January saints. They are
     exactly the spans whose bbox starts left of the page edge, so those
-    lines are dropped by exact text match.
+    lines are dropped by exact text match. Empirically validated 2026-08
+    against the current PDF: 119 pages carry off-page spans, exactly one
+    artifact line dropped per page, and no legitimate line's text equals
+    an artifact text (no over-drops).
     """
     text = page.get_text() or ""
     artifacts = {
@@ -291,11 +294,13 @@ def parse_bio(page: str) -> dict | None:
         # Day's "citizens — all these" must not truncate the bio.
         if '—' in line and not line.rstrip().endswith('—'):
             m = re.search(r'—\s*(.+)$', line)
-            if m and m.group(1).strip().lower() in RANK_SUFFIX_MAP:
-                if not rank:
-                    rank = RANK_SUFFIX_MAP[m.group(1).strip().lower()]
-                bio_start = i + 1
-                break
+            if m:
+                suffix = m.group(1).strip().lower()
+                if suffix in RANK_SUFFIX_MAP:
+                    if not rank:
+                        rank = RANK_SUFFIX_MAP[suffix]
+                    bio_start = i + 1
+                    break
             rank_lines.append(line)
             continue
 

@@ -1,8 +1,8 @@
 """
 Unit tests for extract_fats.py bio parsing.
 
-Run: python3 -m pytest tools/tests/ -v
-     (from the repo root)
+Run: .venv/bin/python3 -m pytest tools/tests/ -v
+     (from the repo root) — same command as the make test-tools tier.
 """
 import sys
 from pathlib import Path
@@ -10,7 +10,67 @@ from pathlib import Path
 # Allow importing from tools/ without installing a package.
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from extract_fats import parse_bio  # noqa: E402, I001
+from extract_fats import (  # noqa: E402, I001
+    _page_text_without_margin_artifacts,
+    parse_bio,
+)
+
+
+class _FakePage:
+    """Minimal fitz.Page stand-in: plain text plus span geometry."""
+
+    def __init__(self, text: str, spans: list[tuple[float, str]]):
+        self._text = text
+        # spans: (bbox_x0, span_text). Only bbox[0] is semantically relevant
+        # — the helper drops spans whose x0 < 0; the other bbox coordinates
+        # are dummy constants.
+        self._spans = [{"bbox": [x0, 0, x0 + 10, 10], "text": t} for x0, t in spans]
+
+    def get_text(self, spec: str = "") -> str | dict:
+        if spec == "dict":
+            return {"blocks": [{"lines": [{"spans": self._spans}]}]}
+        return self._text
+
+
+# ── _page_text_without_margin_artifacts ────────────────────────────────────────
+
+class TestPageTextWithoutMarginArtifacts:
+    def test_no_off_page_spans_returns_text_unchanged(self):
+        page = _FakePage("Martin\n11 November\nbio line", [])
+        assert (
+            _page_text_without_margin_artifacts(page)
+            == "Martin\n11 November\nbio line"
+        )
+
+    def test_drops_line_that_is_exactly_an_artifact(self):
+        # 'y' is the January drop-cap remnant; the corrupted first line is 'y'.
+        page = _FakePage("y\nMartin\n11 November\nbio line", [(-2.0, "y")])
+        assert (
+            _page_text_without_margin_artifacts(page)
+            == "Martin\n11 November\nbio line"
+        )
+
+    def test_keeps_legitimate_line_containing_artifact_text(self):
+        # A real line 'Yesterday' must not be dropped just because a stray
+        # 'y' span sits off-page — the match is exact, not substring.
+        page = _FakePage(
+            "Yesterday\nMartin\n11 November\nbio line",
+            [(-2.0, "y")],
+        )
+        assert (
+            _page_text_without_margin_artifacts(page)
+            == "Yesterday\nMartin\n11 November\nbio line"
+        )
+
+    def test_multi_artifact_page_drops_each(self):
+        page = _FakePage(
+            "mber\ny\nMartin\n11 November\nbio line",
+            [(-2.0, "mber"), (-5.0, "y")],
+        )
+        assert (
+            _page_text_without_margin_artifacts(page)
+            == "Martin\n11 November\nbio line"
+        )
 
 
 # ── parse_bio ─────────────────────────────────────────────────────────────────
@@ -75,3 +135,19 @@ class TestParseBio:
         bio = parse_bio(page)
         assert bio is not None
         assert bio["rank"] is None
+
+    def test_em_dash_unknown_suffix_in_header_keeps_scanning(self):
+        # An em-dash whose suffix is NOT a rank word (a descriptor line,
+        # not bio prose) must not end the header scan — the real rank line
+        # that follows on its own line must still be found.
+        page = "\n".join([
+            "Clement",
+            "23 November",
+            "Bishop of Rome, c. 100 — early father",
+            "Memorial",
+            "Clement wrote a letter to the Corinthians",
+        ])
+        bio = parse_bio(page)
+        assert bio is not None
+        assert bio["rank"] == "memorial"
+        assert bio["bio"].startswith("Clement wrote a letter")

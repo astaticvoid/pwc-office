@@ -1,5 +1,5 @@
 {
-  "extracted_at": "2026-08-10T05:57:38Z",
+  "extracted_at": "2026-08-10T06:18:44Z",
   "tool_versions": {
     "fitz": [
       "1.28.2",
@@ -13,7 +13,7 @@
     "tools/normalize_offices.py": "c102458a91e8e1774a9ab4df4afc4144e250b9b45aa1e3d103bd3e8fc6319685",
     "tools/extract_psalter.py": "49abfe5e67a8d0bfadd73aac88da4ba6811fcda71eb1b5f3583e3e184c511e11",
     "tools/extract_collects.py": "e5406ec72298ddd63b7b26f8eea21604ffac0922ad4402ce8921d08860e800b2",
-    "tools/extract_fats.py": "65461d3b6b8fdaf3d013194493810c93be6f9f3ec2350be96ca0cb578be7f24e",
+    "tools/extract_fats.py": "f9476ba148af058ece6eada7fe7e0c7d8e5e544f756bd3f33bf820164f0bde7e",
     "tools/convert_lectionary.py": "17802222fd6c4bf0770fb480769ad586097e0fea32799f3956a221e9e6a673e4",
     "tools/apply_corrections.py": "d8bf6345cdea6080961af118664fa1415540dd5639279ac8e591079f9b852458",
     "tools/corrections_lib.py": "20a98d9f99830ab24d5bcbd32613929929e6eaa72c085352b16a0a7385f4e70d",
