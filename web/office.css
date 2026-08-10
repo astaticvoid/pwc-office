@@ -154,6 +154,19 @@ body {
   .nav-brand-name { font-size: 1rem; }
 }
 
+.nav-icon-group {
+  position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+  display: flex; align-items: center; gap: 0.15rem;
+}
+.nav-icon-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--color-brass-on-nav); opacity: 0.7;
+  padding: 0.35rem; border-radius: 6px;
+  display: flex; align-items: center;
+  transition: opacity 0.1s, background 0.1s;
+}
+.nav-icon-btn:hover { opacity: 1; background: rgba(255,255,255,0.08); }
+
 /* Nav links */
 #nav a {
   color: var(--color-nav-text);
@@ -212,7 +225,7 @@ body {
   color: var(--color-heading);
   letter-spacing: 0.04em;
 }
-#settings-close-btn {
+.sheet-close-btn {
   background: none; border: none; cursor: pointer;
   color: var(--color-muted); padding: 0.25rem; display: flex;
 }
@@ -278,25 +291,8 @@ body {
 #day-header {
   padding: 1rem 0 1.5rem;
   text-align: center;
-  position: relative;
 }
 
-.header-settings-btn {
-  position: absolute;
-  right: 0;
-  top: 0.5rem;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--color-muted);
-  padding: 0.4rem;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  opacity: 0.6;
-  transition: opacity 0.15s, background 0.15s;
-}
-.header-settings-btn:hover { opacity: 1; background: var(--color-surface); }
 #day-meta { justify-content: center; }
 
 #day-office-name {
@@ -326,7 +322,6 @@ body {
 }
 #day-subtitle:empty { display: none; }
 
-/* Date navigation: ← [date] → ⚙ */
 #day-date-nav {
   display: flex; justify-content: center; align-items: center;
   margin-bottom: 0.5rem;

@@ -1237,26 +1237,45 @@ document.addEventListener('DOMContentLoaded', async () => {
     navigateTo(todayStr(), defaultOffice());
   });
 
-  // Combined settings + date picker sheet
+  // Bottom sheets — shared open/close, each parametrized by its sheet + trigger
+  // button. closeSheet no-ops when already closed so Escape (which closes both
+  // sheets unconditionally) never steals focus onto a sheet the user didn't open.
+  function openSheet(sheet, btn) {
+    sheet.setAttribute('aria-hidden', 'false');
+    btn.setAttribute('aria-expanded', 'true');
+    const firstCtrl = sheet.querySelector('button, select, input');
+    if (firstCtrl) firstCtrl.focus();
+  }
+  function closeSheet(sheet, btn) {
+    if (sheet.getAttribute('aria-hidden') === 'true') return;
+    sheet.setAttribute('aria-hidden', 'true');
+    btn.setAttribute('aria-expanded', 'false');
+    btn.focus();
+  }
+
+  // Settings sheet
   const settingsSheet = document.getElementById('settings-sheet');
-  const settingsBtn = document.getElementById('header-settings-btn');
+  const settingsBtn = document.getElementById('nav-settings-btn');
   const settingsClose = document.getElementById('settings-close-btn');
   const settingsBackdrop = document.getElementById('settings-backdrop');
 
-  function openSettings() {
-    settingsSheet.setAttribute('aria-hidden', 'false');
-    settingsBtn.setAttribute('aria-expanded', 'true');
-    const firstCtrl = settingsSheet.querySelector('button, select, input');
-    if (firstCtrl) firstCtrl.focus();
-  }
-  function closeSettings() {
-    settingsSheet.setAttribute('aria-hidden', 'true');
-    settingsBtn.setAttribute('aria-expanded', 'false');
-    settingsBtn.focus();
-  }
+  const openSettings = () => openSheet(settingsSheet, settingsBtn);
+  const closeSettings = () => closeSheet(settingsSheet, settingsBtn);
   settingsBtn.addEventListener('click', openSettings);
   settingsClose.addEventListener('click', closeSettings);
   settingsBackdrop.addEventListener('click', closeSettings);
+
+  // Date/office picker sheet
+  const dayPickerSheet = document.getElementById('day-picker-sheet');
+  const dayPickerBtn = document.getElementById('nav-cal-btn');
+  const dayPickerClose = document.getElementById('day-picker-close-btn');
+  const dayPickerBackdrop = document.getElementById('day-picker-backdrop');
+
+  const openDayPicker = () => openSheet(dayPickerSheet, dayPickerBtn);
+  const closeDayPicker = () => closeSheet(dayPickerSheet, dayPickerBtn);
+  dayPickerBtn.addEventListener('click', openDayPicker);
+  dayPickerClose.addEventListener('click', closeDayPicker);
+  dayPickerBackdrop.addEventListener('click', closeDayPicker);
 
   // Book mode toggle — wired to the settings segmented control
   const bookModeKey = 'pwc-book-mode';
@@ -1291,7 +1310,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { closeSettings(); }
+    if (e.key === 'Escape') { closeSettings(); closeDayPicker(); }
   });
 
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
@@ -1301,16 +1320,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   sel.value = state.translation;
   sel.addEventListener('change', () => { switchTranslation(sel.value); });
 
-  // Date/office picker — now part of the combined settings sheet.
+  // Date/office picker
   const dayTitleEl = document.getElementById('day-title');
   const dayDatePicker = document.getElementById('day-date-picker');
   const dayPickerMpBtn = document.getElementById('day-picker-mp');
   const dayPickerEpBtn = document.getElementById('day-picker-ep');
   const todayBtn = document.getElementById('today-btn');
 
-  function openDayPicker() {
-    openSettings();
-  }
   document.getElementById('day-date-nav').addEventListener('click', openDayPicker);
   dayTitleEl.addEventListener('click', openDayPicker);
   dayTitleEl.addEventListener('keydown', e => {
@@ -1323,13 +1339,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   dayDatePicker.addEventListener('click', () => { try { dayDatePicker.showPicker(); } catch (_) {} });
   dayDatePicker.addEventListener('change', e => {
     if (e.target.value) navigateTo(e.target.value, state.office);
-    closeSettings();
+    closeDayPicker();
   });
 
   if (todayBtn) {
     todayBtn.addEventListener('click', () => {
       navigateTo(todayStr(), state.office);
-      closeSettings();
+      closeDayPicker();
     });
   }
 

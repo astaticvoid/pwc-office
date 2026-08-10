@@ -155,9 +155,9 @@ test.describe('Navigation', () => {
     await gotoOffice(page, DATE, 'mp');
     await page.locator('#day-office-name').click();
     if (testInfo.project.name === 'mobile') {
-      // On mobile, tapping the office label opens the settings sheet, which
+      // On mobile, tapping the office label opens the day-picker sheet, which
       // holds the office toggle, rather than flipping office directly.
-      await expect(page.locator('#settings-sheet')).toHaveAttribute('aria-hidden', 'false');
+      await expect(page.locator('#day-picker-sheet')).toHaveAttribute('aria-hidden', 'false');
       await page.locator('#day-picker-ep').click();
     }
     await expect(page.locator('#day-office-name')).toHaveText('Evening Prayer');
@@ -397,9 +397,9 @@ test.describe('Date picker', () => {
 // ── Translation switch ────────────────────────────────────────────────────────
 
 // #nav-translation lives inside the settings sheet (#settings-sheet, aria-hidden
-// by default) — open it via the settings button before interacting.
+// by default) — open it via the nav settings button before interacting.
 async function openSettings(page) {
-  await page.locator('#header-settings-btn').click();
+  await page.locator('#nav-settings-btn').click();
   await expect(page.locator('#nav-translation')).toBeVisible();
 }
 
