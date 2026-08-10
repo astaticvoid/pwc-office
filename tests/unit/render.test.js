@@ -111,18 +111,25 @@ describe('lessonHtml', () => {
   });
 });
 
-// ── lessons_pick rubric (BUG-28) ──────────────────────────────────────────────
+// ── lessons_pick rubric (BUG-28, fixed form per ADR 0014/#63) ────────────────
 describe('lessonsPick', () => {
-  test('2 of 3 renders the load-bearing rubric', () => {
-    expect(lessonsPickText(2, 3)).toBe('Two of the following three readings are read.');
+  test('2 of 3 renders the load-bearing rubric, in its fixed approved form', () => {
+    expect(lessonsPickText(2, 3)).toBe('One or two of the following readings are read.');
     expect(lessonsPickRubricHtml(2, 3)).toBe(
-      '<p class="seg-rubric">Two of the following three readings are read.</p>');
+      '<p class="seg-rubric">One or two of the following readings are read.</p>');
+  });
+
+  test('the fixed form does not vary with pick/total', () => {
+    // ADR 0014: "one mechanism, not two adjacent ones" — the reading selector
+    // now presents the actual branches, so the rubric no longer needs to
+    // spell out a computed count.
+    expect(lessonsPickText(1, 4)).toBe(lessonsPickText(2, 3));
   });
 
   test('rubric is not hidden in the interactive app (BUG-28 load-bearing)', () => {
     // The class that used to hide book-navigation rubrics in Office mode is
     // gone (ADR 0013 #59); the pick rubric must render unconditionally.
-    expect(lessonsPickRubricHtml(2, 3)).toContain('Two of the following three readings are read.');
+    expect(lessonsPickRubricHtml(2, 3)).toContain('One or two of the following readings are read.');
     expect(lessonsPickRubricHtml(2, 3)).not.toMatch(/hidden|display:\s*none/);
   });
 
@@ -201,7 +208,9 @@ describe('liturgical text register', () => {
     expect(LITURGICAL_TEXT_REGISTER.singlePsalmIntro.text).toBe('The following Psalm is said or sung.');
     expect(LITURGICAL_TEXT_REGISTER.affirmationTransition.text)
       .toBe('{office} Prayer continues with an Affirmation of Faith or the Prayers.');
-    for (const k of ['readingIntro', 'psalmIntro', 'psalmsIntro', 'singlePsalmIntro', 'affirmationTransition']) {
+    expect(LITURGICAL_TEXT_REGISTER.readingsPick.text)
+      .toBe('One or two of the following readings are read.');
+    for (const k of ['readingIntro', 'psalmIntro', 'psalmsIntro', 'singlePsalmIntro', 'affirmationTransition', 'readingsPick']) {
       expect(LITURGICAL_TEXT_REGISTER[k].source, `${k} source`).toBe('upstream-review');
     }
   });
@@ -214,9 +223,8 @@ describe('liturgical text register', () => {
     expect(LITURGICAL_TEXT_REGISTER.litanyTransition.source).toBe('editorial');
   });
 
-  test('lessonsPickText renders from the register template', () => {
-    expect(lessonsPickText(2, 3)).toBe('Two of the following three readings are read.');
-    expect(lessonsPickText(1, 4)).toBe('One of the following four readings are read.');
+  test('lessonsPickText renders the fixed register text', () => {
+    expect(lessonsPickText(2, 3)).toBe(LITURGICAL_TEXT_REGISTER.readingsPick.text);
   });
 });
 

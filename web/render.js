@@ -119,9 +119,9 @@ export const LITURGICAL_TEXT_REGISTER = {
     note: 'Matches the printed book rubric.',
   },
   readingsPick: {
-    text: '{cap} of the following {total} readings are read.',
-    source: 'editorial',
-    note: 'BUG-28: generated when the lectionary appoints N of M readings.',
+    text: 'One or two of the following readings are read.',
+    source: 'upstream-review',
+    note: 'ADR 0014/#63: replaces the app-computed per-count sentence (BUG-28) with the approved fixed form — one mechanism, not two adjacent ones.',
   },
   psalmEnd: {
     text: 'At the end of the Psalm one of the following may be said or sung.',
@@ -338,7 +338,7 @@ export function parseCitation(rawCitation) {
   return { abbrev, file, rest };
 }
 
-function expandCitationForDisplay(rawCitation) {
+export function expandCitationForDisplay(rawCitation) {
   return rawCitation.split(' or ').map(part => {
     const p = parseCitation(part.trim());
     return p ? `${p.file}${p.rest ? ' ' + p.rest : ''}` : part.trim();
@@ -580,18 +580,14 @@ export function lessonHtml(lesson, shared, form) {
     + responseHtml;
 }
 
-const _NUM_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six'];
-
-// BUG-28: when the lectionary says pick N of M readings, the app renders all M
-// (it has no pick-interaction). This rubric is load-bearing, not book-only —
-// the reader must know only N are appointed. Returns '' when there's nothing to pick.
+// When the lectionary says pick N of M readings, the app now offers a tab
+// selector over the readings (ADR 0014/#63) instead of silently rendering
+// all M; this rubric is the fixed head-of-section text that announces the
+// choice. Load-bearing, not book-only — the reader must know a choice
+// exists. Returns '' when there's nothing to pick.
 export function lessonsPickText(pick, total) {
   if (!pick || pick >= total) return '';
-  const p = _NUM_WORDS[pick] || String(pick);
-  const t = _NUM_WORDS[total] || String(total);
-  const cap = p.charAt(0).toUpperCase() + p.slice(1);
-  return LITURGICAL_TEXT_REGISTER.readingsPick.text
-    .replace('{cap}', cap).replace('{total}', t);
+  return LITURGICAL_TEXT_REGISTER.readingsPick.text;
 }
 
 export function lessonsPickRubricHtml(pick, total) {

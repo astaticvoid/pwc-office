@@ -3,7 +3,7 @@
 import {
   esc, seasonOf, officeFormSeason, seasonWeekIndex, formKey,
   filterSeasonalCollects, renderAlternatives, renderSegments, renderSubsection,
-  lessonHtml, lessonsPickRubricHtml, bindMidpoints, parseCitation,
+  lessonHtml, lessonsPickRubricHtml, bindMidpoints, parseCitation, expandCitationForDisplay,
   SC_HEADER, SC_FOOTER, LITURGICAL_TEXT_REGISTER,
   collectSecondaryPage, assembleSections, formatLiturgicalText, invitatorySegments, phosHilaronSegments,
   parseRanges, extractVersesWithChapter, parsePsalmCitation,
@@ -467,6 +467,30 @@ function buildParagraphHtml(verses, paraMap) {
 
 // ── Office HTML building ──────────────────────────────────────────────────────
 
+// Monotonic ID salt: keeps tab/panel IDs unique when the same stateKey
+// renders twice in one document — e.g. a primary and alternate observance
+// with identical psalm/reading citations (render.js's renderAlternatives
+// has the same _altUid for the same reason). stateKey/data-key stay shared
+// so cross-block tab sync and localStorage persistence are unchanged.
+let _tabUid = 0;
+
+// Builds a tab widget from [label, htmlContent] pairs, restoring the
+// selection saved under stateKey (ADR 0014's alternatives-tab convention,
+// shared by the collect, psalm, and reading selectors).
+function tabBlockHtml(stateKey, entries) {
+  const idBase = stateKey.replace(/[^a-zA-Z0-9-]/g, '_') + '-' + (++_tabUid);
+  const savedIdx = parseInt(storageGet(stateKey) || '0');
+  const activeIdx = Math.min(Math.max(0, savedIdx), entries.length - 1);
+  const tabs = entries.map(([label], i) => {
+    const displayLabel = label.length > 22 ? label.slice(0, 21) + '…' : label;
+    return `<button class="alt-tab${i === activeIdx ? ' alt-tab-active' : ''}" role="tab" aria-selected="${i === activeIdx}" aria-controls="${idBase}-panel-${i}" id="${idBase}-tab-${i}" data-idx="${i}" data-key="${esc(stateKey)}" title="${esc(label)}">${esc(displayLabel)}</button>`;
+  }).join('');
+  const panels = entries.map(([, content], i) =>
+    `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-${i}" aria-labelledby="${idBase}-tab-${i}" data-idx="${i}">${content}</div>`
+  ).join('');
+  return `<div class="alt-block"><div class="alt-tabs" role="tablist">${tabs}</div>${panels}</div>`;
+}
+
 function gloriaHtml(shared) {
   if (!shared || !shared.doxology) return '';
   return `<p class="seg-rubric">${LITURGICAL_TEXT_REGISTER.psalmEnd.text}</p>`
@@ -474,8 +498,9 @@ function gloriaHtml(shared) {
 }
 
 /**
- * Render the psalm section: rubric and all psalms in sequence. Each psalm's
- * own "Psalm N — Title" heading (from renderPsalm) introduces it individually.
+ * Render the psalm section: rubric and a tab selector (All + one tab per
+ * branch) over the appointed psalms, restored per ADR 0014. Each psalm's own
+ * "Psalm N — Title" heading (from renderPsalm) introduces it individually.
  * Handles both psalm_sets (alternative groups) and plain psalms.
  * @param {object} officeData - morning|evening office object from lectionary JSON
  * @param {object} shared - offices._shared
@@ -487,16 +512,28 @@ function psalmHtml(officeData, shared) {
   let html = '';
   if (psalmSets && psalmSets.length) {
     const allFlat = psalmSets.flat();
+    const setLabels = psalmSets.map(set =>
+      set.map(p => { const c = typeof p === 'object' ? p.citation : p; return (typeof p === 'object' && p.optional) ? `[${c}]` : c; }).join(', ')
+    );
     html += `<p class="seg-rubric">${LITURGICAL_TEXT_REGISTER.psalmIntro.text}</p>`;
-    allFlat.forEach(p => { html += psalmPlaceholder(p); });
-    html += gloriaHtml(shared);
+    const stateKey = 'pwc-psalmset-' + allFlat.map(p => typeof p === 'object' ? p.citation : p).join('-');
+    const allHtml = allFlat.map(psalmPlaceholder).join('') + gloriaHtml(shared);
+    const entries = [['All', allHtml]].concat(psalmSets.map((set, si) =>
+      [setLabels[si], set.map(psalmPlaceholder).join('') + gloriaHtml(shared)]
+    ));
+    html += tabBlockHtml(stateKey, entries);
+  } else if (psalms.length > 1) {
+    html += `<p class="seg-rubric">${LITURGICAL_TEXT_REGISTER.psalmsIntro.text}</p>`;
+    const stateKey = 'pwc-psalm-' + psalms.map(p => typeof p === 'object' ? p.citation : p).join('-');
+    const allHtml = psalms.map(psalmPlaceholder).join('') + gloriaHtml(shared);
+    const entries = [['All', allHtml]].concat(psalms.map(p => {
+      const c = typeof p === 'object' ? p.citation : p;
+      return [`Psalm ${c}`, psalmPlaceholder(p) + gloriaHtml(shared)];
+    }));
+    html += tabBlockHtml(stateKey, entries);
   } else if (psalms.length) {
-    if (psalms.length > 1) {
-      html += `<p class="seg-rubric">${LITURGICAL_TEXT_REGISTER.psalmsIntro.text}</p>`;
-    } else {
-      html += `<p class="seg-rubric">${LITURGICAL_TEXT_REGISTER.singlePsalmIntro.text}</p>`;
-    }
-    psalms.forEach(p => { html += psalmPlaceholder(p); });
+    html += `<p class="seg-rubric">${LITURGICAL_TEXT_REGISTER.singlePsalmIntro.text}</p>`;
+    html += psalmPlaceholder(psalms[0]);
     html += gloriaHtml(shared);
   }
   return html;
@@ -504,6 +541,11 @@ function psalmHtml(officeData, shared) {
 
 /**
  * Render the full Proclamation of the Word section: psalms → lesson 1 → responsory → lesson 2 → canticle.
+ * With more than one appointed reading, offers a tab selector (All + one tab
+ * per reading, ADR 0014) alongside the fixed head-of-section rubric; the
+ * Responsory and Canticle are fixed-position liturgical elements tied to the
+ * full sequence, not to any single reading, so an individual reading tab
+ * shows just that reading on its own — matching the psalm selector's pattern.
  * @param {object} officeData - morning|evening office object
  * @param {object} form - office form from offices.json
  * @param {object} shared - offices._shared
@@ -513,11 +555,25 @@ function proclamationHtml(officeData, form, shared) {
   const lessons = (officeData.lessons || []);
   let html = psalmHtml(officeData, shared);
   if (officeData.lessons_pick) html += lessonsPickRubricHtml(officeData.lessons_pick, lessons.length);
+  if (lessons.length > 1) {
+    let allHtml = lessonHtml(lessons[0], shared, form);
+    if (form) allHtml += renderSubsection('The Responsory', form.responsory, shared, true);
+    allHtml += lessonHtml(lessons[1], shared, form);
+    if (form) allHtml += renderSubsection('The Canticle', form.canticle, shared, true);
+    for (const lesson of lessons.slice(2)) allHtml += lessonHtml(lesson, shared, form);
+
+    const stateKey = 'pwc-reading-' + lessons.map(l => typeof l === 'object' ? l.citation : l).join('-');
+    const entries = [['All', allHtml]].concat(lessons.map(l => {
+      const c = typeof l === 'object' ? l.citation : l;
+      const display = expandCitationForDisplay(c);
+      const label = (typeof l === 'object' && l.optional) ? `(${display})` : display;
+      return [label, lessonHtml(l, shared, form)];
+    }));
+    return html + tabBlockHtml(stateKey, entries);
+  }
   if (lessons.length > 0) html += lessonHtml(lessons[0], shared, form);
   if (form) html += renderSubsection('The Responsory', form.responsory, shared, true);
-  if (lessons.length > 1) html += lessonHtml(lessons[1], shared, form);
   if (form) html += renderSubsection('The Canticle', form.canticle, shared, true);
-  for (const lesson of lessons.slice(2)) html += lessonHtml(lesson, shared, form);
   return html;
 }
 
@@ -574,21 +630,7 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared, fatsEntry
   if (!hasDaily && !hasSeasonal && !fatsCollect) return html;
 
   const stateKey = 'pwc-alt-collect';
-  const idBase   = 'pwc-alt-collect';
-  const savedIdx = parseInt(storageGet(stateKey) || '0');
-
-  // Helper: builds one tab-block from arrays of [label, htmlContent] pairs.
-  function tabBlock(entries) {
-    const activeIdx = Math.min(Math.max(0, savedIdx), entries.length - 1);
-    const tabs = entries.map(([label], i) => {
-      const displayLabel = label.length > 22 ? label.slice(0, 21) + '…' : label;
-      return `<button class="alt-tab${i === activeIdx ? ' alt-tab-active' : ''}" role="tab" aria-selected="${i === activeIdx}" aria-controls="${idBase}-panel-${i}" id="${idBase}-tab-${i}" data-idx="${i}" data-key="${esc(stateKey)}" title="${esc(label)}">${esc(displayLabel)}</button>`;
-    }).join('');
-    const panels = entries.map(([, content], i) =>
-      `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-${i}" aria-labelledby="${idBase}-tab-${i}" data-idx="${i}">${content}</div>`
-    ).join('');
-    return `<div class="alt-block"><div class="alt-tabs" role="tablist">${tabs}</div>${panels}</div>`;
-  }
+  const tabBlock = entries => tabBlockHtml(stateKey, entries);
 
   function occPanelHtml() {
     return `<p class="alt-source">${esc(occCollect.name)}</p><p class="collect-text">${esc(occCollect.text)}</p>`;

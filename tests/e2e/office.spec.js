@@ -95,7 +95,10 @@ test.describe('Office loads', () => {
     // Scope to primary readings only — alternate readings also render response tabs.
     const responseTabs = page.locator('.obs-readings[data-obs="primary"] [data-key="pwc-alt-reading_response"]');
     await expect(responseTabs.first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
-    await expect(responseTabs).toHaveCount(6); // 3 tabs × 2 lessons = 6
+    // The reading selector (ADR 0014/#63) shows each lesson twice — once in
+    // the "All" panel, once in its own individual tab — so each of the 2
+    // lessons' 3 response tabs renders twice: 3 × 2 × 2 = 12.
+    await expect(responseTabs).toHaveCount(12);
   });
 
   test('morning prayer: affirmation is in Proclamation, not Prayers', async ({ page }) => {
@@ -312,6 +315,71 @@ test.describe('Alternatives', () => {
   });
 });
 
+// ── Psalm and reading selectors (ADR 0014, #63) ─────────────────────────────
+// Restores an All + one-tab-per-branch selector over appointed psalms and
+// readings so every branch the rite offers is reachable, not silently
+// resolved to "show everything".
+
+test.describe('Psalm and reading selectors', () => {
+  test('psalm_sets renders an All + one-tab-per-set selector', async ({ page }) => {
+    // 2026-04-05 evening psalm_sets: [[113, 114], [118]]
+    await gotoOffice(page, '2026-04-05', 'ep');
+    const psalmBlock = page.locator('.alt-block:has(> .alt-tabs > .alt-tab[data-key^="pwc-psalmset-"])').first();
+    await psalmBlock.waitFor();
+    const tabs = psalmBlock.locator(':scope > .alt-tabs > .alt-tab');
+    await expect(tabs).toHaveCount(3); // All, "113, 114", "118"
+    await expect(tabs.nth(0)).toHaveText('All');
+    await expect(tabs.nth(0)).toHaveClass(/alt-tab-active/);
+
+    // Selecting the second set isolates it: its panel shows, the others hide.
+    await tabs.nth(2).click();
+    await expect(psalmBlock.locator(':scope > .alt-panel').nth(0)).toHaveClass(/alt-panel-hidden/);
+    await expect(psalmBlock.locator(':scope > .alt-panel').nth(2)).not.toHaveClass(/alt-panel-hidden/);
+    await expect(psalmBlock.locator(':scope > .alt-panel').nth(2).locator('[data-citation="118"]')).toHaveCount(1);
+  });
+
+  test('multiple plain psalms renders an All + one-tab-per-psalm selector', async ({ page }) => {
+    // 2026-01-03 evening psalms: ['29', '98']
+    await gotoOffice(page, '2026-01-03', 'ep');
+    const psalmBlock = page.locator('.alt-block:has(> .alt-tabs > .alt-tab[data-key^="pwc-psalm-"])').first();
+    await psalmBlock.waitFor();
+    const tabs = psalmBlock.locator(':scope > .alt-tabs > .alt-tab');
+    await expect(tabs).toHaveCount(3); // All, Psalm 29, Psalm 98
+    await expect(tabs.nth(1)).toHaveText('Psalm 29');
+    await expect(tabs.nth(2)).toHaveText('Psalm 98');
+
+    await tabs.nth(1).click();
+    const panel1 = psalmBlock.locator(':scope > .alt-panel').nth(1);
+    await expect(panel1).not.toHaveClass(/alt-panel-hidden/);
+    // Individual panel is self-contained: just the one psalm, not the other.
+    await expect(panel1.locator('[data-citation="29"]')).toHaveCount(1);
+    await expect(panel1.locator('[data-citation="98"]')).toHaveCount(0);
+  });
+
+  test('multiple readings renders an All + one-tab-per-reading selector', async ({ page }) => {
+    await gotoOffice(page, DATE, 'mp'); // 2026-05-17: two lessons per office
+    const readingBlock = page.locator('.alt-block:has(> .alt-tabs > .alt-tab[data-key^="pwc-reading-"])').first();
+    await readingBlock.waitFor();
+    const tabs = readingBlock.locator(':scope > .alt-tabs > .alt-tab');
+    await expect(tabs).toHaveCount(3); // All, Reading 1, Reading 2
+    await expect(tabs.nth(0)).toHaveText('All');
+
+    // The "All" panel keeps today's full interleaved sequence.
+    const panel0 = readingBlock.locator(':scope > .alt-panel').nth(0);
+    await expect(panel0.locator('.reading-heading')).toHaveCount(2);
+
+    // An individual tab isolates just that one reading — no Responsory/Canticle,
+    // which are fixed-position elements tied to the full sequence, not to a
+    // single reading (ADR 0014).
+    await tabs.nth(1).click();
+    const panel1 = readingBlock.locator(':scope > .alt-panel').nth(1);
+    await expect(panel1).not.toHaveClass(/alt-panel-hidden/);
+    await expect(panel1.locator('.reading-heading')).toHaveCount(1);
+    await expect(panel1.locator('.office-subsection-title', { hasText: 'Responsory' })).toHaveCount(0);
+    await expect(panel1.locator('.office-subsection-title', { hasText: 'Canticle' })).toHaveCount(0);
+  });
+});
+
 // ── Date picker ───────────────────────────────────────────────────────────────
 
 test.describe('Date picker', () => {
@@ -428,10 +496,14 @@ test.describe('Reading response renders after lesson', () => {
       await gotoOffice(page, date, office);
       // Wait for scripture to load (replaces placeholder)
       await page.waitForSelector('.scripture-placeholder:not(:has(.loading))', { timeout: 10000 });
-      // The reading-response tab strip is the .alt-block containing the
-      // "The word of the Lord" versicle. Scope to it — the page has many other
-      // alt-blocks (collect, canticle, affirmation), so a page-wide count is wrong.
-      const rrBlock = page.locator('.alt-block', { hasText: 'The word of the Lord' }).first();
+      // The reading-response tab strip is the .alt-block whose own tab strip
+      // carries data-key="pwc-alt-reading_response" — scope with a direct-child
+      // :has() so the match is the block itself, not an ancestor. A page-wide
+      // filter would also catch: other alt-blocks (collect, canticle,
+      // affirmation) via text overlap, and — since the reading selector (ADR
+      // 0014/#63) wraps each lesson in its own outer .alt-block — that outer
+      // wrapper too, since `has` without a combinator matches any descendant.
+      const rrBlock = page.locator('.alt-block:has(> .alt-tabs > .alt-tab[data-key="pwc-alt-reading_response"])').first();
       await expect(rrBlock.locator('.alt-tabs')).toBeVisible();
       // Must have 3 options (I / II / III)
       await expect(rrBlock.locator(':scope > .alt-tabs > .alt-tab')).toHaveCount(3);
