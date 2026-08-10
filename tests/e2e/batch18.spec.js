@@ -14,16 +14,18 @@ test.describe('Batch 18 — June field observations', () => {
     await expect(page.locator('.reading-heading', { hasText: 'Coll above' })).toHaveCount(0);
   });
 
-  test('June 23 MP: "two of three readings" pick rubric renders (BUG-28)', async ({ page }) => {
+  test('June 23 MP: reading-pick rubric renders (BUG-28)', async ({ page }) => {
+    // The rubric is the fixed form from LITURGICAL_TEXT_REGISTER (ADR 0014/#63),
+    // not a per-count computed sentence — same text regardless of pick/total.
     await gotoOffice(page, '2026-06-23', 'mp');
-    await expect(page.locator('.seg-rubric', { hasText: 'Two of the following three readings are read.' }))
+    await expect(page.locator('.seg-rubric', { hasText: 'One or two of the following readings are read.' }))
       .toBeVisible({ timeout: 5000 });
   });
 
   test('June 24 MP: no pick rubric on a day without lessons_pick (BUG-28 negative)', async ({ page }) => {
     await gotoOffice(page, '2026-06-24', 'mp');
     await expect(page.locator('.office-section-title').first()).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText('Two of the following three readings are read.')).toHaveCount(0);
+    await expect(page.getByText('One or two of the following readings are read.')).toHaveCount(0);
   });
 
   test('Wednesday litany: "Holy One" capitalised, placeholder N italic (BUG-25/30)', async ({ page }) => {
