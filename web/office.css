@@ -611,6 +611,7 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 .day-note {
   font-family: var(--font-liturgy); font-size: 0.95rem;
   font-style: italic; color: var(--color-muted); margin: 0.4rem 0;
+  text-align: left; /* notes live inside the centered #day-header; prose stays left-aligned */
 }
 .day-note a { color: var(--color-link); text-decoration: underline; font-style: normal; }
 
