@@ -483,6 +483,27 @@ test.describe('Observance toggle', () => {
     await page.locator('.day-ctrl-seg--obs .day-ctrl-btn').first().click();
     await expect(page.locator('#prayers-collect')).toContainText('Seventh Sunday of Easter', { timeout: 5000 });
   });
+
+  // ADR 0018: the toggle presents the selected observance's identity, not
+  // just its readings — colour chips and rank chip follow the toggle.
+  test('colour chip updates to the alternate observance colour', async ({ page }) => {
+    await gotoOffice(page, DATE, 'mp');
+    // Primary: Seventh Sunday of Easter (White)
+    await expect(page.locator('.colour-name')).toContainText('White', { timeout: 5000 });
+    await expect(page.locator(OBS_ALT)).toBeVisible({ timeout: 5000 });
+    await page.locator(OBS_ALT).click();
+    // Alternate: Ascension Sunday (White or Gold)
+    await expect(page.locator('.colour-name')).toContainText('White or Gold', { timeout: 5000 });
+  });
+
+  test('rank chip follows the alternate observance', async ({ page }) => {
+    // 2026-12-26: Saint Stephen, Deacon & Martyr (Holy Day) OR Feria.
+    await gotoOffice(page, '2026-12-26', 'mp');
+    await expect(page.locator('#day-meta')).toContainText('Holy Day', { timeout: 5000 });
+    await expect(page.locator(OBS_ALT)).toBeVisible({ timeout: 5000 });
+    await page.locator(OBS_ALT).click();
+    await expect(page.locator('#day-meta')).toContainText('Feria', { timeout: 5000 });
+  });
 });
 
 // ── BUG-19 regression ─────────────────────────────────────────────────────────

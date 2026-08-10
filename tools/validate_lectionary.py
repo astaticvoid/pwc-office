@@ -7,7 +7,7 @@ lectionary.anglican.ca and compares the parsed output against the JSON
 produced by convert_lectionary.py.
 
 Known systematic differences that are suppressed:
-  - observances: absent in HTML (handcrafted dict in convert_lectionary.py)
+  - observances: absent in HTML (extracted from the CSV name column in convert_lectionary.py, ADR 0017)
   - notes content: different sources (HTML subtitle vs. CSV extra column)
   - book abbreviations: HTML uses full names ("Isaiah"), CSV uses short ("Is")
 

@@ -25,6 +25,7 @@ Run from the repo root:
 import argparse
 import csv
 import datetime
+import difflib
 import html
 import json
 import re
@@ -42,199 +43,123 @@ from extract_lib import check_manifest
 # apply_corrections.py after this script runs — the same mechanism used for
 # office text, psalter, and FATS corrections. This extractor only parses the
 # CSV; it no longer patches its own output. See issue #13 and ADR 0005.
-# (OBSERVANCES and NOTE_TYPES below are not migrated: they're substantive
-# project-authored classification data, not corrections of a wrong value —
-# there's no "old" the CSV got wrong to record provenance against.)
+# (NOTE_TYPES below is not migrated: it is substantive project-authored
+# classification data, not a correction of a wrong value — there's no "old"
+# the CSV got wrong to record provenance against. OBSERVANCES was the same
+# until ADR 0017 replaced its hand-transcribed per-date dict with real
+# extraction from the CSV name column, below.)
 
 
 # ── Observances ────────────────────────────────────────────────────────────────
 # Secondary liturgical labels not encoded in the primary name/rank fields.
-# Derived from the secondary markers in the CSV name column.
+# ADR 0017: these used to be a hand-transcribed per-date dict (175 entries);
+# they are now extracted from the CSV name column by the classifier in the
+# "Observance classification" section below. The tables here are the ~30
+# general rules the per-date facts collapse into.
 
-OBSERVANCES: dict[str, list[str]] = {
-    "2025-12-05": ["fast_day"],
-    "2025-12-06": ["eve_of:Advent II"],
-    "2025-12-12": ["fast_day"],
-    "2025-12-13": ["eve_of:Advent III"],
-    "2025-12-19": ["fast_day"],
-    "2025-12-20": ["eve_of:Advent IV"],
-    "2025-12-24": ["eve_of:Christmas"],
-    "2025-12-26": ["octave_of_christmas"],
-    "2025-12-27": ["eve_of:Christmas I", "octave_of_christmas"],
-    "2025-12-28": ["octave_of_christmas"],
-    "2025-12-29": ["octave_of_christmas"],
-    "2025-12-30": ["octave_of_christmas"],
-    "2025-12-31": ["eve_of:the Naming of Jesus", "octave_of_christmas"],
-    "2026-01-01": ["octave_of_christmas"],
-    "2026-01-03": ["eve_of:the Epiphany", "eve_of:Christmas II"],
-    "2026-01-05": ["eve_of:the Epiphany"],
-    "2026-01-10": ["eve_of:the Baptism of the Lord"],
-    "2026-01-16": ["fast_day"],
-    "2026-01-18": ["week_of_prayer_for_christian_unity"],
-    "2026-01-19": ["week_of_prayer_for_christian_unity"],
-    "2026-01-20": ["week_of_prayer_for_christian_unity"],
-    "2026-01-21": ["week_of_prayer_for_christian_unity"],
-    "2026-01-22": ["week_of_prayer_for_christian_unity"],
-    "2026-01-23": ["fast_day", "week_of_prayer_for_christian_unity"],
-    "2026-01-24": ["week_of_prayer_for_christian_unity"],
-    "2026-01-25": ["week_of_prayer_for_christian_unity"],
-    "2026-01-30": ["fast_day"],
-    "2026-02-01": ["eve_of:the Presentation of the Lord"],
-    "2026-02-06": ["fast_day"],
-    "2026-02-13": ["fast_day"],
-    "2026-02-18": ["fast_day"],
-    "2026-02-19": ["fast_day"],
-    "2026-02-20": ["fast_day"],
-    "2026-02-21": ["fast_day", "eve_of:Lent I"],
-    "2026-02-22": ["freedom_sunday"],
-    "2026-02-23": ["fast_day"],
-    "2026-02-24": ["fast_day"],
-    "2026-02-25": ["fast_day"],
-    "2026-02-26": ["fast_day"],
-    "2026-02-27": ["fast_day"],
-    "2026-02-28": ["fast_day", "eve_of:Lent II"],
-    "2026-03-02": ["fast_day"],
-    "2026-03-03": ["fast_day"],
-    "2026-03-04": ["fast_day"],
-    "2026-03-05": ["fast_day"],
-    "2026-03-06": ["fast_day", "world_day_of_prayer"],
-    "2026-03-07": ["fast_day", "eve_of:Lent III"],
-    "2026-03-09": ["fast_day"],
-    "2026-03-10": ["fast_day"],
-    "2026-03-11": ["fast_day"],
-    "2026-03-12": ["fast_day"],
-    "2026-03-13": ["fast_day"],
-    "2026-03-14": ["fast_day", "eve_of:Lent IV"],
-    "2026-03-16": ["fast_day"],
-    "2026-03-17": ["fast_day"],
-    "2026-03-18": ["fast_day"],
-    "2026-03-19": ["fast_day"],
-    "2026-03-20": ["fast_day"],
-    "2026-03-21": ["fast_day", "eve_of:Lent V"],
-    "2026-03-23": ["fast_day"],
-    "2026-03-24": ["fast_day", "eve_of:the Annunciation"],
-    "2026-03-26": ["fast_day"],
-    "2026-03-27": ["fast_day"],
-    "2026-03-28": ["fast_day", "eve_of:the Sunday of the Passion: Palm Sunday"],
-    "2026-03-30": ["fast_day"],
-    "2026-03-31": ["fast_day"],
-    "2026-04-01": ["fast_day"],
-    "2026-04-02": ["fast_day"],
-    "2026-04-03": ["fast_day"],
-    "2026-04-04": ["fast_day", "easter_eve"],
-    "2026-04-06": ["octave_of_easter"],
-    "2026-04-07": ["octave_of_easter"],
-    "2026-04-08": ["octave_of_easter"],
-    "2026-04-09": ["octave_of_easter"],
-    "2026-04-10": ["octave_of_easter"],
-    "2026-04-11": ["eve_of:Easter II", "octave_of_easter"],
-    "2026-04-12": ["octave_of_easter"],
-    "2026-04-18": ["eve_of:Easter III"],
-    "2026-04-25": ["eve_of:Easter IV"],
-    "2026-04-26": ["vocations_sunday"],
-    "2026-05-02": ["eve_of:Easter V"],
-    "2026-05-09": ["eve_of:Easter VI"],
-    "2026-05-13": ["eve_of:the Ascension"],
-    "2026-05-16": [
-        "eve_of:the Seventh Sunday of Easter",
-        "eve_of:Ascension Sunday",
-        "ascension_sunday_option",
-    ],
-    "2026-05-17": ["jerusalem_holy_land_sunday", "ascension_sunday_option"],
-    "2026-05-18": ["journee_nationale_des_patriotes", "victoria_day"],
-    "2026-05-23": ["eve_of:Pentecost"],
-    "2026-05-29": ["fast_day"],
-    "2026-05-30": ["eve_of:Trinity Sunday"],
-    "2026-06-04": ["corpus_christi_option"],
-    "2026-06-05": ["fast_day"],
-    "2026-06-06": ["eve_of:Corpus Christi"],
-    "2026-06-07": ["corpus_christi_option"],
-    "2026-06-12": ["fast_day"],
-    "2026-06-19": ["fast_day"],
-    "2026-06-20": [
-        "eve_of:National Indigenous Day of Prayer",
-        "national_indigenous_day_of_prayer",
-    ],
-    "2026-06-21": ["national_indigenous_day_of_prayer"],
-    "2026-06-23": ["eve_of:the Birth of Saint John the Baptist"],
-    "2026-06-26": ["fast_day"],
-    "2026-06-28": ["eve_of:Saint Peter and Saint Paul"],
-    "2026-07-01": ["canada_day"],
-    "2026-07-03": ["fast_day"],
-    "2026-07-10": ["fast_day"],
-    "2026-07-17": ["fast_day"],
-    "2026-07-24": ["fast_day"],
-    "2026-07-31": ["fast_day"],
-    "2026-08-05": ["eve_of:the Transfiguration of the Lord"],
-    "2026-08-07": ["fast_day"],
-    "2026-08-14": ["fast_day", "eve_of:Saint Mary the Virgin"],
-    "2026-08-21": ["fast_day"],
-    "2026-08-28": ["fast_day"],
-    "2026-09-01": ["season_of_creation"],
-    "2026-09-02": ["season_of_creation"],
-    "2026-09-03": ["season_of_creation"],
-    "2026-09-04": ["fast_day", "season_of_creation"],
-    "2026-09-05": ["season_of_creation"],
-    "2026-09-06": ["season_of_creation"],
-    "2026-09-07": ["season_of_creation", "labour_day"],
-    "2026-09-08": ["season_of_creation"],
-    "2026-09-09": ["season_of_creation"],
-    "2026-09-10": ["season_of_creation"],
-    "2026-09-11": ["fast_day", "season_of_creation"],
-    "2026-09-12": ["season_of_creation"],
-    "2026-09-13": ["eve_of:Holy Cross", "season_of_creation"],
-    "2026-09-14": ["season_of_creation"],
-    "2026-09-15": ["season_of_creation"],
-    "2026-09-16": ["season_of_creation"],
-    "2026-09-17": ["season_of_creation"],
-    "2026-09-18": ["fast_day", "season_of_creation"],
-    "2026-09-19": ["season_of_creation"],
-    "2026-09-20": ["season_of_creation"],
-    "2026-09-21": ["season_of_creation"],
-    "2026-09-22": ["season_of_creation"],
-    "2026-09-23": ["season_of_creation"],
-    "2026-09-24": ["season_of_creation"],
-    "2026-09-25": ["fast_day", "season_of_creation"],
-    "2026-09-26": ["season_of_creation"],
-    "2026-09-27": ["season_of_creation"],
-    "2026-09-28": ["eve_of:Saint Michael and All Angels", "season_of_creation"],
-    "2026-09-29": ["season_of_creation"],
-    "2026-09-30": ["season_of_creation"],
-    "2026-10-01": ["season_of_creation"],
-    "2026-10-02": ["fast_day", "season_of_creation"],
-    "2026-10-03": ["season_of_creation"],
-    "2026-10-04": ["season_of_creation"],
-    "2026-10-09": ["fast_day"],
-    "2026-10-10": ["eve_of:Harvest Thanksgiving", "harvest_thanksgiving"],
-    "2026-10-11": ["harvest_thanksgiving"],
-    "2026-10-12": ["thanksgiving_day"],
-    "2026-10-16": ["fast_day"],
-    "2026-10-23": ["fast_day"],
-    "2026-10-24": ["eve_of:Dedication Sunday", "dedication_sunday"],
-    "2026-10-25": ["dedication_sunday"],
-    "2026-10-30": ["fast_day"],
-    "2026-11-06": ["fast_day"],
-    "2026-11-07": ["eve_of:Remembrance Sunday", "remembrance_sunday"],
-    "2026-11-08": ["remembrance_sunday"],
-    "2026-11-13": ["fast_day"],
-    "2026-11-20": ["fast_day"],
-    "2026-11-21": ["eve_of:the Reign of Christ"],
-    "2026-11-27": ["fast_day"],
-    "2026-11-28": ["eve_of:Advent I"],
-    "2026-12-04": ["fast_day"],
-    "2026-12-05": ["eve_of:Advent II"],
-    "2026-12-11": ["fast_day"],
-    "2026-12-12": ["eve_of:Advent III"],
-    "2026-12-18": ["fast_day"],
-    "2026-12-19": ["eve_of:Advent IV"],
-    "2026-12-24": ["eve_of:Christmas"],
-    "2026-12-26": ["eve_of:Christmas I", "octave_of_christmas"],
-    "2026-12-27": ["octave_of_christmas"],
-    "2026-12-28": ["octave_of_christmas"],
-    "2026-12-29": ["octave_of_christmas"],
-    "2026-12-30": ["octave_of_christmas"],
-    "2026-12-31": ["eve_of:the Naming of Jesus", "octave_of_christmas"],
+# phrase → tag substring map, matched against lowercased lines. "Eve of …"
+# lines are classified by RE_EVE_OF before this table is consulted — some
+# phrases here ("ascension sunday", "harvest thanksgiving", …) also appear
+# inside eve lines and must not steal them.
+OBSERVANCE_PHRASES: dict[str, str] = {
+    "day of discipline and self-denial": "fast_day",
+    "within the octave of christmas": "octave_of_christmas",
+    "within the octave of easter": "octave_of_easter",
+    "week of prayer for christian unity": "week_of_prayer_for_christian_unity",
+    "season of creation": "season_of_creation",
+    "freedom sunday": "freedom_sunday",
+    "world day of prayer": "world_day_of_prayer",
+    "vocations sunday": "vocations_sunday",
+    "jerusalem and the holy land sunday": "jerusalem_holy_land_sunday",
+    "journée nationale des patriotes": "journee_nationale_des_patriotes",
+    "victoria day": "victoria_day",
+    "easter eve": "easter_eve",
+    "corpus christi": "corpus_christi_option",
+    "ascension sunday": "ascension_sunday_option",
+    "national indigenous day of prayer": "national_indigenous_day_of_prayer",
+    "canada day": "canada_day",
+    "labour day": "labour_day",
+    "harvest thanksgiving": "harvest_thanksgiving",
+    "thanksgiving day": "thanksgiving_day",
+    "dedication sunday": "dedication_sunday",
+    "remembrance sunday": "remembrance_sunday",
+    # The three civil markers the original dict left out. They are structurally
+    # identical to the four tagged above (Victoria/Canada/Labour/Thanksgiving
+    # Day) — same shape, same source; their absence was transcription, not
+    # decision. Completing the vocabulary against the CSV (ADR 0017).
+    "remembrance day": "remembrance_day",
+    "new year's day": "new_year_day",
+    "accession day": "accession_day",
 }
+
+# Feast names whose English liturgical usage prefixes the definite article to
+# the eve target ("eve_of:the Epiphany", never "eve_of:Epiphany"). The CSV's
+# own capitalization is not a trustworthy signal for this (it capitalizes
+# "the" in "Eve of the Epiphany" and omits it in "Eve of Advent II"), so the
+# convention is encoded here — deliberately independent of the outgoing
+# per-date dict, so the replacement does not quietly depend on the thing it
+# replaces (ADR 0017).
+EVE_THE_ARTICLE = frozenset({
+    "naming of jesus",
+    "epiphany",
+    "baptism of the lord",
+    "presentation of the lord",
+    "annunciation",
+    "sunday of the passion: palm sunday",
+    "ascension",
+    "seventh sunday of easter",
+    "birth of saint john the baptist",
+    "transfiguration of the lord",
+    "reign of christ",
+})
+
+# "Eve of X" lines whose X is deliberately not an observance. "Eve of Sunday"
+# sits on most Saturdays — a plain eve, not a secondary fact.
+EVE_EXCLUDED_TARGETS = frozenset({"sunday"})
+
+# Eve lines that also carry a same-date bare tag alongside the eve. The CSV
+# wording alone cannot decide this: two structurally identical "[if also
+# celebrated on Sunday]" eve lines get different treatment in the source data
+# (Eve of Corpus Christi carries no companion; Eve of Ascension Sunday does).
+# Explicit, commented, hand-maintained judgment calls (ADR 0017 point 5),
+# keyed on the article-stripped, lowercased eve target.
+EVE_COMPANION_TAGS: dict[str, str] = {
+    "ascension sunday": "ascension_sunday_option",
+    "national indigenous day of prayer": "national_indigenous_day_of_prayer",
+    "harvest thanksgiving": "harvest_thanksgiving",
+    "dedication sunday": "dedication_sunday",
+    "remembrance sunday": "remembrance_sunday",
+}
+
+# The complete expected "Eve of X" target vocabulary (article-stripped,
+# lowercased). A target outside this set means ACC rephrased an eve marker —
+# the classifier warns rather than silently dropping it (ADR 0017 negative
+# consequence; the same drift guard detect_bounds() applies to season
+# boundaries).
+KNOWN_EVE_TARGETS = (
+    EVE_THE_ARTICLE
+    | EVE_EXCLUDED_TARGETS
+    | frozenset({
+        "advent i", "advent ii", "advent iii", "advent iv",
+        "christmas", "christmas i", "christmas ii",
+        "lent i", "lent ii", "lent iii", "lent iv", "lent v",
+        "easter ii", "easter iii", "easter iv", "easter v", "easter vi",
+        "pentecost", "trinity sunday", "corpus christi", "ascension sunday",
+        "national indigenous day of prayer",
+        "saint peter and saint paul", "saint mary the virgin",
+        "saint michael and all angels", "holy cross",
+        "harvest thanksgiving", "dedication sunday", "remembrance sunday",
+        "all saints' day",
+    })
+)
+
+# Wording-drift guard for the phrase table (ADR 0017 negative consequence):
+# an unmatched line within this SequenceMatcher ratio of a known phrase is
+# warned about rather than silently dropped. Calibrated so no legitimate
+# non-observance line in the current CSV reaches it (see
+# tools/tests/test_convert_lectionary.py).
+OBSERVANCE_FUZZY_RATIO = 0.72
+
 
 
 # ── Note types ─────────────────────────────────────────────────────────────────
@@ -340,6 +265,132 @@ def first_line(s: str) -> str:
         if line.strip():
             return line.strip()
     return s
+
+
+# ── Observance classification ─────────────────────────────────────────────────
+# ADR 0017: observances are extracted from the CSV name column, reading every
+# line of it — most markers are lines after the first <br>, but at least one
+# (National Indigenous Day of Prayer) appears as the entire primary line.
+
+RE_EVE_OF = re.compile(
+    r"^Eve of\s+(.+?)\s*(?:\([^)]*\))?\s*(?:\[[^]]*\])?\s*$",
+    re.IGNORECASE,
+)
+
+
+def _classify_observance_line(line: str) -> list[str] | None:
+    """Classify one cleaned name-column line into observance tags.
+
+    Returns a list of tags (usually one), or None when the line is not an
+    observance — alternate commemorations ("Florence Nightingale, … - Com"),
+    separator text ("And / or"), and plain eves ("Eve of Sunday") are all
+    deliberately ignored (ADR 0017 point 3).
+    """
+    if m := RE_EVE_OF.match(line):
+        target = m.group(1).strip()
+        key = re.sub(r"^the\s+", "", target, flags=re.I).strip().lower()
+        key = key.replace("\u2019", "'")  # CSV uses U+2019; vocabulary is ASCII
+        if key not in KNOWN_EVE_TARGETS:
+            print(
+                f"WARNING: observances: unrecognized 'Eve of {target}' line in "
+                f"the CSV name column; expected one of the known eve targets — "
+                f"check whether ACC changed the wording",
+                file=sys.stderr,
+            )
+            return None
+        if key in EVE_EXCLUDED_TARGETS:
+            return None
+        bare = re.sub(r"^the\s+", "", target, flags=re.I).strip()
+        tag = "eve_of:" + ("the " if key in EVE_THE_ARTICLE else "") + bare
+        tags = [tag]
+        if companion := EVE_COMPANION_TAGS.get(key):
+            tags.append(companion)
+        return tags
+    lowered = line.lower()
+    # CSV typography uses U+2019 ("New Year's Day"); the phrase vocabulary is
+    # ASCII, so normalize before matching.
+    lowered = lowered.replace("\u2019", "'")
+    # Longest phrase first: if ACC ever adds a phrase containing an existing
+    # one (e.g. "National Day of Thanksgiving" inside "thanksgiving day"),
+    # the more specific match wins rather than whichever dict order happens
+    # to come first.
+    for phrase, tag in sorted(
+        OBSERVANCE_PHRASES.items(), key=lambda kv: len(kv[0]), reverse=True
+    ):
+        if phrase in lowered:
+            return [tag]
+    _warn_phrase_drift(line, lowered)
+    return None
+
+
+def _warn_phrase_drift(line: str, lowered: str) -> None:
+    """Warn when an unmatched line is close to a known phrase.
+
+    Unmatched lines are deliberately ignored (commemorations, separators), so
+    ACC rephrasing a marker would otherwise fail silently — the same
+    silent-drift risk detect_bounds() guards against for season boundaries.
+    A line within OBSERVANCE_FUZZY_RATIO of a known phrase is warned about;
+    anything more distant is treated as a new or non-observance line.
+    """
+    best_ratio, best_phrase = 0.0, None
+    for phrase in OBSERVANCE_PHRASES:
+        ratio = difflib.SequenceMatcher(None, lowered, phrase).ratio()
+        if ratio > best_ratio:
+            best_ratio, best_phrase = ratio, phrase
+    if best_ratio >= OBSERVANCE_FUZZY_RATIO:
+        print(
+            f"WARNING: observances: CSV name-column line {line!r} matches no "
+            f"phrase but is {best_ratio:.0%} similar to {best_phrase!r} — "
+            f"check whether ACC changed the wording",
+            file=sys.stderr,
+        )
+
+
+def parse_observances(raw: str) -> list[str] | None:
+    """Extract secondary-observance tags from the CSV name column (ADR 0017).
+
+    Classifies every line of the cleaned field, in line order; returns None
+    when no line is an observance.
+    """
+    tags: list[str] = []
+    for line in clean(raw).split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        if found := _classify_observance_line(line):
+            tags.extend(found)
+    return tags or None
+
+
+def alternate_identity(label: str, lines: list[str]) -> dict | None:
+    """Match an office alternate's label against name-column lines (ADR 0018).
+
+    Returns the alternate observance's identity — {colour, optional, rank} —
+    when a line matches, else None (the caller keeps the day's identity).
+    Matching is case-insensitive containment in either direction after
+    stripping "the" (the label's article form — "Eve of the Ascension" —
+    need not match the CSV's bare form); the rank is ``feria`` when the
+    matched line is a feria line (contains "Feria") or begins with "Eve",
+    otherwise the day's own rank stands.
+    """
+    target = re.sub(r"\bthe\s+", "", label, flags=re.I).strip().lower()
+    target = target.replace("\u2019", "'")  # CSV typography vs ASCII labels
+    if not target:
+        return None
+    for line in lines:
+        low = re.sub(r"\bthe\s+", "", line, flags=re.I).strip().lower()
+        low = low.replace("\u2019", "'")
+        if not low or not (target in low or low in target):
+            continue
+        identity: dict = {}
+        if m := re.search(r"\(([^)]*)\)", line):
+            identity["colour"] = m.group(1).strip()
+        identity["optional"] = bool(re.search(r"\[[^]]*\]", line))
+        if re.search(r"\bferia\b", low) or low.startswith("eve "):
+            identity["rank"] = "feria"
+        return identity
+    return None
+
 
 
 # ── Name / rank / colour ───────────────────────────────────────────────────────
@@ -785,9 +836,16 @@ def main():
         if colour:
             entry["colour"] = colour
 
-        obs = OBSERVANCES.get(date_str)
+        obs = parse_observances(row[1])
         if obs:
             entry["observances"] = obs
+
+        # ADR 0018: keep the cleaned name-column lines for the
+        # alternate-identity enrichment pass below (popped there, like
+        # _coll_ref).
+        entry["_name_lines"] = [
+            line.strip() for line in clean(row[1]).split("\n") if line.strip()
+        ]
 
         eucharist = parse_eucharist(row[2]) if len(row) > 2 else ""
         if eucharist:
@@ -852,6 +910,22 @@ def main():
             text += "."
         entry["collect_inline"] = {"name": source["name"], "text": text}
 
+    # Third pass (ADR 0018): give each office alternate the alternate
+    # observance's identity — colour, optionality, rank — matched from the
+    # name column's lines, so the app's Primary/Alternate toggle can present
+    # the selected observance's own identity rather than the primary's.
+    for entry in entries:
+        name_lines = entry.pop("_name_lines", None)
+        if not name_lines:
+            continue
+        for office_key in ("morning", "evening"):
+            alt = entry.get(office_key, {}).get("alternate")
+            if not alt:
+                continue
+            identity = alternate_identity(alt.get("label") or "", name_lines)
+            if identity:
+                alt.update(identity)
+
     # Group entries by YYYY-MM and write one file per month.
     months: dict[str, dict] = {}
     for entry in entries:
@@ -909,7 +983,7 @@ def main():
     with_obs = sum(1 for e in entries if e.get("observances"))
     with_notes = sum(1 for e in entries if e.get("notes"))
     print(f"  eucharist populated: {with_eucharist}/{len(entries)}")
-    print(f"  observances:         {with_obs}/{len(OBSERVANCES)} from correction dict")
+    print(f"  observances:         {with_obs} days (extracted from CSV name column)")
     print(f"  notes:               {with_notes}/{len(NOTE_TYPES)} from correction dict")
 
     check_manifest(output_paths, root, accept=args.accept)

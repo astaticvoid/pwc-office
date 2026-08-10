@@ -11,9 +11,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from convert_lectionary import (
+    alternate_identity,
     detect_bounds,
     parse_lesson,
     parse_name_meta,
+    parse_observances,
     parse_psalm_field,
     parse_single_office,
 )
@@ -150,6 +152,166 @@ class TestParseSingleOffice:
         # BUG-33: "O Antiphon" is delivered as a typed note, not a lesson.
         office = parse_single_office("Ps 89:1-29; Isa 9:2-7; 2 Pet 1:1-11; O Antiphon")
         assert office["lessons"] == ["Isa 9:2-7", "2 Pet 1:1-11"]
+
+
+# ── parse_observances ─────────────────────────────────────────────────────────
+
+class TestParseObservances:
+    """ADR 0017: observances are extracted from every line of the CSV name
+    column, not hand-transcribed per date."""
+
+    def test_phrase_marker(self):
+        assert parse_observances("Day of discipline and self-denial") == ["fast_day"]
+
+    def test_marker_after_br(self):
+        assert parse_observances(
+            "Clement of Alexandria, Priest, c. 210 - Com (Violet or Blue)<br>"
+            "Day of discipline and self-denial"
+        ) == ["fast_day"]
+
+    def test_eve_without_article(self):
+        assert parse_observances("Eve of Advent II (Violet or Blue)") == ["eve_of:Advent II"]
+
+    def test_eve_with_article(self):
+        assert parse_observances("Eve of the Epiphany (White or Gold)") == ["eve_of:the Epiphany"]
+
+    def test_eve_colon_target(self):
+        assert parse_observances(
+            "Eve of the Sunday of the Passion: Palm Sunday (Red)"
+        ) == ["eve_of:the Sunday of the Passion: Palm Sunday"]
+
+    def test_eve_bracket_decoration(self):
+        assert parse_observances(
+            "Eve of Ascension Sunday (White or Gold) [if kept on Sunday]"
+        ) == ["eve_of:Ascension Sunday", "ascension_sunday_option"]
+
+    def test_eve_of_sunday_ignored(self):
+        # Most Saturdays carry "Eve of Sunday" — a plain eve, not an observance.
+        assert parse_observances("Feria (Green)<br>Eve of Sunday (Green)") is None
+
+    def test_primary_line_marker(self):
+        # National Indigenous Day of Prayer is the entire primary line on its
+        # date — the classifier must see all lines, not just line 2+.
+        assert parse_observances(
+            "National Indigenous Day of Prayer (Green or other appropriate colour)"
+        ) == ["national_indigenous_day_of_prayer"]
+
+    def test_eve_companion(self):
+        assert parse_observances(
+            "Feria (Green)<br>Eve of Harvest Thanksgiving (White)"
+        ) == ["eve_of:Harvest Thanksgiving", "harvest_thanksgiving"]
+
+    def test_corpus_christi_eve_has_no_companion(self):
+        # Structurally identical to the Ascension eve line, but the source data
+        # carries no same-date companion (ADR 0017 point 5 judgment call).
+        assert parse_observances(
+            "Eve of Corpus Christi (White) [if also celebrated on Sunday]"
+        ) == ["eve_of:Corpus Christi"]
+
+    def test_line_order_preserved(self):
+        assert parse_observances(
+            "World Day of Prayer<br>Day of discipline and self-denial"
+        ) == ["world_day_of_prayer", "fast_day"]
+
+    def test_separator_and_commemoration_ignored(self):
+        assert parse_observances(
+            "Philip Lindel Tsen, Bishop of Honan, 1954 - Com (Violet)<br>"
+            "And / or<br>"
+            "Paul Shinji Sasaki, Bishop of Mid-Japan & Tokyo, 1946 - Com (Violet)"
+        ) is None
+
+    def test_easter_eve(self):
+        assert parse_observances(
+            "Holy Saturday (Red)<br>Day of discipline and self-denial<br>"
+            "Easter Eve (White or Gold)"
+        ) == ["fast_day", "easter_eve"]
+
+    def test_all_saints_eve(self):
+        # The gap the hand-written dict missed (issue #56 comment); the
+        # extractor finds it automatically.
+        assert parse_observances(
+            "Saints of the Reformation Era - Com (Green)<br>"
+            "Eve of All Saints\u2019 Day (White or Gold)"
+        ) == ["eve_of:All Saints\u2019 Day"]
+
+    def test_civil_marker_remembrance_day(self):
+        assert parse_observances(
+            "Martin, Bishop of Tours, 397 - Mem (White)<br>"
+            "Remembrance Day (Violet or Black)"
+        ) == ["remembrance_day"]
+
+    def test_civil_marker_new_year_day(self):
+        # CSV uses U+2019; the phrase vocabulary is ASCII.
+        assert parse_observances(
+            "The Naming of Jesus - HD (White)<br>New Year\u2019s Day<br>"
+            "Within the Octave of Christmas"
+        ) == ["new_year_day", "octave_of_christmas"]
+
+    def test_civil_marker_accession_day(self):
+        assert parse_observances(
+            "Nativity of the Blessed Virgin Mary - Mem (White)<br>"
+            "Accession Day of HM King Charles III (Green)<br>Season of Creation"
+        ) == ["accession_day", "season_of_creation"]
+
+    def test_unknown_eve_target_warns(self, capsys):
+        assert parse_observances("Eve of the Nativity (White)") is None
+        assert "unrecognized" in capsys.readouterr().err
+
+    def test_rephrased_marker_warns(self, capsys):
+        # ADR 0017 negative consequence: ACC rephrasing a marker must warn
+        # rather than silently dropping the line.
+        assert parse_observances("Day of fasting and self-denial") is None
+        assert "similar to" in capsys.readouterr().err
+
+    def test_distant_unmatched_line_is_silent(self, capsys):
+        assert parse_observances(
+            "Florence Nightingale, Nurse, Social Reformer, 1910 - Com (White)"
+        ) is None
+        assert capsys.readouterr().err == ""
+
+
+# ── alternate_identity ────────────────────────────────────────────────────────
+
+class TestAlternateIdentity:
+    """ADR 0018: office alternates carry the alternate observance's identity."""
+
+    def test_feria_match(self):
+        assert alternate_identity(
+            "Feria", ["Feria in Christmastide (White)", "Within the Octave of Christmas"]
+        ) == {"colour": "White", "optional": False, "rank": "feria"}
+
+    def test_feria_adjective_form(self):
+        # "Easter Feria" does not begin with "Feria" but is still a feria.
+        assert alternate_identity(
+            "Feria", ["Easter Feria (White)"]
+        ) == {"colour": "White", "optional": False, "rank": "feria"}
+
+    def test_corpus_christi_match(self):
+        assert alternate_identity(
+            "Corpus Christi",
+            ["The Most Holy Body and Blood of Christ or Corpus Christi (White) "
+             "[if also celebrated on Sunday]"],
+        ) == {"colour": "White", "optional": True}
+
+    def test_eve_of_ascension(self):
+        assert alternate_identity(
+            "Eve of the Ascension",
+            ["Eve of Ascension Sunday (White or Gold) [if kept on Sunday]"],
+        ) == {"colour": "White or Gold", "optional": True, "rank": "feria"}
+
+    def test_no_containment_returns_none(self):
+        # "Christmas II" does not appear in "Second Sunday after Christmas".
+        assert alternate_identity(
+            "Christmas II", ["Second Sunday after Christmas (White)"]
+        ) is None
+
+    def test_empty_label_returns_none(self):
+        assert alternate_identity("", ["Feria (Green)"]) is None
+
+    def test_apostrophe_normalized(self):
+        assert alternate_identity(
+            "New Year's Day", ["New Year\u2019s Day"]
+        ) == {"optional": False}
 
 
 # ── detect_bounds ─────────────────────────────────────────────────────────────

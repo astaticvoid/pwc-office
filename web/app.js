@@ -816,20 +816,28 @@ async function render(dateStr, officeType, translation) {
   const activeName = activeObs === 'alternate'
     ? (officeData.alternate.label || officeData.alternate.name || day.name)
     : day.name;
+  // ADR 0018: the selected observance's own identity — colour and rank —
+  // when the alternate carries one; otherwise the day's.
+  const activeColour = activeObs === 'alternate' && officeData.alternate.colour
+    ? officeData.alternate.colour
+    : day.colour;
+  const activeRank = activeObs === 'alternate' && officeData.alternate.rank
+    ? officeData.alternate.rank
+    : day.rank;
   document.title = `${officeName} — ${activeName}`;
   document.getElementById('day-office-name').textContent = officeName;
   document.getElementById('day-title').textContent = activeName;
   document.getElementById('day-date-label').textContent = fmtFullDate(dateStr);
 
-  const hexes = colourHexes(day.colour);
+  const hexes = colourHexes(activeColour);
   const firstHex = hexes[0] || '#b5a882';
   const colourChip = hexes.length > 0
     ? `<span class="meta-item">`
       + `<span class="meta-lbl">Colour</span>`
       + (hexes.length > 1
-          ? `<button class="colour-chip colour-chip-toggle" style="background:${firstHex}" data-hexes='${JSON.stringify(hexes)}' data-idx="0" title="Tap to cycle liturgical colour" aria-label="${esc(day.colour)} — tap to cycle"></button>`
+          ? `<button class="colour-chip colour-chip-toggle" style="background:${firstHex}" data-hexes='${JSON.stringify(hexes)}' data-idx="0" title="Tap to cycle liturgical colour" aria-label="${esc(activeColour)} — tap to cycle"></button>`
           : `<span class="colour-chip" style="background:${firstHex}"></span>`)
-      + `<span class="colour-name meta-val">${esc(day.colour)}`
+      + `<span class="colour-name meta-val">${esc(activeColour)}`
       + (hexes.length > 1 ? ` <span class="colour-cycle-hint" aria-hidden="true">↺</span>` : '')
       + `</span>`
       + `</span>`
@@ -841,7 +849,7 @@ async function render(dateStr, officeType, translation) {
     + `<span class="meta-val">${esc(seasonLabel)}</span>`
     + `</span>`
     + `<span class="meta-sep">·</span>`
-    + `<span class="meta-item">${esc(formatRank(day.rank))}</span>`
+    + `<span class="meta-item">${esc(formatRank(activeRank))}</span>`
     + colourChip;
 
   document.querySelectorAll('.day-note, .day-note-details').forEach(el => el.remove());
