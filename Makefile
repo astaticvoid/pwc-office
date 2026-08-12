@@ -296,6 +296,7 @@ deploy-staging: check-integrity check-dist
 	  --exclude "*" \
 	  --include "*.html" --include "*.js" --include "*.css" \
 	  --include "*.json" --include "*.png" --include "*.svg" --include "*.ico" \
+	  --include "*.woff2" \
 	  --exclude "sw.js" \
 	  --cache-control "max-age=60"
 	# sw.js: never cache — kill-switch must always be fresh. The exclude above
