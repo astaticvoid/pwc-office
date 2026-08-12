@@ -336,19 +336,15 @@ body {
 #day-office-name {
   color: var(--color-accent);
   margin-bottom: 0.4rem;
-  cursor: pointer; user-select: none;
-  display: inline-block; position: relative; padding: 0 0.9em;
+  display: inline-block; position: relative;
 }
-#day-office-name:hover { opacity: 0.8; }
 
 #day-title {
   font-family: var(--font-liturgy);
   font-size: var(--fs-day-title); font-weight: 600; line-height: 1.2;
   color: var(--color-heading);
   margin-bottom: 0.4rem;
-  cursor: pointer; transition: opacity 0.1s;
 }
-#day-title:hover { opacity: 0.85; }
 
 #day-subtitle {
   font-family: var(--font-liturgy);
@@ -414,22 +410,6 @@ body.book-mode .alt-panel + .alt-panel::before {
   font-size: var(--fs-rubric);
   color: var(--color-rubric);
   margin: var(--sp-3) 0;
-}
-
-/* ── Form header ────────────────────────────────────────────────────────────── */
-
-.form-header {
-  margin-top: 1.5rem; margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--color-border);
-}
-.form-title {
-  font-family: var(--font-liturgy); font-size: 1.25rem; font-weight: 600;
-  color: var(--color-heading); margin-bottom: 0.2rem;
-}
-.form-subtitle {
-  font-family: var(--font-liturgy); font-size: 0.9rem; font-style: italic;
-  color: var(--color-muted);
 }
 
 /* ── Section headings ───────────────────────────────────────────────────────── */
@@ -766,10 +746,14 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 }
 
 .day-ctrl-btn {
-  flex: 1; text-align: center; padding: 0.55rem 0.5rem; border-radius: var(--radius-md);
+  /* 44px minimum target: these are the primary controls on a phone, and the
+     padding alone leaves them at ~35px once the label sits on the UI step. */
+  flex: 1; min-height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  text-align: center; padding: 0.55rem 0.5rem; border-radius: var(--radius-md);
   font-family: var(--font-ui); font-size: var(--fs-ui); font-weight: 500; letter-spacing: 0.01em;
   color: var(--color-muted); background: none; border: none; cursor: pointer;
-  display: block; transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
 }
 .day-ctrl-btn:hover { color: var(--color-text); }
 .day-ctrl-btn.is-active {

@@ -117,11 +117,6 @@ function defaultOffice() {
   return new Date().getHours() >= 15 ? 'ep' : 'mp';
 }
 
-// Matches the desktop breakpoint in office.css (@media (min-width: 820px)).
-function isMobileLayout() {
-  return window.matchMedia('(max-width: 819.98px)').matches;
-}
-
 // ── Theme ─────────────────────────────────────────────────────────────────────
 
 function initTheme() {
@@ -864,6 +859,17 @@ async function render(dateStr, officeType, translation) {
   const ctrlEl = document.getElementById('day-office-controls');
   if (ctrlEl) {
     let ctrlHtml = '';
+    // Office toggle. Always present: switching between Morning and Evening is
+    // the app's most-used action and should not be hidden behind a sheet.
+    // Same shape as the observance control below, so the two read as one family.
+    ctrlHtml += `<div class="day-ctrl-group day-ctrl-group--office">
+      <div class="day-ctrl-cap">Office</div>
+      <div class="day-ctrl-seg" role="group" aria-label="Office">
+        <button type="button" data-navigate="${esc(dateStr)}|mp|${esc(activeObs)}" aria-pressed="${officeType === 'mp'}" class="day-ctrl-btn${officeType === 'mp' ? ' is-active' : ''}">
+          Morning Prayer</button>
+        <button type="button" data-navigate="${esc(dateStr)}|ep|${esc(activeObs)}" aria-pressed="${officeType === 'ep'}" class="day-ctrl-btn${officeType === 'ep' ? ' is-active' : ''}">
+          Evening Prayer</button>
+      </div></div>`;
     if (officeData.alternate) {
       const altLabel = officeData.alternate.label || 'Alternate';
       const primaryLabel = day.name.length > 26 ? day.name.slice(0,24)+'\u2026' : day.name;
@@ -983,16 +989,13 @@ async function render(dateStr, officeType, translation) {
     </details>`;
   }
 
-  // ── Form title / subtitle ──────────────────────────────────────────────────
-  // Suppress on ordinary-time: "Evening Prayer For Saturday" is redundant with
-  // the day-office-name header. Show only for seasonal forms whose titles carry
-  // liturgical meaning (e.g., "Advent Morning Prayer", "Easter Evening Prayer").
-  if (form && form.title && fSeason !== 'OrdinaryTime') {
-    const titleStr = form.title.replace(/\b\w/g, c => c.toUpperCase());
-    html += `<div class="form-header"><p class="form-title">${esc(titleStr)}</p>`;
-    if (form.subtitle) html += `<p class="form-subtitle">${esc(form.subtitle)}</p>`;
-    html += `</div>`;
-  }
+  // No form title is rendered. `form.title` is not a form title: extraction
+  // takes the first heading-typed line on the page, which is always the first
+  // *section* heading, so all 30 forms carry "The Gathering of the Community"
+  // and none carries anything else. Printing it put that heading on the page
+  // twice in a row on every seasonal day, immediately above the <h2> below.
+  // `form.subtitle` is never set on any form for the same reason. See #74 for
+  // the extractor half, which also has to retire a QA rule asserting the field.
 
   // ── Gathering ──────────────────────────────────────────────────────────────
   if (asm.sections.some(s => s.name === 'Gathering')) {
@@ -1033,7 +1036,11 @@ async function render(dateStr, officeType, translation) {
   if (asm.sections.some(s => s.name === 'Proclamation')) {
     const proc = asm.sections.find(s => s.name === 'Proclamation');
     if (proc && proc.dynamic && proc.dynamic.hasAffirmation) {
-      const mpOrEp = (form.title || '').toLowerCase().startsWith('evening') ? 'Evening' : 'Morning';
+      // From officeType, not form.title: extraction fills every form's title with
+      // the first section heading (see #74), so the old startsWith('evening')
+      // test could never be true and every Evening Prayer page said "Morning
+      // Prayer continues with…".
+      const mpOrEp = officeType === 'ep' ? 'Evening' : 'Morning';
       const hasLitany = form.litany && form.litany.length;
       const affirmTransition = hasLitany
         ? LITURGICAL_TEXT_REGISTER.affirmationTransition.text.replace('{office}', mpOrEp)
@@ -1051,7 +1058,7 @@ async function render(dateStr, officeType, translation) {
       html += renderSubsection('Intercessions and Thanksgivings', form.intercessions, shared);
     if (form.litany && form.litany.length) {
       if (form.affirmation && form.affirmation.length) {
-        const mpOrEp2 = (form.title || '').toLowerCase().startsWith('evening') ? 'Evening' : 'Morning';
+        const mpOrEp2 = officeType === 'ep' ? 'Evening' : 'Morning';
         html += `<p class="seg-rubric">${esc(LITURGICAL_TEXT_REGISTER.litanyTransition.text.replace('{office}', mpOrEp2))}</p>`;
       }
       html += renderSubsection('The Litany', form.litany, shared);
@@ -1335,17 +1342,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   sel.addEventListener('change', () => { switchTranslation(sel.value); });
 
   // Date/office picker
-  const dayTitleEl = document.getElementById('day-title');
   const dayDatePicker = document.getElementById('day-date-picker');
   const dayPickerMpBtn = document.getElementById('day-picker-mp');
   const dayPickerEpBtn = document.getElementById('day-picker-ep');
   const todayBtn = document.getElementById('today-btn');
 
+  // The date opens the picker; the title does not. A heading that silently
+  // swallows taps is not discoverable, and office switching now has its own
+  // visible control in the day header.
   document.getElementById('day-date-nav').addEventListener('click', openDayPicker);
-  dayTitleEl.addEventListener('click', openDayPicker);
-  dayTitleEl.addEventListener('keydown', e => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDayPicker(); }
-  });
 
   // Tapping the native date input only reliably opens its calendar UI when
   // the tap lands on the small calendar glyph itself (esp. mobile Chrome) —
@@ -1406,24 +1411,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   fetchOnce('bounds',   `${DATA}/season_bounds.json`);
   fetchOnce('psalter',  `${DATA}/psalter.json`);
   fetchOnce('paragraphs', `${DATA}/paragraphs.json`).catch(() => {});
-
-  // MP/EP toggle via office name label. On mobile, tapping it opens the day
-  // picker sheet (like the date/title) instead of flipping office directly —
-  // there's not enough room for a mis-tap to be forgiven on a small screen.
-  const officeNameEl = document.getElementById('day-office-name');
-  officeNameEl.addEventListener('click', () => {
-    if (isMobileLayout()) { openDayPicker(); return; }
-    const next = state.office === 'mp' ? 'ep' : 'mp';
-    navigateTo(state.date, next);
-  });
-  officeNameEl.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      if (isMobileLayout()) { openDayPicker(); return; }
-      const next = state.office === 'mp' ? 'ep' : 'mp';
-      navigateTo(state.date, next);
-    }
-  });
 
   // Global navigation delegation — buttons with data-navigate="date|office|observance"
   document.addEventListener('click', e => {
