@@ -397,7 +397,7 @@ async function renderPsalm(citStr) {
   const data = await fetchPsalm(ref.num);
   const verses = parsePsalmText(data.text);
   const filtered = ref.start !== null ? verses.filter(v => v.num >= ref.start && v.num <= ref.end) : verses;
-  const titleHtml = `<p class="psalm-title">Psalm ${data.number}${data.title ? ` — ${data.title}` : ''}</p>`;
+  const titleHtml = `<p class="psalm-title">Psalm ${data.number}${data.title ? ` — <span lang="la">${data.title}</span>` : ''}</p>`;
   const versesHtml = filtered.map(v => {
     const txt = bindMidpoints(formatLiturgicalText(v.text));
     return `<sup>${v.num} </sup>${txt}`;
