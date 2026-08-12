@@ -398,10 +398,13 @@ async function renderPsalm(citStr) {
   const verses = parsePsalmText(data.text);
   const filtered = ref.start !== null ? verses.filter(v => v.num >= ref.start && v.num <= ref.end) : verses;
   const titleHtml = `<p class="psalm-title">Psalm ${data.number}${data.title ? ` — <span lang="la">${data.title}</span>` : ''}</p>`;
+  // Each verse is its own block. formatLiturgicalText emits block-level lines,
+  // so a <br> join would add an empty line box between every verse, and the
+  // number would sit on a line above its own text.
   const versesHtml = filtered.map(v => {
-    const txt = bindMidpoints(formatLiturgicalText(v.text));
-    return `<sup>${v.num} </sup>${txt}`;
-  }).join('<br>');
+    const txt = bindMidpoints(formatLiturgicalText(v.text, `<sup>${v.num} </sup>`));
+    return `<span class="psalm-verse">${txt}</span>`;
+  }).join('');
   return `${titleHtml}<p class="psalm-block">${versesHtml}</p>`;
 }
 
@@ -481,14 +484,17 @@ function tabBlockHtml(stateKey, entries) {
   const idBase = stateKey.replace(/[^a-zA-Z0-9-]/g, '_') + '-' + (++_tabUid);
   const savedIdx = parseInt(storageGet(stateKey) || '0');
   const activeIdx = Math.min(Math.max(0, savedIdx), entries.length - 1);
+  // Mirrors renderAlternatives in render.js — keep the two in step.
+  const longest = Math.max(...entries.map(([label]) => (label || '').length));
+  const stacked = longest > 12 && entries.length > 2 ? ' alt-tabs--stacked' : '';
   const tabs = entries.map(([label], i) => {
-    const displayLabel = label.length > 22 ? label.slice(0, 21) + '…' : label;
+    const displayLabel = stacked || label.length <= 34 ? label : label.slice(0, 33) + '…';
     return `<button class="alt-tab${i === activeIdx ? ' alt-tab-active' : ''}" role="tab" aria-selected="${i === activeIdx}" aria-controls="${idBase}-panel-${i}" id="${idBase}-tab-${i}" data-idx="${i}" data-key="${esc(stateKey)}" title="${esc(label)}">${esc(displayLabel)}</button>`;
   }).join('');
   const panels = entries.map(([, content], i) =>
     `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-${i}" aria-labelledby="${idBase}-tab-${i}" data-idx="${i}">${content}</div>`
   ).join('');
-  return `<div class="alt-block"><div class="alt-tabs" role="tablist">${tabs}</div>${panels}</div>`;
+  return `<div class="alt-block"><div class="alt-tabs${stacked}" role="tablist">${tabs}</div>${panels}</div>`;
 }
 
 function gloriaHtml(shared) {

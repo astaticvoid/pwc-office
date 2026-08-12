@@ -5,6 +5,7 @@ import {
   formKey, officeFormSeason, renderSegments, renderSubsection, lessonHtml,
   lessonsPickText, lessonsPickRubricHtml, renderOfficeJSON,
   LITURGICAL_TEXT_REGISTER, SKIP_RUBRICS, assembleSections, esc,
+  formatLiturgicalText,
 } from '../../web/render.js';
 
 const DATA_DIR = join(import.meta.dirname, '../../data');
@@ -306,9 +307,13 @@ describe('verse rendering preserves leader line breaks', () => {
     { type: 'response', text: 'To you be glory and praise for ever.' },
   ];
 
-  test('leader has <br> in verse mode', () => {
+  test('verse mode emits one block per line', () => {
     const html = renderSegments(segs, shared, true);
-    expect(html).toContain('Sovereign God,<br>creator');
+    // Each line is its own block so it can carry a hanging indent; a wrapped
+    // full verse must not land at the half-verse offset and imitate one.
+    expect(html).toContain('<span class="verse-line">Blessed are you, Sovereign God,</span>');
+    expect(html).toContain('<span class="verse-line">creator of light and darkness,</span>');
+    expect(html).not.toContain('<br>');
   });
 
   test('leader has no <br> in prose mode (default)', () => {
@@ -327,7 +332,8 @@ describe('verse rendering preserves leader line breaks', () => {
       { type: 'leader', text: 'May God, who has called us out of darkness into the marvellous light\nof Christ,\nbless us and fill us with peace. Amen.' },
     ];
     const html = renderSegments(amenSegs, shared, true);
-    expect(html).toContain('light<br>of Christ');
+    expect(html).toContain('marvellous light</span>');
+    expect(html).toContain('<span class="verse-line">of Christ,</span>');
     expect(html).toContain('seg-response');
     expect(html).toContain('Amen.');
   });
@@ -529,13 +535,14 @@ describe.skipIf(!HAS_DATA)('renderOfficeJSON sync with renderSegments', () => {
 // ── Verse rendering: inline sup numbers, no grid divs, * break handling ──────
 
 describe('verse rendering structure', () => {
-  test('canticle leader text has <br> at * caesura breaks', () => {
+  test('canticle leader text breaks to a verse-cont block at * caesura', () => {
     const segs = [
       { type: 'leader', text: 'My soul proclaims the greatness of the Lord, my spirit rejoices in God my Saviour, *\nfor you, Lord, have looked with favour on your lowly servant.\nFrom this day all generations will call me blessed: *\nyou, the Almighty, have done great things for me and holy is your name.' },
     ];
     const html = renderSegments(segs, shared, true);
-    expect(html).toMatch(/\*<\/span><\/span><br><span class="verse-cont">for/);
-    expect(html).toMatch(/\*<\/span><\/span><br><span class="verse-cont">you/);
+    // …*</span></span> closes the midpoint spans, </span> closes the verse-line
+    expect(html).toMatch(/\*<\/span><\/span><\/span><span class="verse-cont">for/);
+    expect(html).toMatch(/\*<\/span><\/span><\/span><span class="verse-cont">you/);
   });
 
   test('canticle leader text does not use grid divs', () => {
@@ -546,8 +553,29 @@ describe('verse rendering structure', () => {
     expect(html).not.toContain('class="verse"');
     expect(html).not.toContain('class="verse-num"');
     expect(html).not.toContain('class="scripture-verse"');
-    expect(html).toContain('<br>');
+    expect(html).toContain('class="verse-line"');
     expect(html).toContain('class="seg-leader"');
+  });
+
+  // bindMidpoints runs over already-built HTML. A \S+ word class backtracks past
+  // a tag's '>' into its attributes when the starred word is first in its
+  // element, splicing markup into the page as visible text (it rendered as
+  // `class="verse-line">Hallelujah! *`). One word before the * is the trigger.
+  test('a one-word starred first line does not splice markup into the text', () => {
+    const segs = [{ type: 'leader', text: 'Hallelujah! *\nPraise the Lord, O my soul!' }];
+    const html = renderSegments(segs, shared, true);
+    expect(html).not.toMatch(/<span\s+<span/);
+    // no tag fragment survives as text content
+    expect(html.replace(/<[^>]*>/g, '')).not.toContain('class=');
+    expect(html).toContain('<span class="midpoint">*</span>');
+  });
+
+  test('formatLiturgicalText places a prefix inside the first line block', () => {
+    // The psalm verse number must share a line with the text it numbers; the
+    // lines are block boxes, so a prefix outside them lands on its own line.
+    const out = formatLiturgicalText('Hallelujah! *\nPraise the Lord.', '<sup>1 </sup>');
+    expect(out.startsWith('<span class="verse-line"><sup>1 </sup>Hallelujah!')).toBe(true);
+    expect(out).not.toContain('</sup><span');
   });
 
   test('prose leader (verse=false) does not emit <br>', () => {
@@ -563,7 +591,7 @@ describe('verse rendering structure', () => {
       { type: 'leader', text: 'Happy are they who have not walked in the counsel of the wicked, *\nnor lingered in the way of sinners,\nnor sat in the seats of the scornful.' },
     ];
     const html = renderSegments(segs, shared, true);
-    expect(html).toContain('<br>');
+    expect(html).toContain('class="verse-line"');
     expect(html).not.toContain('class="verse"');
     expect(html).not.toContain('grid-template');
   });

@@ -567,3 +567,94 @@ test.describe('Season theming parity', () => {
     });
   }
 });
+
+// ── Typography ────────────────────────────────────────────────────────────────
+
+// The Latin subsets in web/assets/fonts/ are built without `smcp`/`c2sc`
+// (pyftsubset drops non-default layout features), so `font-variant: small-caps`
+// against the reading face is browser-synthesized — caps scaled to 0.7em in
+// Blink/WebKit, 0.8em in Gecko — rather than drawn. Synthesis looks plausible
+// in isolation and only reveals itself next to the real thing, so nothing but
+// an explicit check catches a regression here: heads would keep rendering,
+// just wrongly. 'EB Garamond SC' carries both features for the head selectors.
+test.describe('Small caps', () => {
+  test('the SC face loads and the heads actually use it', async ({ page }) => {
+    await gotoOffice(page, DATE, 'mp');
+    await page.locator('.office-section-title').first().waitFor({ timeout: 5000 });
+    await page.evaluate(() => document.fonts.ready);
+
+    // The face resolves — not merely declared, but loaded and usable.
+    const loaded = await page.evaluate(() =>
+      document.fonts.check("600 1.3rem 'EB Garamond SC'"));
+    expect(loaded, "'EB Garamond SC' should be loaded").toBe(true);
+
+    // …and the head selectors resolve to it rather than the reading face.
+    for (const sel of ['.office-section-title', '.office-subsection-title']) {
+      const family = await page.locator(sel).first()
+        .evaluate(el => getComputedStyle(el).fontFamily);
+      expect(family, `${sel} should use the SC face`).toContain('EB Garamond SC');
+    }
+  });
+});
+
+// ── Psalm verse layout ────────────────────────────────────────────────────────
+
+// web/app.js renderPsalm is a second consumer of formatLiturgicalText and is not
+// reachable from the Vitest suite, so three regressions shipped past a green unit
+// run and only showed in a browser: markup spliced into the text by bindMidpoints,
+// an empty line box per verse from a <br> join between block boxes, and the verse
+// number stranded on a line above its own text.
+//
+// Deliberately NOT the module-wide DATE. The splice only fires when a line's whole
+// content before the * is one word, so the greedy backtrack reaches through the
+// tag's '>' with no intervening whitespace. Every line of Psalm 66/67 (DATE's MP)
+// has several words before its *, so that fixture cannot catch it. 2026-11-29 MP
+// is Psalms 146-147, and 146 opens "Hallelujah! *" — the shape that broke.
+const PSALM_SPLICE_DATE = '2026-11-29';
+
+test.describe('Psalm verses', () => {
+  test('render one block per verse, number inline, no markup leak', async ({ page }) => {
+    await gotoOffice(page, PSALM_SPLICE_DATE, 'mp');
+    await waitForContentLoaded(page);
+    const block = page.locator('.psalm-block').first();
+    await expect(block).toBeVisible();
+
+    // Guard the fixture itself: if the lectionary moves and this psalm stops
+    // being the one with a one-word starred line, say so rather than pass blindly.
+    await expect(block, 'fixture no longer exercises the splice case')
+      .toContainText('Hallelujah!');
+
+    // 1. No tag fragment survives as visible text.
+    const text = await block.innerText();
+    expect(text).not.toContain('class=');
+    expect(text).not.toContain('verse-line');
+
+    // 2. No <br>: the lines are block boxes already, and a <br> between two of
+    //    them adds a full empty line box between every verse.
+    await expect(block.locator('br')).toHaveCount(0);
+
+    // 3. Each verse number shares a line with the text it numbers. Measured by
+    //    vertical overlap of the number's box with the first line-box of the text
+    //    that follows it — a Range, because the text after <sup> is usually a bare
+    //    text node with no getBoundingClientRect of its own. A stranded number sits
+    //    in its own line box and cannot overlap.
+    const stranded = await block.evaluate(el => {
+      const bad = [];
+      el.querySelectorAll('sup').forEach(s => {
+        const line = s.closest('.verse-line, .psalm-verse');
+        if (!line) { bad.push(s.textContent.trim() + ':no-line'); return; }
+        const sr = s.getBoundingClientRect();
+        const r = document.createRange();
+        r.setStartAfter(s);
+        r.setEnd(line, line.childNodes.length);
+        const first = r.getClientRects()[0];
+        if (!first) { bad.push(s.textContent.trim() + ':no-text'); return; }
+        if (!(first.top < sr.bottom && first.bottom > sr.top)) {
+          bad.push(`${s.textContent.trim()}:sup[${sr.top.toFixed(0)}-${sr.bottom.toFixed(0)}] text[${first.top.toFixed(0)}-${first.bottom.toFixed(0)}]`);
+        }
+      });
+      return bad;
+    });
+    expect(stranded, 'verse numbers not sharing a line with their text').toEqual([]);
+  });
+});

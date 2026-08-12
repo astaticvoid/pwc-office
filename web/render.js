@@ -189,7 +189,12 @@ export function parseDate(s) { return s ? new Date(s + 'T00:00:00Z') : null; }
 
 export function bindMidpoints(html) {
   // Wrap [word * ] in a nowrap group so the asterisk never orphans on a new line.
-  return html.replace(/(\S+)(\s*)\*/g, (_, word, sp) =>
+  // The word class excludes '>' as well as whitespace: this runs over HTML, and
+  // a bare \S+ backtracks past a tag's closing '>' into its attributes whenever
+  // the starred word is the first in its element (`<span class="verse-line">Hallelujah! *`),
+  // splicing the markup into the output as visible text. Escaped text never
+  // contains a literal '>', so excluding it cannot truncate a real word.
+  return html.replace(/([^\s>]+)(\s*)\*/g, (_, word, sp) =>
     `<span class="midpoint-group">${word}${sp}<span class="midpoint">*</span></span>`);
 }
 
@@ -199,18 +204,26 @@ export function bindMidpoints(html) {
 // spans_to_typed_lines in tools/extract_office_styles.py) or the previous
 // line ending in the psalter's "*" mid-verse marker (canticle/psalm text,
 // where the marker itself survives but the leading space does not).
-export function formatLiturgicalText(text) {
+// `prefix` is trusted HTML placed inside the first line's block — a psalm verse
+// number belongs on the same line as the text it numbers, and the lines are
+// block boxes, so an inline prefix outside them would sit on a line of its own.
+export function formatLiturgicalText(text, prefix = '') {
   const lines = text.split('\n');
-  if (lines.length < 2) return esc(text);
+  if (lines.length < 2) return prefix + esc(text);
   let prevEndsWithStar = false;
-  return lines.map(l => {
+  return lines.map((l, i) => {
     const hasLeadingSpace = l.startsWith(' ');
     const indented = hasLeadingSpace || prevEndsWithStar;
     const clean = hasLeadingSpace ? l.slice(1) : l;
     prevEndsWithStar = clean.trimEnd().endsWith('*');
-    const html = esc(clean);
-    return indented ? `<span class="verse-cont">${html}</span>` : html;
-  }).join('<br>');
+    const html = (i === 0 ? prefix : '') + esc(clean);
+    // One block per line rather than <br>-joined spans, so each line can carry
+    // a hanging indent: a wrapped full verse tucks under itself instead of
+    // landing at the half-verse offset and imitating one.
+    return indented
+      ? `<span class="verse-cont">${html}</span>`
+      : `<span class="verse-line">${html}</span>`;
+  }).join('');
 }
 
 // ── Date / season ─────────────────────────────────────────────────────────────
@@ -476,9 +489,15 @@ export function renderAlternatives(seg, shared, contextKey, verse = false) {
   const savedIdx  = parseInt(_ls.getItem(stateKey) || '0');
   const activeIdx = Math.min(Math.max(0, savedIdx), seg.groups.length - 1);
   const idBase = stateKey.replace(/[^a-zA-Z0-9-]/g, '_') + '-' + (++_altUid);
+  // Layout follows label length with no per-case code: equal segments for
+  // I · II · III, a content-width wrapping row for two names, stacked rows for
+  // three long ones. The stacked row never truncates — the names are the
+  // book's, and "A Song of Jerusalem Our Mo…" is worse than a second line.
+  const longest = Math.max(...seg.groups.map(g => (g.label || '').length));
+  const stacked = longest > 12 && seg.groups.length > 2 ? ' alt-tabs--stacked' : '';
   const tabsHtml = seg.groups.map((g, i) => {
     const label = g.label || '';
-    const displayLabel = label.length > 22 ? label.slice(0, 21) + '…' : label;
+    const displayLabel = stacked || label.length <= 34 ? label : label.slice(0, 33) + '…';
     const isActive = i === activeIdx;
     return `<button class="alt-tab${isActive ? ' alt-tab-active' : ''}" role="tab" aria-selected="${isActive}" aria-controls="${idBase}-panel-${i}" id="${idBase}-tab-${i}" data-idx="${i}" data-key="${esc(stateKey)}" title="${esc(label)}">${esc(displayLabel)}</button>`;
   }).join('');
@@ -491,7 +510,7 @@ export function renderAlternatives(seg, shared, contextKey, verse = false) {
     }
     return `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-${i}" aria-labelledby="${idBase}-tab-${i}" data-idx="${i}">${sourceHtml}${renderSegments(g.segments, shared, verse)}</div>`;
   }).join('');
-  return `<div class="alt-block"><div class="alt-tabs" role="tablist">${tabsHtml}</div>${panelsHtml}</div>`;
+  return `<div class="alt-block"><div class="alt-tabs${stacked}" role="tablist">${tabsHtml}</div>${panelsHtml}</div>`;
 }
 
 // BUG-30: the printed book italicises the placeholder N (e.g. "May N our bishop
