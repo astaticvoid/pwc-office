@@ -139,8 +139,9 @@ test.describe('Office loads', () => {
 // entirely (2026-07-19) — navigateTo()/initPage() in app.js never touch the
 // URL, and a fresh load always lands on today + the time-of-day default
 // office. Day-jump is the calendar date-picker (#day-date-picker), "today"
-// is the brand logo (#nav-brand), and MP/EP is a single toggle
-// (#day-office-name) whose text is the *current* office — click it to flip.
+// is the brand logo (#nav-brand), and MP/EP is a two-button segmented control
+// in the day header (.day-ctrl-group--office). #day-office-name is a label
+// showing the current office, not a control.
 test.describe('Navigation', () => {
   test('date picker navigates to a chosen date', async ({ page }) => {
     await gotoOffice(page, DATE, 'mp');
@@ -151,17 +152,58 @@ test.describe('Navigation', () => {
     await expect(page.locator('#day-title')).not.toBeEmpty();
   });
 
-  test('MP/EP toggle switches office', async ({ page }, testInfo) => {
+  // The office toggle is a visible segmented control in the day header at every
+  // width, so there is no longer a mobile path through the picker sheet, and no
+  // project-dependent branch here.
+  test('MP/EP toggle switches office', async ({ page }) => {
     await gotoOffice(page, DATE, 'mp');
-    await page.locator('#day-office-name').click();
-    if (testInfo.project.name === 'mobile') {
-      // On mobile, tapping the office label opens the day-picker sheet, which
-      // holds the office toggle, rather than flipping office directly.
-      await expect(page.locator('#day-picker-sheet')).toHaveAttribute('aria-hidden', 'false');
-      await page.locator('#day-picker-ep').click();
-    }
+    const seg = page.locator('.day-ctrl-group--office');
+    await expect(seg).toBeVisible();
+    await expect(seg.locator('.day-ctrl-btn')).toHaveCount(2);
+    await expect(seg.locator('.day-ctrl-btn.is-active')).toHaveText('Morning Prayer');
+
+    await seg.locator('.day-ctrl-btn:text-is("Evening Prayer")').click();
+
     await expect(page.locator('#day-office-name')).toHaveText('Evening Prayer');
     await expect(page).toHaveTitle(/Evening Prayer/);
+    await expect(seg.locator('.day-ctrl-btn.is-active')).toHaveText('Evening Prayer');
+    await expect(seg.locator('.day-ctrl-btn:text-is("Evening Prayer")'))
+      .toHaveAttribute('aria-pressed', 'true');
+  });
+
+  // Each control carries the other's axis in its data-navigate payload, so a
+  // switch on one must not reset the other. The suite exercised the two axes
+  // separately and never together, which is exactly where that would break.
+  test('office and observance selections survive each other', async ({ page }) => {
+    await gotoOffice(page, DATE, 'mp');
+    const obs = page.locator('.day-ctrl-group--obs');
+    await expect(obs).toBeVisible();          // DATE has an alternate observance
+
+    // pick the alternate observance, then flip office
+    await obs.locator('.day-ctrl-btn').nth(1).click();
+    const altLabel = await obs.locator('.day-ctrl-btn.is-active').textContent();
+    await page.locator('.day-ctrl-group--office .day-ctrl-btn:text-is("Evening Prayer")').click();
+
+    await expect(page.locator('#day-office-name')).toHaveText('Evening Prayer');
+    await expect(page.locator('.day-ctrl-group--obs .day-ctrl-btn.is-active'))
+      .toHaveText(String(altLabel));
+
+    // and back the other way: flipping observance keeps the office
+    await page.locator('.day-ctrl-group--obs .day-ctrl-btn').nth(0).click();
+    await expect(page.locator('#day-office-name')).toHaveText('Evening Prayer');
+    await expect(page.locator('.day-ctrl-group--office .day-ctrl-btn.is-active'))
+      .toHaveText('Evening Prayer');
+  });
+
+  // The day title used to open the picker. A heading that silently swallows
+  // taps is not discoverable, and it no longer claims to be a button.
+  test('the day title is a heading, not a control', async ({ page }) => {
+    await gotoOffice(page, DATE, 'mp');
+    const title = page.locator('#day-title');
+    await expect(title).not.toHaveAttribute('role', 'button');
+    await expect(title).not.toHaveAttribute('tabindex', '0');
+    await title.click();
+    await expect(page.locator('#day-picker-sheet')).toHaveAttribute('aria-hidden', 'true');
   });
 
   test('brand logo navigates to today', async ({ page }) => {
@@ -260,7 +302,7 @@ test.describe('Alternatives', () => {
     // Select tab II
     await altBlock.locator('.alt-tab').nth(1).click();
 
-    // Switch to EP and back to MP (the #day-office-name toggle)
+    // Switch to EP and back to MP via the office segmented control
     await ensureOffice(page, 'ep');
     await ensureOffice(page, 'mp');
 

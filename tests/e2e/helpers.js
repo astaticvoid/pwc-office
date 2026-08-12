@@ -28,26 +28,16 @@ export async function gotoOffice(page, date, office) {
 }
 
 /**
- * Matches the desktop breakpoint in web/office.css (@media (min-width: 820px)).
- * On narrower ("mobile") viewports, tapping #day-office-name opens the day
- * picker sheet instead of flipping office directly (web/app.js isMobileLayout).
+ * Drive the Office segmented control in the day header until the requested
+ * office shows. One path at every width now: the control is always visible, so
+ * there is no breakpoint-dependent fallback through the picker sheet, and
+ * #day-office-name is a label rather than a control.
  */
-async function isMobileLayout(page) {
-  return page.evaluate(() => window.matchMedia('(max-width: 819.98px)').matches);
-}
-
-/** Drive #day-office-name (or the mobile picker sheet it opens) until the requested office shows. */
 export async function ensureOffice(page, office) {
   const label = office === 'ep' ? 'Evening Prayer' : 'Morning Prayer';
-  const el = page.locator('#day-office-name');
-  if ((await el.textContent()) !== label) {
-    if (await isMobileLayout(page)) {
-      await el.click();
-      await page.locator(office === 'ep' ? '#day-picker-ep' : '#day-picker-mp').click();
-      await page.locator('#day-picker-close-btn').click();
-    } else {
-      await el.click();
-    }
+  const nameEl = page.locator('#day-office-name');
+  if ((await nameEl.textContent()) !== label) {
+    await page.locator(`.day-ctrl-group--office .day-ctrl-btn:text-is("${label}")`).click();
   }
-  await expect(el).toHaveText(label);
+  await expect(nameEl).toHaveText(label);
 }
