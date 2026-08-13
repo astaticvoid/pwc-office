@@ -4,8 +4,9 @@ import {
   esc, seasonOf, officeFormSeason, seasonWeekIndex, formKey,
   filterSeasonalCollects, renderAlternatives, renderSegments, renderSubsection,
   lessonHtml, lessonsPickRubricHtml, bindMidpoints, parseCitation, expandCitationForDisplay,
-  SC_HEADER, SC_FOOTER, LITURGICAL_TEXT_REGISTER,
+  SC_HEADER, SC_FOOTER,
   collectSecondaryPage, assembleSections, formatLiturgicalText, invitatorySegments, phosHilaronSegments,
+  splitPsalmRubrics, splitReadingRubrics,
   parseRanges, extractVersesWithChapter, parsePsalmCitation,
   collectPageNum, lookupCollect,
 } from './render.js';
@@ -489,10 +490,14 @@ function tabBlockHtml(stateKey, entries) {
   return `<div class="alt-block"><div class="alt-tabs" role="tablist">${tabs}</div>${panels}</div>`;
 }
 
-function gloriaHtml(shared) {
+function gloriaHtml(shared, cue) {
   if (!shared || !shared.doxology) return '';
-  return `<p class="seg-rubric">${LITURGICAL_TEXT_REGISTER.psalmEnd.text}</p>`
-       + `<div class="psalm-gloria">${renderAlternatives(shared.doxology, shared, 'doxology')}</div>`;
+  // `cue` is the book's own "At the end of the Psalm…" / "After the Psalm…"
+  // rubric, extracted per form (#84), replacing the single fixed string that
+  // was wrong for 16 of the 30 forms. It introduces the Gloria, so it travels
+  // with it into each tab panel rather than sitting above the psalms.
+  return renderSegments(cue || [], shared, false)
+    + `<div class="psalm-gloria">${renderAlternatives(shared.doxology, shared, 'doxology')}</div>`;
 }
 
 /**
@@ -504,37 +509,51 @@ function gloriaHtml(shared) {
  * @param {object} shared - offices._shared
  * @returns {string} HTML string
  */
-function psalmHtml(officeData, shared) {
+function psalmHtml(officeData, shared, doxologyCue) {
   const psalms = officeData.psalms || [];
   const psalmSets = officeData.psalm_sets;
+  // No introduction is emitted here. It used to be one of three registered
+  // variants chosen by what the day appointed; the book prints one sentence
+  // regardless (ADR 0019 item 6), and it is now extracted into
+  // form.psalm_rubrics and rendered once, above this, by proclamationHtml.
+  //
+  // The doxology and the cue introducing it sit OUTSIDE the selector, once, for
+  // the same reason: the selector chooses which psalms are said, and the
+  // doxology follows whichever they were, so it is not part of the choice.
+  // Inside the panels it printed once per branch — and book mode makes every
+  // panel visible (`.alt-panel-hidden { display: block }`), so the reader saw
+  // the whole thing N+1 times over. That repetition is the second half of what
+  // ADR 0019 item 6 forbids; the three variants were the first.
   let html = '';
   if (psalmSets && psalmSets.length) {
     const allFlat = psalmSets.flat();
     const setLabels = psalmSets.map(set =>
       set.map(p => { const c = typeof p === 'object' ? p.citation : p; return (typeof p === 'object' && p.optional) ? `[${c}]` : c; }).join(', ')
     );
-    html += `<p class="seg-rubric">${LITURGICAL_TEXT_REGISTER.psalmIntro.text}</p>`;
     const stateKey = 'pwc-psalmset-' + allFlat.map(p => typeof p === 'object' ? p.citation : p).join('-');
-    const allHtml = allFlat.map(psalmPlaceholder).join('') + gloriaHtml(shared);
-    const entries = [['All', allHtml]].concat(psalmSets.map((set, si) =>
-      [setLabels[si], set.map(psalmPlaceholder).join('') + gloriaHtml(shared)]
-    ));
+    const entries = [['All', allFlat.map(psalmPlaceholder).join('')]].concat(
+      psalmSets.map((set, si) => [setLabels[si], set.map(psalmPlaceholder).join('')]));
     html += tabBlockHtml(stateKey, entries);
   } else if (psalms.length > 1) {
-    html += `<p class="seg-rubric">${LITURGICAL_TEXT_REGISTER.psalmsIntro.text}</p>`;
     const stateKey = 'pwc-psalm-' + psalms.map(p => typeof p === 'object' ? p.citation : p).join('-');
-    const allHtml = psalms.map(psalmPlaceholder).join('') + gloriaHtml(shared);
-    const entries = [['All', allHtml]].concat(psalms.map(p => {
+    const entries = [['All', psalms.map(psalmPlaceholder).join('')]].concat(psalms.map(p => {
       const c = typeof p === 'object' ? p.citation : p;
-      return [`Psalm ${c}`, psalmPlaceholder(p) + gloriaHtml(shared)];
+      return [`Psalm ${c}`, psalmPlaceholder(p)];
     }));
     html += tabBlockHtml(stateKey, entries);
   } else if (psalms.length) {
-    html += `<p class="seg-rubric">${LITURGICAL_TEXT_REGISTER.singlePsalmIntro.text}</p>`;
     html += psalmPlaceholder(psalms[0]);
-    html += gloriaHtml(shared);
   }
+  if (html) html += gloriaHtml(shared, doxologyCue);
   return html;
+}
+
+// A run of extracted rubrics under its section heading. `heading` is omitted
+// for the runs that continue a section already headed above.
+function rubricRunHtml(segs, shared, heading) {
+  if (!segs || !segs.length) return '';
+  return (heading ? `<h3 class="office-subsection-title">${esc(heading)}</h3>` : '')
+    + `<div class="liturgy">${renderSegments(segs, shared, false)}</div>`;
 }
 
 /**
@@ -551,10 +570,31 @@ function psalmHtml(officeData, shared) {
  */
 function proclamationHtml(officeData, form, shared) {
   const lessons = (officeData.lessons || []);
-  let html = psalmHtml(officeData, shared);
+  // The extracted Psalm/Reading rubrics (#84) print on both sides of the
+  // lectionary content, so each block is split at the sentence that says which
+  // side it belongs on — the same split cli/book.js uses, shared from render.js
+  // so the two modes cannot drift. The doxology cue goes with the Gloria it
+  // introduces, inside psalmHtml; the reading transitions follow the reading.
+  //
+  // Each run is guarded on the content it introduces, as cli/book.js guards
+  // the same runs: a day entry with no psalms or no lessons would otherwise
+  // print "…continues with the Reading", "…continues with the Responsory or
+  // the Canticle or both" and the two-reading rule back to back, with nothing
+  // between them. Unreachable with shipped lectionary data — all 794 office
+  // entries have lessons — but the rubrics describe content, so they go when
+  // it does.
+  const psalms = (officeData.psalms || []).length
+    || ((officeData.psalm_sets || []).length ? 1 : 0);
+  const psalm = psalms ? splitPsalmRubrics(form && form.psalm_rubrics) : {};
+  const reading = lessons.length ? splitReadingRubrics(form && form.reading_rubrics) : {};
+  let html = rubricRunHtml(psalm.intro, shared, 'The Psalm');
+  html += psalmHtml(officeData, shared, psalm.doxologyCue);
+  html += rubricRunHtml(reading.handoff, shared);
+  html += rubricRunHtml(reading.intro, shared, 'The Reading');
   if (officeData.lessons_pick) html += lessonsPickRubricHtml(officeData.lessons_pick, lessons.length);
   if (lessons.length > 1) {
     let allHtml = lessonHtml(lessons[0], shared, form);
+    allHtml += rubricRunHtml(reading.after, shared);
     if (form) allHtml += renderSubsection('The Responsory', form.responsory, shared, true);
     allHtml += lessonHtml(lessons[1], shared, form);
     if (form) allHtml += renderSubsection('The Canticle', form.canticle, shared, true);
@@ -570,6 +610,7 @@ function proclamationHtml(officeData, form, shared) {
     return html + tabBlockHtml(stateKey, entries);
   }
   if (lessons.length > 0) html += lessonHtml(lessons[0], shared, form);
+  html += rubricRunHtml(reading.after, shared);
   if (form) html += renderSubsection('The Responsory', form.responsory, shared, true);
   if (form) html += renderSubsection('The Canticle', form.canticle, shared, true);
   return html;
@@ -986,13 +1027,15 @@ async function render(dateStr, officeType, translation) {
     </details>`;
   }
 
-  // No form title is rendered. `form.title` is not a form title: extraction
-  // takes the first heading-typed line on the page, which is always the first
-  // *section* heading, so all 30 forms carry "The Gathering of the Community"
-  // and none carries anything else. Printing it put that heading on the page
-  // twice in a row on every seasonal day, immediately above the <h2> below.
-  // `form.subtitle` is never set on any form for the same reason. See #74 for
-  // the extractor half, which also has to retire a QA rule asserting the field.
+  // No form title is rendered — but the reason below no longer holds, and the
+  // decision is now open rather than settled. `form.title` used to be the first
+  // *section* heading ("The Gathering of the Community" on all 30 forms) and
+  // `form.subtitle` was never set, because the running-header filter was eating
+  // the page's own title block. #84 fixed that filter: title is now "Morning
+  // Prayer for Advent" etc., and all 16 seasonal forms carry their printed date
+  // range as subtitle. cli/book.js prints the subtitle; this page prints
+  // neither, so the two modes disagree. Whether the web page should show them
+  // is a layout question this branch does not settle (#88).
 
   // ── Gathering ──────────────────────────────────────────────────────────────
   if (asm.sections.some(s => s.name === 'Gathering')) {
@@ -1015,6 +1058,8 @@ async function render(dateStr, officeType, translation) {
   html += `<h2 class="office-section-title">The Proclamation of the Word</h2>`;
 
   // Primary readings — psalms, lesson 1, responsory, canticle, lesson 2+ (if any).
+  // The Psalm/Reading rubric blocks render inside proclamationHtml, each above
+  // the content it introduces.
   html += `<div class="obs-readings${activeObs !== 'primary' ? ' obs-hidden' : ''}" data-obs="primary">`;
   if (officeData.label) html += `<p class="observance-label">${esc(officeData.label)}</p>`;
   html += proclamationHtml(officeData, form, shared);
@@ -1033,16 +1078,12 @@ async function render(dateStr, officeType, translation) {
   if (asm.sections.some(s => s.name === 'Proclamation')) {
     const proc = asm.sections.find(s => s.name === 'Proclamation');
     if (proc && proc.dynamic && proc.dynamic.hasAffirmation) {
-      // From officeType, not form.title: extraction fills every form's title with
-      // the first section heading (see #74), so the old startsWith('evening')
-      // test could never be true and every Evening Prayer page said "Morning
-      // Prayer continues with…".
-      const mpOrEp = officeType === 'ep' ? 'Evening' : 'Morning';
-      const hasLitany = form.litany && form.litany.length;
-      const affirmTransition = hasLitany
-        ? LITURGICAL_TEXT_REGISTER.affirmationTransition.text.replace('{office}', mpOrEp)
-        : `${mpOrEp} Prayer continues with the Affirmation of Faith.`;
-      html += `<p class="seg-rubric">${esc(affirmTransition)}</p>`;
+      // No transition rubric is emitted here. It was authored from the office
+      // type and a `form.litany` test, in two wordings, neither of which the
+      // page could check against anything. The book prints it as the Canticle's
+      // closing rubric, per form; #84 extracts it and ADR 0019 item 4's "…or
+      // the Prayers" reaches it as a manifest correction, so it renders once,
+      // from the canticle subsection above.
       html += renderSubsection('Affirmation of Faith', form.affirmation, shared);
     }
   }
@@ -1054,10 +1095,10 @@ async function render(dateStr, officeType, translation) {
     if (form.intercessions && form.intercessions.length)
       html += renderSubsection('Intercessions and Thanksgivings', form.intercessions, shared);
     if (form.litany && form.litany.length) {
-      if (form.affirmation && form.affirmation.length) {
-        const mpOrEp2 = officeType === 'ep' ? 'Evening' : 'Morning';
-        html += `<p class="seg-rubric">${esc(LITURGICAL_TEXT_REGISTER.litanyTransition.text.replace('{office}', mpOrEp2))}</p>`;
-      }
+      // The pre-Litany transition ("{office} Prayer continues with the
+      // Litany.") used to be authored here and is printed book text since #84,
+      // closing the affirmation section per form. Emitting it here too printed
+      // it twice, verbatim.
       html += renderSubsection('The Litany', form.litany, shared);
     }
     html += `<h3 class="office-subsection-title">The Collect</h3>`;

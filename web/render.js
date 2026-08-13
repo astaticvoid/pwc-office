@@ -85,7 +85,6 @@ export const CANTICLE_SOURCE = {
 // asserts the duplicate heading is in the rendered DOM, so a suppression whose
 // heading stops being emitted fails rather than silently swallowing the rubric.
 export const SKIP_RUBRICS = [
-  { re: /^Affirmation of Faith\.?\s*$/i, duplicate: 'Affirmation of Faith' },
   { re: /^The Lord['\u2019]?s Prayer\.?\s*$/i, duplicate: "The Lord's Prayer" },
   { re: /^The Responsory is said or sung\.$/i, duplicate: 'The Responsory' },
   { re: /^The Litany is said or sung\.$/i, duplicate: 'The Litany' },
@@ -103,55 +102,33 @@ export const SC_FOOTER = /^the\s+Lord['’]s\s+Prayer/i;
 // Rubrics the app authors rather than extracts, held to the same provenance
 // standard as extracted text. Each entry records what the text is and what
 // authorizes it; `source` uses the manifest vocabulary (PERMITTED_SOURCES in
-// tools/validate_corrections.py), `upstream-review` marking the four corrected
-// by review (see docs/errata/README.md "Upstream review"). Call sites read
-// from here rather than re-declaring the string. `{office}` is substituted by
-// the caller.
+// tools/validate_corrections.py). Call sites read from here rather than
+// re-declaring the string.
 export const LITURGICAL_TEXT_REGISTER = {
-  readingIntro: {
-    text: 'A Reading is read.',
-    source: 'upstream-review',
-    note: 'Review: drop "from the appointed lectionary".',
-  },
-  reflectionPrompt: {
-    text: 'After a period of silent reflection one of the following is said.',
-    source: 'editorial',
-    note: 'Matches the printed book rubric.',
-  },
+  // Nine of the ten entries ADR 0015 registered are gone, and the reason is the
+  // same for all of them: #84 recovered the printed rubrics that the old
+  // running-header filter had been swallowing, so the sentences the app was
+  // authoring turned out to be book text we simply could not see.
+  //
+  //   readingIntro, reflectionPrompt -> form.reading_rubrics
+  //   psalmIntro, psalmsIntro,
+  //     singlePsalmIntro, psalmEnd   -> form.psalm_rubrics
+  //   affirmationTransition          -> the canticle section trailer
+  //   litanyTransition               -> the affirmation section trailer
+  //   intercessionsPrompt            -> retired earlier, by ADR 0013 (#60)
+  //
+  // Where review had settled a wording (ADR 0019 items 3, 4 and 6), the
+  // settled text now reaches the page as a correction on the extracted rubric
+  // — `adr0019-*` in data/corrections.json — rather than as a second string
+  // rendered beside the book's. That is the point: there is one sentence per
+  // rubric now, in one place, with the divergence from the page recorded in
+  // the manifest where it can be audited against the source.
+  //
+  // What is left is the one string with no printed sentence behind it at all.
   readingsPick: {
     text: 'One or two of the following readings are read.',
     source: 'upstream-review',
     note: 'ADR 0014/#63: replaces the app-computed per-count sentence (BUG-28) with the approved fixed form — one mechanism, not two adjacent ones.',
-  },
-  psalmEnd: {
-    text: 'At the end of the Psalm one of the following may be said or sung.',
-    source: 'editorial',
-    note: 'Matches the printed book rubric.',
-  },
-  psalmIntro: {
-    text: 'A Psalm is said or sung.',
-    source: 'upstream-review',
-    note: 'Review: drop "from the appointed lectionary".',
-  },
-  psalmsIntro: {
-    text: 'The following Psalms are said or sung.',
-    source: 'upstream-review',
-    note: 'Review: drop "from the appointed lectionary".',
-  },
-  singlePsalmIntro: {
-    text: 'The following Psalm is said or sung.',
-    source: 'upstream-review',
-    note: 'Review: drop "from the appointed lectionary".',
-  },
-  affirmationTransition: {
-    text: '{office} Prayer continues with an Affirmation of Faith or the Prayers.',
-    source: 'upstream-review',
-    note: 'Review: "or the Litany" → "or the Prayers", both offices.',
-  },
-  litanyTransition: {
-    text: '{office} Prayer continues with the Litany.',
-    source: 'editorial',
-    note: 'Pre-Litany transition, emitted before the Litany subsection; not part of the review change (ADR 0015), left as-is.',
   },
 };
 
@@ -578,13 +555,55 @@ export function phosHilaronSegments(form) {
   );
 }
 
+// Same family as the two above, but the label drops entirely rather than being
+// trimmed: form.psalm_rubrics/reading_rubrics carry the extracted heading "The
+// Psalm"/"The Reading" (#84), which is exactly the subsection title both
+// renderers already emit — nothing survives a prefix strip. Every consumer of
+// these blocks must go through here, or the title prints twice.
+export function rubricBlockSegments(segs) {
+  if (!segs || !segs.length) return segs;
+  return segs.filter(seg => seg.type !== 'label');
+}
+
+// The Psalm and Reading blocks are not preambles: the book prints their
+// rubrics on either side of the content, and each rubric says which side it
+// belongs on. Rendering a block whole puts "At the end of the Psalm one of the
+// following may be said or sung." above the psalm it follows, and leaves the
+// Gloria with nothing introducing it. Both renderers split them here rather
+// than each keeping its own idea of the order (ADR 0004).
+const PSALM_DOXOLOGY_CUE = /^(?:At the end of|After) the Psalm/i;
+const READING_HANDOFF    = /^(?:Morning|Evening) Prayer continues with the Reading\./i;
+const READING_TRANSITION = /^(?:(?:Morning|Evening) Prayer continues with the Responsory|If two Readings are read)/i;
+
+const split = (segs, tests) => {
+  const rest = rubricBlockSegments(segs) || [];
+  const out = tests.map(re => rest.filter(s => re.test((s.text || '').trim())));
+  out.push(rest.filter(s => !tests.some(re => re.test((s.text || '').trim()))));
+  return out;
+};
+
+/** → { intro, doxologyCue } — the sentence above the psalms, and the cue that
+ *  introduces the Gloria printed after them. */
+export function splitPsalmRubrics(segs) {
+  const [doxologyCue, intro] = split(segs, [PSALM_DOXOLOGY_CUE]);
+  return { intro, doxologyCue };
+}
+
+/** → { handoff, intro, after } — the hand-off printed at the foot of the Psalm
+ *  block, the sentence above the reading, and the transitions that follow it. */
+export function splitReadingRubrics(segs) {
+  const [handoff, after, intro] = split(segs, [READING_HANDOFF, READING_TRANSITION]);
+  return { handoff, intro, after };
+}
+
 export function lessonHtml(lesson, shared, form) {
   const rawCitation = typeof lesson === 'object' ? lesson.citation : lesson;
   const optional = typeof lesson === 'object' && lesson.optional;
   const displayCitation = expandCitationForDisplay(rawCitation);
   const display = optional ? `(${displayCitation})` : displayCitation;
-  const preambleRubric = `<p class="seg-rubric">${LITURGICAL_TEXT_REGISTER.readingIntro.text}</p>`;
-  const reflectionRubric = `<p class="seg-rubric">${LITURGICAL_TEXT_REGISTER.reflectionPrompt.text}</p>`;
+  // The rubrics that introduce the reading and the silent-reflection prompt
+  // are extracted book text since #84 and render with form.reading_rubrics —
+  // they must not also be emitted per-lesson here.
   if (!form || !form.reading_response) console.warn('lessonHtml: no reading_response on form, using fallback');
   let readingResponse = (form && form.reading_response) || READING_RESPONSE;
   if (readingResponse?.type === 'shared' && shared) {
@@ -592,9 +611,7 @@ export function lessonHtml(lesson, shared, form) {
   }
   const responseHtml = `<div class="liturgy">${renderAlternatives(readingResponse, shared, 'reading_response')}</div>`;
   return `<h3 class="reading-heading">The Reading: ${esc(display)}</h3>`
-    + preambleRubric
     + `<div class="scripture-placeholder" data-citation="${esc(rawCitation)}"><p class="loading">Loading…</p></div>`
-    + reflectionRubric
     + responseHtml;
 }
 
@@ -891,6 +908,25 @@ export function assembleSections(cfg) {
   p.dynamic.readingResponsePresent = !!(readingResponse);
   if (officeData.lessons_pick)
     p.dynamic.lessonsPick = { pick: officeData.lessons_pick, total: lessons.length };
+
+  // Psalm / Reading rubrics — the fixed text printed around the lectionary
+  // content (#84). Both blocks stand ahead of the scripture they introduce:
+  // the psalms and lessons are dynamic data here, not subsections, and app.js
+  // renders both blocks before the readings for the same reason. Interleaving
+  // each rubric with the content it sits beside on the page is #77.
+  if (form && form.psalm_rubrics && form.psalm_rubrics.length) {
+    p.subsections.push({
+      label: 'The Psalm',
+      segments: flattenSegs(rubricBlockSegments(form.psalm_rubrics), shared),
+    });
+  }
+
+  if (form && form.reading_rubrics && form.reading_rubrics.length) {
+    p.subsections.push({
+      label: 'The Reading',
+      segments: flattenSegs(rubricBlockSegments(form.reading_rubrics), shared),
+    });
+  }
 
   // Responsory
   if (form && form.responsory) {

@@ -10,7 +10,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import {
   renderSegmentsText, blocksToString,
-  ABBREV_TO_FILE, lessonsPickText,
+  ABBREV_TO_FILE, lessonsPickText, splitPsalmRubrics, splitReadingRubrics,
 } from '../web/render.js';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -87,15 +87,24 @@ function citationStr(lesson) {
   return expandCitation(raw);
 }
 
+// The Psalm/Reading rubrics come from the form since #84. Book mode prints
+// them around the lectionary content rather than as one block; the split is
+// shared with the web renderer (render.js) so the two modes cannot disagree
+// about which side of the content a rubric belongs on. These sentences used to
+// be hardcoded here, in a second copy that could not see the extracted data —
+// the per-form "At the end of the Psalm(s)" / "After the Psalm" wording was
+// reconstructed from the form name rather than read.
+const { intro: psalmIntro, doxologyCue: psalmDoxCue } = splitPsalmRubrics(form.psalm_rubrics);
+const { handoff: readingHandoff, intro: readingIntro, after: readingAfter } =
+  splitReadingRubrics(form.reading_rubrics);
+
 function renderLesson(lesson) {
   return [
     'The Reading',
-    '(A Reading from the Daily Office Lectionary, the Weekday Eucharistic ' +
-      'Lectionary, or the Revised Common Lectionary Daily Readings is read. ' +
-      'After a period of silent reflection one of the following is said.)',
+    readingIntro.length ? text(readingIntro) : '',
     `[Reading: ${citationStr(lesson)}]`,
     text(form.reading_response),
-  ].join('\n\n');
+  ].filter(Boolean).join('\n\n');
 }
 
 // ── Build output ───────────────────────────────────────────────────────────
@@ -127,21 +136,14 @@ if (form.thanksgiving_for_light) {
 // Proclamation
 B.push('The Proclamation of the Word');
 B.push('The Psalm');
-B.push('(A Psalm from the Daily Office Lectionary, the Weekday Eucharistic '
-  + 'Lectionary, or the Revised Common Lectionary Daily Readings is said or sung.)');
+if (psalmIntro.length) B.push(text(psalmIntro));
 
 const psalms = officeData?.psalms || [];
 for (const psalm of psalms) B.push(renderPsalm(psalm));
 
 // Psalm doxology
-const isSeasonal = !!form.subtitle;
-const psalmDox = isSeasonal
-  ? (formName.includes('pentecost')
-      ? '(At the end of the Psalm(s) one of the following may be said or sung.)'
-      : '(At the end of the Psalm one of the following may be said or sung.)')
-  : '(After the Psalm one of the following may be said or sung.)';
 if (psalms.length && shared.doxology) {
-  B.push(psalmDox);
+  if (psalmDoxCue.length) B.push(text(psalmDoxCue));
   B.push(text([shared.doxology]));
 }
 
@@ -150,8 +152,14 @@ if (officeData?.lessons_pick) {
   const pickText = lessonsPickText(officeData.lessons_pick, lessons.length);
   if (pickText) B.push(`(${pickText})`);
 }
+// Guarded on the lessons like every neighbour here: with no lectionary file
+// for the month these would otherwise print "continues with the Reading",
+// "continues with the Responsory or the Canticle or both" and the two-reading
+// rule back to back, with no Reading between them.
+if (lessons[0] && readingHandoff.length) B.push(text(readingHandoff));
 if (lessons[0]) B.push(renderLesson(lessons[0]));
 
+if (lessons[0] && readingAfter.length) B.push(text(readingAfter));
 B.push('The Responsory');
 B.push(text(form.responsory));
 

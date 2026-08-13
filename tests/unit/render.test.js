@@ -5,7 +5,7 @@ import {
   formKey, officeFormSeason, renderSegments, renderSubsection, lessonHtml,
   lessonsPickText, lessonsPickRubricHtml, renderOfficeJSON,
   LITURGICAL_TEXT_REGISTER, SKIP_RUBRICS, assembleSections, esc,
-  formatLiturgicalText,
+  formatLiturgicalText, splitPsalmRubrics, splitReadingRubrics,
 } from '../../web/render.js';
 
 const DATA_DIR = join(import.meta.dirname, '../../data');
@@ -185,10 +185,17 @@ describe('liturgical text register', () => {
   const ALLOWED_SOURCES = new Set(['editorial', 'upstream-review']);
 
   test('holds the app-authored strings, each with provenance', () => {
-    // Ten registered in ADR 0015; intercessionsPrompt removed with
-    // INTERCESSIONS_CONDENSED by ADR 0013 (#60) — the biddings render now.
-    expect(Object.keys(LITURGICAL_TEXT_REGISTER)).toHaveLength(9);
-    expect(LITURGICAL_TEXT_REGISTER.intercessionsPrompt).toBeUndefined();
+    // Ten registered in ADR 0015. intercessionsPrompt went with
+    // INTERCESSIONS_CONDENSED under ADR 0013 (#60); the other eight went with
+    // #84, which recovered the printed rubrics the running-header filter had
+    // been swallowing — each held book text the app could not see it had. One
+    // entry is left, the only one with no printed sentence behind it.
+    expect(Object.keys(LITURGICAL_TEXT_REGISTER)).toHaveLength(1);
+    for (const retired of ['intercessionsPrompt', 'readingIntro', 'reflectionPrompt',
+                           'psalmEnd', 'litanyTransition', 'psalmIntro', 'psalmsIntro',
+                           'singlePsalmIntro', 'affirmationTransition']) {
+      expect(LITURGICAL_TEXT_REGISTER[retired], retired).toBeUndefined();
+    }
     for (const [key, entry] of Object.entries(LITURGICAL_TEXT_REGISTER)) {
       expect(entry.text, `${key} text`).toBeTruthy();
       expect(entry.note, `${key} note`).toBeTruthy();
@@ -202,26 +209,62 @@ describe('liturgical text register', () => {
     expect(all).not.toContain('or the Litany');
   });
 
-  test('the review-corrected strings are applied in the register', () => {
-    expect(LITURGICAL_TEXT_REGISTER.readingIntro.text).toBe('A Reading is read.');
-    expect(LITURGICAL_TEXT_REGISTER.psalmIntro.text).toBe('A Psalm is said or sung.');
-    expect(LITURGICAL_TEXT_REGISTER.psalmsIntro.text).toBe('The following Psalms are said or sung.');
-    expect(LITURGICAL_TEXT_REGISTER.singlePsalmIntro.text).toBe('The following Psalm is said or sung.');
-    expect(LITURGICAL_TEXT_REGISTER.affirmationTransition.text)
-      .toBe('{office} Prayer continues with an Affirmation of Faith or the Prayers.');
+  test('the settled readings reach the data, not a second string beside it', () => {
     expect(LITURGICAL_TEXT_REGISTER.readingsPick.text)
       .toBe('One or two of the following readings are read.');
-    for (const k of ['readingIntro', 'psalmIntro', 'psalmsIntro', 'singlePsalmIntro', 'affirmationTransition', 'readingsPick']) {
-      expect(LITURGICAL_TEXT_REGISTER[k].source, `${k} source`).toBe('upstream-review');
+    expect(LITURGICAL_TEXT_REGISTER.readingsPick.source).toBe('upstream-review');
+
+    // ADR 0019 items 3, 4 and 6 now reach the page as `adr0019-*` corrections
+    // on the extracted rubric, so this asserts the shipped data rather than a
+    // register entry: the introductions say the settled sentence once, in
+    // every form, and the named lectionaries the page prints are gone from the
+    // rubric blocks. Before #88 both wordings rendered, a few lines apart.
+    if (!HAS_DATA) return;
+    let psalmIntros = 0, readingIntros = 0;
+    for (const [key, form] of forms) {
+      const texts = f => (form[f] || []).map(s => s.text || '').join('\n');
+      const psalm = texts('psalm_rubrics'), reading = texts('reading_rubrics');
+      expect(psalm, `${key}.psalm_rubrics`).not.toContain('Daily Office Lectionary');
+      expect(reading, `${key}.reading_rubrics`).not.toContain('Daily Office Lectionary');
+      if (psalm.includes('A Psalm is said or sung.')) psalmIntros++;
+      if (reading.includes('A Reading is read.')) readingIntros++;
+      // Item 4, on the canticle's closing rubric.
+      expect(texts('canticle'), `${key}.canticle`)
+        .not.toContain('an Affirmation of Faith or the Litany.');
     }
+    expect(psalmIntros).toBe(30);
+    expect(readingIntros).toBe(30);
   });
 
-  test('the pre-Litany transition keeps its approved wording', () => {
-    // ADR 0015: the app.js:999 rubric ("continues with the Litany.") is a
-    // different rubric from the reviewed one and was left alone.
-    expect(LITURGICAL_TEXT_REGISTER.litanyTransition.text)
-      .toBe('{office} Prayer continues with the Litany.');
-    expect(LITURGICAL_TEXT_REGISTER.litanyTransition.source).toBe('editorial');
+  test('the office transitions come from the data, worded per office', () => {
+    // Retired from the register by #84. ADR 0015 left litanyTransition alone
+    // and flagged it for confirmation; the book turns out to print it, so it
+    // is extracted, and emitting it from the register too printed it twice
+    // verbatim. psalmEnd's note claimed it matched the printed rubric — the
+    // extracted text shows it did not, for 16 of the 30 forms.
+    expect(LITURGICAL_TEXT_REGISTER.litanyTransition).toBeUndefined();
+    expect(LITURGICAL_TEXT_REGISTER.psalmEnd).toBeUndefined();
+
+    // Each form must carry its OWN transition. These rubrics are printed at
+    // the foot of an alternatives block, so _group_alternatives sweeps them
+    // inside it and _dedup_shared — which keys the doxology and affirmation
+    // blocks by shape, not equality — would hand all 30 forms whichever copy
+    // it met first, giving every Evening Prayer form "Morning Prayer continues
+    // with the Litany." _hoist_office_transition lifts them back out.
+    if (!HAS_DATA) return;
+    let checked = 0;
+    for (const [key, form] of forms) {
+      const office = key.endsWith('-ep') ? 'Evening' : 'Morning';
+      for (const field of ['responsory', 'canticle', 'affirmation']) {
+        const segs = form[field];
+        if (!Array.isArray(segs) || !segs.length) continue;
+        const last = segs[segs.length - 1];
+        if (last.type !== 'rubric' || !/ Prayer continues with /.test(last.text)) continue;
+        expect(last.text, `${key}.${field}`).toMatch(new RegExp(`^${office} Prayer continues with `));
+        checked++;
+      }
+    }
+    expect(checked).toBe(90);
   });
 
   test('lessonsPickText renders the fixed register text', () => {
@@ -594,5 +637,45 @@ describe('verse rendering structure', () => {
     expect(html).toContain('class="verse-line"');
     expect(html).not.toContain('class="verse"');
     expect(html).not.toContain('grid-template');
+  });
+});
+
+
+// ── Psalm/Reading rubric placement (#84) ─────────────────────────────────────
+
+describe('rubric block splits', () => {
+  test('every form splits into the runs both renderers place', () => {
+    // The blocks are not preambles: the book prints their rubrics on either
+    // side of the lectionary content. Rendering one whole puts "At the end of
+    // the Psalm…" above the psalm it follows and leaves the Gloria with
+    // nothing introducing it. web/app.js and cli/book.js share this split so
+    // they cannot disagree about which side a rubric belongs on (ADR 0004).
+    if (!HAS_DATA) return;
+    for (const [key, form] of forms) {
+      const office = key.endsWith('-ep') ? 'Evening' : 'Morning';
+      const psalm = splitPsalmRubrics(form.psalm_rubrics);
+      const reading = splitReadingRubrics(form.reading_rubrics);
+
+      expect(psalm.intro.map(s => s.text), `${key} psalm intro`)
+        .toEqual(['A Psalm is said or sung.']);
+      expect(psalm.doxologyCue, `${key} doxology cue`).toHaveLength(1);
+      expect(psalm.doxologyCue[0].text).toMatch(/^(?:At the end of|After) the Psalm/);
+
+      expect(reading.handoff.map(s => s.text), `${key} reading handoff`)
+        .toEqual([`${office} Prayer continues with the Reading.`]);
+      expect(reading.intro.map(s => s.text), `${key} reading intro`)
+        .toEqual(['A Reading is read. After a period of silent reflection one of the following is said.']);
+      // One form runs the two transitions together on a line, so they merge
+      // into a single segment; every other form keeps them separate.
+      expect(reading.after.length, `${key} reading after`).toBeGreaterThanOrEqual(1);
+      for (const seg of reading.after) {
+        expect(seg.text).toMatch(/^(?:\w+ Prayer continues with the Responsory|If two Readings are read)/);
+      }
+      // Nothing may fall out of a block: every rubric lands in exactly one run.
+      const runs = [...psalm.intro, ...psalm.doxologyCue].length
+                 + [...reading.handoff, ...reading.intro, ...reading.after].length;
+      const rubrics = (form.psalm_rubrics.length - 1) + (form.reading_rubrics.length - 1);
+      expect(runs, `${key} every rubric placed`).toBe(rubrics);
+    }
   });
 });
