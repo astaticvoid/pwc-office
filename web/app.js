@@ -1035,7 +1035,7 @@ async function render(dateStr, officeType, translation) {
   // Prayer for Advent" etc., and all 16 seasonal forms carry their printed date
   // range as subtitle. cli/book.js prints the subtitle; this page prints
   // neither, so the two modes disagree. Whether the web page should show them
-  // is a layout question this branch does not settle (#88).
+  // is a layout question this branch does not settle (#100).
 
   // ── Gathering ──────────────────────────────────────────────────────────────
   if (asm.sections.some(s => s.name === 'Gathering')) {
