@@ -60,7 +60,14 @@ says nothing about the comma, so the serial comma stands.
 
 ## What has been applied
 
-All of it, as 45 `office_text` entries in `data/corrections.json`. Three kinds:
+All of it, as 45 of the 49 `office_text` entries in `data/corrections.json` —
+every entry whose `source` is `pwc-errata-ordinary` or `pwc-errata-seasonal`.
+The other four are not errata at all: they are the authorized divergences under
+"Upstream review" below, carrying `source: upstream-review` and naming the ADR
+item that settled each. Reading the manifest by `source` is what separates
+"the book is wrong here" from "we deliberately say something else here".
+
+The 45 errata entries are three kinds:
 
 1. **Wording, punctuation and casing** — 12 substantive defects, plus the
    reading-response correction below moving into the extractor (see
@@ -96,9 +103,9 @@ provenance; a row backed by an errata document is also aligned by
 | What | Was | Now | Decided |
 |---|---|---|---|
 | Reading-response third alternative | "Holy wisdom, holy word." in the 14 Ordinary forms | "Holy Word, Holy Wisdom." in all 30 forms | The reading response is synthesized rather than extracted, and the Ordinary form reproduced the printed book's error, which the errata corrects (Ordinary p. 132, "PWC has the wrong order"). The corrected form applies to every season. Fixed in `_add_reading_responses` (extractor) rather than the manifest, per AGENTS.md's systemic-fix rule; the errata correction that used to patch `_shared.reading_response_ordinary` was retired. |
-| Psalm introductions (3 variants) | "A Psalm from the appointed lectionary is said or sung." / "The following Psalms from the appointed lectionary are said or sung." / "The following Psalm from the appointed lectionary is said or sung." | "A Psalm is said or sung." / "The following Psalms are said or sung." / "The following Psalm is said or sung." | App-authored rubrics; review: drop "from the appointed lectionary". Rendered from `LITURGICAL_TEXT_REGISTER` in `web/app.js` (ADR 0015). |
-| Reading introduction | "A Reading from the appointed lectionary is read." | "A Reading is read." | App-authored rubric; review: drop "from the appointed lectionary". Rendered from `LITURGICAL_TEXT_REGISTER` in `web/render.js` (ADR 0015). |
-| Morning/Evening Prayer affirmation transition | "{Morning,Evening} Prayer continues with an Affirmation of Faith or the Litany." | "{Morning,Evening} Prayer continues with an Affirmation of Faith or the Prayers." | App-authored rubric; review: "or the Litany" → "or the Prayers", both offices. Rendered from `LITURGICAL_TEXT_REGISTER` in `web/app.js` (ADR 0015). |
+| Psalm introduction | "A Psalm from the Daily Office Lectionary, the Weekday Eucharistic Lectionary, or the Revised Common Lectionary Daily Readings is said or sung." (as printed) | "A Psalm is said or sung." | Review: drop the named lectionaries. Was three app-authored variants chosen by psalm count; #84 recovered the printed sentence, so the settled wording is now a correction on the extracted rubric — `adr0019-item3-psalm-introduction` and `-or-psalms` in `data/corrections.json`, `source: upstream-review`. ADR 0019 items 3 and 6; one sentence, once, in all 30 forms. |
+| Reading introduction | "A Reading from the Daily Office Lectionary, the Weekday Eucharistic Lectionary, or the Revised Common Lectionary Daily Readings is read." (as printed) | "A Reading is read." | Review: drop the named lectionaries. Applied as `adr0019-item3-reading-introduction` in `data/corrections.json`, `source: upstream-review`. A substring correction, so the reflection prompt sharing the printed paragraph stays attached. ADR 0019 item 3. |
+| Morning/Evening Prayer affirmation transition | "{Morning,Evening} Prayer continues with an Affirmation of Faith or the Litany." (as printed, 16 seasonal forms) | "{Morning,Evening} Prayer continues with an Affirmation of Faith or the Prayers." | Review: "or the Litany" → "or the Prayers", both offices. The 14 ordinary forms already print "or the Prayers". Applied as `adr0019-item4-affirmation-transition` in `data/corrections.json`, `source: upstream-review`. ADR 0019 item 4. |
 | Reading-pick rubric | "{cap} of the following {total} readings are read." (app-computed per date's pick/total) | "One or two of the following readings are read." (fixed) | App-authored rubric; review: replace the computed per-count sentence (BUG-28) with the approved fixed form, alongside restoring a tab selector over the readings. Rendered from `LITURGICAL_TEXT_REGISTER` in `web/render.js` (ADR 0014, issue #63). |
 
 ## Breaks the QA rules are told about

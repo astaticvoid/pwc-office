@@ -10,6 +10,36 @@ is synthesized rather than extracted, so the fix belongs in the extractor.
 `upstream-review` remains the source for the four app-rubric wording
 corrections, which genuinely have no errata document behind them.
 
+Superseded in part (#84, #88): the Context below states that
+`data/offices.json` "contains exactly one `continues with` rubric" and that the
+psalm and reading introductions "are ours". Both were true of the data as it
+stood. Neither is true now — the running-header fix recovered the printed
+rubrics the old filter had been swallowing, so the book's own wording for the
+Psalm and Reading introductions, and for the canticle and affirmation
+hand-offs, is extracted into `form.psalm_rubrics` / `form.reading_rubrics` and
+the section trailers.
+
+The register therefore holds one entry, not ten. Nine were retired: the app was
+not authoring those sentences, it was reproducing book text it had no way to
+see it had. Where upstream review had settled a wording (ADR 0019 items 3, 4
+and 6), the settled text now reaches the page as a correction on the extracted
+rubric — the `adr0019-*` entries in `data/corrections.json`, `source:
+upstream-review` — rather than as a second string rendered beside the book's.
+
+That is a change of mechanism, not of decision. Every reading review settled
+still ships, in the wording it settled. What moved is where the divergence is
+recorded: in the manifest, next to the text it diverges from, where
+`validate_corrections.py` checks it still applies and a stale one fails the
+build. The register was the right home for text with no source behind it; it
+was never able to record a divergence *from* a source, because the whole
+premise was that no source existed.
+
+`intercessionsPrompt` had already gone under ADR 0013 (#60). What is left is
+`readingsPick`, the one string with no printed sentence behind it at all.
+
+The Context and Decision below are left as written — they record what was known
+and decided at the time.
+
 ## Context
 
 ADR 0005 established one manifest for every correction to *extracted* data, and

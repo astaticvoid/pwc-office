@@ -65,8 +65,11 @@ Book mode is a typographic mode. It may change how a rubric looks, never whether
 it appears.
 
 *Forbids:* any mode-, setting-, or density-conditional rubric suppression. The
-four `SKIP_RUBRICS` duplicates are the only exemption, and each is pinned to the
-heading it defers to (ADR 0013).
+`SKIP_RUBRICS` duplicates are the only exemption, and each is pinned to the
+heading it defers to (ADR 0013). Written when there were four; three remain
+since #84 recovered the first line of the `Affirmation of Faith.` rubric, which
+had been a bare heading-shaped fragment only because the running-header filter
+was eating the rest of the sentence.
 
 *Status:* shipped (#59).
 
@@ -77,13 +80,20 @@ from the printed page, which names three lectionaries in full (#84) —
 authorized on review, so it stays, and it stays recorded as a divergence rather
 than quietly becoming what we think the book says.
 
-*Status:* shipped (ADR 0015).
+*Status:* shipped. Recorded as `adr0019-item3-psalm-introduction`,
+`-or-psalms` and `-reading-introduction` in `data/corrections.json` (#88). It
+was briefly violated in the other direction: #84 recovered the printed sentence
+and rendered it, which is what "re-expanding" names, so the divergence now
+lives in the manifest against the extracted text rather than as a shorter
+string rendered beside it.
 
 ### 4. The affirmation transition reads "…or the Prayers", not "…or the Litany"
 
 In both offices.
 
-*Status:* shipped (ADR 0015).
+*Status:* shipped. Applied as `adr0019-item4-affirmation-transition` to the
+canticle's closing rubric, which is where the book prints it (16 seasonal forms
+read "…or the Litany"; the 14 ordinary forms already read "…or the Prayers").
 
 ### 5. The pre-Litany transition sentence is deleted
 
@@ -94,18 +104,34 @@ app-authored string (`litanyTransition`, `source: editorial`).
 *Forbids:* authoring a replacement bridge sentence between the intercessions and
 the Litany. The Litany's own heading is the transition.
 
-*Status:* open (#80).
+*Status:* shipped (#80, #84). One correction to the premise: the sentence is
+**not** ours. It only looked app-authored because the running-header filter was
+eating it, so it never reached the data. The app-authored copy under
+Intercessions and Thanksgivings is deleted as this item asks; the book's own,
+which closes the Affirmation, is extracted and renders there.
 
 ### 6. The Psalms section says its rubric once, at the head
 
 *"A Psalm is said or sung."* — one sentence, at the top of the section,
 regardless of how many psalms the day appoints or how they are grouped.
 
-*Forbids:* per-branch variants of the sentence (three exist today —
+*Forbids:* per-branch variants of the sentence (three existed —
 `psalmIntro`, `psalmsIntro`, `singlePsalmIntro`), and repeating the
 end-of-psalm rubric once per alternative panel.
 
-*Status:* open (#79).
+*Status:* shipped (#79, #88), both halves.
+
+All three variants and `psalmEnd` are gone from the register; the section's own
+extracted rubric renders once at its head, and the two Pentecost forms' printed
+"(or Psalms)" wording resolves to the same sentence as the other 28 under this
+item.
+
+The repetition half took a second pass. Retiring `psalmEnd` removed the fixed
+string but the extracted cue replaced it inside `gloriaHtml`, which runs once
+per selector panel — and book mode makes every panel visible, so the cue and
+the doxology printed N+1 times. Both now sit outside the selector, once: the
+selector chooses which psalms are said, and the doxology follows whichever they
+were, so it was never part of that choice.
 
 ### 7. Both appointed readings stay in the office, and the rubric carries the choice
 

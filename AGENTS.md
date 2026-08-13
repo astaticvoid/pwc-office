@@ -384,15 +384,16 @@ All task tracking lives in [GitHub Issues](https://github.com/astaticvoid/pwc-of
   decisions have already been re-litigated or rebuilt under a new name.
   **The shipped code does not comply yet, and this rule is not a licence to make
   it comply.** `BOOK_ONLY_RUBRICS` is gone (deleted under ADR 0013, #59) and
-  `SKIP_RUBRICS` survives only as four named duplicates, each pinned to the
+  `SKIP_RUBRICS` survives only as three named duplicates, each pinned to the
   heading it defers to by `validate_render.cjs` and a corpus test. The psalm and
   reading selectors shipped (#63). What is outstanding is on the other side of
   that line: the reading selector removes the Responsory and the Canticle, which
   the choice does not cover, so ADR 0019 item 7 withdraws it in favour of the
-  book's own rubric (#77); two rubric corrections are unapplied (#79, #80); and
-  the whole Reading and Psalm block is discarded at extraction, so the rubrics
-  printed there are app-authored or missing (#84). The rule binds *new* work:
-  don't add a mechanism of the same kind.
+  book's own rubric (#77). The Reading and Psalm block is extracted since #84,
+  so the rubrics printed there render from `form.psalm_rubrics` /
+  `form.reading_rubrics`, and the readings ADR 0019 settled reach the page as
+  `adr0019-*` corrections on that extracted text (#88). The rule binds *new*
+  work: don't add a mechanism of the same kind.
 
 ## Data correction locations
 
@@ -400,7 +401,7 @@ All task tracking lives in [GitHub Issues](https://github.com/astaticvoid/pwc-of
 
 | Correction type | Manifest category | Target locator |
 |----------------|-------------------|----------------|
-| Office text (wording, casing, whitespace) | `office_text` | `{office, field}` + substring replace |
+| Office text (wording, casing, whitespace) | `office_text` | `{office, field}` + substring replace; `office: "*"` for text the book repeats in every form |
 | Psalter: missing/incorrect verse text | `psalter` | psalm number + substring replace |
 | Saint biographies | `fats` | saint + field + substring replace |
 | Lectionary: wrong citation | `lectionary_citations` | date + office + lesson index |
@@ -419,6 +420,23 @@ they cannot disagree):
   alternative is restating an entire canticle to change one word.
 - **Whole-field** — `old`/`new` are lists/dicts. The field must equal `old`.
   For structural edits only: deleting segments, reordering, retyping a segment.
+  Names one office; a wildcard is refused, since it would write the same
+  structure over each.
+
+`office: "*"` addresses every form carrying the field, for the rubrics the book
+prints identically in all 30 — the Psalm and Reading introductions, the section
+hand-offs. `count` stays a corpus-wide **total**, so the staleness guarantee is
+unchanged: one entry reading `"count": 28` fails exactly as loudly as 28 entries
+reading `"count": 1`, and says in one line how far the text reaches. The
+alternative is 30 near-identical entries differing only in a key, which is a
+worse record, not a stricter one — nobody reads 30 copies to check they agree.
+
+**Not every divergence is an error.** Read the manifest by `source`:
+`pwc-errata-*` and `*-error` mean the source is wrong; `upstream-review` and
+`editorial` mean the source is right and we deliberately say something else.
+The second kind names the decision that authorized it in an `adr` field — the
+`adr0019-*` entries are the worked examples. A divergence with no manifest entry
+is a defect, not a design choice (#92).
 
 The walk does **not** follow `{"type": "shared"}` references. A shared block is
 reachable from many forms, so correcting it through one form would silently
