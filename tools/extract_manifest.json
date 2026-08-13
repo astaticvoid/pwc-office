@@ -1,5 +1,5 @@
 {
-  "extracted_at": "2026-08-10T06:18:44Z",
+  "extracted_at": "2026-08-13T22:18:33Z",
   "tool_versions": {
     "fitz": [
       "1.28.2",
@@ -8,22 +8,22 @@
     ]
   },
   "source_hashes": {
-    "tools/extract_offices.py": "cd094889d7e9db26e57faefc2e7e10cbabe9364db07f7b259c90ae5e2dbc2a01",
-    "tools/extract_office_styles.py": "8e3afe0189b37ab6c695b8341bf1610c0b779143d4c539324a15fc95d2dfb991",
+    "tools/extract_offices.py": "efb2a6a4db04da3c936287890e6e28d88d7607d94ac3da23aa33b6ea637c959f",
+    "tools/extract_office_styles.py": "77df942372bebf533d4716d366b2dfdd5862a7b24055c1353666e4151e1d7e7e",
     "tools/normalize_offices.py": "c102458a91e8e1774a9ab4df4afc4144e250b9b45aa1e3d103bd3e8fc6319685",
     "tools/extract_psalter.py": "49abfe5e67a8d0bfadd73aac88da4ba6811fcda71eb1b5f3583e3e184c511e11",
     "tools/extract_collects.py": "e5406ec72298ddd63b7b26f8eea21604ffac0922ad4402ce8921d08860e800b2",
     "tools/extract_fats.py": "f9476ba148af058ece6eada7fe7e0c7d8e5e544f756bd3f33bf820164f0bde7e",
     "tools/convert_lectionary.py": "17802222fd6c4bf0770fb480769ad586097e0fea32799f3956a221e9e6a673e4",
-    "tools/apply_corrections.py": "d8bf6345cdea6080961af118664fa1415540dd5639279ac8e591079f9b852458",
-    "tools/corrections_lib.py": "20a98d9f99830ab24d5bcbd32613929929e6eaa72c085352b16a0a7385f4e70d",
+    "tools/apply_corrections.py": "6e3fafcd98b00ed39675877e828e0f7515109dffe309b6980ddc59fcff33c44b",
+    "tools/corrections_lib.py": "aeb8e2cd6319225421c845fc921a435829d3bf4da0ff802d77ed14fb59cb20c8",
     "tools/extract_lib.py": "2d77e3c60dad78a693e88557fd84115815a62128355c04d78bd0c6f42014d72e",
-    "data/corrections.json": "19558120c918c0dd4fc888a6682dfb0398fccaea15f9a2b26f8af31abf81e145",
+    "data/corrections.json": "0fd835444f7a9c34831dbbc8a5bffd038c983d4ef77b73af0435f08c37cdc378",
     "sources/bas_short_2026.csv": "909616851bf8c627428fbaf50ce894d72fc122a3b702843f1bad7c070850b89e"
   },
   "files": {
     "data/offices.json": {
-      "sha256": "9ca1114dad41b35e67f91b90a7254273eebaccb483e04da92a6d8fdc9c38ad22",
+      "sha256": "30f97fe779871f77324aadbfb85c86295597c7c433cbca08317e05620b8c4f4a",
       "entries": 31
     },
     "data/collects.json": {

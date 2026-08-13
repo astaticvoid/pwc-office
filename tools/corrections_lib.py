@@ -75,6 +75,45 @@ def replace_occurrences(field, old: str, new: str) -> int:
     return replaced
 
 
+ALL_OFFICES = "*"
+
+
+def resolve_offices(data: dict, correction: dict) -> list[tuple[str, dict]]:
+    """The (key, office) pairs a correction addresses, in file order.
+
+    `office: "*"` addresses every office carrying the field. It exists for the
+    text the book prints identically in all 30 forms — the Psalm and Reading
+    introductions, the section hand-offs — where the alternative is 30 manifest
+    entries differing only in a key, which is a worse record, not a stricter
+    one: nobody reads 30 copies to check they still agree.
+
+    `count` stays a corpus-wide total rather than becoming per-office (see
+    check_office_text_across), so the entry says in one line how far the text
+    reaches and fails when the corpus stops matching it.
+
+    That is a slightly weaker guarantee than the N entries it replaces, and the
+    gap is worth knowing: a *redistribution* leaving the total unchanged — one
+    form losing an occurrence while another gains one — fails two of 28
+    per-office entries but passes a single wildcard entry, which then applies to
+    a spread nobody authorized. Both catch text changing; only per-office
+    entries catch it moving between forms. For the rubrics this exists for, the
+    same sentence printed in all 30 forms, the distribution is uniform and a
+    redistribution would be a defect the conservation check (#94) is the right
+    thing to catch. Use a named office where the spread itself is the point.
+
+    Offices without the field are skipped rather than reported: a wildcard is a
+    statement about the text, not about which forms happen to have the section.
+    An entry matching nothing anywhere still fails on the count.
+    """
+    key = correction["office"]
+    if key != ALL_OFFICES:
+        office = data.get(key)
+        return [(key, office)] if office is not None else []
+    return [(k, o) for k, o in data.items()
+            if not k.startswith("_") and isinstance(o, dict)
+            and correction["field"] in o]
+
+
 def check_office_text(correction: dict, field) -> str | None:
     """Return an error string if `correction` does not apply cleanly to `field`.
 
@@ -90,22 +129,43 @@ def check_office_text(correction: dict, field) -> str | None:
     a match for the second's `old`. Validation is a guarantee per correction,
     not across a set of them touching one field.
     """
+    return check_office_text_across(correction, [field])
+
+
+def check_office_text_across(correction: dict, fields: list) -> str | None:
+    """check_office_text over every field the correction resolves to.
+
+    The entry point for the validator and the applier, so both judge a wildcard
+    the same way. `count` is the total across the whole set, not per office:
+    one entry reading "28 occurrences" is checked as a single statement about
+    the book, and moves the moment the corpus does.
+    """
+    if not fields:
+        return "matches no office"
+
     old = correction.get("old")
     if not isinstance(old, str):
-        return None if field == old else "field does not equal 'old'"
+        # Keyed on the wildcard, not on how many offices it happens to resolve
+        # to today: a wildcard whole-field entry that matches one form now would
+        # pass, then start failing the moment a second form grows the field.
+        if correction.get("office") == ALL_OFFICES or len(fields) > 1:
+            return ("whole-field replacement addresses one office only — across "
+                    "a set it would write the same structure over each")
+        return None if fields[0] == old else "field does not equal 'old'"
 
-    if is_shared_reference(field):
-        key = field.get("key")
-        return (
-            f"field is only a reference to the shared block '{key}' — correct "
-            f"_shared.{key} instead, which corrects every form that uses it"
-        )
+    for field in fields:
+        if is_shared_reference(field):
+            key = field.get("key")
+            return (
+                f"field is only a reference to the shared block '{key}' — correct "
+                f"_shared.{key} instead, which corrects every form that uses it"
+            )
 
     expected = correction.get("count", 1)
-    actual = count_occurrences(field, old)
+    actual = sum(count_occurrences(f, old) for f in fields)
     if actual == expected:
         return None
-    if actual == 0 and count_occurrences(field, old.replace(" ", "\xa0")):
+    if actual == 0 and sum(count_occurrences(f, old.replace(" ", "\xa0")) for f in fields):
         return (
             "'old' not found, but matches with a non-breaking space — "
             "use the literal \\u00a0 character in 'old'"

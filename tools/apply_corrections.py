@@ -15,7 +15,7 @@ import json
 import sys
 from pathlib import Path
 
-from corrections_lib import check_office_text, replace_occurrences
+from corrections_lib import check_office_text_across, replace_occurrences, resolve_offices
 
 ROOT = Path(__file__).parent.parent
 DATA = ROOT / "data"
@@ -195,30 +195,35 @@ def main():
     data = json.loads(_stage_input(BUILD / "offices.2-normalized.json").read_text())
     applied = 0
     for c in corrections.get("office_text", []):
-        office = data.get(c["office"])
-        field = office.get(c["field"]) if office else None
-        if field is None:
+        targets = [(k, o) for k, o in resolve_offices(data, c) if c["field"] in o]
+        if not targets:
             _misses.append(f"{c['id']}: {c['office']}.{c['field']} not found")
             continue
         # Same check the validator ran, so nothing applies on a state it would
         # have rejected — including the occurrence count, which is what stops a
         # substring correction applying to fewer (or more) segments than its
-        # author counted.
-        problem = check_office_text(c, field)
+        # author counted. Checked across the whole set before any of it is
+        # written, so a wildcard cannot half-apply.
+        problem = check_office_text_across(c, [o[c["field"]] for _, o in targets])
         if problem:
             _misses.append(f"{c['id']}: {c['office']}.{c['field']} — {problem}")
             continue
         if isinstance(c["old"], str):
-            if isinstance(field, str):
-                # A plain-string field (every office `title`) — replaced on the
-                # office dict, since a str cannot be corrected in place.
-                n = field.count(c["old"])
-                office[c["field"]] = field.replace(c["old"], c["new"])
-            else:
-                n = replace_occurrences(field, c["old"], c["new"])
-            print(f"  {c['id']}: {c['office']}.{c['field']} ({n}×)")
+            n = 0
+            for _, office in targets:
+                field = office[c["field"]]
+                if isinstance(field, str):
+                    # A plain-string field (every office `title`) — replaced on
+                    # the office dict, since a str cannot be corrected in place.
+                    n += field.count(c["old"])
+                    office[c["field"]] = field.replace(c["old"], c["new"])
+                else:
+                    n += replace_occurrences(field, c["old"], c["new"])
+            where = f"{c['office']}.{c['field']}"
+            spread = f" across {len(targets)} offices" if len(targets) > 1 else ""
+            print(f"  {c['id']}: {where} ({n}×{spread})")
         else:
-            office[c["field"]] = c["new"]
+            targets[0][1][c["field"]] = c["new"]
             print(f"  {c['id']}: {c['office']}.{c['field']}")
         applied += 1
     # This is the artifact the app, the manifest and the integrity check read,

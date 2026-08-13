@@ -20,6 +20,8 @@ check_office_text = corrections_lib.check_office_text
 count_occurrences = corrections_lib.count_occurrences
 iter_text_segments = corrections_lib.iter_text_segments
 replace_occurrences = corrections_lib.replace_occurrences
+resolve_offices = corrections_lib.resolve_offices
+check_office_text_across = corrections_lib.check_office_text_across
 
 
 def _field():
@@ -130,3 +132,58 @@ def test_shared_reference_field_says_so_instead_of_found_zero():
 def test_count_occurrences_counts_repeats_within_one_segment():
     field = [{"type": "leader", "text": "ours and ours"}]
     assert count_occurrences(field, "ours") == 2
+
+
+# ── office: "*" — one entry for text the book repeats in every form ──────────
+
+
+def _corpus():
+    """Three offices and a `_shared` block, shaped like data/offices.json."""
+    return {
+        "_shared": {"doxology": [{"type": "leader", "text": "A Psalm is said."}]},
+        "advent-mp": {"psalm_rubrics": [{"type": "rubric", "text": "A Psalm is said."}]},
+        "advent-ep": {"psalm_rubrics": [{"type": "rubric", "text": "A Psalm is said."}]},
+        "lent-mp": {"canticle": [{"type": "rubric", "text": "elsewhere"}]},
+    }
+
+
+def test_wildcard_resolves_every_office_carrying_the_field():
+    """`_shared` is not an office, and a form without the field is skipped
+    rather than reported — the wildcard is a statement about the text, not
+    about which forms happen to have the section."""
+    c = {"office": "*", "field": "psalm_rubrics"}
+    keys = [k for k, _ in resolve_offices(_corpus(), c)]
+    assert keys == ["advent-mp", "advent-ep"]
+
+
+def test_wildcard_count_is_the_corpus_total():
+    """`count` stays a total across the set, so one wildcard entry carries the
+    same staleness guarantee as the N per-office entries it replaces."""
+    data = _corpus()
+    c = {"office": "*", "field": "psalm_rubrics", "old": "A Psalm", "new": "x", "count": 2}
+    fields = [o[c["field"]] for _, o in resolve_offices(data, c)]
+    assert check_office_text_across(c, fields) is None
+    # The moment one office stops matching, the total moves and the entry fails.
+    data["advent-ep"]["psalm_rubrics"][0]["text"] = "Something else."
+    fields = [o[c["field"]] for _, o in resolve_offices(data, c)]
+    problem = check_office_text_across(c, fields)
+    assert problem and "found 1" in problem
+
+
+def test_wildcard_matching_nothing_is_an_error_not_a_silent_pass():
+    c = {"office": "*", "field": "nonexistent", "old": "x", "new": "y"}
+    assert check_office_text_across(c, []) == "matches no office"
+
+
+def test_whole_field_replacement_refuses_a_wildcard():
+    """A structural `old` states one exact field. Across a set it would write
+    the same structure over every office, which is never what was meant."""
+    c = {"office": "*", "field": "psalm_rubrics", "old": [], "new": []}
+    problem = check_office_text_across(c, [[], []])
+    assert problem and "one office only" in problem
+
+
+def test_named_office_still_resolves_to_exactly_itself():
+    c = {"office": "advent-mp", "field": "psalm_rubrics"}
+    assert [k for k, _ in resolve_offices(_corpus(), c)] == ["advent-mp"]
+    assert resolve_offices(_corpus(), {"office": "nope", "field": "x"}) == []

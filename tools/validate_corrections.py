@@ -13,7 +13,7 @@ import json
 import sys
 from pathlib import Path
 
-from corrections_lib import check_office_text
+from corrections_lib import ALL_OFFICES, check_office_text_across, resolve_offices
 
 ROOT = Path(__file__).parent.parent
 DATA = ROOT / "data"
@@ -96,17 +96,29 @@ def validate_office_text(corrections: list, data: dict) -> list[str]:
     errors = []
     for c in corrections:
         cid = c["id"]
-        office = data.get(c["office"])
-        if office is None:
-            errors.append(f"{cid}: office '{c['office']}' not found")
+        targets = resolve_offices(data, c)
+        if not targets:
+            # A wildcard resolves through the field, so an empty result means
+            # no office carries it — naming the office would point at the one
+            # key that is certainly right.
+            errors.append(
+                f"{cid}: no office has field '{c['field']}'"
+                if c["office"] == ALL_OFFICES
+                else f"{cid}: office '{c['office']}' not found")
             continue
-        field = office.get(c["field"])
-        if field is None:
-            errors.append(f"{cid}: field '{c['field']}' not in {c['office']}")
-            continue
-        problem = check_office_text(c, field)
-        if problem:
-            errors.append(f"{cid}: {c['office']}.{c['field']} — {problem}")
+        fields = []
+        for key, office in targets:
+            field = office.get(c["field"])
+            if field is None:
+                # Only reachable for a named office; the wildcard skips offices
+                # without the field rather than resolving them.
+                errors.append(f"{cid}: field '{c['field']}' not in {key}")
+                break
+            fields.append(field)
+        else:
+            problem = check_office_text_across(c, fields)
+            if problem:
+                errors.append(f"{cid}: {c['office']}.{c['field']} — {problem}")
     return errors
 
 

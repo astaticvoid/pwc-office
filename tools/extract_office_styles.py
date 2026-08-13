@@ -179,7 +179,22 @@ def spans_to_typed_lines(page_spans: list[dict], margin: float | None = None,
         for s in body:
             types[s["type"]] = types.get(s["type"], 0) + 1
         text = " ".join(s["text"] for s in line_spans).strip()
-        if not text or re.match(r"^\d{1,3}$", text) or re.match(r"^(Morning|Evening) Prayer", text):
+        # Bare page numbers, and the recto running header ("Morning Prayer for
+        # Advent    15"), never reach the geometry pass: they run wider than
+        # the text block and would distort the leading measured below. The
+        # filter must not swallow body text that begins the same way, though —
+        # the rubric "Morning Prayer continues with the Reading." opens with
+        # the same two words (#84) — so the header branch also requires the
+        # trailing page number that a running header always carries.
+        #
+        # The verso header ("14    Morning Prayer for Advent") is deliberately
+        # not dropped here; it is flagged as is_running_hdr just below so the
+        # margin fallback skips it, and _is_noise in extract_offices.py drops
+        # both forms downstream.
+        if not text or re.match(r"^\d{1,3}$", text):
+            continue
+        if (re.match(r"^(Morning|Evening) Prayer", text)
+                and re.search(r"\d{1,3}\s*$", text)):
             continue
         prepared.append({
             "dominant": max(types, key=types.get),

@@ -8,6 +8,7 @@
     { "form": "easter-mp", "metric": "rubricCount", "reason": "Easter MP has seasonal liturgical variations" },
     { "form": "easter-ep", "metric": "rubricCount", "reason": "Easter EP has seasonal liturgical variations" },
     { "form": "easter-ep", "metric": "leaderCount", "reason": "Easter EP is the longest seasonal EP and became an outlier without changing: deleting the Epiphany EP doxologies per Seasonal errata p. 52 took that form from 51 to 45 segments, lowering the seasonal-EP peer mean and tightening the spread. No correction touches Easter EP itself." },
-    { "form": "allsaints-mp", "metric": "litanySegments", "reason": "All Saints litany is longer than other seasonal MP forms" }
+    { "form": "allsaints-mp", "metric": "litanySegments", "reason": "All Saints litany is longer than other seasonal MP forms" },
+    { "form": "passiontide-ep", "metric": "rubricCount", "reason": "Passiontide EP prints the responsory transition as one paragraph (its page lines end with ~0pt gap, so the reflow correctly joins '...or both.' and 'If two Readings are read...' into a single rubric); every other seasonal EP sets them as two. One fewer rubric segment, no text missing (#84)." }
   ]
 }

@@ -92,8 +92,11 @@ _SUB_HDR_MAP: list[tuple] = [
     # later split out by _split_lords_prayer.
     (re.compile(r"the Lord['']?s Prayer",               re.IGNORECASE), _CONTINUE),
     (re.compile(r'^the dismissal$',                     re.IGNORECASE), "dismissal"),
-    (re.compile(r'^the Reading$',                       re.IGNORECASE), None),
-    (re.compile(r'^the Psalm$',                         re.IGNORECASE), None),
+    # The psalm/lesson content comes from the lectionary, not the form, so these
+    # sections keep only the fixed rubrics printed around them — filtered to
+    # label + rubric segments at flush time, before _merge (#84).
+    (re.compile(r'^the Reading$',                       re.IGNORECASE), "reading_rubrics"),
+    (re.compile(r'^the Psalm$',                         re.IGNORECASE), "psalm_rubrics"),
 ]
 
 # Every section that reaches the renderer, in the order a form presents them.
@@ -101,7 +104,7 @@ _SUB_HDR_MAP: list[tuple] = [
 # a repeated source of wrong measurements.
 SECTION_ORDER = (
     "opening_responses", "thanksgiving_for_light", "phos_hilaron",
-    "invitatory", "responsory", "canticle", "affirmation",
+    "invitatory", "psalm_rubrics", "reading_rubrics", "responsory", "canticle", "affirmation",
     "intercessions", "litany", "seasonal_collects", "lords_prayer_intro",
     "dismissal",
 )
@@ -156,6 +159,8 @@ _RUNNING_HDR = re.compile(
     r'^(?:Morning|Evening) Prayer\b.*\d|^\d+\s+(?:Morning|Evening) Prayer\b'
 )
 _PAGE_NUM = re.compile(r'^\d{1,3}$')
+# C0 controls PyMuPDF emits for glyphs with no Unicode mapping.
+_CONTROL_CHARS = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f]')
 
 def _is_noise(typ: str, text: str) -> bool:
     if typ == "footer":
@@ -293,19 +298,26 @@ _LITANY_VALLEY_KEEP: frozenset[str] = frozenset({
 
 
 def _reflow_by_geometry(segs: list, office_key: str = "", section: str = "",
-                        prose: bool = False) -> list:
+                        prose: bool = False,
+                        types: tuple[str, ...] = ("leader",)) -> list:
     """Join only those breaks the typesetter was forced into.
 
     Replaces the unconditional joins that _reflow_leader_prose used to apply to
     litany (#39) and seasonal_collects (#42), which flattened every petition in
     all 30 forms and left the collects correct only by accident.
+
+    `types` names the segment types to reflow. It defaults to leader lines
+    because that is what the litany/collect/dismissal material is made of;
+    sections whose prose lives in rubric segments (psalm_rubrics,
+    reading_rubrics — #84) pass those types explicitly. Widening the default
+    would silently re-wrap rubrics in every other section.
     """
     for seg in segs:
         if seg.get("type") == "alternatives":
             for g in seg.get("groups", []):
-                _reflow_by_geometry(g.get("segments", []), office_key, section, prose)
+                _reflow_by_geometry(g.get("segments", []), office_key, section, prose, types)
             continue
-        if seg.get("type") != "leader" or not seg.get("text"):
+        if seg.get("type") not in types or not seg.get("text"):
             continue
         lines = seg["text"].split("\n")
         gaps = seg.get("break_gaps", [])
@@ -761,6 +773,63 @@ def _split_lords_prayer(segs: list[dict]) -> tuple[list[dict], list[dict]]:
             return segs[:i], segs[i:]
     return [], segs
 
+# ── Reading/Psalm rubric sections (#84) ───────────────────────────────────────
+
+# The Reading and Psalm pages print fixed rubrics around content that comes
+# from the lectionary. Those rubrics belong in the data (ADR 0019 item 7 needs
+# the Responsory transition; ADR 0013's rubric rule can only check rubrics that
+# exist in the data), while the lectionary content itself must stay out. The
+# filtering happens in _flush (before _merge); the reading responses on the
+# page are leader/response lines and drop with the rest of the content, so
+# `reading_response` continues to come from _add_reading_responses until the
+# extracted rubrics are proven and that synthesizer is retired.
+
+
+# ── Section-closing office transitions ───────────────────────────────────────
+
+_OFFICE_TRANSITION = re.compile(r'^(?:Morning|Evening) Prayer continues with\b',
+                                re.IGNORECASE)
+
+
+def _hoist_office_transition(segs: list, office_key: str = "", section: str = "") -> list:
+    """Lift a section-closing "{office} Prayer continues with …" rubric out of
+    the alternatives block that swallowed it.
+
+    The rubric is printed after the last alternative, not inside it, and its
+    wording names both the office and the section that follows — four distinct
+    variants across the 30 forms for the affirmation alone. _group_alternatives
+    cannot tell it from a group's own trailing rubric and sweeps it into the
+    final group, where _dedup_shared then buries it: that pass keys the
+    doxology and affirmation blocks by shape, not by equality, and keeps
+    whichever office it meets first, so every form would inherit one office's
+    copy and all 15 Evening Prayer forms would read "Morning Prayer continues
+    with the Litany." (#84 — the running-header fix is what recovered these
+    rubrics into the blocks in the first place).
+    """
+    if not segs or segs[-1].get("type") != "alternatives":
+        return segs
+    groups = segs[-1].get("groups", [])
+    inner = groups[-1].get("segments", []) if groups else []
+    if not inner or inner[-1].get("type") != "rubric":
+        return segs
+    if not _OFFICE_TRANSITION.match(inner[-1].get("text", "").strip()):
+        return segs
+    trailer = inner.pop()
+    _dbg(f"  HOIST [{section}] {trailer['text'][:60]!r} out of last group",
+         office=office_key)
+    if not inner:
+        # The transition was the group's only content, so the group is now an
+        # empty alternative. renderAlternatives builds a tab per group without
+        # checking, so leaving it would put a live tab over a blank panel. No
+        # group empties on the current corpus — every one carries its creed or
+        # canticle text — but the group is only ever this thin because
+        # _group_alternatives mistook the trailer for content in the first place.
+        groups.pop()
+        _dbg(f"  HOIST [{section}] dropped the group it emptied", office=office_key)
+        if not groups:
+            return segs[:-1] + [trailer]
+    return segs + [trailer]
+
 
 # ── Shared-block deduplication ───────────────────────────────────────────────
 
@@ -1025,13 +1094,20 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
             continue
         if not header_done:
             if not title and typ == "heading":
-                title = text
-                _dbg(f"  TITLE {repr(text[:60])}", office=office_key)
+                # The Advent title carries an unmapped glyph after it, which
+                # PyMuPDF hands back as U+0003 and which would ship into the
+                # UI as a stray control character.
+                title = _CONTROL_CHARS.sub("", text).strip()
+                _dbg(f"  TITLE {repr(title[:60])}", office=office_key)
                 continue
-            if title and not subtitle and typ == "leader":
-                subtitle = text
-                header_done = True
-                _dbg(f"  SUBTITLE {repr(text[:60])}", office=office_key)
+            if title and typ == "leader":
+                # The date-range subtitle is set as a centred block, two lines
+                # on eight of the seasonal forms ("From Ash Wednesday until the
+                # / Sunday before Palm/Passion Sunday"). Taking only the first
+                # line left those eight ending mid-clause, so collect leader
+                # lines until the first section heading closes the header.
+                subtitle = f"{subtitle} {text}".strip() if subtitle else text
+                _dbg(f"  SUBTITLE {repr(subtitle[:60])}", office=office_key)
                 continue
             if title and typ == "heading":
                 header_done = True
@@ -1047,8 +1123,33 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
     def _flush():
         nonlocal current_segs
         if current_key is not None and current_segs:
-            _dbg(f"  FLUSH {current_key!r}: {len(current_segs)} segs", office=office_key)
-            sections[current_key] = _merge(current_segs)
+            # The Reading/Psalm pages mix fixed rubrics with lectionary content
+            # (#84). Drop the content BEFORE _merge: merging joins same-type
+            # neighbours, and rubric lines there alternate with leader/response
+            # lines ("...is read." / "The word of the Lord." / "Thanks be to
+            # God."), so merged text would glue rubric to content beyond any
+            # later filter's reach.
+            segs = current_segs
+            if current_key in ("psalm_rubrics", "reading_rubrics"):
+                kept = [s for s in segs if s["type"] in ("label", "rubric")]
+                for s in segs:
+                    if s["type"] not in ("label", "rubric"):
+                        _dbg(f"  DROP [{current_key}] {s['type']} {repr(s['text'][:60])}",
+                             office=office_key)
+                # Neutralize the orphaned "or" separators the dropped content
+                # leaves behind: _merge absorbs a bare Or/or into the following
+                # rubric ("Or\nName"), which would corrupt these fixed rubrics,
+                # and _group_alternatives would then build empty alternatives
+                # groups from them. They separated lectionary content options
+                # (doxologies, reading responses); with the content gone they
+                # carry no meaning.
+                kept = [s for s in kept
+                        if not (s["type"] == "rubric"
+                                and re.fullmatch(r'or\.?', s["text"].strip(), re.IGNORECASE))]
+                segs = kept
+            _dbg(f"  FLUSH {current_key!r}: {len(segs)} segs", office=office_key)
+            if segs:
+                sections[current_key] = _merge(segs)
         current_segs = []
 
     for typ, text, gap, slack, lead in filtered_lines:
@@ -1077,8 +1178,10 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
             # Preserve the phos_hilaron/invitatory heading text as a "label" segment
             # so renderers can emit it as a titled section rather than bare content
             # (invitatory headings carry the psalm citation, e.g. "Invitatory Psalm:
-            # Psalm 95:1–7" — see issue #1).
-            if key in ("phos_hilaron", "invitatory") and text:
+            # Psalm 95:1–7" — see issue #1). The psalm_rubrics/reading_rubrics
+            # headings are fixed ("The Psalm" / "The Reading") but equally title the
+            # section their rubrics belong to (#84).
+            if key in ("phos_hilaron", "invitatory", "psalm_rubrics", "reading_rubrics") and text:
                 current_segs.append({"type": "label", "text": text, "gap": gap, "slack": slack, "lead": lead})
             continue
 
@@ -1089,6 +1192,21 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
             _dbg(f"  [NO-SECTION] {typ} {repr(text[:60])}", office=office_key)
 
     _flush()
+
+    # Re-home the "{office} Prayer continues with the Reading." transition: it
+    # is printed at the foot of the Psalm block but introduces the Reading, so
+    # it renders with the reading rubrics, not the psalm rubrics (#84).
+    if sections.get("psalm_rubrics") and sections.get("reading_rubrics"):
+        pr = sections["psalm_rubrics"]
+        moved = [s for s in pr
+                 if s["type"] == "rubric"
+                 and re.match(r'^(?:Morning|Evening) Prayer continues with the Reading\.',
+                              s["text"].strip(), re.IGNORECASE)]
+        if moved:
+            sections["psalm_rubrics"] = [s for s in pr if s not in moved]
+            rr = sections["reading_rubrics"]
+            insert_at = 1 if rr and rr[0]["type"] == "label" else 0
+            sections["reading_rubrics"] = rr[:insert_at] + moved + rr[insert_at:]
 
     # Post-process: split seasonal collects and Lord's Prayer out of litany block.
     if "litany" in sections:
@@ -1107,11 +1225,15 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
             else:
                 sections["seasonal_collects"] = sc
 
-    # Apply alternatives grouping to all sections.
-    _NO_ALT_SECTIONS = {"litany", "lords_prayer_intro"}
+    # Apply alternatives grouping to all sections. psalm_rubrics/reading_rubrics
+    # are exempt: their alternatives (doxologies, reading responses) dropped
+    # with the lectionary content, and the rubrics that introduced them would
+    # otherwise be misread as group-introducers, producing empty groups (#84).
+    _NO_ALT_SECTIONS = {"litany", "lords_prayer_intro", "psalm_rubrics", "reading_rubrics"}
     for key in list(sections.keys()):
         if key not in _NO_ALT_SECTIONS:
             sections[key] = _group_alternatives(sections[key], office=office_key, section=key)
+            sections[key] = _hoist_office_transition(sections[key], office_key, key)
 
     # BUG-29: seasonal collect leaders are prose; the PDF's column-width hard
     # wraps are typographic, not semantic. Join them. Rubric segments (bullet
@@ -1129,6 +1251,15 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
     for key in ("dismissal", "intercessions"):
         if key in sections:
             _reflow_by_geometry(sections[key], office_key, key, prose=True)
+
+    # The Reading/Psalm rubrics are page prose too — the PDF column-wraps them
+    # mid-sentence (#84) — but the whole section survives _flush as label and
+    # rubric segments, with not one leader among them, so the default type
+    # filter would skip every segment and leave the forced wraps in the data.
+    for key in ("psalm_rubrics", "reading_rubrics"):
+        if key in sections:
+            _reflow_by_geometry(sections[key], office_key, key, prose=True,
+                                types=("rubric",))
 
     # Hymn stanza breaks come from the page's own leading, not an assumed
     # stanza length. Must run here, while break_leads is still attached.

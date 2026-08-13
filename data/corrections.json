@@ -453,14 +453,14 @@
                 {
                   "type": "response",
                   "text": "Arise, shine, for your light has come;\nthe glory of the Lord is rising upon you."
-                },
-                {
-                  "type": "rubric",
-                  "text": "Affirmation of Faith."
                 }
               ]
             }
           ]
+        },
+        {
+          "type": "rubric",
+          "text": "Evening Prayer continues with [the Second Reading or] the Canticle or an Affirmation of Faith."
         }
       ],
       "new": [
@@ -539,7 +539,7 @@
         },
         {
           "type": "rubric",
-          "text": "Affirmation of Faith."
+          "text": "Evening Prayer continues with [the Second Reading or] the Canticle or an Affirmation of Faith."
         }
       ],
       "new": [
@@ -589,10 +589,54 @@
         },
         {
           "type": "rubric",
-          "text": "Affirmation of Faith."
+          "text": "Evening Prayer continues with [the Second Reading or] the Canticle or an Affirmation of Faith."
         }
       ],
       "reason": "Errata, Seasonal p. 66: the rubric 'The Responsory is said or sung.' is glued into the first leader segment instead of standing on its own, so it renders in leader styling. One case against 59 where the same rubric is its own segment, so it is a single-form data defect rather than an extractor bug. Splitting a segment is structural, hence whole-field. The erratum's own complaint about p. 66 — indentation and italics — remains not applicable; this is the separate structural defect that was found while checking it."
+    },
+    {
+      "id": "adr0019-item3-psalm-introduction",
+      "source": "upstream-review",
+      "adr": "0019 item 3",
+      "office": "*",
+      "field": "psalm_rubrics",
+      "old": "A Psalm from the Daily Office Lectionary, the Weekday Eucharistic Lectionary, or the Revised Common Lectionary Daily Readings is said or sung.",
+      "new": "A Psalm is said or sung.",
+      "count": 28,
+      "reason": "ADR 0019 item 3: the psalm introduction drops the named lectionaries. A divergence from the printed page, not an error in it — the page names three lectionaries in full and upstream review authorized the short form, so it is recorded here rather than left to differ silently in the renderer."
+    },
+    {
+      "id": "adr0019-item3-psalm-introduction-or-psalms",
+      "source": "upstream-review",
+      "adr": "0019 items 3 and 6",
+      "office": "*",
+      "field": "psalm_rubrics",
+      "old": "A Psalm (or Psalms) from the Daily Office Lectionary, the Weekday Eucharistic Lectionary, or the Revised Common Lectionary Daily Readings is said or sung.",
+      "new": "A Psalm is said or sung.",
+      "count": 2,
+      "reason": "The two Pentecost forms print '(or Psalms)'. Item 3 drops the named lectionaries; item 6 settles one sentence 'regardless of how many psalms the day appoints or how they are grouped', so the plural variant resolves to the same sentence as the other 28."
+    },
+    {
+      "id": "adr0019-item3-reading-introduction",
+      "source": "upstream-review",
+      "adr": "0019 item 3",
+      "office": "*",
+      "field": "reading_rubrics",
+      "old": "A Reading from the Daily Office Lectionary, the Weekday Eucharistic Lectionary, or the Revised Common Lectionary Daily Readings is read.",
+      "new": "A Reading is read.",
+      "count": 30,
+      "reason": "ADR 0019 item 3, the reading half. A substring correction so the reflection prompt that shares this printed paragraph ('After a period of silent reflection one of the following is said.') stays attached — the book sets both as one paragraph and only the introduction is being shortened."
+    },
+    {
+      "id": "adr0019-item4-affirmation-transition",
+      "source": "upstream-review",
+      "adr": "0019 item 4",
+      "office": "*",
+      "field": "canticle",
+      "old": "continues with an Affirmation of Faith or the Litany.",
+      "new": "continues with an Affirmation of Faith or the Prayers.",
+      "count": 16,
+      "reason": "ADR 0019 item 4: the affirmation transition reads '...or the Prayers' in both offices. The 16 seasonal forms print '...or the Litany'; the 14 ordinary forms already print '...or the Prayers' and are untouched. Substring so one entry covers the Morning and Evening wordings."
     }
   ],
   "lectionary_citations": [],
