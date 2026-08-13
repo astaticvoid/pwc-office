@@ -3,6 +3,14 @@
 ## Status
 Accepted (2026-08-07)
 
+Amended (2026-08-12) by ADR 0019, items 7 and 9. Two lines of the "Applied"
+list below are superseded: the readings do **not** get a per-reading selector —
+the per-reading view removed the Responsory and the Canticle, which are not part
+of that choice — and the head-of-section rubric is the shorter *"One or two
+readings are read."* The three obligations in the Decision are unchanged, and
+the psalm selector, the alternatives tabs, and the whole of the reasoning about
+optional readings stand.
+
 ## Context
 
 *Pray Without Ceasing* branches by design. A form offers alternative canticles,

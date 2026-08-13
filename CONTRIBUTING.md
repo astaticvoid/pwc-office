@@ -132,7 +132,7 @@ instance resolves at once.
 | `make test-full` | Structural check of every day in the lectionary window | Before a data re-extraction |
 | `make test-smoke` | 4 key dates: structure + reading cross-check | After office rendering changes |
 | `make test-seasonal` | One MP+EP per liturgical season: structure + readings | After seasonal collect / form changes |
-| `make test-web` | Playwright E2E — 120 tests across desktop + mobile projects | After any `web/app.js`, `render.js`, or CSS change |
+| `make test-web` | Playwright E2E — 142 tests across desktop + mobile projects | After any `web/app.js`, `render.js`, or CSS change |
 | `make test-tools` | pytest for `tools/` (pytest comes from `make venv`) | After changing any extraction tool |
 | `make validate` | Validate extracted lectionary against ACC HTML (network) | Before a data re-extraction |
 

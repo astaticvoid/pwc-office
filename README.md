@@ -52,7 +52,7 @@ node tools/compare_staging.cjs [date] [mp|ep]   # A/B diff staging vs production
 ```sh
 make test             # the go-to check, no network — data integrity, Vitest,
                       # pytest, and the liturgical QA gate
-make test-web         # Playwright E2E suite (120 tests: desktop + mobile)
+make test-web         # Playwright E2E suite (142 tests: desktop + mobile)
 make test-full        # structural check of every day × MP+EP in the lectionary year
 make test-smoke       # 4 representative days: structure + reading cross-check
 make test-seasonal    # 26 cases: one MP+EP per liturgical form

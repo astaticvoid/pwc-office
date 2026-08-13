@@ -378,13 +378,21 @@ All task tracking lives in [GitHub Issues](https://github.com/astaticvoid/pwc-of
   that move rendered text *toward* what is authorized, such as the errata
   breaks or whitespace normalisation — the test is direction, not whether text
   changed. Worked applications: ADR 0013 (rubrics), 0014 (choices), 0015
-  (text the app authors itself).
+  (text the app authors itself). **ADR 0019 is the casebook** — the specific
+  readings upstream review has settled, each with the thing it forbids. Read it
+  before changing a rubric or a selector; it exists because three of those
+  decisions have already been re-litigated or rebuilt under a new name.
   **The shipped code does not comply yet, and this rule is not a licence to make
-  it comply.** `BOOK_ONLY_RUBRICS` is gone (deleted under ADR 0013, #59), and
+  it comply.** `BOOK_ONLY_RUBRICS` is gone (deleted under ADR 0013, #59) and
   `SKIP_RUBRICS` survives only as four named duplicates, each pinned to the
-  heading it defers to by `validate_render.cjs` and a corpus test — but there is
-  still no psalm or reading selector. That is known, and tracked in issues
-  #63-#65. The rule binds *new* work: don't add a mechanism of the same kind.
+  heading it defers to by `validate_render.cjs` and a corpus test. The psalm and
+  reading selectors shipped (#63). What is outstanding is on the other side of
+  that line: the reading selector removes the Responsory and the Canticle, which
+  the choice does not cover, so ADR 0019 item 7 withdraws it in favour of the
+  book's own rubric (#77); two rubric corrections are unapplied (#79, #80); and
+  the whole Reading and Psalm block is discarded at extraction, so the rubrics
+  printed there are app-authored or missing (#84). The rule binds *new* work:
+  don't add a mechanism of the same kind.
 
 ## Data correction locations
 
