@@ -298,22 +298,56 @@ async function main() {
 
   rules.push({ name: 'no-orphan-rubrics', tier: 2, check(form, formKey, data) {
     const orphans = [];
-    // Rubrics that legitimately close a subsection with nothing after them —
-    // the intercessions free-prayer prompt and the EP responsory transition.
+    // Rubrics that legitimately close a subsection with nothing after them.
     // BOOK_ONLY_RUBRICS used to exempt them by regex; ADR 0013 deleted that
-    // regex (#59), so the exemption now names the texts it covers.
-    const trailingOk = [
+    // regex (#59), so the exemption now names what it covers — and names it
+    // tightly. A bare prefix is an exemption for every longer rubric starting
+    // the same way: 'The Lord’s Prayer' would wave through a real orphan like
+    // "The Lord's Prayer is omitted.", and isSkippedRubric already matches the
+    // exact-match form, so such an entry buys nothing but the hole.
+
+    // Prefix matching survives only where the exempt rubric is a long block
+    // with a stable opening — the intercessions free-prayer prompt, whose
+    // bullet list differs per form.
+    const trailingOkPrefix = [
       'The community may offer its intercessions, petitions, and thanksgivings',
-      'Evening Prayer continues with [the Second Reading or] the Canticle',
     ];
+
+    // The "{office} Prayer continues with …" family: a hand-off naming the
+    // section that follows, which is exactly what makes it section-closing.
+    // Nine wordings across the 30 forms (office × destination), so it is
+    // matched as the family it is rather than enumerated. These are the
+    // rubrics _hoist_office_transition lifts back out of the alternatives
+    // block that swallowed them (#84), so they close canticle, affirmation
+    // and responsory in every form.
+    const trailingOkRe = [
+      /^(?:Morning|Evening) Prayer continues with .+\.$/,
+    ];
+
+    // Exact texts: the Psalm block's doxology cue and the Reading block's
+    // two-reading rule, each introducing lectionary content that renders after
+    // the rubric block rather than inside it (#84).
+    const trailingOkExact = [
+      'At the end of the Psalm one of the following may be said or sung.',
+      'At the end of the Psalm(s) one of the following may be said or sung.',
+      'After the Psalm one of the following may be said or sung.',
+      'If two Readings are read, then the Responsory follows the first Reading and the Canticle the second.',
+    ];
+
     for (const section of data.sections) {
       for (const sub of section.subsections) {
         if (!sub.segments.length) continue;
         const last = sub.segments[sub.segments.length - 1];
         if (last.type !== 'rubric') continue;
         const txt = last.text;
+        // The book binds "Psalm" to the word after it with a non-breaking
+        // space; compare against ordinary spaces so the exact texts above read
+        // as the sentences they are.
+        const t = txt.trim().replace(/\u00a0/g, ' ');
         if (!isSkippedRubric(txt)
-            && !trailingOk.some(prefix => txt.trim().startsWith(prefix))) {
+            && !trailingOkPrefix.some(prefix => t.startsWith(prefix))
+            && !trailingOkRe.some(re => re.test(t))
+            && !trailingOkExact.includes(t)) {
           orphans.push(`${sub.label}: "${txt.slice(0, 50)}..."`);
         }
       }
@@ -397,6 +431,8 @@ async function main() {
     thanksgiving_for_light: 'Thanksgiving for Light',
     affirmation: 'Affirmation of Faith',
     seasonal_collects: 'The Collect',
+    psalm_rubrics: 'The Psalm',
+    reading_rubrics: 'The Reading',
   };
 
   const SECTION_NAME = {
@@ -404,6 +440,8 @@ async function main() {
     phos_hilaron: 'Gathering',
     thanksgiving_for_light: 'Gathering',
     invitatory: 'Gathering',
+    psalm_rubrics: 'Proclamation',
+    reading_rubrics: 'Proclamation',
     responsory: 'Proclamation',
     canticle: 'Proclamation',
     affirmation: 'Proclamation',

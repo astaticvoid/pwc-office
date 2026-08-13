@@ -57,6 +57,18 @@ async function main() {
       invitatory: { verse: true },
       thanksgiving_for_light: { verse: true },
       affirmation: { verse: false },
+      // Prose rubric blocks (#84). Listed here so check 4 holds them to the
+      // ADR 0013 rule: every rubric in them must reach the DOM built from
+      // assembleSections, in both HTML and text mode.
+      //
+      // That is a narrower guarantee than it looks, and the gap is worth
+      // stating. Check 4 renders `assembleSections`, not `web/app.js` — no
+      // test or validator imports app.js at all — so deleting the four
+      // `rubricRunHtml` calls that put these rubrics on the actual page would
+      // leave this suite green. What is covered is the data and the shared
+      // structure; the page's own assembly of it is not.
+      psalm_rubrics: { verse: false },
+      reading_rubrics: { verse: false },
     };
 
     for (const [field, opts] of Object.entries(renderableFields)) {
