@@ -31,7 +31,7 @@
   /* Type scale — 8 steps, ratios from the printed book */
   --fs-day-title:    1.75rem;
   --fs-head-section: 1.3rem;
-  --fs-head-sub:     1.15rem;
+  --fs-head-sub:     1.05rem;
   --fs-liturgy:      1.1rem;
   --fs-rubric:       1.02rem;
   --fs-ui:           0.8rem;
@@ -56,7 +56,13 @@
   /* Typographic offset: em, it belongs to the line */
   --verse-indent: 0.9em;
 
-  --content-max: 62ch;
+  /* Measure in rem, not ch: `ch` resolves against the UI sans on <body> while
+     the text is Garamond, so 62ch was ~70 Garamond characters. 31rem is ~64 at
+     the desktop step, and wider than any phone viewport, so mobile is unchanged. */
+  --content-max: 31rem;
+
+  /* One horizontal gutter for the bar and the page, so they cannot drift. */
+  --gutter: 1.25rem;
 
   /* safe area for notched devices */
   --safe-top: env(safe-area-inset-top, 0px);
@@ -117,7 +123,10 @@ a, button { -webkit-tap-highlight-color: transparent; }
 
 body {
   font-family: var(--font-ui);
-  font-size: 1.1875rem;
+  /* Nothing inherits this: every text class sets its own size and the --fs-*
+     tokens resolve against the root, so the old 1.1875rem only misdescribed
+     the page. Verified as a no-op — no leaf element's computed size moves. */
+  font-size: 1rem;
   line-height: var(--line-height);
   background: var(--color-bg);
   color: var(--color-text);
@@ -146,7 +155,7 @@ body {
 #nav-inner {
   max-width: var(--content-max);
   margin: 0 auto;
-  padding: 0.25rem 1rem;
+  padding: 0.25rem var(--gutter);
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
@@ -305,7 +314,8 @@ body {
 .settings-mini-seg button {
   background: transparent; border: none; cursor: pointer;
   font-family: var(--font-ui); font-size: var(--fs-ui); font-weight: 500;
-  color: var(--color-muted); padding: 0.3rem 0.65rem; border-radius: var(--radius-md);
+  /* concentric: inner radius = outer − padding, or the filled pill bulges */
+  color: var(--color-muted); padding: 0.3rem 0.65rem; border-radius: var(--radius-sm);
 }
 .settings-mini-seg button.is-active {
   background: var(--color-nav-bg); color: var(--color-nav-text);
@@ -319,7 +329,7 @@ body {
 #main {
   max-width: var(--content-max);
   margin: 0 auto;
-  padding: 1.5rem 1.25rem calc(5rem + var(--safe-bottom));
+  padding: 1.5rem var(--gutter) calc(5rem + var(--safe-bottom));
 }
 
 /* ── Day header ─────────────────────────────────────────────────────────────── */
@@ -335,7 +345,7 @@ body {
 
 #day-office-name {
   color: var(--color-accent);
-  margin-bottom: 0.4rem;
+  margin-bottom: var(--sp-2);
   display: inline-block; position: relative;
 }
 
@@ -343,14 +353,14 @@ body {
   font-family: var(--font-liturgy);
   font-size: var(--fs-day-title); font-weight: 600; line-height: 1.2;
   color: var(--color-heading);
-  margin-bottom: 0.4rem;
+  margin-bottom: var(--sp-2);
 }
 
 #day-subtitle {
   font-family: var(--font-liturgy);
   font-size: 1.05rem; font-style: italic;
   color: var(--color-text);
-  margin-bottom: 0.25rem;
+  margin-bottom: var(--sp-1);
 }
 #day-subtitle:empty { display: none; }
 
@@ -370,7 +380,7 @@ body {
 #day-meta {
   display: flex; justify-content: flex-start; align-items: flex-start;
   gap: 0.5rem 0.8rem;
-  flex-wrap: wrap; font-size: 0.76rem;
+  flex-wrap: wrap; font-size: var(--fs-ui);
 }
 
 /* Meta: season item */
@@ -414,25 +424,29 @@ body.book-mode .alt-panel + .alt-panel::before {
 
 /* ── Section headings ───────────────────────────────────────────────────────── */
 
+/* Rank is carried by case first, size second: a main component of the liturgy
+   is set in caps, its subcomponents in upper-and-lower. Size alone was a 13%
+   step and read as one level, which upstream review rejected. */
 .office-section-title {
   font-family: var(--font-liturgy-sc);
   font-size: var(--fs-head-section);
   font-weight: 600;
   font-variant: small-caps;
   text-transform: lowercase;   /* with small-caps → full small caps, as printed */
-  letter-spacing: 0.04em;
+  letter-spacing: 0.07em;      /* caps want more air than upper-and-lower */
   color: var(--color-heading);
   margin: var(--sp-5) 0 var(--sp-4);
   padding-top: var(--sp-3);
   border-top: 1px solid var(--color-accent);
 }
 
+/* Subcomponent: same face as the section head, no small caps. The reading face
+   rather than the SC family — nothing here asks for the smcp table. */
 .office-subsection-title {
-  font-family: var(--font-liturgy-sc);
+  font-family: var(--font-liturgy);
   font-size: var(--fs-head-sub);
   font-weight: 600;
-  font-variant: small-caps;    /* initial caps stay caps — rank below section */
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
   color: var(--color-heading);
   margin: var(--sp-4) 0 var(--sp-2);
   padding-top: 0;
@@ -569,11 +583,12 @@ body.book-mode .alt-panel + .alt-panel::before {
 
 /* ── Scripture reading ──────────────────────────────────────────────────────── */
 
+/* Subcomponent rank — "The Reading: Isaiah 55" must not outrank
+   "Introductory Responses", so it matches .office-subsection-title. */
 .reading-heading {
-  font-family: var(--font-liturgy-sc);
+  font-family: var(--font-liturgy);
   font-size: var(--fs-head-sub);
   font-weight: 600;
-  font-variant: small-caps;
   letter-spacing: 0;
   text-transform: none;
   color: var(--color-heading);
@@ -584,7 +599,7 @@ body.book-mode .alt-panel + .alt-panel::before {
 .scripture-attr {
   font-family: var(--font-ui); font-size: var(--fs-micro); color: var(--color-muted);
   font-style: italic; margin-top: 2rem; padding-top: 0.75rem;
-  text-align: center;
+  text-align: left;
 }
 .scripture-fallback-note {
   font-family: var(--font-ui); font-size: var(--fs-micro); font-style: italic;
@@ -636,58 +651,64 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
   font-style: italic; color: var(--color-rubric);
   margin: 0.2rem 0 0.4rem;
 }
-.alt-block { margin: 0 0 var(--sp-4) var(--indent); }
-/* the block owns the indent — its children must not add a second one */
-.alt-block .seg-leader,
-.alt-block .seg-response,
-.alt-block .collect-text,
-.alt-block .psalm-block,
-.alt-block .alt-block { margin-left: 0; }
+/* The block carries no indent of its own. The selector is app chrome and
+   belongs on the margin beside the rubric that introduces the choice; the text
+   inside a panel indents by the same rules as text outside one, so a heading in
+   a panel stays on the margin and a psalm in a panel stays on --indent. Two
+   axes, and no accumulation when alternatives nest inside alternatives. */
+.alt-block { margin: 0 0 var(--sp-4); }
 
+/* Inline pills, not a segmented track: a choice inside the liturgy is an aside
+   to the reading eye, and upstream review asked for the smaller inline toggles
+   back. They keep the head face of the typographic pass rather than reverting
+   to sans. */
 .alt-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--sp-1);
-  padding: var(--sp-1);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  margin-bottom: 14px;
+  /* 10px, so the hit areas below tile exactly rather than overlap */
+  gap: 10px;
+  margin: 0 0 var(--sp-3);
 }
-.alt-tabs--stacked { flex-direction: column; }
-
 .alt-tab {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
   text-align: center;
   font-family: var(--font-liturgy-sc);
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-variant: small-caps;
   font-weight: 500;
   letter-spacing: 0.03em;
-  color: var(--color-muted);
+  line-height: 1.25;
+  /* Not --color-muted: at 0.9rem small caps the label draws around 10px, and
+     muted on the page ground is 4.02:1 — under AA with no size exemption to
+     claim. The pill recedes by its outline and its weight instead. */
+  color: var(--color-text);
   background: none;
-  border: none;
-  border-radius: 5px;
-  padding: 9px 10px;          /* → 43 px target; two-line labels grow the row, not the padding */
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  padding: 4px 14px;
   cursor: pointer;
   text-transform: none;
-  transition: color 0.1s, background 0.1s;
-}
-/* Long book names wrap inside a stacked segment — allow it and set it properly.
-   Measured worst case: "A Song of Jerusalem Our Mother" (30 chars) needs 284 px
-   against a 247 px track at 320 px / large text, so it takes two lines. */
-.alt-tabs--stacked .alt-tab {
-  text-align: left;
+  transition: color 0.1s, background 0.1s, border-color 0.1s;
+  /* A long book name — worst case "A Song of Jerusalem Our Mother" — wraps the
+     row rather than the pill; one wider than the measure wraps inside it. */
   white-space: normal;
-  line-height: 1.25;
   text-wrap: pretty;
+  max-width: 100%;
 }
-.alt-tab:hover { color: var(--color-text); }
+/* 44px target without 44px of pill: the row's 10px gap is twice this bleed, so
+   neighbouring hit areas meet and never overlap. */
+.alt-tab::after { content: ''; position: absolute; inset: -4px -5px; }
+.alt-tab:hover { border-color: var(--color-muted); }
 .alt-tab.alt-tab-active {
   font-weight: 600;
-  color: var(--color-nav-text);
-  background: var(--color-nav-bg);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.18);
+  color: var(--color-heading);
+  border-color: var(--color-brass);
+  background: color-mix(in oklab, var(--color-brass) 10%, var(--color-bg));
 }
 .alt-panel-hidden { display: none; }
 
@@ -696,7 +717,7 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 .day-note {
   font-family: var(--font-liturgy); font-size: 0.95rem;
   font-style: italic; color: var(--color-muted); margin: 0.4rem 0;
-  text-align: left; /* notes live inside the centered #day-header; prose stays left-aligned */
+  text-align: left;
 }
 .day-note a { color: var(--color-link); text-decoration: underline; font-style: normal; }
 
@@ -727,30 +748,33 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 
 /* ── Office & Observance controls in day header ────────────────────────────── */
 
-#day-office-controls { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.7rem; }
+#day-office-controls { margin-top: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-4); }
 #day-office-controls[style*="display: none"] { margin-top: 0; }
 
 .day-ctrl-group {
-  display: flex; flex-direction: column; gap: 0.38rem;
+  display: flex; flex-direction: column; gap: var(--sp-2);
   justify-content: flex-start; align-items: flex-start;
 }
 
 .day-ctrl-obs-mark { color: var(--color-brass); font-size: 0.6em; vertical-align: middle; }
 
 .day-ctrl-seg {
-  display: flex; gap: 4px; padding: 4px;
+  display: flex; gap: 3px; padding: 3px;
   background: var(--color-surface); border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  width: auto; min-width: 16rem; max-width: 24rem;
+  /* sized by its labels, not stretched to a fixed track */
+  width: max-content; max-width: 100%; min-width: 0;
   align-self: flex-start;
 }
 
 .day-ctrl-btn {
   /* 44px minimum target: these are the primary controls on a phone, and the
-     padding alone leaves them at ~35px once the label sits on the UI step. */
-  flex: 1; min-height: 44px;
+     padding alone leaves them at ~35px once the label sits on the UI step.
+     Content-width sizing must not shrink the target. */
+  flex: 0 1 auto; min-height: 44px;
   display: flex; align-items: center; justify-content: center;
-  text-align: center; padding: 0.55rem 0.5rem; border-radius: var(--radius-md);
+  /* concentric: inner radius = outer − padding */
+  text-align: center; padding: 0.5rem 0.9rem; border-radius: var(--radius-sm);
   font-family: var(--font-ui); font-size: var(--fs-ui); font-weight: 500; letter-spacing: 0.01em;
   color: var(--color-muted); background: none; border: none; cursor: pointer;
   transition: background 0.15s, color 0.15s, box-shadow 0.15s;
@@ -769,7 +793,7 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 }
 .loading {
   color: var(--color-muted); font-style: italic; font-size: 0.9rem;
-  margin: 2rem 0; text-align: center;
+  margin: 2rem 0; text-align: left;
 }
 .error-msg {
   font-family: var(--font-ui); font-size: 0.9rem; color: var(--color-rubric);
@@ -810,11 +834,19 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 /* ── Desktop layout ─────────────────────────────────────────────────────────── */
 
 @media (min-width: 820px) {
-  :root { --indent: 1.7em; }           /* measure to spare here */
+  :root {
+    --indent: 1.7em;                   /* measure to spare here */
+    --gutter: 2rem;
+    /* the root font grows 25% at this breakpoint but the px scale does not, so
+       the section gaps read tight against the larger type */
+    --sp-5: 40px;
+    --sp-6: 64px;
+  }
   [data-font-size="medium"] { font-size: 125%; }
   [data-font-size="large"]  { font-size: 140%; }
   #day-title { font-size: 2rem; }
-  #main { padding: 1.25rem 2rem calc(3rem + var(--safe-bottom)); }
+  /* horizontal padding comes from --gutter; only the vertical differs here */
+  #main { padding-top: 1.25rem; padding-bottom: calc(3rem + var(--safe-bottom)); }
   /* step 10 had this centred; step 11's single axis supersedes it, or the
      header would re-centre at the breakpoint only */
   #day-office-controls { align-items: flex-start; }
@@ -825,6 +857,10 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 /* ── Print ──────────────────────────────────────────────────────────────────── */
 
 @media print {
+  /* px, not em: data-font-size survives into print, so an em indent would still
+     scale with the reader's text setting — and paper is the one medium whose
+     measure cannot absorb it. */
+  :root { --indent: 18px; }
   #nav { display: none; position: static; }
   #main { max-width: 100%; padding: 1rem; }
   .seg-rubric { color: #7A3030; }
@@ -832,4 +868,9 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
   .alt-tabs { display: none; }
   .alt-source { margin-top: 0; }
   .eval-banner, #theme-toggle { display: none; }
+  /* Controls print as dead buttons. The date row stays: #day-date-btn is
+     already borderless text, and the sheet has to say which day it is.
+     (The nav icons need no rule — #nav above takes the whole bar.) */
+  #day-office-controls { display: none; }
+  #day-date-btn { padding: 0; }
 }
