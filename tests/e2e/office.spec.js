@@ -355,6 +355,33 @@ test.describe('Alternatives', () => {
     }).last();
     await expect(doxologyBlock.locator('.alt-tab').nth(0)).toHaveClass(/alt-tab-active/);
   });
+
+  test('a long book-name pill wraps the row without clipping on a narrow viewport', async ({ page }) => {
+    // The worst case: "A Song of Jerusalem Our Mother" (30 chars) in the
+    // ordinary-saturday canticle alternatives. On a narrow viewport the pill
+    // must wrap the row rather than truncate or overflow — the names are the
+    // book's, and "A Song of Jerusalem Our Mo…" is worse than a second line.
+    // 2026-08-22 is a feria, so it resolves to ordinary-saturday-mp.
+    await page.setViewportSize({ width: 320, height: 800 });
+    await gotoOffice(page, '2026-08-22', 'mp');
+
+    const longTab = page.locator('.alt-tab', { hasText: 'A Song of Jerusalem Our Mother' });
+    // Guard the fixture: if the lectionary moves and this day stops being
+    // ordinary-saturday-mp, say so rather than pass blindly.
+    await expect(longTab, 'fixture no longer renders the long canticle name').toHaveCount(1);
+
+    // The full name is shown, never truncated with an ellipsis.
+    await expect(longTab).toHaveText('A Song of Jerusalem Our Mother');
+
+    // The pill stays inside the viewport — it wraps the row, doesn't overflow it.
+    const box = await longTab.boundingBox();
+    expect(box.x + box.width).toBeLessThanOrEqual(320);
+
+    // And nothing on the page overflows horizontally either.
+    const overflowX = await page.evaluate(() =>
+      document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflowX).toBeLessThanOrEqual(0);
+  });
 });
 
 // ── Psalm and reading selectors (ADR 0014, #63) ─────────────────────────────
@@ -630,12 +657,46 @@ test.describe('Small caps', () => {
       document.fonts.check("600 1.3rem 'EB Garamond SC'"));
     expect(loaded, "'EB Garamond SC' should be loaded").toBe(true);
 
-    // …and the head selectors resolve to it rather than the reading face.
-    for (const sel of ['.office-section-title', '.office-subsection-title']) {
+    // …and the selectors that set small caps resolve to it rather than the
+    // reading face. Only the section head and the alternatives pills do now:
+    // upstream review asked for rank by case, so a subcomponent head is set
+    // upper-and-lower in the reading face and must NOT reach this family.
+    for (const sel of ['.office-section-title', '.alt-tab']) {
       const family = await page.locator(sel).first()
         .evaluate(el => getComputedStyle(el).fontFamily);
       expect(family, `${sel} should use the SC face`).toContain('EB Garamond SC');
     }
+    const subFamily = await page.locator('.office-subsection-title').first()
+      .evaluate(el => getComputedStyle(el).fontFamily);
+    expect(subFamily, 'a subcomponent head is not small caps').not.toContain('EB Garamond SC');
+  });
+
+  test('leaf text sizes resolve from their own tokens, not from body', async ({ page }) => {
+    // body font-size is 1rem, but nothing inherits it — every text-bearing leaf
+    // sets its own --fs-* / rem size (or inherits from a sized parent). These
+    // three leaves are chosen to differ from body's 16px, so a future change
+    // that makes one inherit body's size moves its computed value and this test
+    // catches it. (The 1.1875rem → 1rem change was a verified no-op; this pins
+    // the invariant that made it one.)
+    await gotoOffice(page, DATE, 'mp');
+    await page.locator('.office-section-title').first().waitFor({ timeout: 5000 });
+
+    const sizeOf = (sel) => page.locator(sel).first()
+      .evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+
+    // rem resolves against the root (html), which grows to 125% at the ≥820px
+    // breakpoint, so expectations must scale with the measured root rather than
+    // assume 16px. The invariant being pinned: each leaf equals its own rem
+    // token × root, and inherits nothing from body.
+    const root = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize));
+    const remPx = (rem) => rem * root;
+
+    // A nav link inherits .nav-row's 0.85rem, not body's 1rem.
+    expect(await sizeOf('#nav a'), 'nav link should be 0.85rem').toBeCloseTo(remPx(0.85), 1);
+    // A day-meta label sits on #day-meta's --fs-ui (0.8rem).
+    expect(await sizeOf('.meta-item--season'), 'meta label should be 0.8rem').toBeCloseTo(remPx(0.8), 1);
+    // A liturgy segment uses --fs-liturgy (1.1rem).
+    expect(await sizeOf('.seg-leader'), 'segment should be 1.1rem').toBeCloseTo(remPx(1.1), 1);
   });
 });
 

@@ -489,17 +489,16 @@ export function renderAlternatives(seg, shared, contextKey, verse = false) {
   const savedIdx  = parseInt(_ls.getItem(stateKey) || '0');
   const activeIdx = Math.min(Math.max(0, savedIdx), seg.groups.length - 1);
   const idBase = stateKey.replace(/[^a-zA-Z0-9-]/g, '_') + '-' + (++_altUid);
-  // Layout follows label length with no per-case code: equal segments for
-  // I · II · III, a content-width wrapping row for two names, stacked rows for
-  // three long ones. The stacked row never truncates — the names are the
-  // book's, and "A Song of Jerusalem Our Mo…" is worse than a second line.
-  const longest = Math.max(...seg.groups.map(g => (g.label || '').length));
-  const stacked = longest > 12 && seg.groups.length > 2 ? ' alt-tabs--stacked' : '';
+  // One layout for every label length: a wrapping row of pills, each sized by
+  // its own label. The stacked variant and the 34-character truncation both
+  // existed to fit labels into an equal-width segmented track; there is no
+  // track any more, so a long name wraps the row instead of losing its tail —
+  // the names are the book's, and "A Song of Jerusalem Our Mo…" is worse than
+  // a second line.
   const tabsHtml = seg.groups.map((g, i) => {
     const label = g.label || '';
-    const displayLabel = stacked || label.length <= 34 ? label : label.slice(0, 33) + '…';
     const isActive = i === activeIdx;
-    return `<button class="alt-tab${isActive ? ' alt-tab-active' : ''}" role="tab" aria-selected="${isActive}" aria-controls="${idBase}-panel-${i}" id="${idBase}-tab-${i}" data-idx="${i}" data-key="${esc(stateKey)}" title="${esc(label)}">${esc(displayLabel)}</button>`;
+    return `<button class="alt-tab${isActive ? ' alt-tab-active' : ''}" role="tab" aria-selected="${isActive}" aria-controls="${idBase}-panel-${i}" id="${idBase}-tab-${i}" data-idx="${i}" data-key="${esc(stateKey)}">${esc(label)}</button>`;
   }).join('');
   const panelsHtml = seg.groups.map((g, i) => {
     let sourceHtml = '';
@@ -510,7 +509,7 @@ export function renderAlternatives(seg, shared, contextKey, verse = false) {
     }
     return `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-${i}" aria-labelledby="${idBase}-tab-${i}" data-idx="${i}">${sourceHtml}${renderSegments(g.segments, shared, verse)}</div>`;
   }).join('');
-  return `<div class="alt-block"><div class="alt-tabs${stacked}" role="tablist">${tabsHtml}</div>${panelsHtml}</div>`;
+  return `<div class="alt-block"><div class="alt-tabs" role="tablist">${tabsHtml}</div>${panelsHtml}</div>`;
 }
 
 // BUG-30: the printed book italicises the placeholder N (e.g. "May N our bishop

@@ -480,16 +480,13 @@ function tabBlockHtml(stateKey, entries) {
   const savedIdx = parseInt(storageGet(stateKey) || '0');
   const activeIdx = Math.min(Math.max(0, savedIdx), entries.length - 1);
   // Mirrors renderAlternatives in render.js — keep the two in step.
-  const longest = Math.max(...entries.map(([label]) => (label || '').length));
-  const stacked = longest > 12 && entries.length > 2 ? ' alt-tabs--stacked' : '';
-  const tabs = entries.map(([label], i) => {
-    const displayLabel = stacked || label.length <= 34 ? label : label.slice(0, 33) + '…';
-    return `<button class="alt-tab${i === activeIdx ? ' alt-tab-active' : ''}" role="tab" aria-selected="${i === activeIdx}" aria-controls="${idBase}-panel-${i}" id="${idBase}-tab-${i}" data-idx="${i}" data-key="${esc(stateKey)}" title="${esc(label)}">${esc(displayLabel)}</button>`;
-  }).join('');
+  const tabs = entries.map(([label], i) =>
+    `<button class="alt-tab${i === activeIdx ? ' alt-tab-active' : ''}" role="tab" aria-selected="${i === activeIdx}" aria-controls="${idBase}-panel-${i}" id="${idBase}-tab-${i}" data-idx="${i}" data-key="${esc(stateKey)}">${esc(label)}</button>`
+  ).join('');
   const panels = entries.map(([, content], i) =>
     `<div class="alt-panel${i !== activeIdx ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-${i}" aria-labelledby="${idBase}-tab-${i}" data-idx="${i}">${content}</div>`
   ).join('');
-  return `<div class="alt-block"><div class="alt-tabs${stacked}" role="tablist">${tabs}</div>${panels}</div>`;
+  return `<div class="alt-block"><div class="alt-tabs" role="tablist">${tabs}</div>${panels}</div>`;
 }
 
 function gloriaHtml(shared) {
