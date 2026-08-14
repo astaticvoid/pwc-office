@@ -20,11 +20,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from check_conservation import (
     Finding,
+    PsalterShipped,
+    PsalterSourceLine,
     ShippedForm,
     SourceLine,
     _fix_whitespace,
     check_form,
+    check_psalter,
     line_id,
+    read_psalter_source,
     reconcile,
     squash,
 )
@@ -357,3 +361,161 @@ class TestReconcile:
     def test_a_clean_corpus_passes(self):
         known, errors = reconcile([], [])
         assert not known and not errors
+
+
+# ── Psalter chain (#102) ──────────────────────────────────────────────────────
+#
+# The psalter conservation check (--chain psalter) is the first non-office
+# chain to share the two-direction methodology. Its load-bearing claims, like
+# the offices ones above, are that it FAILS when a line is dropped or invented,
+# and that the `corrected` rule only ever excuses a divergence the manifest
+# actually reconstructs.
+
+def psalter_shipped(pre_text, shipped_text, corrections, title=""):
+    """A single-psalm PsalterShipped from pre/shipped texts + corrections.
+
+    Title defaults to empty so verse-only tests do not ship a title that the
+    synthetic page never prints (which would itself be an unaccounted line);
+    head tests pass an explicit title.
+    """
+    return PsalterShipped(
+        {"1": {"number": 1, "book": 1, "title": title, "text": shipped_text}},
+        {"1": {"number": 1, "book": 1, "title": title, "text": pre_text}},
+        corrections,
+    )
+
+
+def psl(*items):
+    """Build psalter source lines.
+
+    ('type','text',psalm) for verse/cont; ('head','text',psalm,title) for heads.
+    """
+    out = []
+    for it in items:
+        if it[0] == "head":
+            _, text, psalm, title = it
+            out.append(PsalterSourceLine("head", text, psalm, title))
+        else:
+            _, text, psalm = it
+            out.append(PsalterSourceLine(it[0], text, psalm))
+    return out
+
+
+class TestPsalterCheck:
+    def test_verbatim_verse_accounted_both_ways(self):
+        sh = psalter_shipped("1 verse one *", "1 verse one *", [])
+        page, data, *_ = check_psalter(psl(("verse", "1 verse one *", "1")), sh)
+        assert page["verbatim"] == 1 and page["UNACCOUNTED"] == 0
+        assert data["printed"] == 1 and data["UNACCOUNTED"] == 0
+
+    def test_dropped_verse_is_reported(self):
+        sh = psalter_shipped("1 kept *", "1 kept *", [])
+        page, _, _, _, findings = check_psalter(
+            psl(("verse", "1 kept *", "1"), ("verse", "1 dropped *", "1")), sh)
+        assert page["UNACCOUNTED"] == 1
+        assert findings[0].text == "1 dropped *"
+
+    def test_invented_verse_is_reported(self):
+        sh = psalter_shipped("1 kept *", "1 kept *\n1 invented *", [])
+        _, data, _, _, findings = check_psalter(psl(("verse", "1 kept *", "1")), sh)
+        assert data["UNACCOUNTED"] == 1
+        assert findings[0].direction == "data" and findings[0].text == "1 invented *"
+
+    def test_a_manifest_entry_accounts_for_the_change_both_ways(self):
+        """The psalter shape of ADR 0005: the correction turns pre into shipped."""
+        sh = psalter_shipped(
+            "Do let them say\nkeep", "Do not let them say\nkeep",
+            [{"psalm": 1, "old": "Do let them say", "new": "Do not let them say"}])
+        page, data, *_ = check_psalter(
+            psl(("verse", "Do let them say", "1"), ("verse", "keep", "1")), sh)
+        assert page["corrected"] == 1 and page["UNACCOUNTED"] == 0
+        assert data["corrected"] == 1 and data["UNACCOUNTED"] == 0
+
+    def test_a_correction_that_does_not_reconstruct_ships_nothing(self):
+        """The fail-closed property: a correction only excuses a divergence it
+        actually produces. If applying it does not reproduce the shipped text,
+        it cannot account for the dropped line — the psalter shape of the office
+        rule's 'requires the line to be absent before the manifest ran'."""
+        sh = psalter_shipped(
+            "A B", "A C",
+            [{"psalm": 1, "old": "B", "new": "X"}])  # reconstructs to "A X", not "A C"
+        page, _, _, _, findings = check_psalter(psl(("verse", "A B", "1")), sh)
+        assert page["UNACCOUNTED"] == 1
+        assert findings[0].text == "A B"
+
+    def test_a_correction_may_not_vouch_for_extractor_invention(self):
+        """A line already in the pre-correction artifact is the extractor's, not
+        the manifest's — no correction can be credited with introducing it."""
+        sh = psalter_shipped(
+            "1 printed\n1 invented", "1 printed\n1 invented",
+            [{"psalm": 1, "old": "printed", "new": "changed"}])
+        _, data, *_ = check_psalter(psl(("verse", "1 printed", "1")), sh)
+        # "1 invented" ships but was never printed; it is also in pre, so the
+        # correction must not excuse it.
+        assert data["UNACCOUNTED"] == 1
+
+    def test_psalm_head_with_incipit_is_structural_when_title_ships(self):
+        sh = psalter_shipped("1 kept *", "1 kept *", [],
+                             title="Beatus vir qui non abiit")
+        page, _, _, _, findings = check_psalter(
+            psl(("head", "Psalm 1  Beatus vir qui non abiit", "1",
+                 "Beatus vir qui non abiit"),
+                ("verse", "1 kept *", "1")), sh)
+        assert page["heading"] == 1 and page["UNACCOUNTED"] == 0 and not findings
+
+    def test_psalm_head_without_incipit_is_structural_when_title_empty(self):
+        """Psalms 18, 37, 78, 89, 105–107, 119 print no incipit; the empty
+        shipped title is the correct state, not a dropped line."""
+        sh = psalter_shipped("1 kept *", "1 kept *", [])
+        page, _, _, _, findings = check_psalter(
+            psl(("head", "Psalm 1", "1", ""), ("verse", "1 kept *", "1")), sh)
+        assert page["heading"] == 1 and page["UNACCOUNTED"] == 0 and not findings
+
+    def test_psalm_head_incipit_dropped_from_title_is_reported(self):
+        sh = psalter_shipped("1 kept *", "1 kept *", [])
+        page, _, _, _, findings = check_psalter(
+            psl(("head", "Psalm 1  Beatus vir qui non abiit", "1",
+                 "Beatus vir qui non abiit"),
+                ("verse", "1 kept *", "1")), sh)
+        assert page["UNACCOUNTED"] == 1
+        assert findings[0].type == "title"
+
+    def test_source_reader_slices_and_tags(self):
+        """The psalter walk restates only the bookkeeping — which psalm a line
+        belongs to — and classifies with the extractor's own regexes."""
+        lines = [
+            (30.0, "Some prefatory office text"),
+            (30.0, "BooK V"),
+            (30.0, "Psalm 1  Beatus vir qui non abiit"),
+            (30.0, "1 Happy are they who have not walked *"),
+            (66.0, "in the counsel of the wicked,"),
+            (30.0, "Acknowledgements and credits"),
+            (30.0, "Psalm 2  Quare fremuerunt gentes?"),
+        ]
+        out = read_psalter_source(lines)
+        assert [(ln.type, ln.psalm, ln.title) for ln in out] == [
+            ("head", "1", "Beatus vir qui non abiit"),
+            ("verse", "1", ""),
+            ("cont", "1", ""),
+        ]
+
+
+class TestReconcileChain:
+    """Baseline entries carry an optional `chain` (default offices) so a
+    divergence licensed in one chain never claims another's findings."""
+
+    def test_psalter_entry_ignored_when_reconciling_offices(self):
+        baseline = [entry("a", 1, section="35", issue=102) | {"chain": "psalter"}]
+        _, errors = reconcile([finding("a", section="35")], baseline)
+        assert errors and "no rule accounts for it" in errors[0]
+
+    def test_offices_entry_ignored_when_reconciling_psalter(self):
+        baseline = [entry("a", 1, issue=94)]  # no chain field -> offices
+        _, errors = reconcile([finding("a")], baseline, chain="psalter")
+        assert errors and "no rule accounts for it" in errors[0]
+
+    def test_psalter_entry_counts_when_reconciling_psalter(self):
+        baseline = [entry("a", 1, section="35", issue=102) | {"chain": "psalter"}]
+        known, errors = reconcile([finding("a", section="35")], baseline,
+                                  chain="psalter")
+        assert not errors and len(known) == 1

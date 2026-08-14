@@ -190,13 +190,16 @@ check-text:
 # to have run — which is what CI does before `make test`, and what
 # `make check-integrity` already assumes for data/.
 check-conservation:
-	$(PYTHON) tools/check_conservation.py
+	$(PYTHON) tools/check_conservation.py --chain offices
+	$(PYTHON) tools/check_conservation.py --chain psalter
 
 # Liturgical quality gate — runs validators and coherence scorer.
 # Used by 'make test' so every PR checks liturgical coherence.
 qa:
-	@echo "=== Source conservation ==="
-	@$(PYTHON) tools/check_conservation.py
+	@echo "=== Source conservation (offices) ==="
+	@$(PYTHON) tools/check_conservation.py --chain offices
+	@echo "=== Source conservation (psalter) ==="
+	@$(PYTHON) tools/check_conservation.py --chain psalter
 	@echo "=== Liturgical validation ==="
 	@node tools/validate_office.cjs --json > /tmp/pwc-validate.json
 	@node tools/audit_office.cjs --json > /tmp/pwc-audit.json

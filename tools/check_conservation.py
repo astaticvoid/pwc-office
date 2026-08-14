@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""check_conservation.py — compare the shipped offices against the printed page.
+"""check_conservation.py — compare the shipped extracted data against the page.
 
 Every other check in this project compares the data against itself or against a
 hardcoded expectation. `check_data_integrity.py` hashes `data/*.json`, which
@@ -41,8 +41,20 @@ data dropped is absorbed that way and surfaces only in the DATA→PAGE residue
 (the #101 shape). Reading one direction as sufficient is how a dropped suffix
 stops being a defect.
 
+**Chains.** The methodology is offices-shaped (field segments), but the same
+two-direction argument applies to the other published chains, which have had
+their own silent-drop defects and nothing compared them to the page (#102). The
+psalter is the first chain to share it: `--chain psalter` walks the same PDF's
+psalter section line-by-line and accounts every verse, continuation, section
+heading and psalm head against `data/psalter.json`, with its own `corrected`
+rule (the `data/corrections.json` "psalter" entries applied to
+`.build/psalter.1-extract.json`). Baseline entries carry an optional `chain`
+field (default "offices") so a divergence in any chain can be licensed without
+colliding with another's.
+
 Usage:
     python3 tools/check_conservation.py [--show-text] [--json] [--form KEY]
+                                        [--chain offices|psalter]
 """
 
 import argparse
@@ -74,6 +86,19 @@ with contextlib.redirect_stdout(sys.stderr):
         _heading_to_key,
         _is_noise,
         _normalize_whitespace,
+    )
+
+    # The psalter extractor's own line classification and source reader, for
+    # the `--chain psalter` walk — same rationale: classify with the code under
+    # test, not with a copy of its regexes.
+    from extract_psalter import (
+        RE_BOOK,
+        RE_PSALM_HEAD,
+        RE_SECTION,
+        RE_VERSE,
+        normalise_quotes,
+        pdf_lines_with_x0,
+        strip_page_header,
     )
 
 ROOT = Path(__file__).parent.parent
@@ -312,10 +337,10 @@ _ROMAN_LABEL = re.compile(r"^(?:I{1,3}|IV|V)$")
 _BARE_SEPARATOR = re.compile(r"^(?:or|and)\.?$", re.IGNORECASE)
 
 
-def load_corrections() -> list[dict]:
+def load_corrections(category: str = "office_text") -> list[dict]:
     if not CORRECTIONS.exists():
         return []
-    return json.loads(CORRECTIONS.read_text(encoding="utf-8")).get("office_text", [])
+    return json.loads(CORRECTIONS.read_text(encoding="utf-8")).get(category, [])
 
 
 def _texts(value) -> list[str]:
@@ -505,7 +530,7 @@ def load_baseline() -> list[dict]:
 
 
 def reconcile(findings: list[Finding], baseline: list[dict],
-              by_count: bool = True) -> tuple[list[dict], list[str]]:
+              by_count: bool = True, chain: str = "offices") -> tuple[list[dict], list[str]]:
     """Match findings against the baseline. Returns (known, errors).
 
     With `by_count`, counts are compared exactly in both directions: a defect
@@ -516,6 +541,10 @@ def reconcile(findings: list[Finding], baseline: list[dict],
     Without it — a single-form run, where a corpus-wide count means nothing —
     matching is by membership only: an entry that does not fire is not stale, it
     just belongs to another form.
+
+    The baseline is shared across chains, so only entries for the active chain
+    are considered (`chain` defaults to "offices", which is what an entry
+    without the field is).
     """
     actual: Counter = Counter()
     for f in findings:
@@ -523,6 +552,8 @@ def reconcile(findings: list[Finding], baseline: list[dict],
 
     known, errors = [], []
     for entry in baseline:
+        if entry.get("chain", "offices") != chain:
+            continue
         key = (entry["direction"], entry["section"], entry["id"])
         found = actual.pop(key, 0)
         expected = entry["lines"]
@@ -576,10 +607,19 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--show-text", action="store_true",
                     help="print unaccounted lines in full (local diagnosis only)")
-    ap.add_argument("--form", help="restrict to one form key")
+    ap.add_argument("--form", help="restrict to one office form (or psalm number "
+                                   "for --chain psalter)")
+    ap.add_argument("--chain", choices=("offices", "psalter"), default="offices",
+                    help="which extraction chain to check against its page source")
     ap.add_argument("--json", action="store_true", help="machine-readable summary")
     args = ap.parse_args()
 
+    if args.chain == "psalter":
+        return run_psalter(args)
+    return run_offices(args)
+
+
+def run_offices(args) -> int:
     # PRE_CORRECTION is as required as the other two. Falling back to `pre=None`
     # silently disables both `corrected` rules, which turns every authorised
     # divergence into an unaccounted line: ~237 failures with nothing saying
@@ -704,6 +744,324 @@ def main() -> int:
         print(f"\n{args.form}: every printed line is accounted for or claimed by "
               f"a baseline entry. (Entry counts are corpus-wide and are not "
               f"checked here — run without --form for that.)")
+        return 0
+
+    print("\nEvery printed line is accounted for or claimed by a baseline entry, "
+          "and nothing ships unprinted.")
+    return 0
+
+
+# ── Psalter chain (#102) ──────────────────────────────────────────────────────
+#
+# The office walk above is shaped to field segments; the psalter is a different
+# shape (a dict of psalm → verse text), so it gets its own source reader, its
+# own shipped reader and its own `corrected` rule — but the same two-direction
+# conservation argument, the same named-rule ledger, the same baseline and the
+# same exit code. A line silently dropped or invented in the psalter is as
+# invisible to `make qa` as one in the offices was before #94; historically the
+# psalter carried its own hardcoded fix dicts (removed under #13), and nothing
+# compared it to the page.
+
+PSALTER_PAGE_RULES: list[tuple[str, str]] = [
+    ("verbatim",  "ships exactly as printed"),
+    ("heading",   "a psalm head: the Latin incipit ships as the title; the number is the key"),
+    ("corrected", "extracted intact, then changed by an audited data/corrections.json "
+                  "'psalter' entry"),
+]
+
+PSALTER_DATA_RULES: list[tuple[str, str]] = [
+    ("printed",        "appears on the page as printed"),
+    ("printed-joined", "printed across a column wrap; ships as the joined line"),
+    ("corrected",      "introduced by an audited data/corrections.json 'psalter' entry"),
+]
+
+
+class PsalterSourceLine:
+    """A line extraction sees in the psalter section, tagged with its role."""
+    __slots__ = ("type", "text", "psalm", "title")
+
+    def __init__(self, typ: str, text: str, psalm: str | None, title: str = ""):
+        self.type = typ
+        # A control character is an unmapped glyph, not content; the extractor
+        # itself strips none here (it only normalises quotes and rstrips).
+        self.text = _CONTROL_CHARS.sub("", text).strip()
+        self.psalm = psalm
+        self.title = title
+
+
+def read_psalter_source(lines: list[tuple[float, str]]) -> list[PsalterSourceLine]:
+    """Slice `pdf_lines_with_x0` output to the psalter section and tag each line.
+
+    Repeats `extract_psalms`' walk (find the BooK marker, stop at
+    Acknowledgements, classify each line with the extractor's own regexes) so
+    the two cannot disagree about what a line *is*. What is restated is only the
+    psalm a line belongs to, which the extractor has no reason to record.
+    """
+    start = None
+    for i, (_x0, line) in enumerate(lines):
+        cleaned = strip_page_header(line)
+        if cleaned is not None and RE_BOOK.match(cleaned.strip()):
+            start = i
+            break
+    if start is None:
+        raise ValueError("could not locate the Psalter section")
+
+    out: list[PsalterSourceLine] = []
+    current: str | None = None
+    for _x0, raw in lines[start:]:
+        if "Acknowledgements" in raw:
+            break
+        line = strip_page_header(raw)
+        if line is None:
+            continue
+        line = normalise_quotes(line).rstrip()
+        stripped = line.strip()
+        if not stripped or RE_BOOK.match(stripped):
+            continue
+        m = RE_PSALM_HEAD.match(stripped)
+        if m:
+            current = m.group(1)
+            out.append(PsalterSourceLine("head", stripped, current, m.group(2).strip()))
+        elif RE_SECTION.match(stripped) or RE_VERSE.match(stripped):
+            # A section heading ("Part I", "Aleph") and a verse start are both
+            # flush content lines; conservation treats them alike.
+            out.append(PsalterSourceLine("verse", stripped, current))
+        else:
+            out.append(PsalterSourceLine("cont", stripped, current))
+    return out
+
+
+class PsalterShipped:
+    """The psalter as shipped, indexed for both directions of the check.
+
+    `data/psalter.json` is {num: {number, book, title, text}}; `text` is the
+    psalm body (verse / continuation / section lines joined by newline). The
+    `corrected` rule reconstructs each psalm from the pre-correction artifact
+    plus the "psalter" corrections — exactly as apply_corrections.py does — and
+    a divergence is only accounted as corrected when that reconstruction
+    actually reproduces the shipped text (ADR 0005's claim, chain-ported).
+    """
+
+    def __init__(self, data: dict, pre: dict, corrections: list[dict]):
+        self.data = data
+        self.lines: dict[str, set[str]] = {}
+        self.titles: dict[str, str] = {}
+        self.pre_lines: dict[str, set[str]] = {}
+        self.corr_lines: dict[str, set[str]] = {}
+        self.valid: dict[str, bool] = {}
+        for num, psalm in data.items():
+            self.lines[num] = {squash(ln) for ln in psalm["text"].split("\n")
+                               if squash(ln)}
+            self.titles[num] = squash(psalm.get("title", ""))
+        for num, psalm in pre.items():
+            text = psalm["text"]
+            self.pre_lines[num] = {squash(ln) for ln in text.split("\n") if squash(ln)}
+            corrected = text
+            for c in corrections:
+                if str(c.get("psalm")) == num and isinstance(c.get("old"), str):
+                    corrected = corrected.replace(c["old"], c["new"])
+            self.corr_lines[num] = {squash(ln) for ln in corrected.split("\n")
+                                    if squash(ln)}
+            self.valid[num] = (squash(corrected) ==
+                               squash(self.data.get(num, {}).get("text", "")))
+
+    def has(self, num: str, text: str) -> bool:
+        return squash(text) in self.lines.get(num, set())
+
+    def lost_by_manifest(self, num: str, text: str) -> bool:
+        """A printed line the manifest removed: in the pre-correction psalm but
+        not shipped, and the reconstruction (pre + corrections = shipped) holds."""
+        needle = squash(text)
+        return (needle in self.pre_lines.get(num, set())
+                and needle not in self.lines.get(num, set())
+                and self.valid.get(num, False))
+
+    def gained_by_manifest(self, num: str, key: str) -> bool:
+        """A shipped line the manifest introduced: not extracted, but produced by
+        a correction, and the reconstruction holds."""
+        return (key in self.corr_lines.get(num, set())
+                and key not in self.pre_lines.get(num, set())
+                and self.valid.get(num, False))
+
+
+def check_psalter(source: list[PsalterSourceLine], shipped: PsalterShipped,
+                  ) -> tuple[Counter, Counter, dict[str, Counter],
+                             dict[str, Counter], list[Finding]]:
+    page_total: Counter = Counter()
+    data_total: Counter = Counter()
+    page_by_form: dict[str, Counter] = defaultdict(Counter)
+    data_by_form: dict[str, Counter] = defaultdict(Counter)
+    findings: list[Finding] = []
+
+    # ── PAGE → DATA ───────────────────────────────────────────────────────────
+    for line in source:
+        text = line.text
+        if not squash(text):
+            continue
+        num = line.psalm or "?"
+        if num not in shipped.data:
+            page_total["UNACCOUNTED"] += 1
+            page_by_form[num]["UNACCOUNTED"] += 1
+            findings.append(Finding("psalter", num, line.type, text, "page"))
+            continue
+        if line.type == "head":
+            # A psalm head is structural except its Latin incipit, which must
+            # ship as the psalm's `title` field. Eight psalms (18, 37, 78, 89,
+            # 105–107, 119) print no incipit — the head is just "Psalm N" and
+            # the shipped title is empty — so an absent title is the correct
+            # shipped state, not a dropped line.
+            incipit = squash(line.title)
+            if (incipit and incipit == shipped.titles[num]) \
+                    or (not incipit and not shipped.titles[num]):
+                page_total["heading"] += 1
+                page_by_form[num]["heading"] += 1
+            else:
+                page_total["UNACCOUNTED"] += 1
+                page_by_form[num]["UNACCOUNTED"] += 1
+                findings.append(Finding("psalter", num, "title",
+                                        line.title or text, "page"))
+            continue
+        if shipped.has(num, text):
+            page_total["verbatim"] += 1
+            page_by_form[num]["verbatim"] += 1
+        elif shipped.lost_by_manifest(num, text):
+            page_total["corrected"] += 1
+            page_by_form[num]["corrected"] += 1
+        else:
+            page_total["UNACCOUNTED"] += 1
+            page_by_form[num]["UNACCOUNTED"] += 1
+            findings.append(Finding("psalter", num, line.type, text, "page"))
+
+    # ── DATA → PAGE ───────────────────────────────────────────────────────────
+    page_set = {squash(line.text) for line in source if line.type != "head"}
+    page_stream = " ".join(squash(line.text) for line in source)
+
+    for num in sorted(shipped.data):
+        title = shipped.titles[num]
+        if title:
+            if title in page_set:
+                data_total["printed"] += 1
+                data_by_form[num]["printed"] += 1
+            elif title in page_stream:
+                data_total["printed-joined"] += 1
+                data_by_form[num]["printed-joined"] += 1
+            else:
+                data_total["UNACCOUNTED"] += 1
+                data_by_form[num]["UNACCOUNTED"] += 1
+                findings.append(Finding("psalter", num, "title", title, "data"))
+        for key in sorted(shipped.lines[num]):
+            if key in page_set:
+                data_total["printed"] += 1
+                data_by_form[num]["printed"] += 1
+            elif key in page_stream:
+                data_total["printed-joined"] += 1
+                data_by_form[num]["printed-joined"] += 1
+            elif shipped.gained_by_manifest(num, key):
+                data_total["corrected"] += 1
+                data_by_form[num]["corrected"] += 1
+            else:
+                data_total["UNACCOUNTED"] += 1
+                data_by_form[num]["UNACCOUNTED"] += 1
+                findings.append(Finding("psalter", num, "verse", key, "data"))
+
+    return page_total, data_total, page_by_form, data_by_form, findings
+
+
+def run_psalter(args) -> int:
+    psalter_pdf = ROOT / "sources" / "pray-without-ceasing.pdf"
+    shipped_path = ROOT / "data" / "psalter.json"
+    pre_path = ROOT / ".build" / "psalter.1-extract.json"
+    for path, remedy in ((psalter_pdf, "make fetch-sources"),
+                         (shipped_path, "make extract"),
+                         (pre_path, "make extract")):
+        if not path.exists():
+            print(f"ERROR: {path} not found\nRun: {remedy}", file=sys.stderr)
+            return 1
+
+    data = json.loads(shipped_path.read_text(encoding="utf-8"))
+    pre = json.loads(pre_path.read_text(encoding="utf-8"))
+    corrections = load_corrections("psalter")
+
+    if args.form:
+        if args.form not in data:
+            print(f"ERROR: unknown psalm {args.form!r}", file=sys.stderr)
+            return 1
+        data = {args.form: data[args.form]}
+        pre = {args.form: pre[args.form]}
+
+    source = read_psalter_source(pdf_lines_with_x0(psalter_pdf))
+    if args.form:
+        source = [line for line in source if line.psalm == args.form]
+
+    shipped = PsalterShipped(data, pre, corrections)
+    page_total, data_total, page_by_form, data_by_form, findings = \
+        check_psalter(source, shipped)
+
+    known, errors = reconcile(findings, load_baseline(),
+                              by_count=not args.form, chain="psalter")
+
+    if args.json:
+        print(json.dumps({
+            "chain": "psalter",
+            "psalms": len(data),
+            "page_to_data": dict(page_total),
+            "data_to_page": dict(data_total),
+            "known": [{"id": k["id"], "issue": k["issue"], "lines": k["found"]}
+                      for k in known],
+            "errors": errors,
+            "unaccounted": [
+                {"psalm": f.section, "type": f.type, "direction": f.direction,
+                 "id": line_id(f.text)}
+                for f in findings
+            ],
+        }, indent=2))
+        return 1 if errors else 0
+
+    print(f"Conservation check — {psalter_pdf.name} ↔ {shipped_path.relative_to(ROOT)}")
+    print(f"Population: {sum(page_total.values()):,} typed source lines across "
+          f"{len(data)} psalms, after the header/quote filter.")
+
+    for want, heading, rules, totals, by_form in (
+        ("page", "PAGE → DATA   is anything printed missing?",
+         PSALTER_PAGE_RULES, page_total, page_by_form),
+        ("data", "DATA → PAGE   is anything shipped that was never printed?",
+         PSALTER_DATA_RULES, data_total, data_by_form),
+    ):
+        side = [k for k in known if k["direction"] == want]
+        report(heading, rules, totals, by_form,
+               sum(k["found"] for k in side), [k["issue"] for k in side])
+
+    if known:
+        print(f"\nKnown divergences ({sum(k['found'] for k in known)} lines, "
+              f"{len(known)} entries in {BASELINE.name})")
+        for k in sorted(known, key=lambda e: (e["issue"], e["id"])):
+            print(f"    #{k['issue']:<4} {k['direction']:<5} {k['section']:<18} "
+                  f"{k['id']}  × {k['found']:<3} {k['why']}")
+
+    if findings and (args.form or errors):
+        for direction, heading in (("page", "printed but not shipped"),
+                                   ("data", "shipped but never printed")):
+            rows = [f for f in findings if f.direction == direction]
+            if not rows:
+                continue
+            print(f"\n  Unaccounted — {heading} ({len(rows)}):")
+            print("    by psalm: " + ", ".join(
+                f"{s} ({n})" for s, n in sorted(by_form.items())
+                if by_form[s].get("UNACCOUNTED", 0)))
+            for f in rows:
+                print(f.render(args.show_text))
+        if not args.show_text:
+            print("\n  Re-run with --show-text to read the lines themselves.")
+
+    if errors:
+        print(f"\nFAIL ({len(errors)}):")
+        for err in errors:
+            print(f"    {err}")
+        return 1
+
+    if args.form:
+        print(f"\nPsalm {args.form}: every printed line is accounted for or claimed "
+              f"by a baseline entry.")
         return 0
 
     print("\nEvery printed line is accounted for or claimed by a baseline entry, "
