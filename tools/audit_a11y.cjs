@@ -431,7 +431,8 @@ function auditContrast(css) {
 }
 
 async function main() {
-  const { assembleSections, renderSegments } = await import('../web/render.js');
+  const { assembleSections, renderSegments, rubricBlockSegments } =
+    await import('../web/render.js');
   const offices = JSON.parse(readFileSync(join(root, 'data/offices.json'), 'utf8'));
   const shared = offices._shared || {};
   const useJson = process.argv.includes('--json');
@@ -443,9 +444,14 @@ async function main() {
   for (const fk of formKeys) {
     const form = offices[fk];
 
-    // Render each section and check the HTML output
+    // Render each section and check the HTML output. `prepare` is how a field
+    // has to be handed to renderSegments to match what the app renders — the
+    // Psalm/Reading rubric blocks (#84) carry their own heading label, which
+    // every consumer strips before rendering (see rubricBlockSegments).
     const renderables = [
       { field: 'opening_responses', label: 'Opening Responses', verse: false },
+      { field: 'psalm_rubrics', label: 'Psalm Rubrics', verse: false, prepare: rubricBlockSegments },
+      { field: 'reading_rubrics', label: 'Reading Rubrics', verse: false, prepare: rubricBlockSegments },
       { field: 'responsory', label: 'Responsory', verse: true },
       { field: 'canticle', label: 'Canticle', verse: true },
       { field: 'litany', label: 'Litany', verse: false },
@@ -453,9 +459,9 @@ async function main() {
       { field: 'affirmation', label: 'Affirmation', verse: false },
     ];
 
-    for (const { field, label, verse } of renderables) {
+    for (const { field, label, verse, prepare } of renderables) {
       if (!form[field] || !Array.isArray(form[field])) continue;
-      const html = renderSegments(form[field], shared, verse);
+      const html = renderSegments(prepare ? prepare(form[field]) : form[field], shared, verse);
 
       // 1. Check for missing ARIA attributes on interactive elements
       // Alternatives tabs are the main interactive elements

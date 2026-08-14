@@ -28,7 +28,8 @@ if (!form) {
 
 // Dynamically import ESM render.js
 (async () => {
-  const { renderSegmentsText, blocksToString } = await import('../web/render.js');
+  const { renderSegmentsText, blocksToString, rubricBlockSegments } =
+    await import('../web/render.js');
 
   const BK = {
     showLabel: true,
@@ -72,6 +73,16 @@ if (!form) {
   if (form.phos_hilaron) section('Phos Hilaron', form.phos_hilaron);
   if (form.invitatory) section('Invitatory', form.invitatory);
 
+  // The Psalm/Reading rubrics (#84). Nothing separates them here — this tool
+  // renders a form, not a day, so there is no psalm or lesson to sit between
+  // the halves and no reason to split the blocks the way the two renderers do.
+  // Extraction order is page order, which is what a review pass wants to read.
+  // rubricBlockSegments drops the block's own "The Psalm"/"The Reading" label,
+  // which section() is already printing as the heading.
+  if (form.psalm_rubrics) section('The Psalm', rubricBlockSegments(form.psalm_rubrics));
+  if (form.reading_rubrics) section('The Reading', rubricBlockSegments(form.reading_rubrics));
+  if (form.reading_response) section('Reading Response', form.reading_response);
+
   section('Responsory', form.responsory);
   section('Canticle', form.canticle, { showLabel: true });
   section('Affirmation', form.affirmation, { showLabel: true });
@@ -83,8 +94,6 @@ if (!form) {
   if (form.seasonal_collects) {
     section('Seasonal Collects', form.seasonal_collects, { joinLines: true });
   }
-
-  if (form.reading_response) section('Reading Response', form.reading_response);
 
   section('Lord\'s Prayer Intro', form.lords_prayer_intro);
   section('Dismissal', form.dismissal);
