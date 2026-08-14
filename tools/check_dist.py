@@ -4,7 +4,8 @@ check_dist.py — verify dist/ is complete before deploying.
 
 Checks:
   - Required web files present
-  - Every .woff2 fonts.css references is present, with both OFL licence files
+  - Every .woff2 fonts.css references is present and distinct, with both OFL
+    licence files
   - Data files the app fetches at runtime are all present
   - All lectionary entries reference valid psalm files and form keys
   - All collect IDs referenced in the lectionary exist in collects.json
@@ -15,6 +16,7 @@ Exit 0 = ready to deploy, 1 = failures found.
 """
 
 import datetime
+import hashlib
 import json
 import re
 import sys
@@ -65,6 +67,21 @@ if require(fonts_css):
     for name in referenced:
         require(fonts_dir / name, "(referenced by fonts.css)")
     print(f"fonts:       {len(referenced)} woff2 referenced by fonts.css")
+
+    # Every face here is a variable font, so one file covers a family+style at
+    # every weight. Two identical files under two names means someone split a
+    # range back into one @font-face per weight: the same bytes then download
+    # once per weight under distinct cache keys. That was #108.
+    by_digest: dict[str, list[str]] = {}
+    for name in referenced:
+        f = fonts_dir / name
+        if f.exists():
+            by_digest.setdefault(hashlib.sha256(f.read_bytes()).hexdigest(), []).append(name)
+    for digest, names in sorted(by_digest.items()):
+        if len(names) > 1:
+            errors.append(
+                f"assets/fonts/: {', '.join(names)} are byte-identical ({digest[:12]}) — "
+                "collapse them to one file with a ranged font-weight descriptor")
 
 for licence in ("OFL-EBGaramond.txt", "OFL-IBMPlexSans.txt"):
     if require(fonts_dir / licence, "(OFL 1.1 requires the licence to ship with the fonts)"):

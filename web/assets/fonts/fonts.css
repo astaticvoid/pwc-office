@@ -1,58 +1,30 @@
 /* EB Garamond and IBM Plex Sans, both SIL Open Font License 1.1.
    Licences: OFL-EBGaramond.txt, OFL-IBMPlexSans.txt. Provenance: README.md.
-   Both must ship wherever the .woff2 files ship — see tools/check_dist.py. */
+   Both must ship wherever the .woff2 files ship — see tools/check_dist.py.
+
+   Every file here is a variable font carrying a `wght` axis, so one file
+   serves a family+style at every weight the app asks for. Declaring the axis
+   range rather than a single weight is what lets it: the browser matches the
+   face, then sets `wght` to the requested value. Splitting the range back into
+   one @font-face per weight would fetch the same bytes once per weight under
+   distinct cache keys, which is the #108 defect — four of these declarations
+   pointed at four identical copies of one file. */
 
 @font-face {
   font-family: 'EB Garamond';
   font-style: italic;
-  font-weight: 400;
+  font-weight: 400 800;
   font-display: swap;
-  src: url('EBGaramond-400-italic.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: 'EB Garamond';
-  font-style: italic;
-  font-weight: 500;
-  font-display: swap;
-  src: url('EBGaramond-500-italic.woff2') format('woff2');
+  src: url('EBGaramond-variable-italic.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
 @font-face {
   font-family: 'EB Garamond';
   font-style: normal;
-  font-weight: 400;
+  font-weight: 400 800;
   font-display: swap;
-  src: url('EBGaramond-400-regular.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: 'EB Garamond';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url('EBGaramond-500-regular.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: 'EB Garamond';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url('EBGaramond-600-regular.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: 'EB Garamond';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('EBGaramond-700-regular.woff2') format('woff2');
+  src: url('EBGaramond-variable-regular.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
@@ -67,45 +39,23 @@
   font-style: normal;
   /* One face covers both weights the heads use: 600 for the three liturgical
      heads, 500 for an inactive .alt-tab. Declaring the range keeps the 500 case
-     an explicit match rather than a nearest-weight fallback. */
+     an explicit match rather than a nearest-weight fallback. Unlike the faces
+     above this one is a static instance at 600 with no `wght` axis, so 500 is
+     matched but not interpolated — the range is a matching rule here, not a
+     variation range. */
   font-weight: 500 600;
   font-display: swap;
   src: url('EBGaramond-600-smallcaps.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
+/* Plex's axis stops at 700, which is also the heaviest weight office.css asks
+   for; anything heavier would clamp there rather than fail to match. */
 @font-face {
   font-family: 'IBM Plex Sans';
   font-style: normal;
-  font-weight: 400;
+  font-weight: 100 700;
   font-display: swap;
-  src: url('IBMPlexSans-400-regular.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: 'IBM Plex Sans';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url('IBMPlexSans-500-regular.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: 'IBM Plex Sans';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url('IBMPlexSans-600-regular.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: 'IBM Plex Sans';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('IBMPlexSans-700-regular.woff2') format('woff2');
+  src: url('IBMPlexSans-variable-regular.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
