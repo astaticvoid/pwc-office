@@ -90,3 +90,58 @@ def test_sections_of_yields_canonical_order():
     form = data["advent-mp"]
     yielded = [k for k, _ in sections_of(form)]
     assert yielded == [k for k in SECTION_ORDER if form.get(k)]
+
+
+@pytest.mark.skipif(not OFFICES.exists(), reason="data/offices.json not extracted")
+def test_handoff_rubrics_are_present_and_placed():
+    """#93: the two printed transition rubrics ("…continues with the Lord's
+    Prayer." and "…continues with the Dismissal.") were eaten out of every form
+    by post-processing filters. Recovery is not enough — placement matters:
+    conservation is a set property per form and cannot see text living in the
+    wrong section, so the placement is pinned here.
+
+    The Lord's Prayer hand-off closes seasonal_collects and must sit at that
+    section's top level — not inside an alternatives group, where a reader who
+    picks another collect would never see it (ADR 0019 item 9: a control may
+    only filter what a rubric makes optional). The Dismissal hand-off closes
+    lords_prayer_intro and must be its last segment.
+    """
+    data = json.loads(OFFICES.read_text(encoding="utf-8"))
+    forms = {k: v for k, v in data.items() if not k.startswith("_")}
+    assert len(forms) == 30
+    for key, form in forms.items():
+        sc = form.get("seasonal_collects") or []
+        lpi = form.get("lords_prayer_intro") or []
+        lp_top = [
+            s for s in sc
+            if isinstance(s, dict) and s.get("type") == "rubric"
+            and "continues with the Lord" in s.get("text", "")
+        ]
+        assert len(lp_top) == 1, (
+            f"{key}: expected exactly one top-level Lord's Prayer hand-off in "
+            f"seasonal_collects, found {len(lp_top)}"
+        )
+        # The hand-off closes the collects; the only segment that may follow it
+        # is the "The Lord's Prayer" heading-rubric the book prints next (it
+        # rides with the hand-off out of the last alternatives group, and the
+        # renderer suppresses it as a duplicate heading — SKIP_RUBRICS).
+        i = sc.index(lp_top[0])
+        for s in sc[i + 1:]:
+            assert (
+                isinstance(s, dict) and s.get("type") == "rubric"
+                and s.get("text", "").strip() == "The Lord’s Prayer"
+            ), f"{key}: unexpected segment after the hand-off: {s!r}"
+        lp_nested = [
+            s for s in sc
+            if isinstance(s, dict) and s.get("type") == "alternatives"
+            for g in s.get("groups", [])
+            for s2 in g.get("segments", [])
+            if isinstance(s2, dict) and "continues with the Lord" in s2.get("text", "")
+        ]
+        assert not lp_nested, f"{key}: hand-off duplicated inside an alternatives group"
+        assert lpi, f"{key}: lords_prayer_intro missing"
+        last = lpi[-1]
+        assert (
+            isinstance(last, dict) and last.get("type") == "rubric"
+            and "continues with the Dismissal" in last.get("text", "")
+        ), f"{key}: lords_prayer_intro must end with the Dismissal hand-off rubric"

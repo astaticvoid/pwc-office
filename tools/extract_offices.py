@@ -89,8 +89,13 @@ _SUB_HDR_MAP: list[tuple] = [
     (re.compile(r'^intercessions and thanksgivings$',   re.IGNORECASE), "intercessions"),
     (re.compile(r'^the Litany$',                        re.IGNORECASE), "litany"),
     # Lord's Prayer: keep litany section active so intro + prayer text flow in and are
-    # later split out by _split_lords_prayer.
-    (re.compile(r"the Lord['']?s Prayer",               re.IGNORECASE), _CONTINUE),
+    # later split out by _split_lords_prayer. Anchored like every other entry (#93),
+    # so a heading-styled line that merely BEGINS with these words — e.g. a printed
+    # "…continues with the Lord's Prayer." transition rubric — could never be
+    # consumed as structure. Note the class is ASCII-only: the PDF prints a U+2019
+    # apostrophe, so this entry is currently inert and the heading arrives via the
+    # UNKNOWN-HDR path instead (conservation watches for that changing).
+    (re.compile(r"^the Lord['']?s Prayer$",             re.IGNORECASE), _CONTINUE),
     (re.compile(r'^the dismissal$',                     re.IGNORECASE), "dismissal"),
     # The psalm/lesson content comes from the lectionary, not the form, so these
     # sections keep only the fixed rubrics printed around them — filtered to
@@ -437,8 +442,6 @@ def _merge(segs: list[dict]) -> list[dict]:
 
 _AFTER_SILENCE     = re.compile(r'After a period of silence', re.IGNORECASE)
 _EITHER_COLLECT    = re.compile(r'Either the Collect of the Day', re.IGNORECASE)
-_LP_CONTINUES      = re.compile(r'(?:Morning|Evening) Prayer continues with the Lord', re.IGNORECASE)
-_CONTINUES_RUBRIC  = re.compile(r'(?:Morning|Evening) Prayer continues', re.IGNORECASE)
 
 def _split_litany_collects(segs: list[dict]) -> tuple[list[dict], list[dict]]:
     """
@@ -450,11 +453,12 @@ def _split_litany_collects(segs: list[dict]) -> tuple[list[dict], list[dict]]:
         if seg["type"] == "rubric" and (
             _AFTER_SILENCE.search(seg["text"]) or _EITHER_COLLECT.search(seg["text"])
         ):
-            # Drop 'Morning Prayer continues…' rubric at end of collects.
-            collect_segs = [
-                s for s in segs[i:]
-                if not (s["type"] == "rubric" and _LP_CONTINUES.search(s["text"]))
-            ]
+            # Keep every segment, including the section-closing hand-off rubric
+            # ("{office} Prayer continues with the Lord's Prayer."): it is printed
+            # text (ADR 0013) and closes seasonal_collects. The main pipeline
+            # re-homes it there after _split_lords_prayer (#93). The old version
+            # discarded it here, which is how it left the data (issue #93).
+            collect_segs = segs[i:]
             return segs[:i], collect_segs
     return segs, []
 
@@ -480,7 +484,7 @@ _CANTICLE_DOXOLOGY_INTRO = re.compile(
     r'^(?:At the end of the Canticle|After the Canticle)\b', re.IGNORECASE
 )
 # Used as a structural separator to prevent "continues with…" rubrics from merging
-# with adjacent segments. The Lord's Prayer variant is discarded; others are kept as PWC text.
+# with adjacent segments. All variants are kept as PWC text (#93).
 _CONTINUES_ALT  = re.compile(r'(?:Morning|Evening) Prayer continues', re.IGNORECASE)
 
 def _is_structural_rubric(text: str) -> bool:
@@ -548,11 +552,10 @@ def _group_alternatives(segs: list[dict], office="", section="") -> list[dict]:
         typ  = seg.get('type', '')
         cur_grp = f"grp[{len(groups)}]" if groups is not None else "pending"
 
-        # Discard only the Lord's Prayer navigation rubric ("…continues with the Lord's Prayer").
-        # Other "continues with…" rubrics are PWC liturgical transitions and are kept.
-        if typ == 'rubric' and _LP_CONTINUES.search(text):
-            _dbg(f"    DISCARD lp-continues-rubric: {repr(text[:60])}", office=office, section=section)
-            continue
+        # "{office} Prayer continues with …" rubrics are PWC liturgical
+        # transitions and are kept — including the Lord's Prayer hand-off,
+        # which is printed text that closes the collects section (#93). It was
+        # discarded here until #93, which is what ate it out of the data.
 
         # Canticle intro: '"Name A," "Name B," … may be said or sung.\nName A (citation)'
         if typ == 'rubric' and _CANTICLE_INTRO.match(text):
@@ -810,16 +813,30 @@ def _hoist_office_transition(segs: list, office_key: str = "", section: str = ""
         return segs
     groups = segs[-1].get("groups", [])
     inner = groups[-1].get("segments", []) if groups else []
-    if not inner or inner[-1].get("type") != "rubric":
+    # The trailer can be a RUN of rubrics: the transition itself plus any rubric
+    # the book prints after it — e.g. the ordinary-time collects' last group ends
+    # "…continues with the Lord's Prayer." / "The Lord's Prayer" (#93). Nothing
+    # printed after a section-closing transition belongs inside the alternative,
+    # but a rubric printed BEFORE the transition is still the group's content,
+    # so only the tail from the first transition onward is hoisted.
+    trailer: list[dict] = []
+    while inner and inner[-1].get("type") == "rubric":
+        trailer.insert(0, inner.pop())
+    start = next(
+        (i for i, t in enumerate(trailer)
+         if _OFFICE_TRANSITION.match(t.get("text", "").strip())),
+        None,
+    )
+    if start is None:
+        inner.extend(trailer)  # no transition: the run is the group's own content
         return segs
-    if not _OFFICE_TRANSITION.match(inner[-1].get("text", "").strip()):
-        return segs
-    trailer = inner.pop()
-    _dbg(f"  HOIST [{section}] {trailer['text'][:60]!r} out of last group",
+    inner.extend(trailer[:start])
+    trailer = trailer[start:]
+    _dbg(f"  HOIST [{section}] {trailer[0]['text'][:60]!r} out of last group",
          office=office_key)
     if not inner:
-        # The transition was the group's only content, so the group is now an
-        # empty alternative. renderAlternatives builds a tab per group without
+        # The run was the group's only content, so the group is now an empty
+        # alternative. renderAlternatives builds a tab per group without
         # checking, so leaving it would put a live tab over a blank panel. No
         # group empties on the current corpus — every one carries its creed or
         # canticle text — but the group is only ever this thin because
@@ -827,8 +844,8 @@ def _hoist_office_transition(segs: list, office_key: str = "", section: str = ""
         groups.pop()
         _dbg(f"  HOIST [{section}] dropped the group it emptied", office=office_key)
         if not groups:
-            return segs[:-1] + [trailer]
-    return segs + [trailer]
+            return segs[:-1] + trailer
+    return segs + trailer
 
 
 # ── Shared-block deduplication ───────────────────────────────────────────────
@@ -1259,13 +1276,17 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
             pre_lp, lp_segs = _split_lords_prayer(sc)
             lp_found = bool(lp_segs) and _OUR_FATHER.match(lp_segs[0]["text"].strip())
             if lp_found:
-                # pre_lp[-1] is the LP intro ("Rejoicing in God's new creation…")
+                # pre_lp[-1] is the LP intro ("Rejoicing in God's new creation…").
+                # The Lord's Prayer hand-off rubric sits before it in pre_lp and
+                # stays with the collects it closes (#93) — the old pipeline
+                # discarded it in _split_litany_collects. The Dismissal hand-off
+                # closes the prayer itself and stays as the last segment of
+                # lords_prayer_intro (#93) — the old pipeline filtered every
+                # "continues with…" rubric out of lp_body, which is the mechanism
+                # issue #93 could not trace. Both were silent drops of printed
+                # text; ADR 0013 renders what the page prints.
                 sections["seasonal_collects"] = pre_lp[:-1] if len(pre_lp) > 1 else pre_lp
-                lp_body = [
-                    s for s in lp_segs
-                    if not (s["type"] == "rubric" and _CONTINUES_RUBRIC.search(s["text"]))
-                ]
-                sections["lords_prayer_intro"] = (pre_lp[-1:] if pre_lp else []) + lp_body
+                sections["lords_prayer_intro"] = (pre_lp[-1:] if pre_lp else []) + lp_segs
             else:
                 sections["seasonal_collects"] = sc
 

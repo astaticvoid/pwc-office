@@ -14,38 +14,6 @@
   ],
   "known": [
     {
-      "id": "a3f11a2f2d",
-      "direction": "page",
-      "section": "litany",
-      "lines": 15,
-      "issue": 93,
-      "why": "MP hand-off to the Lord's Prayer, eaten by the unanchored Lord's Prayer entry in _SUB_HDR_MAP"
-    },
-    {
-      "id": "7cb9aeae00",
-      "direction": "page",
-      "section": "litany",
-      "lines": 15,
-      "issue": 93,
-      "why": "EP hand-off to the Lord's Prayer, same cause"
-    },
-    {
-      "id": "f62fdf7a55",
-      "direction": "page",
-      "section": "litany",
-      "lines": 15,
-      "issue": 93,
-      "why": "MP hand-off to the Dismissal; ^the dismissal$ is anchored, so the cause is not yet traced"
-    },
-    {
-      "id": "7acae8ce57",
-      "direction": "page",
-      "section": "litany",
-      "lines": 15,
-      "issue": 93,
-      "why": "EP hand-off to the Dismissal, same cause"
-    },
-    {
       "id": "e4786ff7ac",
       "direction": "data",
       "section": "reading_response",

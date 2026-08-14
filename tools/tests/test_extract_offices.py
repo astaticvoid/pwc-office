@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from extract_offices import (
     _group_alternatives,
+    _hoist_office_transition,
     _normalize_whitespace,
     _reflow_by_geometry,
 )
@@ -176,6 +177,77 @@ class TestGroupAlternatives:
 
     def test_empty_input(self):
         assert _group_alternatives([]) == []
+
+
+# ── _hoist_office_transition ──────────────────────────────────────────────────
+
+
+def _alt(groups):
+    return {"type": "alternatives", "groups": groups}
+
+
+class TestHoistOfficeTransition:
+    """Section-closing "{office} Prayer continues with …" rubrics must not ride
+    inside the alternatives block they follow. The trailer can be a RUN of
+    rubrics — transition plus whatever the book prints after it (#93)."""
+
+    def test_single_transition_is_hoisted(self):
+        segs = [_alt([{"label": "I", "segments": [
+            seg("leader", "Collect text."),
+            seg("rubric", "Morning Prayer continues with the Litany."),
+        ]}])]
+        result = _hoist_office_transition(segs)
+        assert len(result) == 2
+        assert result[0]["type"] == "alternatives"
+        assert result[0]["groups"][0]["segments"][-1]["text"] == "Collect text."
+        assert result[1]["text"] == "Morning Prayer continues with the Litany."
+
+    def test_transition_run_is_hoisted_together(self):
+        # The ordinary-time collects: the last group ends with the hand-off AND
+        # the heading-styled rubric printed after it. Both leave the group (#93).
+        segs = [_alt([{"label": "II", "segments": [
+            seg("leader", "God of glory, by the raising of your Son…"),
+            seg("rubric", "Morning Prayer continues with the Lord’s Prayer."),
+            seg("rubric", "The Lord’s Prayer"),
+        ]}])]
+        result = _hoist_office_transition(segs)
+        assert len(result) == 3
+        assert result[0]["groups"][0]["segments"][-1]["type"] == "leader"
+        assert [s["text"] for s in result[1:]] == [
+            "Morning Prayer continues with the Lord’s Prayer.",
+            "The Lord’s Prayer",
+        ]
+
+    def test_rubric_run_without_transition_stays(self):
+        segs = [_alt([{"label": "I", "segments": [
+            seg("leader", "Option A."),
+            seg("rubric", "Some other trailing rubric."),
+            seg("rubric", "And one more after it."),
+        ]}])]
+        result = _hoist_office_transition(segs)
+        assert len(result) == 1
+        assert [s["text"] for s in result[0]["groups"][0]["segments"][1:]] == [
+            "Some other trailing rubric.",
+            "And one more after it.",
+        ]
+
+    def test_rubric_before_transition_stays_in_the_group(self):
+        # Only the tail from the first transition onward is hoisted (#93 review):
+        # a rubric printed before the transition is still the group's content.
+        segs = [_alt([{"label": "I", "segments": [
+            seg("leader", "Option A."),
+            seg("rubric", "At the end of the Canticle one of the following may be said."),
+            seg("rubric", "Morning Prayer continues with the Litany."),
+        ]}])]
+        result = _hoist_office_transition(segs)
+        group_segs = result[0]["groups"][0]["segments"]
+        assert group_segs[-1]["text"].startswith("At the end of the Canticle")
+        assert len(result) == 2
+        assert result[1]["text"] == "Morning Prayer continues with the Litany."
+
+    def test_no_alternatives_tail_untouched(self):
+        segs = [seg("rubric", "Morning Prayer continues with the Dismissal.")]
+        assert _hoist_office_transition(segs) == segs
 
 
 # ── _reflow_by_geometry ───────────────────────────────────────────────────────
