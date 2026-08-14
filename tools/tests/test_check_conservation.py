@@ -241,6 +241,30 @@ class TestDataToPage:
                                        "old": "printed", "new": "introduced"}])
         assert data["corrected"] == 1 and data["UNACCOUNTED"] == 0
 
+    def test_a_shared_block_entry_accounts_for_the_shared_line(self):
+        """The #101 shape with the manifest entry that now addresses it.
+
+        Before apply_manifest only carried form_key / "*" corrections, an
+        office:"_shared" entry never reached the reconstruction, so a shared
+        block the manifest authorises stayed unaccounted — exactly the
+        divergence it was written to excuse.
+        """
+        def shared_form(creed_text: str) -> ShippedForm:
+            return ShippedForm(
+                {"affirmation": {"type": "shared", "key": "affirmation"}},
+                {"affirmation": [{"type": "response", "text": creed_text}]},
+            )
+        _, data, findings = run(
+            src("he ascended into heaven"),
+            shared_form("he ascended into heaven,"),
+            pre=shared_form("he ascended into heaven"),
+            corrections=[{"office": "_shared", "field": "affirmation",
+                          "old": "he ascended into heaven",
+                          "new": "he ascended into heaven,"}],
+        )
+        assert data["corrected"] == 1 and data["UNACCOUNTED"] == 0
+        assert not findings
+
     def test_a_correction_may_not_vouch_for_extractor_invention(self):
         """The line is already in the pre-correction artifact, so the extractor
         invented it and the corrections stage merely inherited it."""

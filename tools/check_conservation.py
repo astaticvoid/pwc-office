@@ -350,8 +350,13 @@ def apply_manifest(pre: ShippedForm, corrections: list[dict],
     of it (the Pentecost litany). Only reconstruction handles both, because only
     reconstruction asks the question the manifest is actually an answer to.
     """
+    # "_shared" is included because a correction that addresses a shared block
+    # (office "_shared") applies to that block wherever a form's field resolves
+    # to it — the same text the reader is shown, so the reconstruction must
+    # carry it just as the real applier does (corrections_lib.resolve_offices).
     relevant = [c for c in corrections
-                if c.get("office") in (form_key, "*") and isinstance(c.get("old"), str)]
+                if c.get("office") in (form_key, "*", "_shared")
+                and isinstance(c.get("old"), str)]
     whole = [c for c in corrections
              if c.get("office") == form_key and not isinstance(c.get("old"), str)]
 

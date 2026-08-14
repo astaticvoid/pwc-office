@@ -637,6 +637,16 @@
       "new": "continues with an Affirmation of Faith or the Prayers.",
       "count": 16,
       "reason": "ADR 0019 item 4: the affirmation transition reads '...or the Prayers' in both offices. The 16 seasonal forms print '...or the Litany'; the 14 ordinary forms already print '...or the Prayers' and are untouched. Substring so one entry covers the Morning and Evening wordings."
+    },
+    {
+      "id": "shared-affirmation-creed-comma",
+      "source": "editorial",
+      "office": "_shared",
+      "field": "affirmation",
+      "old": "he ascended into heaven",
+      "new": "he ascended into heaven,",
+      "count": 1,
+      "reason": "The Apostles' Creed comma. _dedup_shared keeps the first form's copy of _shared.affirmation, and advent-mp is the one printing of 30 that omits the comma after 'he ascended into heaven', so the shared block inherited the defective form (#101). The other 29 forms and the standard Creed include the comma; this normalizes the shared block to the majority. Editorial — no errata entry covers it, and it is not a PDF error 29 times over."
     }
   ],
   "lectionary_citations": [],

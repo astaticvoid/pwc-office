@@ -987,13 +987,66 @@ def _add_reading_responses(offices: dict) -> dict:
     return result
 
 
+def _blocks_equal(a: dict, b: dict) -> bool:
+    """Structural equality for alternatives blocks (the normalize_offices model)."""
+    return json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
+
+
+def _block_content_sig(block: dict) -> str:
+    """Content-only signature for a shared alternatives block.
+
+    Collapses every run of whitespace to a single space so that line-break and
+    paragraph differences — legitimate per-page geometry (ADR 0012) — do not
+    create spurious variants, while a genuine word change does.
+    """
+    text = " ".join(
+        seg.get("text", "")
+        for group in block.get("groups", [])
+        for seg in group.get("segments", [])
+    )
+    return " ".join(text.split())
+
+
 def _dedup_shared(offices: dict) -> dict:
     """
     Scan every alternatives block across all offices.
     Doxologies and affirmations are identical across offices; extract each to
     _shared and replace inline occurrences with {type: "shared", key: "..."}.
+
+    The first block met is kept as canonical. Every later block is compared
+    against it and a mismatch is reported rather than silently discarded —
+    _dedup_shared used to keep the first form's copy without looking at the
+    others, so one defective printing (advent-mp's creed missing a comma, #101)
+    was adopted and the 29 correct ones overwritten without a word. With the
+    disagreement visible, a known divergence is resolved by a
+    data/corrections.json entry against _shared.<key>; anything new surfaces
+    as this warning and must be audited before it can ship.
     """
     shared: dict = {}
+    shared_origin: dict = {}  # key -> (office, section) where the canonical was kept
+    warned: set = set()       # (key, divergent-block json) signatures already reported
+
+    def _store_shared(key: str, block: dict, office_key: str, section_key: str) -> None:
+        if key not in shared:
+            shared[key] = block
+            shared_origin[key] = (office_key, section_key)
+            return
+        if _blocks_equal(shared[key], block):
+            return
+        # Dedupe per distinct *content* variant, not per key and not per raw
+        # structure: two printings differing only in line breaks (legitimate
+        # per-page geometry, ADR 0012) are the same content, but a second,
+        # genuinely different defective printing is still reported rather than
+        # silently overwritten (the #101 silent-overwrite class).
+        sig = (key, _block_content_sig(block))
+        if sig in warned:
+            return
+        warned.add(sig)
+        origin_office, origin_section = shared_origin.get(key, ("—", "—"))
+        print(f"  WARNING: shared.{key} differs across forms — kept the first form's "
+              f"copy ({origin_office}/{origin_section}), {office_key}/{section_key} "
+              f"disagrees; if authorised, add an office_text correction against "
+              f"_shared.{key}")
 
     def _walk(segs: list, office_key: str = "", section_key: str = "") -> list:
         out = []
@@ -1012,8 +1065,7 @@ def _dedup_shared(offices: dict) -> dict:
 
             if _is_doxology(seg):
                 seg, has_alleluia = _split_doxology_alleluia(seg)
-                if 'doxology' not in shared:
-                    shared['doxology'] = _canonical_doxology(seg)
+                _store_shared('doxology', _canonical_doxology(seg), office_key, section_key)
                 # The canticle doxology intro rubric ("At the end of the Canticle…" /
                 # "After the Canticle…") is now emitted natively by _group_alternatives
                 # as a plain rubric segment immediately before this alternatives block,
@@ -1022,12 +1074,10 @@ def _dedup_shared(offices: dict) -> dict:
                 if has_alleluia:
                     out.append({'type': 'response', 'text': 'Alleluia.'})
             elif _is_affirmation(seg):
-                if 'affirmation' not in shared:
-                    shared['affirmation'] = seg
+                _store_shared('affirmation', seg, office_key, section_key)
                 out.append({'type': 'shared', 'key': 'affirmation'})
             elif _is_berakah_blessings(seg):
-                if 'berakah_blessings' not in shared:
-                    shared['berakah_blessings'] = seg
+                _store_shared('berakah_blessings', seg, office_key, section_key)
                 out.append({'type': 'shared', 'key': 'berakah_blessings'})
             else:
                 out.append(seg)
@@ -1050,33 +1100,27 @@ def _dedup_shared(offices: dict) -> dict:
 
 def _fix_shared_affirmation(offices: dict) -> dict:
     """
-    Fix two unrelated issues in _shared.affirmation. Kept as code rather than
-    a data/corrections.json entry: #1 isn't a source-text correction at all
-    (it's this pipeline's own label-stripping needing to be undone, not a
-    PDF error), and #2's target -- one response segment nested inside
-    _shared.affirmation.groups[].segments[] -- doesn't fit the corrections.json
-    categories' shape (office+field, psalm+text, saint+field); building a
-    generic JSON-path corrector for this one instance isn't worth it. If a
-    second nested-shared-block correction ever comes up, revisit.
+    Restore the article _alt_label strips from the one alternatives-group label
+    the book prints as 'The Apostles' Creed' ('Apostles' -> 'The Apostles' Creed').
+    Kept as code rather than a data/corrections.json entry because it is this
+    pipeline's own label-stripping needing to be undone, not a source-text
+    divergence — and the corrections categories address offices and fields, not
+    a group label nested inside a shared alternatives block.
+
+    The creed comma is a separate matter and no longer lives here: _dedup_shared
+    keeps the first form's copy of _shared.affirmation, and advent-mp is the one
+    printing of 30 that omits the comma, so the shared block inherited the
+    defective form. That divergence is a real one and is handled by an
+    office_text correction against _shared.affirmation in data/corrections.json
+    (#101).
     """
     import copy
     offices = copy.deepcopy(offices)
     affirmation = offices.get('_shared', {}).get('affirmation', {})
 
     for group in affirmation.get('groups', []):
-        # 1. _alt_label strips the article from every alternatives-group
-        #    label; restore it for this one ("Apostles" -> "The Apostles' Creed").
         if group.get('label', '').startswith('Apostles'):
             group['label'] = 'The Apostles’ Creed'
-
-        # 2. Source PDF error (BAS p.189): 'he ascended into heaven' is
-        #    missing its comma.
-        for seg in group.get('segments', []):
-            if seg.get('type') == 'response' and 'he ascended into heaven\n' in seg['text']:
-                seg['text'] = seg['text'].replace(
-                    'he ascended into heaven\n',
-                    'he ascended into heaven,\n',
-                )
     return offices
 
 

@@ -52,14 +52,6 @@
       "lines": 14,
       "issue": 91,
       "why": "third reading response, synthesized by _add_reading_responses; the 14 ordinary forms print the inverted wording the errata corrects, so only they diverge"
-    },
-    {
-      "id": "1fab3540cc",
-      "direction": "data",
-      "section": "affirmation",
-      "lines": 1,
-      "issue": 101,
-      "why": "_dedup_shared kept advent-mp's copy of the creed, the one printing of 30 missing this comma; _fix_shared_affirmation patches it back in code"
     }
   ]
 }
