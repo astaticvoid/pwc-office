@@ -167,7 +167,7 @@ tools/        Extraction, validation, QA, and testing
   validate_lectionary.cjs   Citation syntax + resolution, every date × office
   audit_office.cjs          Cross-form statistical outlier detection
   audit_text.cjs            Cross-form text-length outliers
-  audit_a11y.cjs            Static accessibility checks
+  audit_a11y.cjs            Static accessibility checks + WCAG AA palette contrast
   coherence_score.cjs       Composite 0–100 quality score (gate: 100)
   compare_staging.cjs       Staging vs production A/B diff
   review_form.cjs           Line-numbered text renderer for review
