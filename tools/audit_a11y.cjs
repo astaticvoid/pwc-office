@@ -431,8 +431,10 @@ function auditContrast(css) {
 }
 
 async function main() {
-  const { assembleSections, renderSegments, rubricBlockSegments } =
-    await import('../web/render.js');
+  const {
+    assembleSections, renderSegments, rubricBlockSegments,
+    invitatorySegments, phosHilaronSegments,
+  } = await import('../web/render.js');
   const offices = JSON.parse(readFileSync(join(root, 'data/offices.json'), 'utf8'));
   const shared = offices._shared || {};
   const useJson = process.argv.includes('--json');
@@ -440,28 +442,75 @@ async function main() {
   const failures = [];
   const formKeys = Object.keys(offices).filter(k => !k.startsWith('_'));
 
+  // Which _shared blocks the form pass actually renders. A block nothing looks
+  // at is as much a hole as one that fails — it is how #109 stayed quiet, the
+  // audit reporting "all forms pass" while four of the six were out of reach.
+  // walkSegments resolves a ref and drops the key, so track them here.
+  const reachedShared = new Set();
+  const noteShared = (segs) => {
+    if (!segs) return;
+    for (const seg of Array.isArray(segs) ? segs : [segs]) {
+      // Already-seen doubles as the cycle guard: renderSegments resolves a ref
+      // once and stops, so a self-referential block would hang only here.
+      if (seg.type === 'shared') {
+        if (reachedShared.has(seg.key)) continue;
+        reachedShared.add(seg.key);
+        noteShared(shared[seg.key]);
+      }
+      else if (seg.type === 'alternatives') for (const g of seg.groups || []) noteShared(g.segments);
+    }
+  };
+
   // Render a minimal office to check HTML structure
   for (const fk of formKeys) {
     const form = offices[fk];
 
-    // Render each section and check the HTML output. `prepare` is how a field
-    // has to be handed to renderSegments to match what the app renders — the
-    // Psalm/Reading rubric blocks (#84) carry their own heading label, which
-    // every consumer strips before rendering (see rubricBlockSegments).
+    // Every segment-bearing field on the form. The list used to hold six, and
+    // omitting the rest was not a judgement about which ones matter: the tabs
+    // this audit checks come from `alternatives` segments, which extraction may
+    // put in any of them (#109). title/subtitle are strings, not segments, and
+    // are the only fields deliberately absent.
+    //
+    // `prepare` is how a field has to be handed to renderSegments to match what
+    // the app renders — the label the block carries for its own heading is the
+    // subsection title both renderers already emit, so it is stripped first.
     const renderables = [
       { field: 'opening_responses', label: 'Opening Responses', verse: false },
+      { field: 'thanksgiving_for_light', label: 'Thanksgiving for Light', verse: false },
+      { field: 'phos_hilaron', label: 'Evening Hymn', verse: true, prepare: s => phosHilaronSegments({ phos_hilaron: s }) },
+      { field: 'invitatory', label: 'Invitatory Psalm', verse: true, prepare: s => invitatorySegments({ invitatory: s }) },
       { field: 'psalm_rubrics', label: 'Psalm Rubrics', verse: false, prepare: rubricBlockSegments },
       { field: 'reading_rubrics', label: 'Reading Rubrics', verse: false, prepare: rubricBlockSegments },
+      { field: 'reading_response', label: 'Reading Response', verse: false },
       { field: 'responsory', label: 'Responsory', verse: true },
       { field: 'canticle', label: 'Canticle', verse: true },
-      { field: 'litany', label: 'Litany', verse: false },
-      { field: 'dismissal', label: 'Dismissal', verse: true },
       { field: 'affirmation', label: 'Affirmation', verse: false },
+      { field: 'intercessions', label: 'Intercessions', verse: false },
+      { field: 'litany', label: 'Litany', verse: false },
+      { field: 'seasonal_collects', label: 'Seasonal Collects', verse: false },
+      { field: 'lords_prayer_intro', label: "Lord's Prayer Intro", verse: false },
+      { field: 'dismissal', label: 'Dismissal', verse: true },
     ];
 
     for (const { field, label, verse, prepare } of renderables) {
-      if (!form[field] || !Array.isArray(form[field])) continue;
-      const html = renderSegments(prepare ? prepare(form[field]) : form[field], shared, verse);
+      if (!form[field]) continue;
+      // A field normalize_offices.py hoisted into _shared is a {type,key} ref,
+      // not an array. Skipping those on shape — which is what this loop did —
+      // dropped the whole field from the audit silently, and drops any field
+      // hoisted next. Resolve the ref instead; a dangling one is itself a
+      // finding, since nothing would render on the page either.
+      let segs = form[field];
+      if (!Array.isArray(segs)) {
+        if (segs.type !== 'shared') continue;
+        const resolved = shared[segs.key];
+        if (!resolved) {
+          failures.push({ form: fk, section: label, detail: `shared ref "${segs.key}" resolves to nothing` });
+          continue;
+        }
+        segs = Array.isArray(resolved) ? resolved : [resolved];
+      }
+      noteShared(form[field]);
+      const html = renderSegments(prepare ? prepare(segs) : segs, shared, verse);
 
       // 1. Check for missing ARIA attributes on interactive elements
       // Alternatives tabs are the main interactive elements
@@ -487,6 +536,15 @@ async function main() {
     }
 
     // 3. No empty alt attributes on meaningful content
+  }
+
+  // 3b. Coverage: every shared block has to have been rendered by something
+  // above, or the pass is reporting on a corpus it did not read.
+  for (const key of Object.keys(shared)) {
+    if (!reachedShared.has(key)) {
+      failures.push({ form: '_shared', section: key,
+        detail: 'shared block unaudited — no field in renderables reaches it' });
+    }
   }
 
   // 4. Check heading hierarchy in a full rendered form
