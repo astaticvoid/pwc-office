@@ -17,7 +17,11 @@
   --color-nav-bg:      #15382A;
   --color-nav-text:    #F3EEDF;
   --color-link:        #2C7060;
-  --color-muted:       #7B7460;
+  /* Darkened from #7B7460, which cleared neither page ground (4.02 on --color-bg,
+     4.32 on --color-surface) while carrying most of the small print. 5.57 / 5.98
+     here, and still visibly quieter than --color-text at 13.69. See issue #85;
+     audit_a11y.cjs now measures both grounds so it cannot drift back. */
+  --color-muted:       #655E4B;
   --color-border:      #E2D8C2;
   --color-surface:     #FBF6EB;
   --color-heading:     #15382A;
@@ -386,7 +390,10 @@ body {
 /* Meta: season item */
 .meta-item { display: flex; align-items: center; gap: 0.35rem; color: var(--color-muted); white-space: nowrap; }
 .meta-item--season { font-weight: 500; color: var(--color-text); }
-.meta-lbl { opacity: 0.8; }
+/* No opacity here. It dimmed --color-muted to 3.64:1 on the page ground, which
+   is the #85 defect by a second route — and with the token now properly quiet,
+   the label is already distinguished from .meta-val's weight and ink. */
+.meta-lbl { color: var(--color-muted); }
 .meta-val {
   font-family: var(--font-ui); font-size: var(--fs-ui);
   color: var(--color-text); font-weight: 500;
@@ -683,9 +690,11 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
   font-weight: 500;
   letter-spacing: 0.03em;
   line-height: 1.25;
-  /* Not --color-muted: at 0.9rem small caps the label draws around 10px, and
-     muted on the page ground is 4.02:1 — under AA with no size exemption to
-     claim. The pill recedes by its outline and its weight instead. */
+  /* Not --color-muted. That started as a contrast workaround — muted was then
+     4.02:1 on the page ground, under AA at the ~10px this small-caps label
+     draws — and #85 has since fixed the token itself, so the reason is now
+     purely typographic: the pill recedes by its outline and its weight, and an
+     inactive pill next to an active one reads as unselected rather than faint. */
   color: var(--color-text);
   background: none;
   border: 1px solid var(--color-border);
@@ -826,10 +835,12 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
   font-family: var(--font-ui); font-size: var(--fs-micro); font-style: italic; color: var(--color-muted);
 }
 .eval-banner-dismiss {
+  /* Not dimmed: at opacity 0.6 this control's × drew at 2.57:1 on the banner,
+     and it is the only way to dismiss the banner. Hover darkens instead. */
   background: none; border: none; cursor: pointer; color: var(--color-muted);
-  font-size: 1.1rem; line-height: 1; padding: 0; flex-shrink: 0; opacity: 0.6;
+  font-size: 1.1rem; line-height: 1; padding: 0; flex-shrink: 0;
 }
-.eval-banner-dismiss:hover { opacity: 1; }
+.eval-banner-dismiss:hover { color: var(--color-text); }
 
 /* ── Desktop layout ─────────────────────────────────────────────────────────── */
 
