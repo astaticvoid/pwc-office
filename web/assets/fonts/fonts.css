@@ -1,3 +1,7 @@
+/* EB Garamond and IBM Plex Sans, both SIL Open Font License 1.1.
+   Licences: OFL-EBGaramond.txt, OFL-IBMPlexSans.txt. Provenance: README.md.
+   Both must ship wherever the .woff2 files ship — see tools/check_dist.py. */
+
 @font-face {
   font-family: 'EB Garamond';
   font-style: italic;

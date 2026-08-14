@@ -4,6 +4,7 @@ check_dist.py — verify dist/ is complete before deploying.
 
 Checks:
   - Required web files present
+  - Every .woff2 fonts.css references is present, with both OFL licence files
   - Data files the app fetches at runtime are all present
   - All lectionary entries reference valid psalm files and form keys
   - All collect IDs referenced in the lectionary exist in collects.json
@@ -47,6 +48,28 @@ if app_js.exists():
 sw_js = dist / "sw.js"
 if sw_js.exists() and "pwc-v1" in sw_js.read_text():
     errors.append("sw.js: cache version is still 'pwc-v1' — build stamp was not applied")
+
+# ── Fonts and their licences ───────────────────────────────────────────────────
+
+# Both bundled families are OFL 1.1, which requires the licence to travel with
+# the font files. dist/ is what reaches the bucket and the native binaries, so
+# the licences dropping out of a build is a distribution problem, not a repo one.
+
+fonts_dir = dist / "assets" / "fonts"
+fonts_css = fonts_dir / "fonts.css"
+
+if require(fonts_css):
+    referenced = sorted(set(re.findall(r"url\(['\"]([^'\"]+\.woff2)['\"]\)", fonts_css.read_text())))
+    if not referenced:
+        errors.append("assets/fonts/fonts.css: no .woff2 sources found")
+    for name in referenced:
+        require(fonts_dir / name, "(referenced by fonts.css)")
+    print(f"fonts:       {len(referenced)} woff2 referenced by fonts.css")
+
+for licence in ("OFL-EBGaramond.txt", "OFL-IBMPlexSans.txt"):
+    if require(fonts_dir / licence, "(OFL 1.1 requires the licence to ship with the fonts)"):
+        if "SIL OPEN FONT LICENSE Version 1.1" not in (fonts_dir / licence).read_text():
+            errors.append(f"assets/fonts/{licence}: does not contain the OFL 1.1 text")
 
 # ── Static data files ──────────────────────────────────────────────────────────
 

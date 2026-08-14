@@ -200,3 +200,5 @@ data/         Generated JSON — gitignored (copyrighted content)
 
 Source code: MIT.
 Liturgical text and scripture: copyright their respective holders — see above.
+Bundled fonts: EB Garamond and IBM Plex Sans, SIL Open Font License 1.1 — see
+`web/assets/fonts/README.md` for provenance and the licence texts.
