@@ -11,6 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from extract_offices import (
+    _dedup_shared,
     _group_alternatives,
     _hoist_office_transition,
     _normalize_whitespace,
@@ -339,3 +340,91 @@ class TestReflowByGeometry:
         assert segs[0]["groups"][0]["segments"][0]["text"] == (
             "O God of our salvation, guard and direct your Church "
             "in the way of unity, service, and praise.")
+
+
+# ── _dedup_shared reconciliation (#103) ──────────────────────────────────────
+
+
+def _affirmation(text):
+    """A 2-group affirmation-shaped alternatives block (passes _is_affirmation)."""
+    return {
+        "type": "alternatives",
+        "groups": [
+            {"label": "Apostles' Creed", "segments": [seg("leader", text)]},
+            {"label": "II",
+             "segments": [seg("leader", "I believe in one God the Father almighty")]},
+        ],
+    }
+
+
+_APOSTLES = (
+    "I believe in Jesus Christ his only Son our Lord who was conceived by the Holy "
+    "Spirit born of the Virgin Mary suffered under Pontius Pilate was crucified dead "
+    "and buried he descended into hell the third day he rose again from the dead he "
+    "ascended into heaven and sitteth on the right hand of God the Father almighty"
+)
+
+
+class TestDedupSharedReconciliation:
+    """#103: a divergence an office_text correction against _shared.<key> already
+    reconciles must not re-warn on every extract, but the warning must re-arm when
+    the correction is removed and still fire for a genuinely new divergence."""
+
+    COMMA = [{"office": "_shared", "field": "affirmation",
+              "old": "he ascended into heaven", "new": "he ascended into heaven,"}]
+
+    def _run(self, canon, divergent, corrections, monkeypatch, capsys):
+        monkeypatch.setattr(
+            "extract_offices._load_shared_corrections",
+            lambda: {"affirmation": corrections},
+        )
+        # advent-mp is first, so it becomes the canonical copy (#101).
+        offices = {
+            "advent-mp": {"affirmation": [canon]},
+            "advent-ep": {"affirmation": [divergent]},
+        }
+        _dedup_shared(offices)
+        return capsys.readouterr().out
+
+    def test_reconciled_divergence_is_silent(self, monkeypatch, capsys):
+        canon = _affirmation(_APOSTLES)  # advent-mp's creed, comma missing
+        divergent = _affirmation(
+            _APOSTLES.replace("he ascended into heaven", "he ascended into heaven,"))
+        out = self._run(canon, divergent, self.COMMA, monkeypatch, capsys)
+        assert "WARNING" not in out
+
+    def test_removing_the_correction_rearms_the_warning(self, monkeypatch, capsys):
+        canon = _affirmation(_APOSTLES)
+        divergent = _affirmation(
+            _APOSTLES.replace("he ascended into heaven", "he ascended into heaven,"))
+        out = self._run(canon, divergent, [], monkeypatch, capsys)
+        assert "WARNING" in out
+
+    def test_unrelated_divergence_still_fires(self, monkeypatch, capsys):
+        # A different word change on the same key: the comma correction must not
+        # vouch for it.
+        canon = _affirmation(_APOSTLES)
+        unrelated = _affirmation(_APOSTLES.replace("conceived by", "wrought by"))
+        out = self._run(canon, unrelated, self.COMMA, monkeypatch, capsys)
+        assert "WARNING" in out
+
+    def test_reconciliation_never_mutates_the_canonical(self, monkeypatch):
+        # The reconciliation runs replace_occurrences on a deepcopy; the stored
+        # canonical, the divergent block, and the input offices must be untouched.
+        canon = _affirmation(_APOSTLES)
+        divergent = _affirmation(
+            _APOSTLES.replace("he ascended into heaven", "he ascended into heaven,"))
+        monkeypatch.setattr(
+            "extract_offices._load_shared_corrections",
+            lambda: {"affirmation": self.COMMA},
+        )
+        offices = {"advent-mp": {"affirmation": [canon]},
+                   "advent-ep": {"affirmation": [divergent]}}
+        out = _dedup_shared(offices)
+        # The stored shared block is the first form's copy, exactly as given.
+        assert out["_shared"]["affirmation"] == canon
+        # Both forms now reference it; neither block was rewritten by the trial.
+        assert out["advent-mp"]["affirmation"] == [{"type": "shared", "key": "affirmation"}]
+        assert out["advent-ep"]["affirmation"] == [{"type": "shared", "key": "affirmation"}]
+        assert offices["advent-mp"]["affirmation"][0] == canon
+        assert offices["advent-ep"]["affirmation"][0] == divergent

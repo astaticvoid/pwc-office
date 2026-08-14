@@ -1,5 +1,5 @@
 {
-  "extracted_at": "2026-08-14T02:29:33Z",
+  "extracted_at": "2026-08-14T03:49:17Z",
   "tool_versions": {
     "fitz": [
       "1.28.2",
@@ -8,7 +8,7 @@
     ]
   },
   "source_hashes": {
-    "tools/extract_offices.py": "206fe56387647f3643df973d98a1ec30fa25da203ac3af1d94153c93e47aa3a4",
+    "tools/extract_offices.py": "7a2caedd75464168fbf74e0808a7b13f915d3775f39906fbd2974ab6c6257b2a",
     "tools/extract_office_styles.py": "77df942372bebf533d4716d366b2dfdd5862a7b24055c1353666e4151e1d7e7e",
     "tools/normalize_offices.py": "c102458a91e8e1774a9ab4df4afc4144e250b9b45aa1e3d103bd3e8fc6319685",
     "tools/extract_psalter.py": "49abfe5e67a8d0bfadd73aac88da4ba6811fcda71eb1b5f3583e3e184c511e11",

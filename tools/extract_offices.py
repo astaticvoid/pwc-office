@@ -15,6 +15,7 @@ Usage: python3 tools/extract_offices.py
 """
 
 import argparse
+import copy
 import json
 import os
 import re
@@ -22,6 +23,7 @@ import sys
 from pathlib import Path
 
 import fitz  # PyMuPDF
+from corrections_lib import replace_occurrences
 from extract_lib import check_manifest
 
 # Set DEBUG=1 to emit a full extraction trace to stderr.
@@ -1024,6 +1026,27 @@ def _block_content_sig(block: dict) -> str:
     return " ".join(text.split())
 
 
+def _load_shared_corrections() -> dict:
+    """office_text corrections targeting _shared.<key>, grouped by key.
+
+    Loaded read-only from the committed manifest so _dedup_shared can tell a
+    known, already-corrected divergence apart from a new one (#103). stage-1
+    never patches, so ADR 0005 is unaffected; an absent manifest just means no
+    divergence is pre-reconciled and every warning fires as before.
+    """
+    path = ROOT / "data" / "corrections.json"
+    if not path.exists():
+        return {}
+    data = json.loads(path.read_text())
+    by_key: dict = {}
+    for entry in data.get("office_text", []):
+        if (entry.get("office") == "_shared"
+                and isinstance(entry.get("old"), str)
+                and isinstance(entry.get("new"), str)):
+            by_key.setdefault(entry.get("field"), []).append(entry)
+    return by_key
+
+
 def _dedup_shared(offices: dict) -> dict:
     """
     Scan every alternatives block across all offices.
@@ -1038,10 +1061,19 @@ def _dedup_shared(offices: dict) -> dict:
     disagreement visible, a known divergence is resolved by a
     data/corrections.json entry against _shared.<key>; anything new surfaces
     as this warning and must be audited before it can ship.
+
+    A divergence the manifest already corrects does not warn (#103): an
+    office_text entry against _shared.<key> reconciles the block if applying
+    its old→new to the stored first copy reproduces the differing block, so
+    the constant re-warning for a known, corrected divergence (the creed
+    comma, #101) stops burying the next real one. Removing the correction
+    re-arms the warning; an unrelated new divergence on the same key still
+    fires.
     """
     shared: dict = {}
     shared_origin: dict = {}  # key -> (office, section) where the canonical was kept
     warned: set = set()       # (key, divergent-block json) signatures already reported
+    shared_corrections = _load_shared_corrections()
 
     def _store_shared(key: str, block: dict, office_key: str, section_key: str) -> None:
         if key not in shared:
@@ -1050,6 +1082,16 @@ def _dedup_shared(offices: dict) -> dict:
             return
         if _blocks_equal(shared[key], block):
             return
+        # A committed office_text correction against _shared.<key> may already
+        # reconcile this divergence — applying its old→new to the stored first
+        # copy should reproduce the differing block. If so, the manifest owns
+        # the difference (it normalizes the shipped text in apply_corrections),
+        # so this is not a new defect and the warning would be noise.
+        for entry in shared_corrections.get(key, []):
+            trial = copy.deepcopy(shared[key])
+            replace_occurrences(trial, entry["old"], entry["new"])
+            if _block_content_sig(trial) == _block_content_sig(block):
+                return
         # Dedupe per distinct *content* variant, not per key and not per raw
         # structure: two printings differing only in line breaks (legitimate
         # per-page geometry, ADR 0012) are the same content, but a second,
