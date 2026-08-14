@@ -270,7 +270,7 @@ check-integrity:
 
 # Mobile — build dist/ then sync web assets into iOS and Android native projects.
 # After mobile-sync, open the native project in Xcode / Android Studio to build and archive.
-mobile-sync: build
+mobile-sync: check-dist
 	npx cap sync
 
 # Open iOS project in Xcode (requires Xcode + Apple Developer account for device/archive).

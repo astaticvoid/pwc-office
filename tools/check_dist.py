@@ -60,18 +60,32 @@ if sw_js.exists() and "pwc-v1" in sw_js.read_text():
 fonts_dir = dist / "assets" / "fonts"
 fonts_css = fonts_dir / "fonts.css"
 
+present_fonts = sorted(f.name for f in fonts_dir.glob("*.woff2")) if fonts_dir.is_dir() else []
+
 if require(fonts_css):
-    referenced = sorted(set(re.findall(r"url\(['\"]([^'\"]+\.woff2)['\"]\)", fonts_css.read_text())))
+    # Quotes around a url() are optional in CSS, so a quote-only pattern would
+    # skip an unquoted face silently — unchecked, unhashed, and not counted.
+    # The set is reconciled against what is on disk below rather than trusted.
+    referenced = sorted(set(re.findall(
+        r"""url\(\s*['"]?([^'")\s]+\.woff2)['"]?\s*\)""", fonts_css.read_text())))
     if not referenced:
         errors.append("assets/fonts/fonts.css: no .woff2 sources found")
     for name in referenced:
         require(fonts_dir / name, "(referenced by fonts.css)")
     print(f"fonts:       {len(referenced)} woff2 referenced by fonts.css")
 
-    # Every face here is a variable font, so one file covers a family+style at
-    # every weight. Two identical files under two names means someone split a
-    # range back into one @font-face per weight: the same bytes then download
-    # once per weight under distinct cache keys. That was #108.
+    # A font on disk that nothing references is either dead bytes being shipped
+    # or a face this parse failed to see. Both want looking at, and the second
+    # would otherwise hide a face from every check below.
+    for name in present_fonts:
+        if name not in referenced:
+            errors.append(f"assets/fonts/{name}: present but not referenced by fonts.css "
+                          "(dead weight in dist/, or a url() this check failed to parse)")
+
+    # Every face but the small-caps one is a variable font, so a single file
+    # covers a family+style at every weight. Two identical files under two names
+    # means someone split a range back into one @font-face per weight: the same
+    # bytes then download once per weight under distinct cache keys. That was #108.
     by_digest: dict[str, list[str]] = {}
     for name in referenced:
         f = fonts_dir / name
@@ -83,7 +97,15 @@ if require(fonts_css):
                 f"assets/fonts/: {', '.join(names)} are byte-identical ({digest[:12]}) — "
                 "collapse them to one file with a ranged font-weight descriptor")
 
-for licence in ("OFL-EBGaramond.txt", "OFL-IBMPlexSans.txt"):
+# Which licences are required is derived from the font filenames, not restated:
+# a third family added without its OFL text should fail here rather than pass
+# because nobody remembered to extend a list. `EBGaramond-*.woff2` wants
+# `OFL-EBGaramond.txt`.
+required_licences = sorted({f"OFL-{name.split('-')[0]}.txt" for name in present_fonts})
+if present_fonts and not required_licences:
+    errors.append("assets/fonts/: could not derive licence filenames from the font filenames")
+
+for licence in required_licences:
     if require(fonts_dir / licence, "(OFL 1.1 requires the licence to ship with the fonts)"):
         if "SIL OPEN FONT LICENSE Version 1.1" not in (fonts_dir / licence).read_text():
             errors.append(f"assets/fonts/{licence}: does not contain the OFL 1.1 text")

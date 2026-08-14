@@ -2,13 +2,15 @@
    Licences: OFL-EBGaramond.txt, OFL-IBMPlexSans.txt. Provenance: README.md.
    Both must ship wherever the .woff2 files ship — see tools/check_dist.py.
 
-   Every file here is a variable font carrying a `wght` axis, so one file
-   serves a family+style at every weight the app asks for. Declaring the axis
-   range rather than a single weight is what lets it: the browser matches the
-   face, then sets `wght` to the requested value. Splitting the range back into
-   one @font-face per weight would fetch the same bytes once per weight under
-   distinct cache keys, which is the #108 defect — four of these declarations
-   pointed at four identical copies of one file. */
+   Every file here but the small-caps face is a variable font carrying a `wght`
+   axis, so one file serves a family+style at every weight the app asks for.
+   Declaring the axis range rather than a single weight is what lets it: the
+   browser matches the face, then sets `wght` to the requested value. Splitting
+   the range back into one @font-face per weight would fetch the same bytes once
+   per weight under distinct cache keys, which is the #108 defect — four of
+   these declarations pointed at four identical copies of one file. The
+   small-caps face carries a range too, for an unrelated reason it states at its
+   own declaration. */
 
 @font-face {
   font-family: 'EB Garamond';
