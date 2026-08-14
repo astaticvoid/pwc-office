@@ -12,14 +12,5 @@
     "each entry names carries the readable version. Run the tool with",
     "--show-text locally to see what an id refers to."
   ],
-  "known": [
-    {
-      "id": "e4786ff7ac",
-      "direction": "data",
-      "section": "reading_response",
-      "lines": 14,
-      "issue": 91,
-      "why": "third reading response, synthesized by _add_reading_responses; the 14 ordinary forms print the inverted wording the errata corrects, so only they diverge"
-    }
-  ]
+  "known": []
 }

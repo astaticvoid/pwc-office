@@ -40,6 +40,18 @@ premise was that no source existed.
 The Context and Decision below are left as written — they record what was known
 and decided at the time.
 
+Corrected (#91): the Status note above records that "the reading response is
+synthesized rather than extracted, so the fix belongs in the extractor." The
+reading responses are printed on the page and extraction now recovers them into
+a real `reading_response` section (retiring `_add_reading_responses`), so that
+premise no longer holds. The ordinary-time inverted wording ("Holy wisdom, holy
+word.") is now corrected by a `pwc-errata-ordinary` manifest entry against
+`_shared.reading_response_ordinary` — the same change of mechanism this Status
+block already records for the psalm/reading rubrics. The decision is unchanged:
+the Holy Word text ships as "Holy Word, Holy Wisdom." in every season, and ADR
+0019 item 1's no-seasonal-branch rule is now enforced by the source (the 30
+forms print the same three alternatives) rather than by a code comment.
+
 ## Context
 
 ADR 0005 established one manifest for every correction to *extracted* data, and

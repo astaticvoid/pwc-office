@@ -647,6 +647,16 @@
       "new": "he ascended into heaven,",
       "count": 1,
       "reason": "The Apostles' Creed comma. _dedup_shared keeps the first form's copy of _shared.affirmation, and advent-mp is the one printing of 30 that omits the comma after 'he ascended into heaven', so the shared block inherited the defective form (#101). The other 29 forms and the standard Creed include the comma; this normalizes the shared block to the majority. Editorial — no errata entry covers it, and it is not a PDF error 29 times over."
+    },
+    {
+      "id": "reading-response-ordinary-inverted",
+      "source": "pwc-errata-ordinary",
+      "office": "_shared",
+      "field": "reading_response_ordinary",
+      "old": "Holy wisdom, holy word.",
+      "new": "Holy Word, Holy Wisdom.",
+      "count": 1,
+      "reason": "Extracted reading response (#91): the 14 ordinary forms print the third alternative with the words in the wrong order ('Holy wisdom, holy word.'); errata Ordinary p. 132 corrects it ('PWC has the wrong order'). Now that the responses are extracted rather than synthesized, the correction lives in the manifest (ADR 0005) instead of in code — this supersedes ADR 0015's 'code fix, not a manifest entry' premise for the Holy Word text."
     }
   ],
   "lectionary_citations": [],

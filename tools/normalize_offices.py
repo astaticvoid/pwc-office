@@ -67,9 +67,20 @@ def normalize(data, dry_run=False):
             continue
         vals = list(matching.values())
         canonical = vals[0]['reading_response']
+        # reading_response ships as a single alternatives block, not the
+        # list-wrapped field value: the renderer consumes it via
+        # renderAlternatives(shared[key], …) and the CLI via
+        # renderSegmentsText, both of which take the block directly (the shape
+        # the synthesizer produced before #91 extracted it). opening_responses,
+        # by contrast, is a list-valued field the renderer iterates as a list —
+        # each keeps its own convention.
+        block = (canonical[0] if (isinstance(canonical, list) and len(canonical) == 1
+                                  and isinstance(canonical[0], dict)
+                                  and canonical[0].get('type') == 'alternatives')
+                 else canonical)
         if all(blocks_equal(f['reading_response'], canonical) for f in vals):
             if rr_key not in shared:
-                shared[rr_key] = canonical
+                shared[rr_key] = block
                 print(f'  + shared.{rr_key} ({len(matching)} forms)')
             for k in matching:
                 if not isinstance(data[k].get('reading_response'), dict) or data[k]['reading_response'].get('type') != 'shared':

@@ -265,6 +265,32 @@ class TestDataToPage:
         assert data["corrected"] == 1 and data["UNACCOUNTED"] == 0
         assert not findings
 
+    def test_a_shared_ref_field_is_corrected_by_its_key_entry(self):
+        """The #91 shape: a form field 'reading_response' is a reference to a
+        _shared block whose key ('reading_response_ordinary') differs from the
+        form section name. apply_manifest must honour the entry (office
+        '_shared', field = the key) through the section→key map, or the
+        authorised divergence stays unaccounted."""
+        def rr_form(third: str) -> ShippedForm:
+            return ShippedForm(
+                {"reading_response": {"type": "shared", "key": "reading_response_ordinary"}},
+                {"reading_response_ordinary": {"type": "alternatives", "groups": [
+                    {"label": "I", "segments": [{"type": "leader",
+                                                 "text": "The word of the Lord."}]},
+                    {"label": "III", "segments": [{"type": "leader", "text": third}]},
+                ]}},
+            )
+        _, data, findings = run(
+            src("The word of the Lord.", "Holy wisdom, holy word."),
+            rr_form("Holy Word, Holy Wisdom."),
+            pre=rr_form("Holy wisdom, holy word."),
+            corrections=[{"office": "_shared", "field": "reading_response_ordinary",
+                          "old": "Holy wisdom, holy word.",
+                          "new": "Holy Word, Holy Wisdom."}],
+        )
+        assert data["corrected"] == 1 and data["UNACCOUNTED"] == 0
+        assert not findings
+
     def test_a_correction_may_not_vouch_for_extractor_invention(self):
         """The line is already in the pre-correction artifact, so the extractor
         invented it and the corrections stage merely inherited it."""

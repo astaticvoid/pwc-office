@@ -111,7 +111,7 @@ _SUB_HDR_MAP: list[tuple] = [
 # a repeated source of wrong measurements.
 SECTION_ORDER = (
     "opening_responses", "thanksgiving_for_light", "phos_hilaron",
-    "invitatory", "psalm_rubrics", "reading_rubrics", "responsory", "canticle", "affirmation",
+    "invitatory", "psalm_rubrics", "reading_rubrics", "reading_response", "responsory", "canticle", "affirmation",
     "intercessions", "litany", "seasonal_collects", "lords_prayer_intro",
     "dismissal",
 )
@@ -785,9 +785,8 @@ def _split_lords_prayer(segs: list[dict]) -> tuple[list[dict], list[dict]]:
 # the Responsory transition; ADR 0013's rubric rule can only check rubrics that
 # exist in the data), while the lectionary content itself must stay out. The
 # filtering happens in _flush (before _merge); the reading responses on the
-# page are leader/response lines and drop with the rest of the content, so
-# `reading_response` continues to come from _add_reading_responses until the
-# extracted rubrics are proven and that synthesizer is retired.
+# page are the one piece of fixed text there, so _flush keeps them as their own
+# `reading_response` section rather than dropping them with the content (#91).
 
 
 # ── Section-closing office transitions ───────────────────────────────────────
@@ -966,44 +965,6 @@ def _normalize_whitespace(offices: dict) -> dict:
             if isinstance(segs, list):
                 _walk(segs)
     return offices
-
-
-def _add_reading_responses(offices: dict) -> dict:
-    """
-    Add reading_response to each office. The three alternatives are the same
-    across all offices. The third option's leader is "Holy Word, Holy Wisdom."
-    in every form, confirmed by upstream review of the app (ADR 0015): the
-    seasonal/ordinary distinction previously encoded here reproduced the
-    printed book's error, which the errata corrects (Ordinary p. 132,
-    "PWC has the wrong order"). This is not captured by PDF extraction — it
-    comes from PWC rubrics.
-    """
-    def _make() -> dict:
-        return {
-            "type": "alternatives",
-            "groups": [
-                {"label": "I", "segments": [
-                    {"type": "leader",   "text": "The word of the Lord."},
-                    {"type": "response", "text": "Thanks be to God."},
-                ]},
-                {"label": "II", "segments": [
-                    {"type": "leader",   "text": "Hear what the Spirit is saying to the Church."},
-                    {"type": "response", "text": "Thanks be to God."},
-                ]},
-                {"label": "III", "segments": [
-                    {"type": "leader",   "text": "Holy Word, Holy Wisdom."},
-                    {"type": "response", "text": "Thanks be to God."},
-                ]},
-            ],
-        }
-
-    result = {}
-    for office_key, office in offices.items():
-        if office_key.startswith('_'):
-            result[office_key] = office
-            continue
-        result[office_key] = {**office, 'reading_response': _make()}
-    return result
 
 
 def _blocks_equal(a: dict, b: dict) -> bool:
@@ -1233,7 +1194,36 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
             # God."), so merged text would glue rubric to content beyond any
             # later filter's reach.
             segs = current_segs
-            if current_key in ("psalm_rubrics", "reading_rubrics"):
+            if current_key == "reading_rubrics":
+                # The three reading responses are printed on the page and are
+                # fixed text, not lectionary lookups (#91). Keep them as their
+                # own section instead of dropping them with the content: a
+                # leader/response line — or the 'or' separator that follows one
+                # (it separates the response alternatives) — belongs to the
+                # response block; everything else stays as reading_rubrics.
+                resp = []
+                kept = []
+                prev_in_resp = False
+                for s in segs:
+                    # A leader/response line belongs to the response block; an
+                    # 'or' rubric that follows one is its alternatives separator
+                    # (even after the final response), so it stays with the block
+                    # too; every other rubric (the intro and the section
+                    # hand-offs) is a reading_rubrics rubric.
+                    if s["type"] in ("leader", "response"):
+                        resp.append(s)
+                        prev_in_resp = True
+                    elif (s["type"] == "rubric"
+                          and re.fullmatch(r'or\.?', s["text"].strip(), re.IGNORECASE)
+                          and prev_in_resp):
+                        resp.append(s)
+                    else:
+                        kept.append(s)
+                        prev_in_resp = False
+                if resp:
+                    sections["reading_response"] = resp
+                segs = kept
+            elif current_key == "psalm_rubrics":
                 kept = [s for s in segs if s["type"] in ("label", "rubric")]
                 for s in segs:
                     if s["type"] not in ("label", "rubric"):
@@ -1244,7 +1234,7 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
                 # rubric ("Or\nName"), which would corrupt these fixed rubrics,
                 # and _group_alternatives would then build empty alternatives
                 # groups from them. They separated lectionary content options
-                # (doxologies, reading responses); with the content gone they
+                # (doxologies, psalm responses); with the content gone they
                 # carry no meaning.
                 kept = [s for s in kept
                         if not (s["type"] == "rubric"
@@ -1469,7 +1459,6 @@ def run():
     offices = _dedup_shared(offices)
     offices = _normalize_whitespace(offices)
     offices = _fix_shared_affirmation(offices)
-    offices = _add_reading_responses(offices)
     n_shared = len(offices.get('_shared', {}))
     print(f"\nShared blocks extracted: {list(offices.get('_shared', {}).keys())}")
 

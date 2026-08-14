@@ -161,11 +161,18 @@ class ShippedForm:
         self.raw_blocks: list[tuple[str, str]] = []  # (section, segment verbatim)
         self.labels: set[str] = set()      # alternatives group labels
         self.origin: dict[str, tuple[str, str]] = {}  # squashed line → (section, type)
+        self.section_shared: dict[str, str] = {}  # field → _shared key, for shared refs
 
         for section, field in form.items():
             if section in ("title", "subtitle"):
                 self._add(section, "header", field)
                 continue
+            # A field that is nothing but a {type: shared} pointer resolves to a
+            # _shared block the applier corrects directly (office "_shared",
+            # field == the key). Record the key so apply_manifest can honour a
+            # correction whose field is the key, not the form section name.
+            if isinstance(field, dict) and field.get("type") == "shared":
+                self.section_shared[section] = field.get("key", "")
             for seg in iter_segments(field, shared):
                 self._add(section, seg["type"], seg["text"])
                 if seg["type"] == "label":
@@ -361,16 +368,26 @@ def apply_manifest(pre: ShippedForm, corrections: list[dict],
              if c.get("office") == form_key and not isinstance(c.get("old"), str)]
 
     out = []
+    # A form field that is a shared reference is corrected by the entry whose
+    # field is the _shared key it points to (office "_shared"), not by the form
+    # section name — the same text the reader is shown, corrected once in the
+    # shared block. Honour both: a correction whose field equals the section, or
+    # equals the _shared key that section resolves to.
+    def field_matches(section: str, field: str | None) -> bool:
+        return field == section or (
+            field is not None and field == pre.section_shared.get(section)
+        )
+
     for section, raw in pre.raw_blocks:
         after = raw
         for entry in relevant:
-            if entry.get("field") == section:
+            if field_matches(section, entry.get("field")):
                 after = after.replace(entry["old"], entry["new"])
         for entry in whole:
             # A whole-field entry replaces the field, not a segment, so it can
             # only be honoured at that granularity: any text in its `new` is
             # authorised for this section.
-            if entry.get("field") == section:
+            if field_matches(section, entry.get("field")):
                 after = "\n".join([after, *_texts(entry.get("new"))])
         out.append((section,
                     squash(raw.replace("\n", " ")),
