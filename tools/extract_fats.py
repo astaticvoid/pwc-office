@@ -247,6 +247,22 @@ def _parse_rank_from_lines(rank_lines: list[str]) -> str | None:
     return RANK_SUFFIX_MAP.get(rank_text.lower())
 
 
+def _description_from_header(lines: list[str]) -> str:
+    """The saint's description from the header lines between date and bio.
+
+    The header carries "Description, Year — Rank" (e.g. "First Archbishop of
+    Canterbury, 605 — Memorial"), possibly wrapped across lines. The
+    description is everything before the em-dash that introduces the rank; a
+    header with no em-dash (a bare rank word, or no header at all) yields "".
+    Only consulted when a name collides, where the description is the key's
+    disambiguator and reproduces the lectionary's "Name, Description" form.
+    """
+    text = " ".join(lines).strip()
+    if "—" not in text:
+        return ""
+    return text.split("—", 1)[0].strip()
+
+
 def parse_bio(page: str) -> dict | None:
     """Parse a bio page. Returns dict with name, date, rank, bio or None."""
     lines = page.split('\n')
@@ -307,11 +323,16 @@ def parse_bio(page: str) -> dict | None:
         # Partial rank line ending with "—" (wraps to next line) or misc descriptor
         rank_lines.append(line)
 
+    header_lines = [ln.strip() for ln in lines[first_date_idx + 1:bio_start]
+                    if ln.strip()]
+    description = _description_from_header(header_lines)
+
     bio_text = _extract_bio_body(lines[bio_start:])
     if not bio_text:
         return None
 
-    return {'name': name, 'date': date, 'rank': rank, 'bio': bio_text}
+    return {'name': name, 'date': date, 'rank': rank, 'bio': bio_text,
+            'description': description}
 
 
 def _extract_bio_body(lines: list[str]) -> str:
@@ -366,6 +387,30 @@ def parse_propers(page: str) -> dict:
     return {'sentence': sentence, 'collect': collect, 'psalm': psalm, 'readings': readings}
 
 
+def _fats_keys(entries: list[tuple[str, str, str]]) -> list[str]:
+    """Unique key per saint, disambiguating name collisions with the description.
+
+    FATS prints distinct saints under the same heading (the two Augustines, 26
+    May and 28 August), so a bare name is not a unique key. A non-colliding
+    name keys on itself; a colliding one keys on "name, description" (the
+    description line the book prints, which the lectionary reproduces exactly),
+    or "name (date)" when the book prints no description. `entries` is (name,
+    description, date) in extraction order; the returned keys align one-to-one.
+    """
+    counts: dict[str, int] = {}
+    for name, _desc, _date in entries:
+        counts[name] = counts.get(name, 0) + 1
+    keys = []
+    for name, description, date in entries:
+        if counts[name] == 1:
+            keys.append(name)
+        elif description:
+            keys.append(f"{name}, {description}")
+        else:
+            keys.append(f"{name} ({date})")
+    return keys
+
+
 def extract_fats(pdf_path: Path) -> dict:
     with fitz.open(pdf_path) as pdf:
         raw_pages = [_page_text_without_margin_artifacts(page) for page in pdf]
@@ -375,7 +420,7 @@ def extract_fats(pdf_path: Path) -> dict:
     # Appendix:     PDF pages 388–392 (0-indexed 387–391)
     page_indices = list(range(36, 385)) + list(range(387, 392))
 
-    saints: dict = {}
+    entries: list[tuple[str, str, dict]] = []
     i = 0
     while i < len(page_indices):
         pi = page_indices[i]
@@ -417,7 +462,7 @@ def extract_fats(pdf_path: Path) -> dict:
             i += 1
 
         name = bio_info['name']
-        saints[name] = {
+        entries.append((name, bio_info['description'], {
             'date':     bio_info['date'],
             'rank':     bio_info['rank'],
             'bio':      bio_info['bio'],
@@ -425,8 +470,12 @@ def extract_fats(pdf_path: Path) -> dict:
             'collect':  propers_info['collect'],
             'psalm':    propers_info['psalm'],
             'readings': propers_info['readings'],
-        }
+        }))
 
+    saints: dict = {}
+    keys = _fats_keys([(n, d, data['date']) for n, d, data in entries])
+    for key, (_name, _desc, data) in zip(keys, entries):
+        saints[key] = data
     return saints
 
 

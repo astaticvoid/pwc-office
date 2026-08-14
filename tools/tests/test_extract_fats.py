@@ -11,6 +11,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from extract_fats import (  # noqa: E402, I001
+    _description_from_header,
+    _fats_keys,
     _page_text_without_margin_artifacts,
     parse_bio,
 )
@@ -151,3 +153,76 @@ class TestParseBio:
         assert bio is not None
         assert bio["rank"] == "memorial"
         assert bio["bio"].startswith("Clement wrote a letter")
+
+    def test_description_is_extracted(self):
+        page = "\n".join([
+            "Augustine",
+            "26 May",
+            "First Archbishop of Canterbury, 605 — Memorial",
+            "Today we remember Augustine, the first archbishop of",
+        ])
+        bio = parse_bio(page)
+        assert bio is not None
+        assert bio["description"] == "First Archbishop of Canterbury, 605"
+
+    def test_no_description_when_rank_is_bare(self):
+        page = "\n".join([
+            "The Epiphany of the Lord",
+            "6 January",
+            "Principal Feast",
+            "Today we commemorate an episode which is recorded",
+        ])
+        bio = parse_bio(page)
+        assert bio is not None
+        assert bio["description"] == ""
+
+
+# ── _description_from_header ──────────────────────────────────────────────────
+
+class TestDescriptionFromHeader:
+    def test_rank_on_same_line(self):
+        assert _description_from_header(
+            ["First Archbishop of Canterbury, 605 — Memorial"]
+        ) == "First Archbishop of Canterbury, 605"
+
+    def test_wrapped_rank_on_next_line(self):
+        assert _description_from_header(
+            ["Religious, Founder of the Society, 1915", "— Commemoration"]
+        ) == "Religious, Founder of the Society, 1915"
+
+    def test_wrapped_rank_with_trailing_dash(self):
+        assert _description_from_header(
+            ["Religious, Founder of the Sisterhood, 1921 —", "Commemoration"]
+        ) == "Religious, Founder of the Sisterhood, 1921"
+
+    def test_bare_rank_has_no_description(self):
+        assert _description_from_header(["Principal Feast"]) == ""
+
+    def test_empty_header_has_no_description(self):
+        assert _description_from_header([]) == ""
+
+
+# ── _fats_keys ────────────────────────────────────────────────────────────────
+
+class TestFatsKeys:
+    def test_unique_name_keys_on_itself(self):
+        assert _fats_keys([("Martin", "Bishop of Tours, 397", "November 11")]) \
+            == ["Martin"]
+
+    def test_colliding_names_are_disambiguated_by_description(self):
+        keys = _fats_keys([
+            ("Augustine", "First Archbishop of Canterbury, 605", "May 26"),
+            ("Augustine", "Bishop of Hippo, Teacher of the Faith, 430",
+             "August 28"),
+        ])
+        assert keys == [
+            "Augustine, First Archbishop of Canterbury, 605",
+            "Augustine, Bishop of Hippo, Teacher of the Faith, 430",
+        ]
+
+    def test_collision_without_description_falls_back_to_date(self):
+        keys = _fats_keys([
+            ("John", "", "May 6"),
+            ("John", "", "December 27"),
+        ])
+        assert keys == ["John (May 6)", "John (December 27)"]
