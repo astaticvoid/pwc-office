@@ -126,7 +126,8 @@ instance resolves at once.
 | Command | What it runs | When to use |
 |---------|-------------|-------------|
 | `make test` | lint → check-integrity → Vitest → pytest → the `qa` gate → rule mutation tests. No network | Always, before committing |
-| `make qa` | Liturgical validators, audits, a11y, coherence score (threshold 100) | Included in `make test`; run alone to read a failure in full |
+| `make qa` | Source conservation, liturgical validators, audits, a11y, coherence score (threshold 100) | Included in `make test`; run alone to read a failure in full |
+| `make check-conservation` | Every printed line accounted for against `data/offices.json`, and every shipped line against the page. Needs `sources/` and `.build/` as well as `data/`, so run `make fetch-sources && make extract` first | Included in `make qa`; run alone after any extractor change, with `--show-text` to read the residue |
 | `make test-mutations` | Mutation tests for the qa rules themselves — asserts each rule still fires on a targeted violation | Included in `make test`; run alone after changing `tools/validate_office.cjs` |
 | `make check-integrity` | `data/` hashes vs `tools/extract_manifest.json` | Included in `make test`; run alone after any pipeline work |
 | `make test-full` | Structural check of every day in the lectionary window | Before a data re-extraction |

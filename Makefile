@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa lint lint-js lint-py test-mutations
+.PHONY: check-conservation venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa lint lint-js lint-py test-mutations
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -171,9 +171,24 @@ audit-errata:
 check-text:
 	$(PYTHON) tools/check_text_quality.py
 
+# Account for every printed line against the shipped data, and every shipped
+# line against the page (#94). The only check that compares the data to the
+# source rather than to itself or to a hardcoded expectation, so it is the only
+# one that can see text leaving the pipeline or being invented in it.
+#
+# Needs sources/ and .build/ as well as data/, unlike the rest of qa: it reads
+# the pre-correction artifact to tell an extraction defect from an authorised
+# correction. Both are gitignored, so `make fetch-sources && make extract` has
+# to have run — which is what CI does before `make test`, and what
+# `make check-integrity` already assumes for data/.
+check-conservation:
+	$(PYTHON) tools/check_conservation.py
+
 # Liturgical quality gate — runs validators and coherence scorer.
 # Used by 'make test' so every PR checks liturgical coherence.
 qa:
+	@echo "=== Source conservation ==="
+	@$(PYTHON) tools/check_conservation.py
 	@echo "=== Liturgical validation ==="
 	@node tools/validate_office.cjs --json > /tmp/pwc-validate.json
 	@node tools/audit_office.cjs --json > /tmp/pwc-audit.json

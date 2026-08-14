@@ -29,10 +29,38 @@ def _module_ast(path):
     return ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 
 
+def _module_level(body):
+    """Statements that run at module scope, including nested in with/if/try.
+
+    `tree.body` alone misses anything wrapped in a module-level block, and those
+    names are every bit as module-level as the unwrapped ones: `try: import x`
+    is the usual optional-dependency idiom, and check_conservation.py wraps its
+    imports in `with contextlib.redirect_stdout(...)` to keep PyMuPDF's
+    deprecation banner out of stdout. Both were invisible here, so the guard
+    reported no cross-tool imports for a file that has eight of them.
+
+    Deliberately does not descend into function or class bodies — a name bound
+    there is not one the module exposes, which is the question being asked.
+    """
+    for node in body:
+        yield node
+        if isinstance(node, (ast.With, ast.AsyncWith)):
+            yield from _module_level(node.body)
+        elif isinstance(node, ast.If):
+            yield from _module_level(node.body)
+            yield from _module_level(node.orelse)
+        elif isinstance(node, ast.Try):
+            yield from _module_level(node.body)
+            yield from _module_level(node.orelse)
+            yield from _module_level(node.finalbody)
+            for handler in node.handlers:
+                yield from _module_level(handler.body)
+
+
 def _names_defined_by(path):
     """Top-level names a module exposes: assignments, defs, classes, imports."""
     names = set()
-    for node in _module_ast(path).body:
+    for node in _module_level(_module_ast(path).body):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             names.add(node.name)
         elif isinstance(node, ast.Assign):
@@ -51,7 +79,7 @@ def _names_defined_by(path):
 
 def _cross_tool_imports(path):
     """(target_module, imported_name, lineno) for each sibling-tool import."""
-    for node in _module_ast(path).body:
+    for node in _module_level(_module_ast(path).body):
         if not isinstance(node, ast.ImportFrom) or node.level:
             continue
         if node.module not in LOCAL_MODULES:

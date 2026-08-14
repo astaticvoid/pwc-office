@@ -1,0 +1,65 @@
+{
+  "_comment": [
+    "Divergences check_conservation.py has found and that are tracked as open",
+    "issues. An entry is a licence to keep failing, not a rule saying the",
+    "divergence is legitimate — legitimate ones are named rules in the tool.",
+    "",
+    "`lines` is exact: fixing half of a defect fails the check until the entry",
+    "is updated or removed, so the baseline cannot quietly absorb a partial fix.",
+    "",
+    "No book text here, deliberately. `id` is the first 10 hex of the sha256 of",
+    "the whitespace-normalised line, which is what the tool reports; the issue",
+    "each entry names carries the readable version. Run the tool with",
+    "--show-text locally to see what an id refers to."
+  ],
+  "known": [
+    {
+      "id": "a3f11a2f2d",
+      "direction": "page",
+      "section": "litany",
+      "lines": 15,
+      "issue": 93,
+      "why": "MP hand-off to the Lord's Prayer, eaten by the unanchored Lord's Prayer entry in _SUB_HDR_MAP"
+    },
+    {
+      "id": "7cb9aeae00",
+      "direction": "page",
+      "section": "litany",
+      "lines": 15,
+      "issue": 93,
+      "why": "EP hand-off to the Lord's Prayer, same cause"
+    },
+    {
+      "id": "f62fdf7a55",
+      "direction": "page",
+      "section": "litany",
+      "lines": 15,
+      "issue": 93,
+      "why": "MP hand-off to the Dismissal; ^the dismissal$ is anchored, so the cause is not yet traced"
+    },
+    {
+      "id": "7acae8ce57",
+      "direction": "page",
+      "section": "litany",
+      "lines": 15,
+      "issue": 93,
+      "why": "EP hand-off to the Dismissal, same cause"
+    },
+    {
+      "id": "e4786ff7ac",
+      "direction": "data",
+      "section": "reading_response",
+      "lines": 14,
+      "issue": 91,
+      "why": "third reading response, synthesized by _add_reading_responses; the 14 ordinary forms print the inverted wording the errata corrects, so only they diverge"
+    },
+    {
+      "id": "1fab3540cc",
+      "direction": "data",
+      "section": "affirmation",
+      "lines": 1,
+      "issue": 101,
+      "why": "_dedup_shared kept advent-mp's copy of the creed, the one printing of 30 missing this comma; _fix_shared_affirmation patches it back in code"
+    }
+  ]
+}

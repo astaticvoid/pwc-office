@@ -65,6 +65,8 @@ make validate                     # check-text + validate_lectionary.py vs ACC H
 # Quality assurance — `make qa` runs ALL of these, and `make test` runs `qa`.
 # Reach for one directly to read a failure in full, not to add coverage after
 # `make test`: that adds none.
+make check-conservation           # every printed line accounted for, both directions
+python3 tools/check_conservation.py --show-text   # ...and read what is unaccounted
 node tools/validate_office.cjs    # 20 liturgical rules across 3 tiers, all 30 forms
 node tools/validate_render.cjs    # rendered-DOM structure for all 30 forms
 node tools/validate_css.cjs       # structural CSS validity (web/*.css)
@@ -286,6 +288,13 @@ State the expected node count before running it, and make the change explain the
 number. "0 nodes" is the target for anything meant to be behaviour-preserving;
 a real fix should change exactly the nodes it claims and no others.
 
+`make check-conservation` is the other half of that verification and answers the
+question the diff cannot: the diff says what moved between two runs of *this*
+extractor, and the conservation check says whether the result still matches the
+page. A change that drops a line consistently is invisible to `extract-diff`
+after the first run and permanent; that is exactly how #84 survived for the life
+of the project. Run both.
+
 **Each stage writes its own artifact.** `.build/*.1-extract.json` and friends are
 inputs to the next stage; only `data/` is published. Never treat an intermediate
 as final, and never point a diff at one — that comparison is meaningless and
@@ -326,6 +335,9 @@ say which population it is.
 | File | Role |
 |------|------|
 | `validate_css.cjs` | Structural CSS validity for every file in `web/*.css`: no style rule nested inside another style rule's declaration block (only `@media`/`@supports`/etc. and `@keyframes` bodies may nest), and brace-balance at end of file. Catches an unclosed/stray rule silently swallowing the rest of the stylesheet — this happened for real (see issue #22) and nothing else in this project's test suite validates CSS syntax at all. |
+| `check_conservation.py` | The only check that compares the data against the **page** rather than against itself or a hardcoded expectation, which is why nothing else in this list could see #84, #87, #91 or #93. Walks every source line as extraction does and accounts for it in both directions: every printed line either ships or matches a named rule (reflow, whitespace, heading consumed as structure, an audited correction…), and every shipped line either was printed or matches one. Residue is the defect list. Both directions are load-bearing — a shipped line the page prints as a *prefix* of it is absorbed by substring matching going one way and caught only coming back (#101). Needs `sources/` and `.build/` as well as `data/`. Reports an unaccounted line by form, section and content hash; `--show-text` prints the line and is deliberately not the default. **Conservation is a set property per form**: it sees a line leave the pipeline, not one occurrence of a repeated line going missing, and not surviving text moving to the wrong place. That is #99's subject, and the two are complements. |
+| ↳ the `corrected` rule | The one rule worth understanding before trusting the others, because two weaker versions of it shipped and both were wrong. It reconstructs — applies `data/corrections.json` to the pre-correction block and asks whether the result is what ships — rather than looking for an entry that mentions the line. Keying on `{office, field}` let one three-word errata fix vouch for every line in its section, exempting 121 of the corpus's form-fields; comparing the line against `old`/`new` directly then failed wherever a printed line straddles the end of a substring correction and runs into the next sentence. Reconstruction is ADR 0005's own claim — source plus manifest equals shipped — made computable, which is why it is the version that holds. |
+| `conservation_baseline.json` | The divergences `check_conservation.py` finds that are tracked as open issues, so it can gate on *new* ones. An entry is a licence to keep failing, not a claim that the divergence is legitimate — legitimate ones are named rules in the tool. Counts are exact in both directions: a defect that grew is a regression, and one that shrank is a fix that left its entry behind, so both fail and the entry is deleted in the commit that fixes it. Holds no book text, only sha256 prefixes. |
 | `validate_office.cjs` | 20 liturgical rules against all 30 forms, in 3 tiers — T1 structural (Amen presence, non-empty responses, leader/response alternation, collect resolvable), T2 textual (prose line breaks, orphan rubrics, Phos Hilaron line count), T3 seasonal coherence. The 10 rules in `DYNAMIC_RULES` need lectionary data, so they are skipped in the static pass and checked per date against fully assembled offices instead. Tier drives the `coherence_score.cjs` penalty. |
 | `validate_render.cjs` | Rendered-DOM structure for all 30 forms: section headings present, segment counts match, no empty liturgy blocks, valid heading hierarchy. Complements `validate_office.cjs`, which checks the data rather than the HTML. |
 | `audit_text.cjs` | Cross-form text-length outliers for shared subsections within a peer group — a section much shorter or longer than its peers signals an extraction artifact. |
