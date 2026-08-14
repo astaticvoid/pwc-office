@@ -54,7 +54,7 @@ colliding with another's.
 
 Usage:
     python3 tools/check_conservation.py [--show-text] [--json] [--form KEY]
-                                        [--chain offices|psalter]
+                                        [--chain offices|psalter|fats]
 """
 
 import argparse
@@ -72,6 +72,20 @@ from pathlib import Path
 # this file's stdout is the report and nothing else.
 with contextlib.redirect_stdout(sys.stderr):
     import fitz  # PyMuPDF
+
+    # The fats extractor's own page walk and body parsers, for the `--chain
+    # fats` walk — same rationale as the psalter: classify with the code under
+    # test, not with a copy of its predicates.
+    from extract_fats import (
+        _extract_bio_body,
+        _fats_keys,
+        _page_text_without_margin_artifacts,
+        is_bio_page,
+        is_propers_page,
+        parse_bio,
+        parse_propers,
+        strip_garbage_header,
+    )
     from extract_office_styles import document_metrics, extract_office_typed_lines
 
     # The extractor's own predicates, imported rather than restated: every
@@ -608,14 +622,18 @@ def main() -> int:
     ap.add_argument("--show-text", action="store_true",
                     help="print unaccounted lines in full (local diagnosis only)")
     ap.add_argument("--form", help="restrict to one office form (or psalm number "
-                                   "for --chain psalter)")
-    ap.add_argument("--chain", choices=("offices", "psalter"), default="offices",
+                                   "for --chain psalter, saint name for "
+                                   "--chain fats)")
+    ap.add_argument("--chain", choices=("offices", "psalter", "fats"),
+                    default="offices",
                     help="which extraction chain to check against its page source")
     ap.add_argument("--json", action="store_true", help="machine-readable summary")
     args = ap.parse_args()
 
     if args.chain == "psalter":
         return run_psalter(args)
+    if args.chain == "fats":
+        return run_fats(args)
     return run_offices(args)
 
 
@@ -1061,6 +1079,358 @@ def run_psalter(args) -> int:
 
     if args.form:
         print(f"\nPsalm {args.form}: every printed line is accounted for or claimed "
+              f"by a baseline entry.")
+        return 0
+
+    print("\nEvery printed line is accounted for or claimed by a baseline entry, "
+          "and nothing ships unprinted.")
+    return 0
+
+
+# ── Fats chain (#102) ─────────────────────────────────────────────────────────
+#
+# For All The Saints (FATS) is the third published chain with a page source and
+# its own correction category. Its shape differs from both offices (field
+# segments) and the psalter (psalm → verse text): it is a dict of saint name →
+# {date, rank, bio, sentence, collect, psalm, readings}. The prose the reader is
+# shown is `bio` (multi-line biography), `sentence` and `collect` (single-line
+# propers); `psalm` and `readings` are citations with their own resolution
+# path, not prose, so this chain scopes to the three prose fields.
+#
+# The source is a third PDF (For-All-The-Saints.pdf), and the extractor walks
+# it page-wise — bio page → continuation pages → propers page — rather than
+# line-wise. `read_fats_source` repeats that walk with the extractor's own page
+# predicates and body parsers (`is_bio_page`, `parse_bio`, `_extract_bio_body`,
+# `parse_propers`), restating only the bookkeeping: which saint and which prose
+# field each produced line belongs to. A saint's `name`/`date`/`rank` are
+# structure (the key and its metadata), not prose, so they are not walked.
+#
+# The `corrected` rule reconstructs each prose field from the pre-correction
+# artifact plus the "fats" corrections (keyed by {saint, field}, substring
+# `old`) and excuses a divergence only when the reconstruction reproduces what
+# ships — the ADR 0005 claim, chain-ported, exactly as the psalter's.
+
+FATS_PROSE_FIELDS = ("bio", "sentence", "collect")
+
+FATS_PAGE_RULES: list[tuple[str, str]] = [
+    ("verbatim",  "ships exactly as printed"),
+    ("corrected", "extracted intact, then changed by an audited data/corrections.json "
+                  "'fats' entry"),
+]
+
+FATS_DATA_RULES: list[tuple[str, str]] = [
+    ("printed",        "appears on the page as printed"),
+    ("printed-joined", "printed across a line break; ships as the joined line"),
+    ("corrected",      "introduced by an audited data/corrections.json 'fats' entry"),
+]
+
+
+def _field_lines(text: str) -> set[str]:
+    """The squashed lines a prose field contributes, empty ones dropped."""
+    return {squash(ln) for ln in text.split("\n") if squash(ln)}
+
+
+class FatsSourceLine:
+    """A prose line the fats extractor reads, tagged with its saint and field."""
+    __slots__ = ("type", "text", "saint", "field")
+
+    def __init__(self, text: str, saint: str, field: str):
+        self.type = "prose"
+        self.text = text.strip()
+        self.saint = saint
+        self.field = field
+
+
+def read_fats_source(pdf_path: Path) -> list[FatsSourceLine]:
+    """Walk For-All-The-Saints.pdf the way `extract_fats` does, tagging prose.
+
+    Repeats `extract_fats`' page walk (bio page → continuation pages → propers
+    page → skip variant propers) using the extractor's own predicates and body
+    parsers, so the two cannot disagree about what a line *is*. What is
+    restated is only the bookkeeping — which saint and which prose field each
+    produced line belongs to — which the extractor has no reason to record and
+    this check cannot work without. Key attribution runs through the
+    extractor's own `_fats_keys`, so a name collision (the two Augustines)
+    lands every line on the same disambiguated key the shipped data uses.
+    """
+    with fitz.open(pdf_path) as pdf:
+        raw_pages = [_page_text_without_margin_artifacts(page) for page in pdf]
+    pages = [strip_garbage_header(p) for p in raw_pages]
+    page_indices = list(range(36, 385)) + list(range(387, 392))
+
+    entries: list[dict] = []
+    i = 0
+    while i < len(page_indices):
+        pi = page_indices[i]
+        page = pages[pi]
+        if not is_bio_page(page):
+            i += 1
+            continue
+        bio_info = parse_bio(page)
+        if not bio_info:
+            i += 1
+            continue
+        i += 1
+
+        continuation: list[str] = []
+        while i < len(page_indices):
+            npi = page_indices[i]
+            np_ = pages[npi]
+            if is_propers_page(np_) or is_bio_page(np_) or not np_:
+                break
+            extra = _extract_bio_body(np_.split("\n"))
+            if extra:
+                continuation.append(extra)
+            i += 1
+
+        if i >= len(page_indices) or not is_propers_page(pages[page_indices[i]]):
+            continue
+        propers_info = parse_propers(pages[page_indices[i]])
+        i += 1
+        while (i < len(page_indices)
+               and is_propers_page(pages[page_indices[i]])
+               and not is_bio_page(pages[page_indices[i]])):
+            i += 1
+
+        entries.append({
+            "name": bio_info["name"],
+            "description": bio_info.get("description", ""),
+            "date": bio_info["date"],
+            "bio_lines": [ln for text in [bio_info["bio"], *continuation]
+                          for ln in text.split("\n") if ln.strip()],
+            "sentence": propers_info.get("sentence") or "",
+            "collect_lines": [ln for ln in (propers_info.get("collect") or "").split("\n")
+                              if ln.strip()],
+        })
+
+    keys = _fats_keys([(e["name"], e["description"], e["date"]) for e in entries])
+    out: list[FatsSourceLine] = []
+    for key, e in zip(keys, entries):
+        for ln in e["bio_lines"]:
+            out.append(FatsSourceLine(ln, key, "bio"))
+        if e["sentence"]:
+            out.append(FatsSourceLine(e["sentence"], key, "sentence"))
+        for ln in e["collect_lines"]:
+            out.append(FatsSourceLine(ln, key, "collect"))
+    return out
+
+
+class FatsShipped:
+    """The fats prose as shipped, indexed for both directions of the check.
+
+    `data/fats/saints.json` is {name: {date, rank, bio, sentence, collect,
+    psalm, readings}}; `bio` is multi-line, `sentence`/`collect` single-line.
+    The `corrected` rule reconstructs each prose field from the pre-correction
+    artifact plus the "fats" corrections (keyed by {saint, field}, substring
+    `old`) — exactly as apply_corrections.py does — and a divergence is
+    accounted as corrected only when the reconstruction reproduces the shipped
+    field.
+    """
+
+    def __init__(self, data: dict, pre: dict, corrections: list[dict]):
+        self.data = data
+        self.lines: dict[str, dict[str, set[str]]] = {}
+        self.pre_lines: dict[str, dict[str, set[str]]] = {}
+        self.corr_lines: dict[str, dict[str, set[str]]] = {}
+        self.valid: dict[str, dict[str, bool]] = {}
+        for name, saint in data.items():
+            pre_saint = pre.get(name, {}) if isinstance(pre.get(name), dict) else {}
+            self.lines[name] = {}
+            self.pre_lines[name] = {}
+            self.corr_lines[name] = {}
+            self.valid[name] = {}
+            for field in FATS_PROSE_FIELDS:
+                shipped_text = saint.get(field, "") or ""
+                pre_text = pre_saint.get(field, "") or ""
+                self.lines[name][field] = _field_lines(shipped_text)
+                self.pre_lines[name][field] = _field_lines(pre_text)
+                corrected = pre_text
+                for c in corrections:
+                    # Match apply_corrections._apply_replace exactly: key on
+                    # `saint` OR `saint_key`, and replace the FIRST occurrence
+                    # only. Over-replacing would fail closed (reconstruction ≠
+                    # shipped) but would mislabel a legitimate multi-occurrence
+                    # correction as a defect, so the count must agree.
+                    if ((c.get("saint") or c.get("saint_key")) == name
+                            and c.get("field") == field
+                            and isinstance(c.get("old"), str)):
+                        corrected = corrected.replace(c["old"], c["new"], 1)
+                self.corr_lines[name][field] = _field_lines(corrected)
+                # Whole-field equality collapses newlines, which is sound only
+                # because the applier derives shipped from pre by substring
+                # replace — line structure is preserved, so any difference is a
+                # real edit, not a reflow.
+                self.valid[name][field] = (squash(corrected) == squash(shipped_text))
+
+    def has(self, name: str, field: str, text: str) -> bool:
+        return squash(text) in self.lines.get(name, {}).get(field, set())
+
+    def lost_by_manifest(self, name: str, field: str, text: str) -> bool:
+        """A printed line the manifest removed: in the pre-correction field but
+        not shipped, and the reconstruction (pre + corrections = shipped) holds."""
+        needle = squash(text)
+        return (needle in self.pre_lines.get(name, {}).get(field, set())
+                and needle not in self.lines.get(name, {}).get(field, set())
+                and self.valid.get(name, {}).get(field, False))
+
+    def gained_by_manifest(self, name: str, field: str, key: str) -> bool:
+        """A shipped line the manifest introduced: not extracted, but produced
+        by a correction, and the reconstruction holds."""
+        return (key in self.corr_lines.get(name, {}).get(field, set())
+                and key not in self.pre_lines.get(name, {}).get(field, set())
+                and self.valid.get(name, {}).get(field, False))
+
+
+def check_fats(source: list[FatsSourceLine], shipped: FatsShipped,
+               ) -> tuple[Counter, Counter, dict[str, Counter],
+                          dict[str, Counter], list[Finding]]:
+    page_total: Counter = Counter()
+    data_total: Counter = Counter()
+    page_by_saint: dict[str, Counter] = defaultdict(Counter)
+    data_by_saint: dict[str, Counter] = defaultdict(Counter)
+    findings: list[Finding] = []
+
+    # ── PAGE → DATA ───────────────────────────────────────────────────────────
+    for line in source:
+        text = line.text
+        if not squash(text):
+            continue
+        saint = line.saint
+        if saint not in shipped.data:
+            page_total["UNACCOUNTED"] += 1
+            page_by_saint[saint]["UNACCOUNTED"] += 1
+            findings.append(Finding("fats", saint, line.field, text, "page"))
+            continue
+        if shipped.has(saint, line.field, text):
+            page_total["verbatim"] += 1
+            page_by_saint[saint]["verbatim"] += 1
+        elif shipped.lost_by_manifest(saint, line.field, text):
+            page_total["corrected"] += 1
+            page_by_saint[saint]["corrected"] += 1
+        else:
+            page_total["UNACCOUNTED"] += 1
+            page_by_saint[saint]["UNACCOUNTED"] += 1
+            findings.append(Finding("fats", saint, line.field, text, "page"))
+
+    # ── DATA → PAGE ───────────────────────────────────────────────────────────
+    page_set = {squash(line.text) for line in source}
+    page_stream = " ".join(squash(line.text) for line in source)
+
+    for name in sorted(shipped.data):
+        for field in FATS_PROSE_FIELDS:
+            for key in sorted(shipped.lines[name][field]):
+                if key in page_set:
+                    data_total["printed"] += 1
+                    data_by_saint[name]["printed"] += 1
+                elif key in page_stream:
+                    data_total["printed-joined"] += 1
+                    data_by_saint[name]["printed-joined"] += 1
+                elif shipped.gained_by_manifest(name, field, key):
+                    data_total["corrected"] += 1
+                    data_by_saint[name]["corrected"] += 1
+                else:
+                    data_total["UNACCOUNTED"] += 1
+                    data_by_saint[name]["UNACCOUNTED"] += 1
+                    findings.append(Finding("fats", name, field, key, "data"))
+
+    return page_total, data_total, page_by_saint, data_by_saint, findings
+
+
+def run_fats(args) -> int:
+    fats_pdf = ROOT / "sources" / "For-All-The-Saints.pdf"
+    shipped_path = ROOT / "data" / "fats" / "saints.json"
+    pre_path = ROOT / ".build" / "fats-saints.1-extract.json"
+    for path, remedy in ((fats_pdf, "make fetch-sources"),
+                         (shipped_path, "make extract"),
+                         (pre_path, "make extract")):
+        if not path.exists():
+            print(f"ERROR: {path} not found\nRun: {remedy}", file=sys.stderr)
+            return 1
+
+    data = json.loads(shipped_path.read_text(encoding="utf-8"))
+    pre = json.loads(pre_path.read_text(encoding="utf-8"))
+    corrections = load_corrections("fats")
+
+    if args.form:
+        if args.form not in data:
+            print(f"ERROR: unknown saint {args.form!r}", file=sys.stderr)
+            return 1
+        data = {args.form: data[args.form]}
+        pre = {args.form: pre[args.form]} if args.form in pre else {}
+
+    source = read_fats_source(fats_pdf)
+    if args.form:
+        source = [ln for ln in source if ln.saint == args.form]
+
+    shipped = FatsShipped(data, pre, corrections)
+    page_total, data_total, page_by_saint, data_by_saint, findings = \
+        check_fats(source, shipped)
+
+    known, errors = reconcile(findings, load_baseline(),
+                              by_count=not args.form, chain="fats")
+
+    if args.json:
+        print(json.dumps({
+            "chain": "fats",
+            "saints": len(data),
+            "page_to_data": dict(page_total),
+            "data_to_page": dict(data_total),
+            "known": [{"id": k["id"], "issue": k["issue"], "lines": k["found"]}
+                      for k in known],
+            "errors": errors,
+            "unaccounted": [
+                {"saint": f.section, "field": f.type, "direction": f.direction,
+                 "id": line_id(f.text)}
+                for f in findings
+            ],
+        }, indent=2))
+        return 1 if errors else 0
+
+    print(f"Conservation check — {fats_pdf.name} ↔ {shipped_path.relative_to(ROOT)}")
+    print(f"Population: {sum(page_total.values()):,} source prose lines across "
+          f"{len(data)} saints.")
+
+    for want, heading, rules, totals, by_form in (
+        ("page", "PAGE → DATA   is anything printed missing?",
+         FATS_PAGE_RULES, page_total, page_by_saint),
+        ("data", "DATA → PAGE   is anything shipped that was never printed?",
+         FATS_DATA_RULES, data_total, data_by_saint),
+    ):
+        side = [k for k in known if k["direction"] == want]
+        report(heading, rules, totals, by_form,
+               sum(k["found"] for k in side), [k["issue"] for k in side])
+
+    if known:
+        print(f"\nKnown divergences ({sum(k['found'] for k in known)} lines, "
+              f"{len(known)} entries in {BASELINE.name})")
+        for k in sorted(known, key=lambda e: (e["issue"], e["id"])):
+            print(f"    #{k['issue']:<4} {k['direction']:<5} {k['section']:<18} "
+                  f"{k['id']}  × {k['found']:<3} {k['why']}")
+
+    if findings and (args.form or errors):
+        per_saint = {"page": page_by_saint, "data": data_by_saint}
+        for direction, heading in (("page", "printed but not shipped"),
+                                   ("data", "shipped but never printed")):
+            rows = [f for f in findings if f.direction == direction]
+            if not rows:
+                continue
+            print(f"\n  Unaccounted — {heading} ({len(rows)}):")
+            print("    by saint: " + ", ".join(
+                f"{s} ({n})" for s, n in sorted(per_saint[direction].items())
+                if per_saint[direction][s].get("UNACCOUNTED", 0)))
+            for f in rows:
+                print(f.render(args.show_text))
+        if not args.show_text:
+            print("\n  Re-run with --show-text to read the lines themselves.")
+
+    if errors:
+        print(f"\nFAIL ({len(errors)}):")
+        for err in errors:
+            print(f"    {err}")
+        return 1
+
+    if args.form:
+        print(f"\n{args.form}: every printed line is accounted for or claimed "
               f"by a baseline entry.")
         return 0
 

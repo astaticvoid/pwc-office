@@ -19,12 +19,15 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from check_conservation import (
+    FatsShipped,
+    FatsSourceLine,
     Finding,
     PsalterShipped,
     PsalterSourceLine,
     ShippedForm,
     SourceLine,
     _fix_whitespace,
+    check_fats,
     check_form,
     check_psalter,
     line_id,
@@ -519,3 +522,127 @@ class TestReconcileChain:
         known, errors = reconcile([finding("a", section="35")], baseline,
                                   chain="psalter")
         assert not errors and len(known) == 1
+
+
+# ── Fats chain (#102) ─────────────────────────────────────────────────────────
+#
+# The fats conservation check (--chain fats) shares the two-direction
+# methodology with offices and psalter, over the prose fields (bio, sentence,
+# collect) of data/fats/saints.json. Its load-bearing claims are the same: it
+# FAILS when a line is dropped or invented, and the `corrected` rule only ever
+# excuses a divergence the "fats" manifest actually reconstructs.
+
+SAINT = "Test Saint"
+
+
+def fats_shipped(pre_fields, shipped_fields, corrections):
+    """A single-saint FatsShipped from pre/shipped prose-field dicts."""
+    def saint(fields):
+        return {"bio": fields.get("bio", ""),
+                "sentence": fields.get("sentence", ""),
+                "collect": fields.get("collect", "")}
+    return FatsShipped({SAINT: saint(shipped_fields)},
+                       {SAINT: saint(pre_fields)},
+                       corrections)
+
+
+def fsl(*items):
+    """Build fats source lines as (text, field) pairs; saint defaults to SAINT."""
+    return [FatsSourceLine(text, SAINT, field) for text, field in items]
+
+
+class TestFatsCheck:
+    def test_verbatim_bio_accounted_both_ways(self):
+        sh = fats_shipped({"bio": "a line of biography"},
+                          {"bio": "a line of biography"}, [])
+        page, data, *_ = check_fats(fsl(("a line of biography", "bio")), sh)
+        assert page["verbatim"] == 1 and page["UNACCOUNTED"] == 0
+        assert data["printed"] == 1 and data["UNACCOUNTED"] == 0
+
+    def test_dropped_bio_line_is_reported(self):
+        sh = fats_shipped({"bio": "kept line"}, {"bio": "kept line"}, [])
+        page, _, _, _, findings = check_fats(
+            fsl(("kept line", "bio"), ("dropped line", "bio")), sh)
+        assert page["UNACCOUNTED"] == 1
+        assert findings[0].text == "dropped line"
+
+    def test_invented_bio_line_is_reported(self):
+        sh = fats_shipped({"bio": "kept line"},
+                          {"bio": "kept line\ninvented line"}, [])
+        _, data, _, _, findings = check_fats(fsl(("kept line", "bio")), sh)
+        assert data["UNACCOUNTED"] == 1
+        assert findings[0].direction == "data"
+        assert findings[0].text == "invented line"
+
+    def test_sentence_and_collect_are_conserved(self):
+        sh = fats_shipped(
+            {"sentence": "Rejoice.", "collect": "Grant us peace."},
+            {"sentence": "Rejoice.", "collect": "Grant us peace."}, [])
+        page, data, *_ = check_fats(
+            fsl(("Rejoice.", "sentence"), ("Grant us peace.", "collect")), sh)
+        assert page["verbatim"] == 2 and page["UNACCOUNTED"] == 0
+        assert data["printed"] == 2 and data["UNACCOUNTED"] == 0
+
+    def test_a_manifest_entry_accounts_for_the_change_both_ways(self):
+        sh = fats_shipped(
+            {"bio": "He was a man of prayr."},
+            {"bio": "He was a man of prayer."},
+            [{"saint": SAINT, "field": "bio", "old": "prayr", "new": "prayer"}])
+        page, data, *_ = check_fats(fsl(("He was a man of prayr.", "bio")), sh)
+        assert page["corrected"] == 1 and page["UNACCOUNTED"] == 0
+        assert data["corrected"] == 1 and data["UNACCOUNTED"] == 0
+
+    def test_a_correction_that_does_not_reconstruct_excuses_nothing(self):
+        sh = fats_shipped(
+            {"bio": "A B"}, {"bio": "A C"},
+            [{"saint": SAINT, "field": "bio", "old": "B", "new": "X"}])
+        page, _, _, _, findings = check_fats(fsl(("A B", "bio")), sh)
+        assert page["UNACCOUNTED"] == 1
+        assert findings[0].text == "A B"
+
+    def test_a_correction_on_another_field_does_not_excuse_it(self):
+        sh = fats_shipped(
+            {"bio": "printed wording"}, {"bio": "shipped wording"},
+            [{"saint": SAINT, "field": "collect",
+              "old": "printed", "new": "shipped"}])
+        page, _, _, _, findings = check_fats(fsl(("printed wording", "bio")), sh)
+        assert page["UNACCOUNTED"] == 1
+
+    def test_a_correction_on_another_saint_does_not_excuse_it(self):
+        sh = fats_shipped(
+            {"bio": "printed wording"}, {"bio": "shipped wording"},
+            [{"saint": "Another Saint", "field": "bio",
+              "old": "printed", "new": "shipped"}])
+        page, _, _, _, findings = check_fats(fsl(("printed wording", "bio")), sh)
+        assert page["UNACCOUNTED"] == 1
+
+    def test_a_correction_may_not_vouch_for_extractor_invention(self):
+        sh = fats_shipped(
+            {"bio": "printed line\ninvented line"},
+            {"bio": "printed line\ninvented line"},
+            [{"saint": SAINT, "field": "bio", "old": "printed", "new": "changed"}])
+        _, data, *_ = check_fats(fsl(("printed line", "bio")), sh)
+        assert data["UNACCOUNTED"] == 1
+
+    def test_correction_replaces_first_occurrence_only_like_the_applier(self):
+        """`_apply_replace` replaces the first occurrence only; the reconstruction
+        must match it, or a legitimate multi-occurrence correction reads as a
+        defect instead of as corrected."""
+        sh = fats_shipped(
+            {"bio": "word one word two"},
+            {"bio": "w1 one word two"},
+            [{"saint": SAINT, "field": "bio", "old": "word", "new": "w1"}])
+        page, data, *_ = check_fats(fsl(("word one word two", "bio")), sh)
+        assert page["corrected"] == 1 and page["UNACCOUNTED"] == 0
+        assert data["corrected"] == 1 and data["UNACCOUNTED"] == 0
+
+    def test_a_saint_key_correction_is_honoured(self):
+        """The applier locates a saint by `saint` OR `saint_key`; the
+        reconstruction must honour both key spellings."""
+        sh = fats_shipped(
+            {"bio": "printed wording"}, {"bio": "shipped wording"},
+            [{"saint_key": SAINT, "field": "bio",
+              "old": "printed", "new": "shipped"}])
+        page, data, *_ = check_fats(fsl(("printed wording", "bio")), sh)
+        assert page["corrected"] == 1 and page["UNACCOUNTED"] == 0
+        assert data["corrected"] == 1 and data["UNACCOUNTED"] == 0

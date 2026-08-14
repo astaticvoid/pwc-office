@@ -192,6 +192,7 @@ check-text:
 check-conservation:
 	$(PYTHON) tools/check_conservation.py --chain offices
 	$(PYTHON) tools/check_conservation.py --chain psalter
+	$(PYTHON) tools/check_conservation.py --chain fats
 
 # Liturgical quality gate — runs validators and coherence scorer.
 # Used by 'make test' so every PR checks liturgical coherence.
@@ -200,6 +201,8 @@ qa:
 	@$(PYTHON) tools/check_conservation.py --chain offices
 	@echo "=== Source conservation (psalter) ==="
 	@$(PYTHON) tools/check_conservation.py --chain psalter
+	@echo "=== Source conservation (fats) ==="
+	@$(PYTHON) tools/check_conservation.py --chain fats
 	@echo "=== Liturgical validation ==="
 	@node tools/validate_office.cjs --json > /tmp/pwc-validate.json
 	@node tools/audit_office.cjs --json > /tmp/pwc-audit.json
