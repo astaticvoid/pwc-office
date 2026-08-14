@@ -110,6 +110,29 @@ python3 tools/detect_office_bounds.py --strict  # verify committed bounds
 python3 tools/detect_office_bounds.py --write   # regenerate after PDF change
 ```
 
+### Watching convergence
+
+The one number that tracks whether extraction quality is *improving* is the
+open-divergence count in `tools/conservation_baseline.json` — the list
+`check_conservation.py` reports as unaccounted-but-licensed. A fix that closes
+a divergence deletes its entry in the same commit, so the count drops only
+when a defect is actually resolved; a stale entry a fix left behind is itself
+a failure. See the trend:
+
+```bash
+git log --oneline -- tools/conservation_baseline.json
+
+# or count the known[] entries per commit:
+git log --format='%h %s' -- tools/conservation_baseline.json | while read sha msg; do
+  n=$(git show $sha:tools/conservation_baseline.json 2>/dev/null |
+      python3 -c "import sys,json;print(len(json.load(sys.stdin)['known']))" 2>/dev/null)
+  echo "$n  $msg"
+done
+```
+
+A shrinking count is convergence; a count that grows, or an entry that should
+have been deleted in the fixing commit but was not, is a regression.
+
 ### Focused test commands
 
 ```bash

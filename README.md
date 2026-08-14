@@ -72,6 +72,13 @@ node tools/audit_office.cjs      # cross-form statistical outlier detection
 node tools/review_form.cjs FORM [date]  # line-numbered text renderer for review
 ```
 
+The convergence detector is `tools/check_conservation.py` — it compares the
+extracted data against the source page in both directions (every printed line
+either ships or is an accounted rule; nothing ships unprinted). Its residual
+defect list lives in `tools/conservation_baseline.json`, and the open-divergence
+count there is the number that tracks whether extraction quality is improving:
+a fix deletes its entry in the same commit, so a shrinking count is convergence.
+
 ## Data pipeline
 
 All data files are gitignored — they contain copyrighted ACC/BAS content
