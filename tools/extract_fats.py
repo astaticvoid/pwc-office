@@ -196,27 +196,49 @@ def _find_first_date_idx(lines: list[str]) -> int | None:
     return None
 
 
+def _restore_title_space(name: str) -> str:
+    """Restore a space dropped before a title merged into the preceding word.
+
+    The FATS PDF drops the space between a short function word and a following
+    capitalized title in bold heading lines: the name line arrives as a single
+    span "The Confession ofSaint Peter the Apostle". "Saint" is always a
+    standalone title in this corpus, so reinserting the space before it is safe;
+    a generic lower→upper insertion would split "McDonald" and is avoided.
+    """
+    return re.sub(r'([a-z])Saint\b', r'\1 Saint', name)
+
+
 def _extract_name(lines: list[str], first_date_idx: int) -> str:
     """
     Extract saint name from lines before the first date line.
 
     Stops at:
     - A blank line that follows at least one name line (name paragraph ended)
-    - A date-like line (handles cases like 'Saint Stephen\\n3 August...' with no blank)
+    - A date-like line (handles cases like 'Saint Stephen\n3 August...' with no blank)
     - A rank line containing '—'
 
-    Skips "Either X or Y may be commemorated..." note lines.
+    Skips "Either X or Y may be commemorated..." note lines, including when the
+    note wraps to a second line ("...may be commemo-\nrated on this day."); the
+    continuation is not part of the name.
     """
     name_lines: list[str] = []
+    in_note = False
     for line in lines[:first_date_idx]:
         s = line.strip()
         if not s:
             if name_lines:
                 break  # blank line after name = done
             continue
+        if in_note:
+            # Continuation of a wrapped note — not the name.
+            name_lines = []
+            if s.endswith('.'):
+                in_note = False
+            continue
         # Skip/reset on note lines
         if re.match(r'^Either\b', s, re.IGNORECASE) or 'may be commemorated' in s.lower():
             name_lines = []
+            in_note = not s.endswith('.')  # may wrap to a second line
             continue
         # Stop at date-like content (e.g., "3 August (or 26 December)")
         if is_date_like(s):
@@ -225,7 +247,7 @@ def _extract_name(lines: list[str], first_date_idx: int) -> str:
         if '—' in s:
             break
         name_lines.append(s)
-    return ' '.join(name_lines).strip()
+    return _restore_title_space(' '.join(name_lines).strip())
 
 
 def _parse_rank_from_first_date_line(line: str) -> str | None:

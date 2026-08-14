@@ -14,6 +14,7 @@ from extract_fats import (  # noqa: E402, I001
     _description_from_header,
     _fats_keys,
     _page_text_without_margin_artifacts,
+    _restore_title_space,
     parse_bio,
 )
 
@@ -175,6 +176,68 @@ class TestParseBio:
         bio = parse_bio(page)
         assert bio is not None
         assert bio["description"] == ""
+
+    def test_wrapped_either_note_continuation_is_not_name(self):
+        # Regression (#105): the "Either X or Y may be commemorated" note wraps
+        # to a second line ("...may be commemo-\nrated on this day."); the
+        # continuation was read as part of the name.
+        page = "\n".join([
+            "Either Philip Lindel Tsen or Paul Shinji Sasaki (p. 92) may be commemo-",
+            "rated on this day.",
+            "Philip Lindel Tsen",
+            "24 February",
+            "Memorial",
+            "Philip Lindel Tsen was born in 1885.",
+        ])
+        bio = parse_bio(page)
+        assert bio is not None
+        assert bio["name"] == "Philip Lindel Tsen"
+        assert bio["date"] == "February 24"
+        assert bio["bio"].startswith("Philip Lindel Tsen was born")
+
+    def test_wrapped_either_note_continuation_this_date(self):
+        # The other wrap shape: "...may be commemorated on\nthis date."
+        page = "\n".join([
+            "Either Marguerite Bourgeoys or John Horden (p. 50) may be commemorated on",
+            "this date.",
+            "Marguerite Bourgeoys",
+            "12 January",
+            "Commemoration",
+            "Marguerite Bourgeoys was born in France.",
+        ])
+        bio = parse_bio(page)
+        assert bio is not None
+        assert bio["name"] == "Marguerite Bourgeoys"
+
+    def test_title_space_restored_before_saint(self):
+        # Regression (#105): the bold heading arrives as a single span with the
+        # space before the title dropped by the PDF text layer ("ofSaint").
+        page = "\n".join([
+            "The Confession ofSaint Peter the Apostle",
+            "18 January",
+            "Holy Day",
+            "Today we commemorate the confession of Peter.",
+        ])
+        bio = parse_bio(page)
+        assert bio is not None
+        assert bio["name"] == "The Confession of Saint Peter the Apostle"
+
+
+# ── _restore_title_space ─────────────────────────────────────────────────────
+
+class TestRestoreTitleSpace:
+    def test_restores_space_before_saint(self):
+        assert _restore_title_space("The Confession ofSaint Peter the Apostle") \
+            == "The Confession of Saint Peter the Apostle"
+
+    def test_leaves_spaced_saint_untouched(self):
+        assert _restore_title_space("Companions of Saint Paul") \
+            == "Companions of Saint Paul"
+
+    def test_does_not_split_mcdonald(self):
+        # A generic lower→upper insertion would mangle this; the title-specific
+        # rule must leave it alone.
+        assert _restore_title_space("Robert McDonald") == "Robert McDonald"
 
 
 # ── _description_from_header ──────────────────────────────────────────────────
