@@ -383,6 +383,7 @@ Capacitor wraps `dist/` as a native app (`capacitor.config.json`, `webDir: dist`
 All task tracking lives in [GitHub Issues](https://github.com/astaticvoid/pwc-office/issues) — there is no in-repo tracker. `BUGS.md` was retired 2026-07-30 and its full history migrated: every resolved entry is a closed issue, so a `see issue #N` comment in the source resolves to the original writeup.
 
 - **Triaging a user report** — open an issue rather than noting it in a file. Label `bug`; leave it unlabelled for severity until investigated.
+- **Findings during development** — a defect or warning surfaced during build, test, review, or deploy (including non-blocking ones) is triaged as *known* (an open issue already exists) or *captured* (open one) before continuing — never dismissed as "pre-existing".
 - **Fixing a bug** — close its issue with the findings in the closing comment. That writeup is the durable record; keep it detailed enough that a future session can reconstruct *why*, not just *what*.
 - **Citing rationale from code** — reference the issue number (`see issue #13`), not a date or a file. Issue numbers are stable; the tracker file was not.
 - **Parked work** — an open issue with no milestone, not a "Parked" list.
