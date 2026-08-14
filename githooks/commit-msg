@@ -1,0 +1,18 @@
+#!/bin/sh
+# commit-msg hook — enforce the repository's no-attribution rule.
+#
+# The repo bans Co-Authored-By trailers in commits (see AGENTS.md, "Hard
+# constraints"). This hook refuses a commit whose message carries one.
+#
+# Installed by `make hooks` (sets core.hooksPath=githooks). Idempotent and
+# safe to re-run at any time; needed once per fresh clone.
+#
+# Note: this hook only guards new commits created after installation. It does
+# not touch history already in the repo.
+
+if grep -qiE '^[[:space:]]*co-authored-by[[:space:]]*:' "$1"; then
+  echo "commit-msg: refused commit — the message carries a 'Co-Authored-By:' trailer." >&2
+  echo "commit-msg: this repo bans commit attribution. Remove the trailer and re-commit." >&2
+  exit 1
+fi
+exit 0

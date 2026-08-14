@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: check-conservation venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa lint lint-js lint-py test-mutations
+.PHONY: check-conservation venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa lint lint-js lint-py test-mutations hooks
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -15,6 +15,14 @@ PYTHON := $(shell [ -x .venv/bin/python3 ] && echo .venv/bin/python3 || echo pyt
 # Ruff binary — same venv-first, ambient-fallback policy as PYTHON. CI installs
 # `ruff` into the runner's python3, so it falls back to the ambient ruff.
 RUFF := $(shell [ -x .venv/bin/ruff ] && echo .venv/bin/ruff || echo ruff)
+
+# Install the repo's git hooks. commit-msg enforces the no-Co-Authored-By rule.
+# Uses core.hooksPath so the hooks live in-tree (githooks/, versioned) rather
+# than in a local .git/hooks that no one can see. Idempotent — safe to run at
+# any time, and needed once per fresh clone (CI is unaffected).
+hooks:
+	git config core.hooksPath githooks
+	@echo "Git hooks installed: core.hooksPath=githooks (commit-msg active)."
 
 # Create the venv and install Python dependencies.
 venv:

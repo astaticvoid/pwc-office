@@ -399,6 +399,10 @@ All task tracking lives in [GitHub Issues](https://github.com/astaticvoid/pwc-of
   - Data pipeline changes (extractor, manifest) in their own commit
   Never accumulate unrelated changes into a "ball of mud" commit. Each commit
   message should explain what changed at the concern level, not file-by-file.
+- **No Co-Authored-By** trailers in commits — enforced by the `commit-msg`
+  hook in `githooks/`, installed with `make hooks`. This is a hard rule, not a
+  preference; the trailer is what makes an AI agent a visible co-author on
+  GitHub, and this repo keeps its history attributed to the human author alone.
 - **Subagent code review before commit.** Every change must be reviewed by a hostile subagent before committing. The subagent checks for bugs, edge cases, silent failures, performance issues, and integration problems. Fix all high-severity findings before committing.
 - **Deploy requires user go-ahead.** Never run `make promote` unprompted. Staging deploys are always safe.
 - **Systemic fixes over patches.** When a bug is found, categorize it: systemic (fix in extractor/renderer), pattern (multiple forms), or data (single form). Fix the root cause so all instances are resolved, not just the one found.
