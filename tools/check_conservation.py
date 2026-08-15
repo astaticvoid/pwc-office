@@ -1092,10 +1092,13 @@ def run_psalter(args) -> int:
 # For All The Saints (FATS) is the third published chain with a page source and
 # its own correction category. Its shape differs from both offices (field
 # segments) and the psalter (psalm → verse text): it is a dict of saint name →
-# {date, rank, bio, sentence, collect, psalm, readings}. The prose the reader is
-# shown is `bio` (multi-line biography), `sentence` and `collect` (single-line
-# propers); `psalm` and `readings` are citations with their own resolution
-# path, not prose, so this chain scopes to the three prose fields.
+# {date, rank, bio, sentence, collect, psalm, refrain, readings}. The prose the
+# reader is shown is `bio` (multi-line biography), `sentence`, `collect` and
+# `refrain` (single-line propers); `psalm` and `readings` are citations with
+# their own resolution path, not prose, so this chain scopes to the prose
+# fields. What that buys is bounded: both sides of the comparison come from the
+# extractor's own parsers, so a field the parser never fills balances at zero
+# rather than failing (#113).
 #
 # The source is a third PDF (For-All-The-Saints.pdf), and the extractor walks
 # it page-wise — bio page → continuation pages → propers page — rather than
@@ -1110,7 +1113,7 @@ def run_psalter(args) -> int:
 # `old`) and excuses a divergence only when the reconstruction reproduces what
 # ships — the ADR 0005 claim, chain-ported, exactly as the psalter's.
 
-FATS_PROSE_FIELDS = ("bio", "sentence", "collect")
+FATS_PROSE_FIELDS = ("bio", "sentence", "collect", "refrain")
 
 FATS_PAGE_RULES: list[tuple[str, str]] = [
     ("verbatim",  "ships exactly as printed"),
@@ -1201,6 +1204,7 @@ def read_fats_source(pdf_path: Path) -> list[FatsSourceLine]:
             "sentence": propers_info.get("sentence") or "",
             "collect_lines": [ln for ln in (propers_info.get("collect") or "").split("\n")
                               if ln.strip()],
+            "refrain": propers_info.get("refrain") or "",
         })
 
     keys = _fats_keys([(e["name"], e["description"], e["date"]) for e in entries])
@@ -1212,6 +1216,8 @@ def read_fats_source(pdf_path: Path) -> list[FatsSourceLine]:
             out.append(FatsSourceLine(e["sentence"], key, "sentence"))
         for ln in e["collect_lines"]:
             out.append(FatsSourceLine(ln, key, "collect"))
+        if e["refrain"]:
+            out.append(FatsSourceLine(e["refrain"], key, "refrain"))
     return out
 
 
@@ -1219,7 +1225,8 @@ class FatsShipped:
     """The fats prose as shipped, indexed for both directions of the check.
 
     `data/fats/saints.json` is {name: {date, rank, bio, sentence, collect,
-    psalm, readings}}; `bio` is multi-line, `sentence`/`collect` single-line.
+    psalm, refrain, readings}}; `bio` is multi-line, the other prose fields
+    single-line.
     The `corrected` rule reconstructs each prose field from the pre-correction
     artifact plus the "fats" corrections (keyed by {saint, field}, substring
     `old`) — exactly as apply_corrections.py does — and a divergence is
