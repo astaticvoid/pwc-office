@@ -21,6 +21,7 @@
 | [0017](./0017-secondary-observances-are-extracted-not-transcribed.md) | Secondary observances are extracted, not transcribed | Accepted |
 | [0018](./0018-alternate-observance-toggle-presents-the-days-identity.md) | The alternate-observance toggle presents the day's identity | Accepted |
 | [0019](./0019-settled-readings-of-the-rubrics.md) | Settled readings of the rubrics | Proposed |
+| [0020](./0020-the-office-and-the-saints-fats-propers-are-extraction-only.md) | The product renders the office and the saints; FATS propers are extraction-only | Accepted |
 
 ## Status values
 - **Proposed** — decision documented, awaiting review/adoption
