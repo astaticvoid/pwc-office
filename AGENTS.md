@@ -390,6 +390,29 @@ All task tracking lives in [GitHub Issues](https://github.com/astaticvoid/pwc-of
 - **Citing rationale from code** — reference the issue number (`see issue #13`), not a date or a file. Issue numbers are stable; the tracker file was not.
 - **Parked work** — an open issue with no milestone, not a "Parked" list.
 
+## Source comments
+
+A comment describes the code that is there. It does not narrate the code that
+used to be there.
+
+- **No history in comments.** Not "this used to be a private copy", not "the
+  list used to hold six", not "before #84 this was hardcoded". Git log, the
+  commit message, and the issue hold that; a comment repeating it goes stale
+  the moment someone edits around it, and it makes the reader reconstruct a
+  version of the file they cannot see.
+- **A bare `#N` is the whole citation.** `(#110)` after a statement about the
+  current behaviour points at the writeup — that is the supported way to reach
+  the history, per the rule above. Do not inline a summary of the issue.
+- **Say what and why, about what exists.** "Lookup needs a chapter; display
+  must not print one the book omits" is about the code. "This is what
+  rendering the block whole would have done" is about a version that is not
+  there.
+- **No musing.** No weighing of alternatives not taken, no notes on what a
+  future pass might do, no commentary on other files' defects beyond a `#N`.
+
+This applies to comments in tests too — a test's comment states the invariant
+it pins, not the bug that prompted it.
+
 ## Hard constraints
 
 - **Never edit `data/*.json` directly.** All corrections go through `data/corrections.json` (committed single manifest) or the extraction pipeline. `make check-integrity` validates this — it fails if any data file was touched outside the pipeline.
