@@ -524,6 +524,9 @@ body.book-mode .alt-panel + .alt-panel::before {
   padding-left: calc(2 * var(--verse-indent));
   text-indent: calc(-1 * var(--verse-indent));
 }
+/* The stanza gap inside a single said text. Same value as the gap between two
+   adjacent said texts below, which is the same relationship. */
+.stanza-break { display: block; height: var(--sp-4); }
 
 /* Couplets touch; stanzas breathe. Book ratio ≈ 1 : 1.7 */
 .seg-response + .seg-leader,

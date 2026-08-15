@@ -644,6 +644,52 @@ describe('verse rendering structure', () => {
 });
 
 
+// ── Stanza breaks (#119) ─────────────────────────────────────────────────────
+
+describe('stanza breaks', () => {
+  test('a blank line becomes a break element, not an empty line block', () => {
+    // An empty verse-line generates no line box, so the break the data carries
+    // would render at zero height.
+    const out = formatLiturgicalText('creator of heaven and earth.\n\nI believe in Jesus Christ,');
+    expect(out).toContain('<span class="stanza-break"></span>');
+    expect(out).not.toContain('<span class="verse-line"></span>');
+  });
+
+  test('a run of blank lines opens one gap, not several', () => {
+    const out = formatLiturgicalText('first\n\n\n\nsecond');
+    expect(out.match(/stanza-break/g)).toHaveLength(1);
+  });
+
+  test('blank lines at either end carry no gap', () => {
+    const out = formatLiturgicalText('\n\nfirst\nsecond\n\n');
+    expect(out).not.toContain('stanza-break');
+    expect(out.startsWith('<span class="verse-line">first</span>')).toBe(true);
+  });
+
+  test('a prefix stays on the first real line when the text opens blank', () => {
+    const out = formatLiturgicalText('\nHallelujah!\nPraise the Lord.', '<sup>1 </sup>');
+    expect(out.startsWith('<span class="verse-line"><sup>1 </sup>Hallelujah!')).toBe(true);
+  });
+
+  test('the line after a break is a full verse, not a caesura continuation', () => {
+    // A * on the line before the break pairs with nothing across it.
+    const out = formatLiturgicalText('you have come to your people, *\n\nBlessed be the Lord.');
+    expect(out).toContain('<span class="verse-line">Blessed be the Lord.</span>');
+    expect(out).not.toContain('verse-cont');
+  });
+
+  test('a text that is one line once the blanks go is not wrapped in a block', () => {
+    expect(formatLiturgicalText('Let us pray.\n\n')).toBe('Let us pray.');
+  });
+
+  test('the Creed renders its three articles with two breaks', () => {
+    const segs = [{ type: 'response', text: 'I believe in God, the Father almighty,\ncreator of heaven and earth.\n\nI believe in Jesus Christ, God’s only Son, our Lord,\nand he will come again to judge the living and the dead.\n\nI believe in the Holy Spirit,\nand the life everlasting. Amen.' }];
+    const html = renderSegments(segs, shared);
+    expect(html.match(/stanza-break/g)).toHaveLength(2);
+  });
+});
+
+
 // ── Psalm/Reading rubric placement (#84) ─────────────────────────────────────
 
 describe('rubric block splits', () => {

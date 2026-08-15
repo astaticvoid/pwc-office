@@ -175,6 +175,12 @@ export function bindMidpoints(html) {
     `<span class="midpoint-group">${word}${sp}<span class="midpoint">*</span></span>`);
 }
 
+// A blank line in the source is a stanza break. It gets a box of its own: the
+// lines are block spans, and an empty one generates no line box, so a break
+// rendered as an empty line would have zero height (#119).
+const STANZA_BREAK = '<span class="stanza-break"></span>';
+const BREAK = Symbol('stanza break');
+
 // Verse second-halves (psalm/canticle/invitatory line-pairs) are physically
 // indented in the source. Two independent signals mark a continuation line:
 // a leading space (extraction's geometry-derived indent marker — see
@@ -185,10 +191,24 @@ export function bindMidpoints(html) {
 // number belongs on the same line as the text it numbers, and the lines are
 // block boxes, so an inline prefix outside them would sit on a line of its own.
 export function formatLiturgicalText(text, prefix = '') {
-  const lines = text.split('\n');
-  if (lines.length < 2) return prefix + esc(text);
+  // Runs of blank lines collapse to one break and the ends carry none, so a
+  // stray blank in the data cannot open a double gap or push the first line
+  // down. Dropping the leading ones also keeps `prefix` on a real line.
+  const lines = [];
+  for (const raw of text.split('\n')) {
+    if (raw.trim() === '') {
+      if (lines.length && lines[lines.length - 1] !== BREAK) lines.push(BREAK);
+    } else {
+      lines.push(raw);
+    }
+  }
+  if (lines[lines.length - 1] === BREAK) lines.pop();
+  if (lines.length < 2) return prefix + esc(lines[0] ?? '');
   let prevEndsWithStar = false;
   return lines.map((l, i) => {
+    // A break interrupts the caesura pairing: the line after it starts a new
+    // stanza, so it is a full verse however the line before it ended.
+    if (l === BREAK) { prevEndsWithStar = false; return STANZA_BREAK; }
     const hasLeadingSpace = l.startsWith(' ');
     const indented = hasLeadingSpace || prevEndsWithStar;
     const clean = hasLeadingSpace ? l.slice(1) : l;
