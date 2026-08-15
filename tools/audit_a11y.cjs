@@ -442,10 +442,9 @@ async function main() {
   const failures = [];
   const formKeys = Object.keys(offices).filter(k => !k.startsWith('_'));
 
-  // Which _shared blocks the form pass actually renders. A block nothing looks
-  // at is as much a hole as one that fails — it is how #109 stayed quiet, the
-  // audit reporting "all forms pass" while four of the six were out of reach.
-  // walkSegments resolves a ref and drops the key, so track them here.
+  // Which _shared blocks the form pass renders. A block nothing looks at is as
+  // much a hole as one that fails, and 3b below reports it (#109). walkSegments
+  // resolves a ref and drops the key, so the keys are tracked here instead.
   const reachedShared = new Set();
   const noteShared = (segs) => {
     if (!segs) return;
@@ -465,15 +464,14 @@ async function main() {
   for (const fk of formKeys) {
     const form = offices[fk];
 
-    // Every segment-bearing field on the form. The list used to hold six, and
-    // omitting the rest was not a judgement about which ones matter: the tabs
-    // this audit checks come from `alternatives` segments, which extraction may
-    // put in any of them (#109). title/subtitle are strings, not segments, and
-    // are the only fields deliberately absent.
+    // Every segment-bearing field on the form: the tabs this audit checks come
+    // from `alternatives` segments, which extraction may put in any of them
+    // (#109). title/subtitle are strings, not segments, and are the only fields
+    // deliberately absent.
     //
     // `prepare` is how a field has to be handed to renderSegments to match what
-    // the app renders — the label the block carries for its own heading is the
-    // subsection title both renderers already emit, so it is stripped first.
+    // the app renders — the label a block carries for its own heading is the
+    // subsection title both renderers emit, so it is stripped first.
     const renderables = [
       { field: 'opening_responses', label: 'Opening Responses', verse: false },
       { field: 'thanksgiving_for_light', label: 'Thanksgiving for Light', verse: false },
@@ -495,10 +493,9 @@ async function main() {
     for (const { field, label, verse, prepare } of renderables) {
       if (!form[field]) continue;
       // A field normalize_offices.py hoisted into _shared is a {type,key} ref,
-      // not an array. Skipping those on shape — which is what this loop did —
-      // dropped the whole field from the audit silently, and drops any field
-      // hoisted next. Resolve the ref instead; a dangling one is itself a
-      // finding, since nothing would render on the page either.
+      // not an array, and has to be resolved rather than skipped on shape — a
+      // skip drops the whole field from the audit silently. A dangling ref is
+      // itself a finding, since nothing renders on the page either.
       let segs = form[field];
       if (!Array.isArray(segs)) {
         if (segs.type !== 'shared') continue;

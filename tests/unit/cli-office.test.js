@@ -4,10 +4,8 @@ import { readdirSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { expandCitationForDisplay } from '../../web/render.js';
 
-// cli/office.js rendered both lesson slots from form.responsory and never
-// printed a reading at all (#95) — the responsory came out three times and the
-// day's lessons not once. Nothing caught it: the CLI renderers have no tests,
-// which is the same gap #96 records for web/app.js.
+// Each lesson slot in cli/office.js holds the reading appointed for that slot,
+// and nothing else (#95).
 
 const ROOT = join(import.meta.dirname, '../..');
 const DATA_DIR = join(ROOT, 'data');
@@ -17,9 +15,8 @@ const HAS_DATA = existsSync(join(DATA_DIR, 'offices.json')) && existsSync(LECT_D
 // Pinning a date would rot as the lectionary is regenerated; ask the data for
 // one instead. Two lessons is what exercises both slots.
 function findTwoLessonDay() {
-  // Guard the read, not just the suite: vitest still runs a skipped describe's
-  // factory, so an unguarded readdir here fails the file on a checkout with no
-  // data/ (gitignored) rather than skipping it.
+  // vitest runs a skipped describe's factory, so the read is guarded here as
+  // well as on the suite — data/ is gitignored and absent on a fresh clone.
   if (!HAS_DATA) return null;
   for (const file of readdirSync(LECT_DIR).sort()) {
     if (!file.endsWith('.json')) continue;

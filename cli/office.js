@@ -48,16 +48,16 @@ function text(segs, opts = {}) {
   return blocksToString(renderSegmentsText(segs, shared, { ...BK, ...opts }));
 }
 
-// The Psalm/Reading rubrics come from the form since #84, and each says which
-// side of the lectionary content it belongs on — split them the same way the
-// other two renderers do rather than printing either block whole.
+// Each rubric in these blocks belongs on one side of the lectionary content it
+// heads, so both blocks are split rather than printed whole. cli/book.js and
+// web/app.js split them with the same two helpers (#84).
 const { intro: psalmIntro, doxologyCue: psalmDoxCue } = splitPsalmRubrics(form.psalm_rubrics);
 const { handoff: readingHandoff, intro: readingIntro, after: readingAfter } =
   splitReadingRubrics(form.reading_rubrics);
 
-// This CLI names dynamic content rather than resolving it: the Psalm slot has
-// always printed citations, not psalter text, and the lessons match that.
-const citations = (lesson) =>
+// This CLI names dynamic content rather than resolving it: citations, not
+// psalter and scripture text.
+const citation = (lesson) =>
   expandCitationForDisplay(typeof lesson === 'object' ? lesson.citation : String(lesson));
 
 let out = `# ${officeType.toUpperCase()} — ${dateStr}\n`;
@@ -66,9 +66,9 @@ if (lectionaryDay) out += `Day: ${lectionaryDay.name}\n`;
 
 out += `\n## Opening Responses\n${text(form.opening_responses)}\n`;
 
-// Length, not truthiness: `psalms: []` is not psalms, and the rubrics describe
-// content, so they go when it does — the same guard web/app.js keeps, for the
-// same reason. Unreachable with shipped lectionary data, latent otherwise.
+// The rubrics describe content, so they go when it does: an empty psalms array
+// is no psalms, and the section is skipped entire. web/app.js guards on length
+// for the same reason. No shipped lectionary entry is empty.
 const psalmSrc = officeData?.psalms?.length ? officeData.psalms : officeData?.psalm_sets?.[0];
 const psalms = psalmSrc?.length
   ? (Array.isArray(psalmSrc[0]) ? psalmSrc[0] : psalmSrc)
@@ -77,9 +77,8 @@ if (psalms.length) {
   out += '\n## Psalm\n';
   if (psalmIntro.length) out += `${text(psalmIntro)}\n`;
   out += `${psalms.map(p => typeof p === 'object' ? p.citation : p).join(', ')}\n`;
-  // The cue introduces the Gloria — printing "one of the following may be said"
-  // with nothing following it is what rendering the block whole would have
-  // done. Bound to the doxology here as cli/book.js and web/app.js bind it.
+  // The cue introduces the Gloria, so it prints only with it — as in
+  // cli/book.js and web/app.js.
   if (shared.doxology) {
     if (psalmDoxCue.length) out += `${text(psalmDoxCue)}\n`;
     out += `${text([shared.doxology])}\n`;
@@ -91,21 +90,19 @@ if (officeData?.lessons_pick) {
   const pickText = lessonsPickText(officeData.lessons_pick, lessons.length);
   if (pickText) out += `\n${pickText}\n`;
 }
-// Guarded on the lessons, like the psalm rubrics above: with no lectionary
-// file for the month these would otherwise print the hand-off into a Reading
-// that never arrives.
+// Guarded on the lessons, like the psalm rubrics above: with no lectionary file
+// for the month these announce a Reading that never arrives.
 if (lessons[0] && readingHandoff.length) out += `\n${text(readingHandoff)}\n`;
 if (lessons[0]) {
   out += '\n## Lesson 1\n';
-  // The intro rubric heads the Reading block once, as the book prints it, and
-  // is not repeated over Lesson 2 — that duplication is #98 in cli/book.js.
+  // The intro rubric heads the Reading block once, as the book prints it (#98).
   if (readingIntro.length) out += `${text(readingIntro)}\n`;
-  out += `${citations(lessons[0])}\n${text(form.reading_response)}\n`;
+  out += `${citation(lessons[0])}\n${text(form.reading_response)}\n`;
 }
 if (lessons[0] && readingAfter.length) out += `\n${text(readingAfter)}\n`;
 out += `\n## Responsory\n${text(form.responsory)}\n`;
 if (lessons[1]) {
-  out += `\n## Lesson 2\n${citations(lessons[1])}\n${text(form.reading_response)}\n`;
+  out += `\n## Lesson 2\n${citation(lessons[1])}\n${text(form.reading_response)}\n`;
 }
 out += `\n## Canticle\n${text(form.canticle)}\n`;
 out += `\n## Intercessions\n${text(form.intercessions)}\n`;

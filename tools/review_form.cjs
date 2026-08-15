@@ -73,12 +73,10 @@ if (!form) {
   if (form.phos_hilaron) section('Phos Hilaron', form.phos_hilaron);
   if (form.invitatory) section('Invitatory', form.invitatory);
 
-  // The Psalm/Reading rubrics (#84). Nothing separates them here — this tool
-  // renders a form, not a day, so there is no psalm or lesson to sit between
-  // the halves and no reason to split the blocks the way the two renderers do.
-  // Extraction order is page order, which is what a review pass wants to read.
-  // rubricBlockSegments drops the block's own "The Psalm"/"The Reading" label,
-  // which section() is already printing as the heading.
+  // This tool renders a form, not a day, so there is no psalm or lesson to sit
+  // between the halves of these blocks and they print whole, in extraction
+  // order, which is page order (#84). rubricBlockSegments drops the block's own
+  // "The Psalm"/"The Reading" label, which section() prints as the heading.
   if (form.psalm_rubrics) section('The Psalm', rubricBlockSegments(form.psalm_rubrics));
   if (form.reading_rubrics) section('The Reading', rubricBlockSegments(form.reading_rubrics));
   if (form.reading_response) section('Reading Response', form.reading_response);
