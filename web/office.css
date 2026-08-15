@@ -371,20 +371,32 @@ body {
 #day-date-nav {
   display: flex; justify-content: flex-start; align-items: flex-start;
   margin-bottom: 0.5rem;
+  /* The click handler is on the row, not the button, so this padding is the
+     tappable band rather than spacing — off the 4px grid deliberately. */
   cursor: pointer; padding: 0.3rem 0;
 }
 #day-date-btn {
   position: relative; background: none; border: none; cursor: pointer;
   font-family: var(--font-liturgy); font-size: 1.15rem; font-style: italic;
   color: var(--color-text); padding: 0.15rem 0.4rem; border-radius: var(--radius-sm);
+  /* Cancel the left half of the hover ground, so the date keeps its pad and
+     still starts on the header's one left axis (#122). */
+  margin-left: -0.4rem;
   transition: background 0.1s;
 }
 #day-date-btn:hover { background: var(--color-surface); }
 
 #day-meta {
   display: flex; justify-content: flex-start; align-items: flex-start;
-  gap: 0.5rem 0.8rem;
+  gap: var(--sp-1) var(--sp-2);
   flex-wrap: wrap; font-size: var(--fs-ui);
+}
+/* One rule owns the separator, so every pair reads the same however many items
+   the day has. It trails its own item rather than leading the next: the row
+   wraps on a phone, and a leading separator would orphan onto the new line and
+   push that item off the header's left axis (#124). */
+.meta-item:not(:last-child)::after {
+  content: '·'; color: var(--color-border); margin-left: var(--sp-1);
 }
 
 /* Meta: season item */
@@ -398,7 +410,6 @@ body {
   font-family: var(--font-ui); font-size: var(--fs-ui);
   color: var(--color-text); font-weight: 500;
 }
-.meta-sep { color: var(--color-border); }
 
 /* Colour chip */
 .colour-chip {
@@ -462,7 +473,7 @@ body.book-mode .alt-panel + .alt-panel::before {
 .obs-readings h3:first-of-type { margin-top: 0; }
 
 .observance-label {
-  margin: 0.25rem 0 0.75rem;
+  margin: var(--sp-1) 0 var(--sp-3);
 }
 
 /* ── Labels ─────────────────────────────────────────────────────────────────── */
@@ -507,7 +518,7 @@ body.book-mode .alt-panel + .alt-panel::before {
 .seg-label {
   font-family: var(--font-liturgy); font-style: italic;
   font-size: 0.95rem; color: var(--color-muted);
-  margin: 0.75rem 0 0.25rem;
+  margin: var(--sp-3) 0 var(--sp-1);
 }
 /* Verse lines (psalm/canticle/invitatory line-pairs). Each line is its own
    block with a hanging indent: a full verse starts flush and its wraps tuck
@@ -539,6 +550,10 @@ body.book-mode .alt-panel + .alt-panel::before {
    this boundary would otherwise compute to 0 on both sides. */
 .seg-leader   + .alt-block,
 .seg-response + .alt-block    { margin-top: var(--sp-4); }
+/* Same shape for a rubric: it carries bottom margin only, so without this the
+   red line sits on the last line of the prayer it follows (#120). */
+.seg-leader   + .seg-rubric,
+.seg-response + .seg-rubric   { margin-top: var(--sp-4); }
 
 .seg-rubric {
   font-family: var(--font-liturgy);
@@ -558,7 +573,7 @@ body.book-mode .alt-panel + .alt-panel::before {
 }
 .psalm-title {
   font-family: var(--font-liturgy); font-size: 0.9rem; font-style: italic;
-  color: var(--color-muted); margin: 0 0 0.7rem 0;
+  color: var(--color-muted); margin: 0 0 var(--sp-3);
 }
 
 .psalm-block {
@@ -587,7 +602,7 @@ body.book-mode .alt-panel + .alt-panel::before {
 
 .psalm-gloria {
   font-family: var(--font-liturgy);
-  margin-top: 0.5rem; padding-top: 0.25rem;
+  margin-top: var(--sp-4); padding-top: var(--sp-3);
   border-top: 1px solid var(--color-border);
 }
 
@@ -608,7 +623,7 @@ body.book-mode .alt-panel + .alt-panel::before {
 }
 .scripture-attr {
   font-family: var(--font-ui); font-size: var(--fs-micro); color: var(--color-muted);
-  font-style: italic; margin-top: 2rem; padding-top: 0.75rem;
+  font-style: italic; margin-top: var(--sp-5); padding-top: var(--sp-3);
   text-align: left;
 }
 .scripture-fallback-note {
@@ -632,7 +647,7 @@ body.book-mode .alt-panel + .alt-panel::before {
 
 /* ── FATS biographical notice ───────────────────────────────────────────────── */
 .fats-bio {
-  margin-bottom: 1.25rem;
+  margin-bottom: var(--sp-4);
   border: 1px solid var(--color-border); border-left: 2px solid var(--color-accent);
   border-radius: var(--radius-md);
   background: var(--color-surface);
@@ -659,7 +674,7 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 .alt-source {
   font-family: var(--font-liturgy); font-size: 0.92rem;
   font-style: italic; color: var(--color-rubric);
-  margin: 0.2rem 0 0.4rem;
+  margin: var(--sp-1) 0 var(--sp-2);
 }
 /* The block carries no indent of its own. The selector is app chrome and
    belongs on the margin beside the rubric that introduces the choice; the text
@@ -728,7 +743,7 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 
 .day-note {
   font-family: var(--font-liturgy); font-size: 0.95rem;
-  font-style: italic; color: var(--color-muted); margin: 0.4rem 0;
+  font-style: italic; color: var(--color-muted); margin: var(--sp-2) 0;
   text-align: left;
 }
 .day-note a { color: var(--color-link); text-decoration: underline; font-style: normal; }
@@ -736,7 +751,7 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 .day-note--antiphon {
   font-style: normal; color: var(--color-text);
   border-left: 2px solid var(--color-accent);
-  padding-left: 0.75rem; margin: 0.75rem 0;
+  padding-left: var(--sp-3); margin: var(--sp-3) 0;
 }
 .note-antiphon-label {
   display: block;
@@ -762,6 +777,11 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 
 #day-office-controls { margin-top: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-4); }
 #day-office-controls[style*="display: none"] { margin-top: 0; }
+/* The captions exist to tell the two groups apart. With only the office group
+   on the page there is nothing to tell it apart from, and the caption states
+   what its buttons already say — the group keeps its accessible name from
+   .day-ctrl-seg's aria-label either way (#123). */
+#day-office-controls.has-one-group .day-ctrl-cap { display: none; }
 
 .day-ctrl-group {
   display: flex; flex-direction: column; gap: var(--sp-2);
@@ -833,7 +853,7 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 
 .eval-banner {
   display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem;
-  padding: 0.55rem 0.75rem; margin-bottom: 1.5rem;
+  padding: 0.55rem 0.75rem; margin-bottom: var(--sp-5);
   background: var(--color-surface); border-left: 2px solid var(--color-accent);
   font-family: var(--font-ui); font-size: var(--fs-micro); font-style: italic; color: var(--color-muted);
 }
@@ -886,5 +906,5 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
      already borderless text, and the sheet has to say which day it is.
      (The nav icons need no rule — #nav above takes the whole bar.) */
   #day-office-controls { display: none; }
-  #day-date-btn { padding: 0; }
+  #day-date-btn { padding: 0; margin-left: 0; }
 }

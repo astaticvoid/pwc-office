@@ -887,7 +887,6 @@ async function render(dateStr, officeType, translation) {
     + `<span class="meta-lbl">Season</span>`
     + `<span class="meta-val">${esc(seasonLabel)}</span>`
     + `</span>`
-    + `<span class="meta-sep">·</span>`
     + `<span class="meta-item">${esc(formatRank(activeRank))}</span>`
     + colourChip;
 
@@ -921,6 +920,9 @@ async function render(dateStr, officeType, translation) {
         </div></div>`;
     }
     ctrlEl.innerHTML = ctrlHtml;
+    // The observance group only exists on a day with an alternate; the sheet
+    // drops both captions when it is absent (#123).
+    ctrlEl.classList.toggle('has-one-group', !officeData.alternate);
     ctrlEl.style.display = ctrlHtml ? '' : 'none';
   }
   const SUPPRESS_NOTE_TYPES = new Set(['ember_crossref', 'rogation_crossref', 'precedence_rule', 'reconciliation_propers']);

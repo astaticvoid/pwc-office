@@ -103,7 +103,7 @@ const LITERAL_PAIRS = [
 
 // Painted, but carrying no information: contrast has nothing to protect.
 const DECORATIVE = {
-  '--color-border': '.meta-sep — the "·" between metadata items, and every border/rule use',
+  '--color-border': '.meta-item::after — the "·" between metadata items, and every border/rule use',
 };
 
 /**
