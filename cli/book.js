@@ -10,7 +10,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import {
   renderSegmentsText, blocksToString,
-  ABBREV_TO_FILE, lessonsPickText, splitPsalmRubrics, splitReadingRubrics,
+  expandCitationForDisplay, lessonsPickText, splitPsalmRubrics, splitReadingRubrics,
 } from '../web/render.js';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -73,27 +73,14 @@ function renderPsalm(citation) {
 
 // ── Reading ─────────────────────────────────────────────────────────────────
 
-function expandCitation(raw) {
-  return raw.split(' or ').map(part => {
-    const m = part.trim().match(/^([1-3]?\s*[A-Z][a-z]*)\s+(.+)$/);
-    if (!m) return part.trim();
-    const expanded = ABBREV_TO_FILE[m[1].trim()];
-    return expanded ? `${expanded} ${m[2]}` : part.trim();
-  }).join(' or ');
-}
-
 function citationStr(lesson) {
   const raw = typeof lesson === 'object' ? lesson.citation : lesson;
-  return expandCitation(raw);
+  return expandCitationForDisplay(raw);
 }
 
-// The Psalm/Reading rubrics come from the form since #84. Book mode prints
-// them around the lectionary content rather than as one block; the split is
-// shared with the web renderer (render.js) so the two modes cannot disagree
-// about which side of the content a rubric belongs on. These sentences used to
-// be hardcoded here, in a second copy that could not see the extracted data —
-// the per-form "At the end of the Psalm(s)" / "After the Psalm" wording was
-// reconstructed from the form name rather than read.
+// Book mode prints these rubrics around the lectionary content, not as one
+// block. The split lives in render.js so this mode and the web renderer cannot
+// disagree about which side of the content a rubric belongs on (#84).
 const { intro: psalmIntro, doxologyCue: psalmDoxCue } = splitPsalmRubrics(form.psalm_rubrics);
 const { handoff: readingHandoff, intro: readingIntro, after: readingAfter } =
   splitReadingRubrics(form.reading_rubrics);

@@ -324,14 +324,22 @@ export function parseCitation(rawCitation) {
   let rest = s.slice(numStart).trim();
   const file = ABBREV_TO_FILE[abbrev];
   if (!file) return null;
-  if (rest !== '' && !rest.includes(':')) rest = '1:' + rest;
-  return { abbrev, file, rest };
+  // A single-chapter book is cited without a chapter — the lectionary source
+  // prints "Jude 17-25", "Ob 15-21", "3 Jn 1-15". The verse data is keyed by
+  // chapter regardless (kjv/Jude.json has a "1"), so lookup needs one supplied.
+  // The flag marks it as a lookup detail, so display can strip it and print the
+  // citation as the book gives it (#110).
+  const chapterInferred = rest !== '' && !rest.includes(':');
+  if (chapterInferred) rest = '1:' + rest;
+  return { abbrev, file, rest, chapterInferred };
 }
 
 export function expandCitationForDisplay(rawCitation) {
   return rawCitation.split(' or ').map(part => {
     const p = parseCitation(part.trim());
-    return p ? `${p.file}${p.rest ? ' ' + p.rest : ''}` : part.trim();
+    if (!p) return part.trim();
+    const rest = p.chapterInferred ? p.rest.replace(/^1:/, '') : p.rest;
+    return `${p.file}${rest ? ' ' + rest : ''}`;
   }).join(' or ');
 }
 

@@ -1,15 +1,18 @@
 import { describe, test, expect } from 'vitest';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, readdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import {
   formKey, officeFormSeason, renderSegments, renderSubsection, lessonHtml,
   lessonsPickText, lessonsPickRubricHtml, renderOfficeJSON,
   LITURGICAL_TEXT_REGISTER, SKIP_RUBRICS, assembleSections, esc,
   formatLiturgicalText, splitPsalmRubrics, splitReadingRubrics,
+  parseCitation, expandCitationForDisplay,
 } from '../../web/render.js';
 
 const DATA_DIR = join(import.meta.dirname, '../../data');
 const HAS_DATA = existsSync(join(DATA_DIR, 'offices.json'));
+const LECT_DIR = join(DATA_DIR, 'lectionary');
+const HAS_LECTIONARY = existsSync(LECT_DIR);
 
 function loadData() {
   const offices = HAS_DATA
@@ -677,5 +680,56 @@ describe('rubric block splits', () => {
       const rubrics = (form.psalm_rubrics.length - 1) + (form.reading_rubrics.length - 1);
       expect(runs, `${key} every rubric placed`).toBe(rubrics);
     }
+  });
+});
+
+
+// ── Citation display vs lookup (#110) ────────────────────────────────────────
+
+describe('expandCitationForDisplay', () => {
+  // A single-chapter book is cited without a chapter, and that is how the
+  // lectionary source prints it. parseCitation supplies chapter 1 because the
+  // verse data is keyed by chapter; display must not inherit that.
+  test.each([
+    ['Jude 1-16',  'Jude 1-16',       '1:1-16'],
+    ['Jude 17-25', 'Jude 17-25',      '1:17-25'],
+    ['3 Jn 1-15',  '3 John 1-15',     '1:1-15'],
+    ['Ob 15-21',   'Obadiah 15-21',   '1:15-21'],
+    ['Philem 8-20', 'Philemon 8-20',  '1:8-20'],
+  ])('%s displays as %s, looks up %s', (raw, display, lookupRest) => {
+    expect(expandCitationForDisplay(raw)).toBe(display);
+    expect(parseCitation(raw).rest, 'lookup still needs the chapter').toBe(lookupRest);
+    expect(parseCitation(raw).chapterInferred).toBe(true);
+  });
+
+  test.each([
+    ['Am 5:1-17',       'Amos 5:1-17'],
+    ['2 Sam 5:22—6:11', '2 Samuel 5:22—6:11'],
+    ['Mt 22:1-14',      'Matthew 22:1-14'],
+    ['Is 55:1-5 or Jer 31:1-6', 'Isaiah 55:1-5 or Jeremiah 31:1-6'],
+  ])('%s is untouched beyond expanding the book', (raw, display) => {
+    expect(expandCitationForDisplay(raw)).toBe(display);
+    expect(parseCitation(raw).chapterInferred).toBe(false);
+  });
+
+  // The invariant behind the cases above, over every reading the lectionary
+  // appoints, so a single-chapter book new to regenerated data is covered too.
+  test.skipIf(!HAS_LECTIONARY)('never prints a chapter the appointed citation lacks', () => {
+    let checked = 0;
+    for (const file of readdirSync(LECT_DIR)) {
+      if (!file.endsWith('.json')) continue;
+      const month = JSON.parse(readFileSync(join(LECT_DIR, file), 'utf8'));
+      for (const day of Object.values(month)) {
+        for (const office of ['morning', 'evening']) {
+          for (const lesson of day[office]?.lessons || []) {
+            const raw = typeof lesson === 'object' ? lesson.citation : String(lesson);
+            checked++;
+            if (raw.includes(':')) continue;
+            expect(expandCitationForDisplay(raw), raw).not.toContain(':');
+          }
+        }
+      }
+    }
+    expect(checked, 'lectionary had readings to check').toBeGreaterThan(0);
   });
 });
