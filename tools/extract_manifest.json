@@ -1,5 +1,5 @@
 {
-  "extracted_at": "2026-08-15T02:07:07Z",
+  "extracted_at": "2026-08-15T03:09:04Z",
   "tool_versions": {
     "fitz": [
       "1.28.2",
@@ -13,7 +13,7 @@
     "tools/normalize_offices.py": "23d677f82aa34ed6b05154002adb72e0d19cbe0cb8b13e5898e4545930717808",
     "tools/extract_psalter.py": "49abfe5e67a8d0bfadd73aac88da4ba6811fcda71eb1b5f3583e3e184c511e11",
     "tools/extract_collects.py": "e5406ec72298ddd63b7b26f8eea21604ffac0922ad4402ce8921d08860e800b2",
-    "tools/extract_fats.py": "e53be8bdd962365d69402de09c0d29ab910db24ed3e8b686ccd208c4b46727eb",
+    "tools/extract_fats.py": "40bd5c0cfe2b837aa707c6388b86b3e1ce527ee979645fdc117fd25224827caf",
     "tools/convert_lectionary.py": "17802222fd6c4bf0770fb480769ad586097e0fea32799f3956a221e9e6a673e4",
     "tools/apply_corrections.py": "6e3fafcd98b00ed39675877e828e0f7515109dffe309b6980ddc59fcff33c44b",
     "tools/corrections_lib.py": "aeb8e2cd6319225421c845fc921a435829d3bf4da0ff802d77ed14fb59cb20c8",
@@ -39,7 +39,7 @@
       "entries": 14
     },
     "data/fats/saints.json": {
-      "sha256": "369071b7032049702738ba89973277306e5aac139b5917b8700aadee4d16a699",
+      "sha256": "1c063f73ac567d77039ba4870abcc419bfc478a2becf6a8e0320ebdd5fbb8775",
       "entries": 174
     },
     "data/lectionary": {

@@ -445,16 +445,51 @@ def _normalize_citation(s: str) -> str:
     return s.replace('–', '-')
 
 
-def parse_propers(page: str) -> dict:
-    """Parse a propers page. Returns dict with sentence, collect, psalm, refrain,
-    readings."""
-    # Sentence: between "Sentence" heading and "Collect" heading
-    m = re.search(r'Sentence\s*\n\s*\n(.+?)(?=\n\s*Collect)', page, re.DOTALL)
-    sentence = ' '.join(m.group(1).split()) if m else ''
+# ── Sentence and Collect blocks ───────────────────────────────────────────────
+#
+# Every section on a propers page prints its heading alone on a line with the
+# body starting on the next one, so the separator between the two is a single
+# newline. PyMuPDF's text layer for this PDF emits no blank line anywhere — not
+# on any of the 176 propers pages — so a pattern that expects one under the
+# heading matches nothing (#113). The headings are matched as whole lines, the
+# way `is_propers_page` matches the "Collect" one.
+_SENTENCE_RE = re.compile(r'^Sentence[ \t]*\n(.+?)^Collect[ \t]*$', re.M | re.S)
+_COLLECT_RE = re.compile(r'^Collect[ \t]*\n(.+?)^Readings[ \t]*$', re.M | re.S)
 
-    # Collect: between "Collect" heading and "Readings" heading
-    m = re.search(r'Collect\s*\n\s*\n(.+?)(?=\n\s*Readings)', page, re.DOTALL)
-    collect = _clean_text(m.group(1).strip()) if m else ''
+
+def _sentence_and_ref(block: str) -> tuple[str, str]:
+    """The Sentence block split into the sentence and the line attributing it.
+
+    The book prints the attribution on its own line under the sentence, which
+    wraps above it but never onto it: the last line of the block is the
+    attribution on all 176 propers pages. Usually it is a citation ("Hebrews
+    1.1–2"), so it ships punctuated as the rest of the data is (#112); four
+    sentences are attributed to a writer or a work instead ("Lancelot Andrewes,
+    1620", "The Venerable Bede"), which is why the field holds a reference
+    rather than a citation and why the fats conservation chain does not walk it
+    as prose — the same reason `psalm` and `readings` are not walked.
+    """
+    lines = [ln.strip() for ln in _dehyphenate(block).split('\n') if ln.strip()]
+    if len(lines) < 2:
+        # No page prints a sentence with nothing under it; attributing the only
+        # line to itself would be worse than shipping it as the sentence.
+        return (_clean_text(' '.join(lines)), '')
+    return (_clean_text(' '.join(' '.join(lines[:-1]).split())),
+            _normalize_citation(lines[-1]))
+
+
+def parse_propers(page: str) -> dict:
+    """Parse a propers page. Returns dict with sentence, sentence_ref, collect,
+    psalm, refrain, readings."""
+    m = _SENTENCE_RE.search(page)
+    sentence, sentence_ref = _sentence_and_ref(m.group(1)) if m else ('', '')
+
+    # The collect is verse-set — one clause to a line — and `.collect-text`
+    # renders it `white-space: pre-wrap`, so the line breaks are kept.
+    m = _COLLECT_RE.search(page)
+    collect = _clean_text('\n'.join(
+        ln.strip() for ln in _dehyphenate(m.group(1)).split('\n') if ln.strip()
+    )) if m else ''
 
     # Readings section: up to "Prayer over the Gifts"
     m = re.search(r'Readings\s*\n(.+?)(?=\n\s*Prayer over the Gifts)', page, re.DOTALL)
@@ -519,7 +554,8 @@ def parse_propers(page: str) -> dict:
     # A page printing several sets (All Saints A/B/C, Christmas) collapses to
     # one psalm and one refrain, both from the last set, so the two still name
     # the same psalm as each other.
-    return {'sentence': sentence, 'collect': collect, 'psalm': psalm,
+    return {'sentence': sentence, 'sentence_ref': sentence_ref,
+            'collect': collect, 'psalm': psalm,
             'refrain': ' '.join(refrain_lines), 'readings': readings}
 
 
@@ -603,6 +639,7 @@ def extract_fats(pdf_path: Path) -> dict:
             'rank':     bio_info['rank'],
             'bio':      bio_info['bio'],
             'sentence': propers_info['sentence'],
+            'sentence_ref': propers_info['sentence_ref'],
             'collect':  propers_info['collect'],
             'psalm':    propers_info['psalm'],
             'refrain':  propers_info['refrain'],

@@ -1092,13 +1092,14 @@ def run_psalter(args) -> int:
 # For All The Saints (FATS) is the third published chain with a page source and
 # its own correction category. Its shape differs from both offices (field
 # segments) and the psalter (psalm → verse text): it is a dict of saint name →
-# {date, rank, bio, sentence, collect, psalm, refrain, readings}. The prose the
-# reader is shown is `bio` (multi-line biography), `sentence`, `collect` and
-# `refrain` (single-line propers); `psalm` and `readings` are citations with
-# their own resolution path, not prose, so this chain scopes to the prose
-# fields. What that buys is bounded: both sides of the comparison come from the
-# extractor's own parsers, so a field the parser never fills balances at zero
-# rather than failing (#113).
+# {date, rank, bio, sentence, sentence_ref, collect, psalm, refrain, readings}.
+# The prose the reader is shown is `bio` (multi-line biography), `collect`
+# (verse-set prayer), `sentence` and `refrain` (single-line propers); `psalm`,
+# `readings` and `sentence_ref` are references, not prose, so this chain scopes
+# to the prose fields. What that buys is bounded, and the bound is worth
+# stating: both sides of the comparison come from the extractor's own parsers,
+# so what the parser cannot see the check cannot see either. A field the parser
+# leaves empty balances at zero on both sides and passes (#113).
 #
 # The source is a third PDF (For-All-The-Saints.pdf), and the extractor walks
 # it page-wise — bio page → continuation pages → propers page — rather than
@@ -1224,9 +1225,9 @@ def read_fats_source(pdf_path: Path) -> list[FatsSourceLine]:
 class FatsShipped:
     """The fats prose as shipped, indexed for both directions of the check.
 
-    `data/fats/saints.json` is {name: {date, rank, bio, sentence, collect,
-    psalm, refrain, readings}}; `bio` is multi-line, the other prose fields
-    single-line.
+    `data/fats/saints.json` is {name: {date, rank, bio, sentence, sentence_ref,
+    collect, psalm, refrain, readings}}; `bio` and `collect` are multi-line, the
+    other prose fields single-line.
     The `corrected` rule reconstructs each prose field from the pre-correction
     artifact plus the "fats" corrections (keyed by {saint, field}, substring
     `old`) — exactly as apply_corrections.py does — and a divergence is

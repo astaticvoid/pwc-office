@@ -347,6 +347,85 @@ def _propers(*lines: str) -> str:
     return "\n".join(["Readings", *lines, "Prayer over the Gifts", "Gracious God,"])
 
 
+def _page(sentence: list[str], collect: list[str], *readings: str) -> str:
+    """A whole propers page, headings and bodies laid out as the PDF prints them.
+
+    No blank line anywhere: the text layer for this PDF emits none, which is
+    what the fixtures below are here to hold (#113).
+    """
+    return "\n".join([
+        "Sentence", *sentence,
+        "Collect", *collect,
+        _propers(*readings),
+    ])
+
+
+class TestParseProperSentenceAndCollect:
+    def test_sentence_and_collect_come_off_a_page_with_no_blank_lines(self):
+        p = parse_propers(_page(
+            ["We have seen his star in the East, and have come to worship",
+             "him.",
+             "Matthew 2.2"],
+            ["Eternal God,",
+             "who by a star",
+             "led wise men to the worship of your Son."],
+            "Isaiah 60.1–6",
+        ))
+        assert p["sentence"] == ("We have seen his star in the East, "
+                                 "and have come to worship him.")
+        assert p["collect"] == ("Eternal God,\n"
+                                "who by a star\n"
+                                "led wise men to the worship of your Son.")
+
+    def test_the_last_line_is_the_attribution_and_ships_as_a_citation(self):
+        p = parse_propers(_page(
+            ["There is no fear in love, but perfect love casts out fear.",
+             "1 John 4.18"],
+            ["Almighty God,"],
+        ))
+        assert p["sentence"] == ("There is no fear in love, "
+                                 "but perfect love casts out fear.")
+        assert p["sentence_ref"] == "1 John 4:18"
+
+    def test_an_attribution_naming_a_writer_ships_as_printed(self):
+        # Four sentences are attributed to a work or its author rather than to
+        # scripture, which is why the field is a reference and not a citation.
+        p = parse_propers(_page(
+            ["These were wise men, and never a whit the less wise for com-",
+             "ing to Christ.",
+             "Lancelot Andrewes, 1620"],
+            ["Everlasting God,"],
+        ))
+        assert p["sentence"] == ("These were wise men, and never a whit "
+                                 "the less wise for coming to Christ.")
+        assert p["sentence_ref"] == "Lancelot Andrewes, 1620"
+
+    def test_a_translation_marker_rides_along_with_the_citation(self):
+        p = parse_propers(_page(
+            ["This is an Israelite indeed, in whom there is no guile.",
+             "John 1.47 (RSV)"],
+            ["Almighty God,"],
+        ))
+        assert p["sentence_ref"] == "John 1:47 (RSV)"
+
+    def test_a_rubric_above_the_heading_is_not_part_of_the_sentence(self):
+        page = "\n".join([
+            "When 6 January is a Sunday these propers will be used instead of those for",
+            "the Second Sunday after Christmas.",
+            _page(["Come, let us walk in the light of the Lord!", "Isaiah 2.5"],
+                  ["Eternal God,"]),
+        ])
+        p = parse_propers(page)
+        assert p["sentence"] == "Come, let us walk in the light of the Lord!"
+        assert p["sentence_ref"] == "Isaiah 2:5"
+
+    def test_a_page_with_neither_heading_yields_empty_fields(self):
+        p = parse_propers(_propers("Psalm 67"))
+        assert p["sentence"] == ""
+        assert p["sentence_ref"] == ""
+        assert p["collect"] == ""
+
+
 class TestParsePropers:
     def test_readings_psalm_and_refrain_are_separated(self):
         p = parse_propers(_propers(
