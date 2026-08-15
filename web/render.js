@@ -181,6 +181,34 @@ export function bindMidpoints(html) {
 const STANZA_BREAK = '<span class="stanza-break"></span>';
 const BREAK = Symbol('stanza break');
 
+// Runs of blank lines collapse to one break and the ends carry none, so a stray
+// blank in the data cannot open a double gap or push the first line down. Both
+// said-text paths split here, so they break in the same places (#121).
+function stanzaLines(text) {
+  const lines = [];
+  for (const raw of text.split('\n')) {
+    if (raw.trim() === '') {
+      if (lines.length && lines[lines.length - 1] !== BREAK) lines.push(BREAK);
+    } else {
+      lines.push(raw);
+    }
+  }
+  if (lines[lines.length - 1] === BREAK) lines.pop();
+  return lines;
+}
+
+// Prose said texts keep their line breaks through `white-space: pre-wrap`
+// rather than one block per line, so a blank line already renders — but as a
+// line box, which is the reading face's line height rather than the stanza
+// token. The break element is the same size wherever the text is set.
+export function formatProseText(text) {
+  const lines = stanzaLines(text);
+  return lines.reduce((out, l, i) => {
+    if (l === BREAK) return out + STANZA_BREAK;
+    return out + (i > 0 && lines[i - 1] !== BREAK ? '\n' : '') + esc(l);
+  }, '');
+}
+
 // Verse second-halves (psalm/canticle/invitatory line-pairs) are physically
 // indented in the source. Two independent signals mark a continuation line:
 // a leading space (extraction's geometry-derived indent marker — see
@@ -191,18 +219,8 @@ const BREAK = Symbol('stanza break');
 // number belongs on the same line as the text it numbers, and the lines are
 // block boxes, so an inline prefix outside them would sit on a line of its own.
 export function formatLiturgicalText(text, prefix = '') {
-  // Runs of blank lines collapse to one break and the ends carry none, so a
-  // stray blank in the data cannot open a double gap or push the first line
-  // down. Dropping the leading ones also keeps `prefix` on a real line.
-  const lines = [];
-  for (const raw of text.split('\n')) {
-    if (raw.trim() === '') {
-      if (lines.length && lines[lines.length - 1] !== BREAK) lines.push(BREAK);
-    } else {
-      lines.push(raw);
-    }
-  }
-  if (lines[lines.length - 1] === BREAK) lines.pop();
+  // Dropping the leading blanks also keeps `prefix` on a real line.
+  const lines = stanzaLines(text);
   if (lines.length < 2) return prefix + esc(lines[0] ?? '');
   let prevEndsWithStar = false;
   return lines.map((l, i) => {
@@ -545,10 +563,10 @@ export function renderSegments(segs, shared, verse = false) {
     }
     if (seg.type === 'label')    return `<p class="seg-label">${esc(text)}</p>`;
     if (seg.type === 'response') return `<p class="seg-response">${italicisePlaceholderN(bindMidpoints(formatLiturgicalText(text)))}</p>`;
-    const formatted = verse ? formatLiturgicalText(text) : esc(text);
+    const formatted = verse ? formatLiturgicalText(text) : formatProseText(text);
     const amenMatch = seg.type === 'leader' && text.match(/^([\s\S]+)\s(Amen\.)$/);
     if (amenMatch) {
-      const amenBody = verse ? formatLiturgicalText(amenMatch[1]) : esc(amenMatch[1]);
+      const amenBody = verse ? formatLiturgicalText(amenMatch[1]) : formatProseText(amenMatch[1]);
       return `<p class="seg-leader">${italicisePlaceholderN(bindMidpoints(amenBody))}</p>`
            + `<p class="seg-response">Amen.</p>`;
     }

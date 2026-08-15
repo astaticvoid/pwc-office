@@ -5,7 +5,7 @@ import {
   formKey, officeFormSeason, renderSegments, renderSubsection, lessonHtml,
   lessonsPickText, lessonsPickRubricHtml, renderOfficeJSON,
   LITURGICAL_TEXT_REGISTER, SKIP_RUBRICS, assembleSections, esc,
-  formatLiturgicalText, splitPsalmRubrics, splitReadingRubrics,
+  formatLiturgicalText, formatProseText, splitPsalmRubrics, splitReadingRubrics,
   parseCitation, expandCitationForDisplay, SINGLE_CHAPTER_BOOKS,
 } from '../../web/render.js';
 
@@ -680,6 +680,29 @@ describe('stanza breaks', () => {
 
   test('a text that is one line once the blanks go is not wrapped in a block', () => {
     expect(formatLiturgicalText('Let us pray.\n\n')).toBe('Let us pray.');
+  });
+
+  test('a prose said text breaks with the same element as a verse one (#121)', () => {
+    // The prose path keeps its line breaks through pre-wrap, so the blank line
+    // already rendered — at a line box rather than the stanza token.
+    const text = 'Let us pray to the Creator of the universe.\n\nHoly One,\nhear our prayer.';
+    const html = renderSegments([{ type: 'leader', text }], shared, false);
+    expect(html).toContain('universe.<span class="stanza-break"></span>Holy One,\nhear');
+  });
+
+  test('prose keeps single newlines for pre-wrap and eats the blank ones', () => {
+    const out = formatProseText('one\ntwo\n\nthree');
+    expect(out).toBe('one\ntwo<span class="stanza-break"></span>three');
+  });
+
+  test('prose escapes its text', () => {
+    expect(formatProseText('a & b\n\n<c>')).toBe('a &amp; b<span class="stanza-break"></span>&lt;c&gt;');
+  });
+
+  test('both paths break the same text in the same places', () => {
+    const text = 'first line\n\nsecond stanza\nits second line\n\nthird';
+    const count = h => (h.match(/stanza-break/g) || []).length;
+    expect(count(formatProseText(text))).toBe(count(formatLiturgicalText(text)));
   });
 
   test('the Creed renders its three articles with two breaks', () => {
