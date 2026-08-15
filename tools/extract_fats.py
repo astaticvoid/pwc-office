@@ -377,8 +377,77 @@ def _extract_bio_body(lines: list[str]) -> str:
     return _clean_text(_dehyphenate(text.strip()))
 
 
+# ── Readings block ────────────────────────────────────────────────────────────
+#
+# The propers page prints one readings set as: first reading, psalm, a "Refrain"
+# heading with the refrain beneath it, an optional pointer to an alternative
+# refrain, then the remaining readings. Only the citations belong in `readings`;
+# the refrain is text the book prints and gets its own field (#112).
+
+# The main section heads the refrain "Refrain"; the appendix also prints
+# "Refrain:" and "Refrain Common Refrain 7: …", so the colon is optional and
+# anything after the heading is the refrain itself.
+_REFRAIN_HEAD_RE = re.compile(r'^Refrain\b:?\s*(.*)$', re.IGNORECASE)
+
+# "Or v. 9 or Alleluia!", "Or CR 4" — a pointer to an alternative refrain, by
+# psalm verse or common-refrain number. "Or Isaiah 52.7–10" opens with the same
+# word and is an alternative *reading*, so the pointer forms are matched
+# exactly; those two are the only shapes the corpus prints.
+_REFRAIN_ALT_RE = re.compile(r'^Or\s+(?:v\.?\s*\d|CR\s*\d)', re.IGNORECASE)
+
+# The same pointer where it starts on the refrain's own line rather than the
+# next one ("Happy are they who have given to the poor. Or v. 9 or").
+_REFRAIN_TAIL_RE = re.compile(r'\s+Or\s+(?:v\.?\s*\d|CR\s*\d).*$', re.IGNORECASE)
+
+# A pointer that runs past the end of its line, completed by the line below
+# ("… Or v. 9 or" / "Alleluia!"). Twice in the corpus, both completed by
+# "Alleluia!".
+_DANGLING_OR_RE = re.compile(r'\bor\s*$', re.IGNORECASE)
+
+# A refrain runs to the first line carrying a number. Everything that can follow
+# it cites something and so carries one — a psalm, a canticle, a reading, a
+# pointer to another refrain — and no refrain the book prints does, wrapped ones
+# ("…happy are they who" / "trust in him.") included.
+_HAS_NUMBER_RE = re.compile(r'\d')
+
+# A refrain wraps onto the next line only where it has not finished, which the
+# book marks the ordinary way: no terminal punctuation. Without that floor a
+# refrain swallows whatever digit-free line follows it — the "Optional Readings"
+# heading, an A/B/C set marker — because citing nothing is all it takes to look
+# like a continuation.
+_UNFINISHED_RE = re.compile(r'[^.!?]$')
+
+# FATS cites in the For All The Saints convention: a dot between chapter and
+# verse, and an en dash for a range. The rest of the data uses the BAS
+# lectionary's — a colon, an ASCII hyphen within a chapter, an em dash across
+# chapters — which is what web/render.js parses. Normalising at extraction puts
+# FATS on the same footing and keeps a source convention out of the renderer
+# (#112). convert_lectionary.py's _clean_citation makes the same move for the
+# CSV's own dot form; each stays with its extractor because the conventions
+# differ, the CSV having neither en dash nor cross-chapter dot form.
+_CHAPTER_DOT_RE = re.compile(r'(\d)\.(\d)')
+# Which dash a range carries is not something to read meaning from: the book
+# prints "Psalm 119.89-96" with an ASCII hyphen, alone among its citations. So
+# both dashes are read as a range, and it is the second reference naming a
+# chapter that makes it a cross-chapter one. The verse the range starts from may
+# carry a part-verse letter ("6.8–7.2a" has one on the far side, "15.51c–16.2"
+# on this one); the chapter it runs to never does.
+_CROSS_CHAPTER_DASH_RE = re.compile(r'(?<=[\da-c])[–-](?=\d+:)')
+
+
+def _normalize_citation(s: str) -> str:
+    """A FATS citation punctuated the way the rest of the data punctuates one."""
+    s = _CHAPTER_DOT_RE.sub(r'\1:\2', s)
+    # "Acts 6:8–7:2a" crosses chapters where "51c–60" does not, and the second
+    # ref naming a chapter is what tells them apart. parseRanges reads the em
+    # dash as the cross-chapter marker and the hyphen as a verse range.
+    s = _CROSS_CHAPTER_DASH_RE.sub('—', s)
+    return s.replace('–', '-')
+
+
 def parse_propers(page: str) -> dict:
-    """Parse a propers page. Returns dict with sentence, collect, psalm, readings."""
+    """Parse a propers page. Returns dict with sentence, collect, psalm, refrain,
+    readings."""
     # Sentence: between "Sentence" heading and "Collect" heading
     m = re.search(r'Sentence\s*\n\s*\n(.+?)(?=\n\s*Collect)', page, re.DOTALL)
     sentence = ' '.join(m.group(1).split()) if m else ''
@@ -393,20 +462,65 @@ def parse_propers(page: str) -> dict:
 
     psalm = ''
     readings: list[str] = []
+    refrain_lines: list[str] = []
+    in_refrain = False   # inside the refrain the heading above introduced
+    alt_wraps = False    # the previous line's pointer runs onto this one
+
     for line in readings_text.split('\n'):
         line = line.strip()
         if not line:
             continue
-        if line.startswith('Psalm'):
-            psalm = line[len('Psalm'):].strip()
-        elif re.match(r'^Refrain\b', line, re.IGNORECASE):
-            continue
-        elif re.match(r'^Or\b', line, re.IGNORECASE):
-            continue
-        else:
-            readings.append(line)
 
-    return {'sentence': sentence, 'collect': collect, 'psalm': psalm, 'readings': readings}
+        if alt_wraps:
+            alt_wraps = False
+            continue
+
+        head = _REFRAIN_HEAD_RE.match(line)
+        if head:
+            # The appendix prints the refrain on the heading line itself
+            # ("Refrain Common Refrain 7: Behold, I come to do your will, O
+            # God."); the main section puts it on the line below.
+            inline = head.group(1).strip()
+            refrain_lines = [inline] if inline else []
+            in_refrain = not inline
+            continue
+
+        if in_refrain:
+            body = _REFRAIN_TAIL_RE.sub('', line).strip()
+            tailed = body != line
+            # The line straight after the heading is the refrain whatever it
+            # looks like. A later one continues it only while the refrain is
+            # unfinished and the line cites nothing — "As above" finishes
+            # without terminal punctuation, and the pointer under it carries the
+            # number that stops it being read as the rest of a sentence.
+            if (not refrain_lines
+                    or (_UNFINISHED_RE.search(refrain_lines[-1])
+                        and not _HAS_NUMBER_RE.search(body))):
+                if body:
+                    refrain_lines.append(body)
+                in_refrain = not tailed
+                alt_wraps = tailed and bool(_DANGLING_OR_RE.search(line))
+                continue
+            in_refrain = False
+
+        if _REFRAIN_ALT_RE.match(line):
+            alt_wraps = bool(_DANGLING_OR_RE.search(line))
+            continue
+        if line.startswith('Psalm'):
+            psalm = _normalize_citation(line[len('Psalm'):].strip())
+        elif _HAS_NUMBER_RE.search(line):
+            readings.append(_normalize_citation(line))
+        # What is left names no chapter or verse and so cites nothing: the
+        # "Optional Readings" heading, and the A/B/C letters marking All Saints'
+        # three sets. The sets are flattened into one list either way — a bare
+        # letter in a list of citations records neither the grouping nor a
+        # reading.
+
+    # A page printing several sets (All Saints A/B/C, Christmas) collapses to
+    # one psalm and one refrain, both from the last set, so the two still name
+    # the same psalm as each other.
+    return {'sentence': sentence, 'collect': collect, 'psalm': psalm,
+            'refrain': ' '.join(refrain_lines), 'readings': readings}
 
 
 def _fats_keys(entries: list[tuple[str, str, str]]) -> list[str]:
@@ -491,6 +605,7 @@ def extract_fats(pdf_path: Path) -> dict:
             'sentence': propers_info['sentence'],
             'collect':  propers_info['collect'],
             'psalm':    propers_info['psalm'],
+            'refrain':  propers_info['refrain'],
             'readings': propers_info['readings'],
         }))
 

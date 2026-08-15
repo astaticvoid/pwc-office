@@ -13,9 +13,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from extract_fats import (  # noqa: E402, I001
     _description_from_header,
     _fats_keys,
+    _normalize_citation,
     _page_text_without_margin_artifacts,
     _restore_title_space,
     parse_bio,
+    parse_propers,
 )
 
 
@@ -289,3 +291,216 @@ class TestFatsKeys:
             ("John", "", "December 27"),
         ])
         assert keys == ["John (May 6)", "John (December 27)"]
+
+
+# ── _normalize_citation ───────────────────────────────────────────────────────
+
+class TestNormalizeCitation:
+    def test_dot_becomes_colon(self):
+        assert _normalize_citation("Numbers 6.22-27") == "Numbers 6:22-27"
+
+    def test_en_dash_becomes_hyphen(self):
+        assert _normalize_citation("Numbers 6.22–27") == "Numbers 6:22-27"
+
+    def test_verse_list_keeps_every_span(self):
+        assert _normalize_citation("Isaiah 32.1–5, 16–18") == "Isaiah 32:1-5, 16-18"
+
+    def test_cross_chapter_range_takes_the_em_dash(self):
+        # parseRanges reads the em dash as the cross-chapter marker; a hyphen
+        # here would make "1 John 1:5-2:2" a verse range within chapter 1.
+        assert _normalize_citation("1 John 1.5–2.2") == "1 John 1:5—2:2"
+
+    def test_cross_chapter_and_verse_range_on_one_line(self):
+        assert (_normalize_citation("Acts 6.8–7.2a, 51c–60")
+                == "Acts 6:8—7:2a, 51c-60")
+
+    def test_numbered_book_is_untouched(self):
+        assert _normalize_citation("2 Timothy 1.13–14, 2.1–3") == "2 Timothy 1:13-14, 2:1-3"
+
+    def test_semicolon_separated_spans(self):
+        assert (_normalize_citation("Acts 11.19–30; 13.1–3")
+                == "Acts 11:19-30; 13:1-3")
+
+    def test_cross_chapter_range_starting_on_a_part_verse(self):
+        # The lookbehind has to admit the part-verse letter: read as a verse
+        # range, "15:51c-16:2" loses 16:2 in parseRanges.
+        assert (_normalize_citation("1 Corinthians 15.51c–16.2")
+                == "1 Corinthians 15:51c—16:2")
+
+    def test_cross_chapter_range_written_with_an_ascii_hyphen(self):
+        # The book is not consistent about which dash a range carries — "Psalm
+        # 119.89-96" is printed with a hyphen — so the dash cannot be what marks
+        # a range as crossing chapters.
+        assert _normalize_citation("1 John 1.5-2.2") == "1 John 1:5—2:2"
+
+    def test_ascii_hyphen_within_a_chapter_is_left_alone(self):
+        assert _normalize_citation("119.89-96") == "119:89-96"
+
+    def test_canticle_has_nothing_to_normalize(self):
+        assert _normalize_citation("Canticle 6 (Seek the Lord)") == "Canticle 6 (Seek the Lord)"
+
+
+# ── parse_propers ─────────────────────────────────────────────────────────────
+
+def _propers(*lines: str) -> str:
+    """A propers page carrying only the readings block the tests care about."""
+    return "\n".join(["Readings", *lines, "Prayer over the Gifts", "Gracious God,"])
+
+
+class TestParsePropers:
+    def test_readings_psalm_and_refrain_are_separated(self):
+        p = parse_propers(_propers(
+            "Wisdom 7.7–10, 15–16",
+            "Psalm 27.1–6, 12–13",
+            "Refrain",
+            "Your face, O Lord, will I seek.",
+            "John 5.19–24",
+        ))
+        assert p["readings"] == ["Wisdom 7:7-10, 15-16", "John 5:19-24"]
+        assert p["psalm"] == "27:1-6, 12-13"
+        assert p["refrain"] == "Your face, O Lord, will I seek."
+
+    def test_alternative_refrain_pointer_is_not_a_reading(self):
+        p = parse_propers(_propers(
+            "Numbers 6.22–27",
+            "Psalm 67",
+            "Refrain",
+            "May God give us his blessing.",
+            "Or v. 1 or CR 4",
+            "Luke 2.15–21",
+        ))
+        assert p["readings"] == ["Numbers 6:22-27", "Luke 2:15-21"]
+        assert p["refrain"] == "May God give us his blessing."
+
+    def test_alternative_reading_shares_the_pointer_word(self):
+        # "Or Isaiah 52.7–10" opens like a refrain pointer and is a reading.
+        p = parse_propers(_propers(
+            "Or Isaiah 52.7–10",
+            "Psalm 98",
+            "Refrain",
+            "As above",
+            "Or v. 5 or CR 3",
+            "Hebrews 1.1–12",
+        ))
+        assert p["readings"] == ["Or Isaiah 52:7-10", "Hebrews 1:1-12"]
+        assert p["refrain"] == "As above"
+
+    def test_wrapped_refrain_is_joined(self):
+        p = parse_propers(_propers(
+            "Revelation 7.9–17",
+            "Psalm 34.1–10",
+            "Refrain",
+            "Taste and see that the Lord is good; happy are they who",
+            "trust in him.",
+            "Or v. 9 or Alleluia!",
+            "1 John 3.1–3",
+        ))
+        assert p["refrain"] == ("Taste and see that the Lord is good; "
+                                "happy are they who trust in him.")
+        assert p["readings"] == ["Revelation 7:9-17", "1 John 3:1-3"]
+
+    def test_pointer_starting_on_the_refrain_line_and_wrapping(self):
+        # "…to the poor. Or v. 9 or" / "Alleluia!" — the pointer begins on the
+        # refrain's own line and finishes on the next, which is neither refrain
+        # nor reading.
+        p = parse_propers(_propers(
+            "Job 29.11–16",
+            "Psalm 112",
+            "Refrain",
+            "Happy are they who have given to the poor. Or v. 9 or",
+            "Alleluia!",
+            "Matthew 25.31–40",
+        ))
+        assert p["refrain"] == "Happy are they who have given to the poor."
+        assert p["readings"] == ["Job 29:11-16", "Matthew 25:31-40"]
+
+    def test_pointer_starting_on_a_continuation_line(self):
+        # The wrap and the pointer are each in the corpus; together they are
+        # not. Read as a reading, the leftover ships as a citation of nothing.
+        p = parse_propers(_propers(
+            "Revelation 7.9–17",
+            "Psalm 34.1–10",
+            "Refrain",
+            "Taste and see that the Lord is good; happy are they who",
+            "trust in him. Or v. 9 or",
+            "Alleluia!",
+            "1 John 3.1–3",
+        ))
+        assert p["refrain"] == ("Taste and see that the Lord is good; "
+                                "happy are they who trust in him.")
+        assert p["readings"] == ["Revelation 7:9-17", "1 John 3:1-3"]
+
+    def test_finished_refrain_does_not_swallow_the_heading_below_it(self):
+        p = parse_propers(_propers(
+            "Daniel 7.1–3, 15–18",
+            "Psalm 149",
+            "Refrain",
+            "Sing to the Lord a new song.",
+            "Optional Readings",
+            "Luke 6.20–36",
+        ))
+        assert p["refrain"] == "Sing to the Lord a new song."
+        assert p["readings"] == ["Daniel 7:1-3, 15-18", "Luke 6:20-36"]
+
+    def test_pointerless_refrain_ends_without_terminal_punctuation(self):
+        # "As above" finishes there — nothing below it continues it.
+        p = parse_propers(_propers(
+            "Isaiah 62.6–7, 10–12",
+            "Psalm 97",
+            "Refrain",
+            "As above",
+            "Or v. 11 or CR 3",
+            "Titus 3.4–7",
+        ))
+        assert p["refrain"] == "As above"
+        assert p["readings"] == ["Isaiah 62:6-7, 10-12", "Titus 3:4-7"]
+
+    def test_appendix_heading_with_a_colon(self):
+        p = parse_propers(_propers(
+            "I John 4.7–12",
+            "Psalm 34.1–8",
+            "Refrain:",
+            "Taste and see that the Lord is good.",
+            "Matthew 25.31–40",
+        ))
+        assert p["refrain"] == "Taste and see that the Lord is good."
+        assert p["readings"] == ["I John 4:7-12", "Matthew 25:31-40"]
+
+    def test_appendix_heading_carrying_the_refrain_itself(self):
+        p = parse_propers(_propers(
+            "Psalm 116.1–12",
+            "Refrain Common Refrain 7: Behold, I come to do your will, O God.",
+            "Galatians 3.23–28",
+            "Luke 10.1–9",
+        ))
+        assert p["refrain"] == "Common Refrain 7: Behold, I come to do your will, O God."
+        assert p["readings"] == ["Galatians 3:23-28", "Luke 10:1-9"]
+
+    def test_set_markers_and_headings_are_not_readings(self):
+        p = parse_propers(_propers(
+            "A",
+            "Revelation 21.1–6a",
+            "Psalm 24.1–6",
+            "Refrain",
+            "The Lord of hosts, he is the King of glory.",
+            "John 11.32–44",
+            "Optional Readings",
+            "Titus 3.4–7",
+        ))
+        assert p["readings"] == ["Revelation 21:1-6a", "John 11:32-44", "Titus 3:4-7"]
+
+    def test_several_sets_keep_the_last_psalm_and_its_refrain(self):
+        p = parse_propers(_propers(
+            "Revelation 21.1–6a",
+            "Psalm 24.1–6",
+            "Refrain",
+            "The Lord of hosts, he is the King of glory.",
+            "John 11.32–44",
+            "Daniel 7.1–3, 15–18",
+            "Psalm 149",
+            "Refrain",
+            "Sing to the Lord a new song.",
+            "Luke 6.20–36",
+        ))
+        assert p["psalm"] == "149"
+        assert p["refrain"] == "Sing to the Lord a new song."
