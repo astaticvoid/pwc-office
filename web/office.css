@@ -42,7 +42,8 @@
   --fs-eyebrow:      0.78rem;
   --fs-micro:        0.66rem;
 
-  /* Spacing — 4 px grid */
+  /* Spacing — Fibonacci steps (1, 2, 3, 5, 8, 13) on a 4 px unit. The unit
+     follows the root font, so it goes to 5 px at the 820px breakpoint. */
   --sp-1: 4px;   /* inside a couplet, label→value */
   --sp-2: 8px;   /* head→rubric, chip padding */
   --sp-3: 12px;  /* rubric→said text */
@@ -871,10 +872,16 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
   :root {
     --indent: 1.7em;                   /* measure to spare here */
     --gutter: 2rem;
-    /* the root font grows 25% at this breakpoint but the px scale does not, so
-       the section gaps read tight against the larger type */
+    /* The root font grows 25% here and the scale's unit grows with it, 4 px to
+       5 px. Held at 4 px, "couplets touch; stanzas breathe" holds on a phone
+       and not here: the stanza reads 1 : 1.61 against the larger type rather
+       than the book's 1 : 1.76. Same steps, one unit up. */
+    --sp-1: 5px;
+    --sp-2: 10px;
+    --sp-3: 15px;
+    --sp-4: 25px;
     --sp-5: 40px;
-    --sp-6: 64px;
+    --sp-6: 65px;
   }
   [data-font-size="medium"] { font-size: 125%; }
   [data-font-size="large"]  { font-size: 140%; }
