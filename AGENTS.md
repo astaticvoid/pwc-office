@@ -235,12 +235,8 @@ regenerating: `python3 tools/extract_paragraphs.py [path-to-usfx-xml]`.
 when the matching correction list is empty or `data/corrections.json` is absent
 entirely. It is the stage that *derives* those files from their `.build/`
 artifacts, not merely the stage that patches them. Never make a derivation
-conditional on there being a correction to apply: that guard shipped on all four
-chains, and on the offices chain it left the published file stale after an
-extractor change through a `make extract` that reported success and a
-`check-integrity` that passed, because the manifest was rehashed from the same
-stale file. It also turned CI red for four days with `missing data files`, since
-there the file is absent rather than stale.
+conditional on there being a correction to apply — a stale published file then
+rehashes into the manifest and passes `check-integrity` over it.
 
 Correction lists are *meant* to drain — "Data correction locations" below directs
 systemic problems into the extractor — so an empty list is the expected steady
@@ -266,13 +262,9 @@ and `validate_corrections.py` cannot see corrected output, whenever they run
 | `null` | the input was **absent** when the manifest was written — drift, exits 1 |
 | key absent | not tracked; either a pre-#51 manifest or a retired input |
 
-An input that disappears is recorded rather than dropped. Omitting it let the
-key vanish from the committed manifest on the next `make extract`, so nothing
-recorded that the input had ever been expected: `rm data/corrections.json &&
-make extract && make test` was green while every office was republished with all
-corrections silently dropped, the Synod errata among them. A warning was not
-enough — check-integrity is the deploy gate, so anything exiting 0 ships the
-tree regardless.
+An input that disappears is recorded rather than dropped. `check-integrity` is
+the deploy gate, so anything exiting 0 ships the tree; a missing input that
+passed would ship with its corrections silently gone.
 
 **Retiring an input is removing it from `EXTRACTION_SOURCES`**, in the same
 commit as whatever removed the file. That is a reviewable edit; a file missing
@@ -281,14 +273,15 @@ they record only concrete matches and never a null — zero matches is
 indistinguishable from a year not yet added, and `convert_lectionary.py` already
 fails loudly on a missing CSV.
 
-**Verse sections — one list, in the validator only.** `VERSE_SECTIONS` in `tools/validate_office.cjs` asks *"does this section contain any intentional line breaks?"*, so `no-prose-line-breaks` won't flag a `\n`. There is no longer a Python counterpart: extraction decides every break from the page (see below), so nothing needs a section-level exemption. `_VERSE_SECTIONS` and the `_LINE_JOIN` regex it gated were removed once the geometry reproduced the extraction exactly without them. When adding a verse-like section, update the JS list and the line-count assertions in `tests/unit/render.test.js`.
+**Verse sections — one list, in the validator only.** `VERSE_SECTIONS` in `tools/validate_office.cjs` asks *"does this section contain any intentional line breaks?"*, so `no-prose-line-breaks` won't flag a `\n`. Extraction decides every break from the page, so nothing needs a section-level
+exemption. When adding a verse-like section, update `VERSE_SECTIONS` and the
+line-count assertions in `tests/unit/render.test.js`.
 
 ### Changing an extractor
 
 Extraction output is copyrighted text nobody diffs by eye, and the test suite
-cannot see most of what can go wrong with it — the coherence score sat at 100/100
-through a change that collapsed every evening hymn into prose. So the diff is the
-verification, and it is not optional.
+cannot see most of what can go wrong with it — the coherence score is blind to
+text content. So the diff is the verification, and it is not optional.
 
 ```bash
 make extract-baseline          # full pipeline, snapshot
@@ -337,15 +330,15 @@ not an oversight to be tidied away without moving the file to `.build/` first.
 **`_heading_to_key` is not a list of sections.** `seasonal_collects` and
 `lords_prayer_intro` are carved out of the litany block afterwards, so anything
 walking typed lines and assigning sections by heading reports zero for them
-rather than failing. Walk `SECTION_ORDER` or `sections_of(form)` instead. This
-has produced confidently wrong measurements more than once.
+rather than failing. Walk `SECTION_ORDER` or `sections_of(form)` instead.
 
-**Count only what can exhibit the defect.** A paragraph-break count went 47 → 30
-→ 14 in one session because the first two included segment-type transitions that
-`_merge` already separates. Narrow the population before reporting a number, and
-say which population it is.
+**Count only what can exhibit the defect.** Narrow the population before
+reporting a number, and say which population it is.
 
-**Deciding a break: measure the page, never a proxy.** Whether a line break is deliberate or a PDF column wrap is a physical question — did the line run out of horizontal room? Answer it from geometry (`gap`, the unused space at the end of the line, and `lead`, the leading opened up below it), both carried out of `spans_to_typed_lines`. Two attempts to use a proxy instead have shipped broken text: a "terminal punctuation" rule produced 46 false breaks (#9), and classifying by the trailing space PyMuPDF leaves on a span collapsed every evening hymn stanza into prose (#38, reverted in 0ac1b86) — that space marks "this line does not end the block", not "this line was wrapped". `litany` is the only section mixed enough to need per-break judgement; `_reflow_litany` does it, with the handful of ambiguous breaks adjudicated explicitly and anything new warned about rather than guessed at. See #39.
+**Deciding a break: measure the page, never a proxy.** Whether a line break is deliberate or a PDF column wrap is a physical question — did the line run out of horizontal room? Answer it from geometry (`gap`, the unused space at the end of the line, and `lead`, the leading opened up below it), both carried out of `spans_to_typed_lines`. The trailing space PyMuPDF leaves on
+a span marks "this line does not end the block", not "this line was wrapped"
+(#38), so it is not a break signal. `litany` is the only section mixed enough to
+need per-break judgement; `_reflow_litany` does it, with the handful of ambiguous breaks adjudicated explicitly and anything new warned about rather than guessed at. See #39.
 
 **Page bounds:** `detect_office_bounds.py` detects office form page ranges from PDF content (title patterns). Output is committed as `tools/office_bounds.json`. No hardcoded page numbers.
 
@@ -359,16 +352,18 @@ say which population it is.
 
 | File | Role |
 |------|------|
-| `validate_css.cjs` | Structural CSS validity for every file in `web/*.css`: no style rule nested inside another style rule's declaration block (only `@media`/`@supports`/etc. and `@keyframes` bodies may nest), and brace-balance at end of file. Catches an unclosed/stray rule silently swallowing the rest of the stylesheet — this happened for real (see issue #22) and nothing else in this project's test suite validates CSS syntax at all. |
+| `validate_css.cjs` | Structural CSS validity for every file in `web/*.css`: no style rule nested inside another style rule's declaration block (only `@media`/`@supports`/etc. and `@keyframes` bodies may nest), and brace-balance at end of file. Catches an unclosed/stray rule silently
+swallowing the rest of the stylesheet — nothing else in the test suite validates
+CSS syntax at all (#22). |
 | `check_conservation.py` | The only check that compares the data against the **page** rather than against itself or a hardcoded expectation, which is why nothing else in this list could see #84, #87, #91 or #93. Walks every source line as extraction does and accounts for it in both directions: every printed line either ships or matches a named rule (reflow, whitespace, heading consumed as structure, an audited correction…), and every shipped line either was printed or matches one. Residue is the defect list. Both directions are load-bearing — a shipped line the page prints as a *prefix* of it is absorbed by substring matching going one way and caught only coming back (#101). Needs `sources/` and `.build/` as well as `data/`. Reports an unaccounted line by form, section and content hash; `--show-text` prints the line and is deliberately not the default. **Conservation is a set property per form**: it sees a line leave the pipeline, not one occurrence of a repeated line going missing, and not surviving text moving to the wrong place. That is #99's subject, and the two are complements. **Multi-chain since #102**: `--chain psalter` walks the same PDF's psalter section and accounts every verse/continuation/section head against `data/psalter.json`, with its own `corrected` rule (the `data/corrections.json` "psalter" entries applied to `.build/psalter.1-extract.json`); `make check-conservation` and `qa` run both chains. |
-| ↳ the `corrected` rule | The one rule worth understanding before trusting the others, because two weaker versions of it shipped and both were wrong. It reconstructs — applies `data/corrections.json` to the pre-correction block and asks whether the result is what ships — rather than looking for an entry that mentions the line. Keying on `{office, field}` let one three-word errata fix vouch for every line in its section, exempting 121 of the corpus's form-fields; comparing the line against `old`/`new` directly then failed wherever a printed line straddles the end of a substring correction and runs into the next sentence. Reconstruction is ADR 0005's own claim — source plus manifest equals shipped — made computable, which is why it is the version that holds. |
+| ↳ the `corrected` rule | It reconstructs — applies `data/corrections.json` to the pre-correction block and asks whether the result is what ships. Reconstruction is ADR 0005's own claim — source plus manifest equals shipped — made computable. |
 | `conservation_baseline.json` | The divergences `check_conservation.py` finds that are tracked as open issues, so it can gate on *new* ones. An entry is a licence to keep failing, not a claim that the divergence is legitimate — legitimate ones are named rules in the tool. Counts are exact in both directions: a defect that grew is a regression, and one that shrank is a fix that left its entry behind, so both fail and the entry is deleted in the commit that fixes it. Holds no book text, only sha256 prefixes. Entries may carry an optional `chain` field (default "offices"); a psalter-chain divergence is licensed with `"chain": "psalter"` so it never claims an offices finding, and vice-versa. |
 | `validate_office.cjs` | 20 liturgical rules against all 30 forms, in 3 tiers — T1 structural (Amen presence, non-empty responses, leader/response alternation, collect resolvable), T2 textual (prose line breaks, orphan rubrics, Phos Hilaron line count), T3 seasonal coherence. The 10 rules in `DYNAMIC_RULES` need lectionary data, so they are skipped in the static pass and checked per date against fully assembled offices instead. Tier drives the `coherence_score.cjs` penalty. |
 | `validate_render.cjs` | Rendered-DOM structure for all 30 forms: section headings present, segment counts match, no empty liturgy blocks, valid heading hierarchy. Complements `validate_office.cjs`, which checks the data rather than the HTML. |
 | `audit_text.cjs` | Cross-form text-length outliers for shared subsections within a peer group — a section much shorter or longer than its peers signals an extraction artifact. |
 | `audit_a11y.cjs` | Static a11y checks over the rendered HTML (heading hierarchy, ARIA on interactive elements). No browser, so it runs in `qa` rather than in Playwright. Those checks are **advisory** — they print and never set the exit code themselves; the contrast check below is what can make the tool exit 1. |
-| ↳ the contrast check | The one part of that tool that **gates**, because its inputs are the stylesheet's own tokens rather than a heuristic: it reads the palette out of `web/office.css` — both themes, every seasonal override, the two `color-mix` grounds mixed in OKLab as the browser does, and text dimmed by `opacity` composited as the browser does — and measures every pair against WCAG AA. What it cannot infer is *which ground a foreground is painted on*: the cascade knows that, so `TEXT_PAIRS` / `GRAPHIC_PAIRS` / `OPACITY_RULES` declare the ink, the ground, and whether the element carries its own background. Everything a value can state is read from the sheet instead of declared — the alpha above all, since a remembered `0.78` would rebuild the #85 failure mode one layer up. **Two scans keep those tables from being a list of the pairs someone remembered**: every `color:` declaration must name a declared token or literal, and every `opacity:` under 1 must name a declared selector — anything else fails rather than going unmeasured. Which pairs vary by season is derived from the palette, not declared, so a seasonal override of a token nobody marked seasonal cannot go measured in one season and unmeasured in eight. `KNOWN_CONTRAST` licenses the failures tracked as open issues, on `conservation_baseline.json`'s terms: a licensed pair that starts passing — **or that nothing measures any more** — fails too, so the fixing commit deletes its entry. Added with #85, where `--color-muted` carried most of the app's small print at 4.02:1 for the life of the project and nothing could see it; the opacity half caught two more call sites of that same defect, one of them an interactive control at 2.57:1. |
-| `coherence_score.cjs` | Composite 0–100 from `validate_office --json` + `audit_office --json`, with exemptions from `tools/audit_expected.json`. `make qa` and the promote gate both set `COHERENCE_THRESHOLD=100`; the promote gate was 85 and so would not have blocked c81b341, which scored 97 with every evening hymn stanza collapsed into prose. |
+| ↳ the contrast check | The one part of that tool that **gates**, because its inputs are the stylesheet's own tokens rather than a heuristic: it reads the palette out of `web/office.css` — both themes, every seasonal override, the two `color-mix` grounds mixed in OKLab as the browser does, and text dimmed by `opacity` composited as the browser does — and measures every pair against WCAG AA. What it cannot infer is *which ground a foreground is painted on*: the cascade knows that, so `TEXT_PAIRS` / `GRAPHIC_PAIRS` / `OPACITY_RULES` declare the ink, the ground, and whether the element carries its own background. Everything a value can state is read from the sheet instead of declared — the alpha above all, since a remembered `0.78` would rebuild the #85 failure mode one layer up. **Two scans keep those tables from being a list of the pairs someone remembered**: every `color:` declaration must name a declared token or literal, and every `opacity:` under 1 must name a declared selector — anything else fails rather than going unmeasured. Which pairs vary by season is derived from the palette, not declared, so a seasonal override of a token nobody marked seasonal cannot go measured in one season and unmeasured in eight. `KNOWN_CONTRAST` licenses the failures tracked as open issues, on `conservation_baseline.json`'s terms: a licensed pair that starts passing — **or that nothing measures any more** — fails too, so the fixing commit deletes its entry. |
+| `coherence_score.cjs` | Composite 0–100 from `validate_office --json` + `audit_office --json`, with exemptions from `tools/audit_expected.json`. `make qa` and the promote gate both set `COHERENCE_THRESHOLD=100`. |
 | `validate_lectionary.cjs` | Every date × office (397 × 2) in the lectionary: syntax checks (well-formed citations) **and** resolution checks (collect page/psalm number/lesson citation actually resolves to real data in collects.json/psalter.json/translations — not just a well-formed reference). Reuses the exact runtime resolution functions from `web/render.js`, not reimplementations. Run this after any re-extraction, especially a new lectionary year. |
 | `audit_office.cjs` | Cross-form statistical audit — 14 metrics, 4 peer groups, 2σ z-score outlier detection |
 | `compare_staging.cjs` | A/B rendered DOM diff between staging and production (use before `make promote`) |
@@ -382,12 +377,12 @@ Capacitor wraps `dist/` as a native app (`capacitor.config.json`, `webDir: dist`
 
 ## Bug tracking
 
-All task tracking lives in [GitHub Issues](https://github.com/astaticvoid/pwc-office/issues) — there is no in-repo tracker. `BUGS.md` was retired 2026-07-30 and its full history migrated: every resolved entry is a closed issue, so a `see issue #N` comment in the source resolves to the original writeup.
+All task tracking lives in [GitHub Issues](https://github.com/astaticvoid/pwc-office/issues) — there is no in-repo tracker, so a `see issue #N` comment in the source resolves to the original writeup.
 
 - **Triaging a user report** — open an issue rather than noting it in a file. Label `bug`; leave it unlabelled for severity until investigated.
 - **Findings during development** — a defect or warning surfaced during build, test, review, or deploy (including non-blocking ones) is triaged as *known* (an open issue already exists) or *captured* (open one) before continuing — never dismissed as "pre-existing".
 - **Fixing a bug** — close its issue with the findings in the closing comment. That writeup is the durable record; keep it detailed enough that a future session can reconstruct *why*, not just *what*.
-- **Citing rationale from code** — reference the issue number (`see issue #13`), not a date or a file. Issue numbers are stable; the tracker file was not.
+- **Citing rationale from code** — reference the issue number (`see issue #13`), not a date or a file.
 - **Parked work** — an open issue with no milestone, not a "Parked" list.
 
 ## Source comments
@@ -445,25 +440,16 @@ it pins, not the bug that prompted it.
   breaks or whitespace normalisation — the test is direction, not whether text
   changed. Worked applications: ADR 0013 (rubrics), 0014 (choices), 0015
   (text the app authors itself). **ADR 0019 is the casebook** — the specific
-  readings upstream review has settled, each with the thing it forbids. Read it
-  before changing a rubric or a selector; it exists because three of those
-  decisions have already been re-litigated or rebuilt under a new name.
-  **The shipped code does not comply yet, and this rule is not a licence to make
-  it comply.** `BOOK_ONLY_RUBRICS` is gone (deleted under ADR 0013, #59) and
-  `SKIP_RUBRICS` survives only as three named duplicates, each pinned to the
-  heading it defers to by `validate_render.cjs` and a corpus test. The psalm and
-  reading selectors shipped (#63). What is outstanding is on the other side of
-  that line: the reading selector removes the Responsory and the Canticle, which
-  the choice does not cover, so ADR 0019 item 7 withdraws it in favour of the
-  book's own rubric (#77). The Reading and Psalm block is extracted since #84,
-  so the rubrics printed there render from `form.psalm_rubrics` /
-  `form.reading_rubrics`, and the readings ADR 0019 settled reach the page as
-  `adr0019-*` corrections on that extracted text (#88). The rule binds *new*
-  work: don't add a mechanism of the same kind.
+  readings upstream review has settled, each with the thing it forbids; read it
+  before changing a rubric or a selector. This rule is not a licence to make the
+  shipped code comply: the reading selector removes the Responsory and the
+  Canticle, which the choice does not cover, so ADR 0019 item 7 withdraws it in
+  favour of the book's own rubric (#77). The rule binds *new* work: don't add a
+  mechanism of the same kind.
 
 ## Data correction locations
 
-**There is one correction manifest: `data/corrections.json`** (ADR 0005). Extractors extract; they no longer patch their own output. Every editorial correction goes in the manifest under the category matching its data type, is checked for staleness by `validate_corrections.py`, and is applied by `apply_corrections.py` after extraction in `make extract`.
+**There is one correction manifest: `data/corrections.json`** (ADR 0005). Extractors extract; they do not patch their own output. Every editorial correction goes in the manifest under the category matching its data type, is checked for staleness by `validate_corrections.py`, and is applied by `apply_corrections.py` after extraction in `make extract`.
 
 | Correction type | Manifest category | Target locator |
 |----------------|-------------------|----------------|
@@ -516,10 +502,7 @@ of the errata's own transcription slips must not be propagated.
 correction.** It aligns every errata block against `data/offices.json` and
 reports breaks the errata asks for that are missing, breaks we have that it does
 not, and wording divergences not declared in the errata README. Nothing else can
-see this: the first reflow pass dropped four breaks — three of them beside a
-divergence the README already tabulated, because aligning a block as a whole
-drops every break inside it when any line fails to match — and `make test`,
-`make qa` and a 100/100 coherence score were all green over them.
+see this.
 
 Errata line breaks land mid-clause by design, which the orphan-break rule in
 `validate_office.cjs` and the litany scan in `check_text_quality.py` would
@@ -531,7 +514,7 @@ correction and let it vouch. The two readers are hand-rolled in different
 languages and are held to one reading by a conformance test in
 `tools/tests/test_errata_breaks.py` — extend it when either side changes.
 
-Systemic parsing problems are **not** corrections — fix those in the extractor (`_normalize_whitespace()` and friends in `tools/extract_offices.py`) so every instance resolves at once. The hardcoded fix dicts that used to live in `extract_psalter.py`, `extract_fats.py`, and `convert_lectionary.py` were migrated into the manifest and deleted; don't reintroduce that pattern (see issue #13).
+Systemic parsing problems are **not** corrections — fix those in the extractor (`_normalize_whitespace()` and friends in `tools/extract_offices.py`) so every instance resolves at once (#13).
 
 ## Delivery workflow
 
@@ -552,6 +535,9 @@ make promote
 
 ## Key constraints
 
-- Lectionary coverage: rolling 12-month window, currently 2025–2026 (Year B)
+- Lectionary coverage: rolling 12-month window
 - Office forms: 30 in `data/offices.json`; form selection is season- and weekday-aware
 - PyMuPDF (fitz) is the sole PDF extraction dependency.
+- Product scope: MP/EP office + saint biographies (ADR 0020). FATS
+  `sentence`/`sentence_ref`/`psalm`/`refrain`/`readings` are extraction-only;
+  the FAS collect renders only as a fallback, never as a peer alternative.
