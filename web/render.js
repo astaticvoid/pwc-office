@@ -301,6 +301,12 @@ export function formKey(season, officeType, weekday) {
 
 // ── Citation parsing ──────────────────────────────────────────────────────────
 
+// The books whose verses are keyed under a single chapter, taken from the
+// bundled corpus — every other book in data/translations/kjv/ has more.
+export const SINGLE_CHAPTER_BOOKS = new Set([
+  '2 John', '3 John', 'Jude', 'Obadiah', 'Philemon',
+]);
+
 export function parseCitation(rawCitation) {
   let citation = rawCitation;
   // Strip leading "or " / "Or " from alternative reading options.
@@ -324,12 +330,13 @@ export function parseCitation(rawCitation) {
   let rest = s.slice(numStart).trim();
   const file = ABBREV_TO_FILE[abbrev];
   if (!file) return null;
-  // A single-chapter book is cited without a chapter — the lectionary source
-  // prints "Jude 17-25", "Ob 15-21", "3 Jn 1-15". The verse data is keyed by
-  // chapter regardless (kjv/Jude.json has a "1"), so lookup needs one supplied.
-  // The flag marks it as a lookup detail, so display can strip it and print the
-  // citation as the book gives it (#110).
-  const chapterInferred = rest !== '' && !rest.includes(':');
+  // A colonless range is ambiguous, and the book is what resolves it: in a
+  // single-chapter book the numbers are verses ("Jude 17-25"), anywhere else
+  // they are a whole chapter ("Mt 5"). Only the first case is handled here —
+  // those verses are keyed under chapter 1, so lookup needs the chapter
+  // supplied and the flag lets display strip it again (#110). A whole chapter
+  // falls through with its range intact, for parseRanges to express (#112).
+  const chapterInferred = SINGLE_CHAPTER_BOOKS.has(file) && rest !== '' && !rest.includes(':');
   if (chapterInferred) rest = '1:' + rest;
   return { abbrev, file, rest, chapterInferred };
 }

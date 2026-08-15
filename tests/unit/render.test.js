@@ -6,7 +6,7 @@ import {
   lessonsPickText, lessonsPickRubricHtml, renderOfficeJSON,
   LITURGICAL_TEXT_REGISTER, SKIP_RUBRICS, assembleSections, esc,
   formatLiturgicalText, splitPsalmRubrics, splitReadingRubrics,
-  parseCitation, expandCitationForDisplay,
+  parseCitation, expandCitationForDisplay, SINGLE_CHAPTER_BOOKS,
 } from '../../web/render.js';
 
 const DATA_DIR = join(import.meta.dirname, '../../data');
@@ -710,6 +710,28 @@ describe('expandCitationForDisplay', () => {
   ])('%s is untouched beyond expanding the book', (raw, display) => {
     expect(expandCitationForDisplay(raw)).toBe(display);
     expect(parseCitation(raw).chapterInferred).toBe(false);
+  });
+
+  // A colonless range means verses only in a single-chapter book. Anywhere
+  // else it is a whole chapter, or a separator this parser does not read, and
+  // supplying chapter 1 would resolve a passage nobody appointed (#112).
+  test.each([
+    ['Mt 5',            'Matthew 5',        '5'],
+    ['Gen 1',           'Genesis 1',        '1'],
+    ['Acts 11.19-30',   'Acts 11.19-30',    '11.19-30'],
+    ['Job 1.1-5',       'Job 1.1-5',        '1.1-5'],
+  ])('%s keeps its range rather than becoming chapter 1', (raw, display, rest) => {
+    const p = parseCitation(raw);
+    expect(p.chapterInferred, 'no chapter is invented').toBe(false);
+    expect(p.rest).toBe(rest);
+    expect(expandCitationForDisplay(raw)).toBe(display);
+  });
+
+  test('the single-chapter list matches the bundled corpus', () => {
+    // The list is the reason a colonless range is read as verses, so it has to
+    // stay true of the data it describes.
+    expect([...SINGLE_CHAPTER_BOOKS].sort())
+      .toEqual(['2 John', '3 John', 'Jude', 'Obadiah', 'Philemon']);
   });
 
   // The invariant behind the cases above, over every reading the lectionary
