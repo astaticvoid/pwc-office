@@ -37,6 +37,19 @@ const LESSON_RE = /^\d?\s*[A-Z][A-Za-z]*\s+\d+/;
 const COLLECT_RE = /^\d+/;
 
 /*
+ * Names that match more than one For All the Saints life (#136). The lookup
+ * takes the earliest-named, which is the day's principal, so the day is right
+ * and its second person is unreachable. Licensed on conservation_baseline's
+ * terms: a new one fails, and one that stops being ambiguous fails until its
+ * entry goes.
+ */
+const KNOWN_AMBIGUOUS_FATS = {
+  // The CSV writes this pair inline on one line rather than on two, so the
+  // second commemoration never became its own name. See #137.
+  '2026-10-15/Teresa of Avila, Spiritual Teacher and Reformer, 1582 - Com and John of the Cross, Priest, Spiritual Teacher, 1591 - Com': 137,
+};
+
+/*
  * ADR 0018 gives an alternate its own colour and rank by matching its label
  * against the name column's secondary lines, and keeps the day's where no line
  * matches. That fallback is safe but silently describes the other observance,
@@ -110,7 +123,7 @@ function resolvesToVerses(citation, { parseCitation, parseRanges, extractVersesW
 }
 
 async function main() {
-  const { parseCitation, parseRanges, extractVersesWithChapter, parsePsalmCitation, lookupCollect, collectCommemorations } =
+  const { parseCitation, parseRanges, extractVersesWithChapter, parsePsalmCitation, lookupCollect, collectCommemorations, fatsCandidates } =
     await import('../web/render.js');
 
   const useJson = process.argv.includes('--json');
@@ -124,11 +137,14 @@ async function main() {
   }
 
   const collects = JSON.parse(readFileSync(join(root, 'data/collects.json'), 'utf8'));
+  const fatsPath = join(root, 'data/fats/saints.json');
+  const fats = existsSync(fatsPath) ? JSON.parse(readFileSync(fatsPath, 'utf8')) : null;
   const psalter = JSON.parse(readFileSync(join(root, 'data/psalter.json'), 'utf8'));
 
   const failures = [];
   let dates = 0, offices = 0;
   const noIdentity = new Set();
+  const ambiguousFats = new Set();
 
   for (const file of files) {
     const data = JSON.parse(readFileSync(join(lectionaryDir, file), 'utf8'));
@@ -139,6 +155,26 @@ async function main() {
       const rawName = day.name || '';
       if (/&mdash;|&amp;|<br>|&#\d+;/.test(rawName)) {
         failures.push({ date, field: 'name', detail: `contains HTML entity: "${rawName.slice(0,40)}"` });
+      }
+
+      // A name matching two different lives resolves to one of them and says
+      // nothing about the other (#136). The pick is the earliest-named, which
+      // is the day's principal — but a day naming two people is a day whose
+      // second life no reader can reach.
+      if (fats) {
+        for (const person of [day.name, ...(day.commemorations || []).map(c => c.name)]) {
+          if (!person) continue;
+          const candidates = fatsCandidates(fats, person);
+          const key = `${date}/${person}`;
+          if (candidates.length > 1) {
+            ambiguousFats.add(key);
+            if (!(key in KNOWN_AMBIGUOUS_FATS)) {
+              failures.push({ date, detail:
+                `"${person}" matches ${candidates.length} For All the Saints entries ` +
+                `(${candidates.join(', ')}); only the first is reachable (#136)` });
+            }
+          }
+        }
       }
 
       // Day metadata
@@ -273,6 +309,15 @@ async function main() {
           }
         }
       }
+    }
+  }
+
+  for (const key of Object.keys(KNOWN_AMBIGUOUS_FATS)) {
+    if (!ambiguousFats.has(key)) {
+      const [date] = key.split('/');
+      failures.push({ date, detail:
+        `licensed in KNOWN_AMBIGUOUS_FATS (#${KNOWN_AMBIGUOUS_FATS[key]}) but the name ` +
+        `resolves to one life now, or is gone — delete the entry` });
     }
   }
 
