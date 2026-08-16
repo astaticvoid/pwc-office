@@ -37,6 +37,7 @@ from convert_lectionary import (  # noqa: E402
     _type_hint,
     clean,
     detect_bounds,
+    unlabelled_alternates,
     unmatched_eve_offices,
     untyped_note_dates,
 )
@@ -171,6 +172,19 @@ def main() -> None:
                 print(f"        name line: {ln}")
     else:
         print("\n  No unmatched eve offices.")
+
+    unlabelled = unlabelled_alternates(rows_by_date)
+    if unlabelled:
+        print(f"\n  {len(unlabelled)} office alternate(s) carry no label —")
+        print("  blocking: the toggle would offer the choice as \"Alternate\" and")
+        print("  the observance would keep the day's colour and rank (#131).")
+        print("  Widen RE_BRANCH_LABEL; no correction category reaches an")
+        print("  alternate's label, so an unnamed one needs a new one added:")
+        for d, office_key, branch in unlabelled:
+            print(f"    {d} {office_key}")
+            print(f"        branch: {branch[:100]}")
+    else:
+        print("\n  No unlabelled office alternates.")
 
     # ── 4. Observance phrases ──────────────────────────────────────────────────
     head(4, "OBSERVANCE PHRASES (drift in wording the classifier matches on)")

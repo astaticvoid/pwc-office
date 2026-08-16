@@ -21,6 +21,7 @@ from convert_lectionary import (
     parse_observances,
     parse_psalm_field,
     parse_single_office,
+    unlabelled_alternates,
     unmatched_eve_offices,
     untyped_note_dates,
 )
@@ -160,6 +161,53 @@ class TestParseSingleOffice:
         office = parse_single_office("Ps 89:1-29; Isa 9:2-7; 2 Pet 1:1-11; O Antiphon")
         assert office["lessons"] == ["Isa 9:2-7", "2 Pet 1:1-11"]
 
+    def test_a_branch_naming_itself_before_its_psalms_is_labelled(self):
+        office = parse_single_office(
+            "Eve of Corpus Christi: Ps 110, 111; Ex 16:2-15; Jn 6:22-35; Coll 304"
+        )
+        assert office["label"] == "Eve of Corpus Christi"
+        assert office["psalms"] == ["110", "111"]
+
+    def test_a_branch_naming_itself_before_a_cross_reference_is_labelled(self):
+        # The name is a name whatever field follows it (#131).
+        office = parse_single_office(
+            "Feria: As Proper 9, except: 2 Tim 1:1-12; Ps 123; Mk 12:18-27"
+        )
+        assert office["label"] == "Feria"
+        assert office["note"] == "As Proper 9, except: 2 Tim 1:1-12"
+        assert office["psalms"] == ["123"]
+
+    def test_a_psalm_verse_range_is_not_a_label(self):
+        office = parse_single_office("Ps 119:1-24; Am 3:12-4:5; 2 Pet 3:1-10")
+        assert "label" not in office
+        assert office["psalms"] == ["119:1-24"]
+
+    def test_a_clause_carrying_a_colon_is_not_a_label(self):
+        # Without the name in front, "As Proper 9, except:" must not be read as
+        # one — the comma is what separates a clause from a name.
+        office = parse_single_office(
+            "As Proper 9, except: 2 Tim 1:1-12; Ps 123; Mk 12:18-27"
+        )
+        assert "label" not in office
+
+    def test_the_pick_two_marker_is_read_as_a_count_not_as_the_branch_prefix(self):
+        # The marker ends in a colon, so a branch opening with it satisfies the
+        # prefix pattern; the count is read first so there is nothing left for
+        # the prefix rule to take.
+        office = parse_single_office(
+            "Two of the following three readings: Jon 2:2-9; Eph 6:10-20; Jn 11:17-27"
+        )
+        assert office["lessons_pick"] == 2
+        assert "label" not in office
+        assert office["lessons"] == ["Jon 2:2-9", "Eph 6:10-20", "Jn 11:17-27"]
+
+    def test_a_named_branch_keeps_both_its_name_and_the_pick_two_marker(self):
+        office = parse_single_office(
+            "Eve of Corpus Christi: Ps 110; "
+            "Two of the following three readings: Jon 2:2-9; Eph 6:10-20; Jn 11:17-27"
+        )
+        assert office["label"] == "Eve of Corpus Christi"
+        assert office["lessons_pick"] == 2
 
 # ── parse_observances ─────────────────────────────────────────────────────────
 
@@ -506,6 +554,48 @@ class TestUnmatchedEveOffices:
         if not rows:
             pytest.skip("no sources/bas_short_*.csv in this checkout")
         assert unmatched_eve_offices(rows) == []
+
+
+# ── unlabelled_alternates ─────────────────────────────────────────────────────
+
+class TestUnlabelledAlternates:
+    """The alternate-label gate (#131): a toggle whose second slot has no name
+    offers the choice as "Alternate" and keeps the day's colour and rank."""
+
+    def _row(self, morning="", evening=""):
+        return ["2026-06-03", "Feria (Green)", "", morning, evening, ""]
+
+    def test_an_unnamed_alternate_is_reported(self):
+        rows = {"2026-06-03": self._row(
+            morning="Ps 116:10-17; Heb 10:32-39\nOr\nAs Proper 9; Ps 123; Mk 12:18-27",
+        )}
+        assert unlabelled_alternates(rows) == [
+            ("2026-06-03", "morning", "As Proper 9; Ps 123; Mk 12:18-27")
+        ]
+
+    def test_a_named_alternate_is_not_reported(self):
+        rows = {"2026-06-03": self._row(
+            morning="Ps 116:10-17; Heb 10:32-39\nOr\nFeria: As Proper 9; Ps 123",
+        )}
+        assert unlabelled_alternates(rows) == []
+
+    def test_an_office_with_no_alternate_is_not_reported(self):
+        rows = {"2026-06-03": self._row(morning="Ps 116:10-17; Heb 10:32-39")}
+        assert unlabelled_alternates(rows) == []
+
+    def test_the_current_csv_has_no_unlabelled_alternates(self):
+        # The gate must pass on shipped data or it is not a gate, it is a wall.
+        import csv as _csv
+        import re as _re
+        rows = {}
+        for path in sorted((ROOT / "sources").glob("bas_short_*.csv")):
+            with open(path, newline="", encoding="utf-8") as f:
+                for row in _csv.reader(f, quoting=_csv.QUOTE_MINIMAL):
+                    if len(row) >= 5 and _re.match(r"\d{4}-\d{2}-\d{2}", row[0].strip()):
+                        rows[row[0].strip()] = row
+        if not rows:
+            pytest.skip("no sources/bas_short_*.csv in this checkout")
+        assert unlabelled_alternates(rows) == []
 
 
 # ── detect_bounds ─────────────────────────────────────────────────────────────

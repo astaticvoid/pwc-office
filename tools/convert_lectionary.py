@@ -738,6 +738,15 @@ RE_COLLECT_OF_DAY = re.compile(
     re.DOTALL,
 )
 
+# A branch names itself before its first field, whatever that field turns out to
+# be: "Eve of Corpus Christi: Ps 110, 111" opens on its psalms, "Feria: As Proper
+# 9, except: …" on a cross-reference. The name runs to the first colon and counts
+# as one only while it stays a name — the class admits no field break and no
+# comma, which is what separates a name from a clause that happens to carry a
+# colon ("As Proper 9, except:"). The space after the colon is what a psalm's own
+# verse range lacks, and verse ranges supply nearly every other colon in this
+# column; `Ps ` is refused outright rather than resting on that space (#131).
+RE_BRANCH_LABEL = re.compile(r"^([^;:,]{1,119}):\s")
 
 def parse_single_office(text: str) -> dict:
     text = text.strip()
@@ -746,13 +755,19 @@ def parse_single_office(text: str) -> dict:
 
     office = {}
 
-    if (i := text.find(": Ps ")) >= 0 and i < 120:
-        office["label"] = text[:i].strip()
-        text = text[i + 2 :].strip()
-
-    if m := RE_MULTI.search(text):
+    # Before the prefix, because this marker ends in a colon of its own and
+    # would otherwise satisfy the prefix pattern from the front of a branch
+    # that opens with it — taking the marker as the branch's opening words and
+    # leaving nothing for the count to be read from. Removing it first means
+    # the prefix rule only ever sees text no other rule has claimed.
+    if RE_MULTI.search(text):
         office["lessons_pick"] = 2
-        text = RE_MULTI.sub("", text)
+        text = RE_MULTI.sub("", text).strip()
+
+    if (m := RE_BRANCH_LABEL.match(text)) and not m.group(1).startswith("Ps "):
+        prefix = m.group(1).strip()
+        office["label"] = prefix
+        text = text[m.end():].strip()
 
     psalms_found = False
     lessons = []
@@ -894,6 +909,33 @@ def unmatched_eve_offices(
             if not eve_identity(label, name_lines):
                 unmatched.append((date_str, office_key, label, name_lines))
     return unmatched
+
+
+def unlabelled_alternates(
+    rows_by_date: dict[str, list],
+) -> list[tuple[str, str, str]]:
+    """Office alternates the source never names (#131).
+
+    The toggle asks which of two observances to pray, so an alternate with no
+    label puts that question to the reader as the bare word "Alternate" — and
+    ADR 0018 matches the alternate's identity by its label, so the colour and
+    rank chips fall back to the day's in the same breath. Read from the raw
+    rows, as unmatched_eve_offices is, so main()'s gate and
+    tools/intake_year.py share one reader and cannot drift apart.
+    """
+    unlabelled = []
+    for date_str, row in sorted(rows_by_date.items()):
+        if len(row) < 5:
+            continue
+        for office_key, idx in (("morning", 3), ("evening", 4)):
+            if len(row) <= idx:
+                continue
+            alt = (parse_office_column(row[idx]) or {}).get("alternate")
+            if alt is None or alt.get("label"):
+                continue
+            branch = RE_OR_SPLIT.split(clean(row[idx]))[1].strip()
+            unlabelled.append((date_str, office_key, branch))
+    return unlabelled
 
 
 def parse_extra(raw: str, date_str: str) -> list[dict] | None:
@@ -1113,6 +1155,22 @@ def main():
                 f"    {d} {office} label={label!r}\n"
                 + "".join(f"        name line: {ln}\n" for ln in lines)
                 for d, office, label, lines in unmatched_eves
+            )
+        )
+
+    if unlabelled := unlabelled_alternates(rows_by_date):
+        intake.append(
+            f"{len(unlabelled)} office alternate(s) carry no label, so the "
+            f"toggle would offer the choice as \"Alternate\" and the observance "
+            f"would keep the day's colour and rank (#131). A branch names "
+            f"itself before its first field — if this one does and "
+            f"RE_BRANCH_LABEL does not see it, widen the pattern. If the "
+            f"source truly leaves it unnamed there is no correction category "
+            f"that reaches an alternate's label, so naming it needs one added "
+            f"before this can be resolved in the manifest.\n"
+            + "\n".join(
+                f"    {d} {office}\n        branch: {branch[:120]}\n"
+                for d, office, branch in unlabelled
             )
         )
 
