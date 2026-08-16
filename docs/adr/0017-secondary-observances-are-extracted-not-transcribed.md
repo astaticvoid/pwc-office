@@ -9,6 +9,21 @@ civil markers the hand-written dict had omitted (`remembrance_day`,
 the 2026-10-31 eve gap this ADR's extraction fixed. The decision — per-date
 observances are extracted from the CSV, not transcribed — is unchanged.
 
+Amended (2026-08-16, #129): point 3 kept commemoration lines out of the
+`observances` vocabulary, which was right, and dropped them entirely, which
+was not. They are observances of a different kind — a person the day
+remembers, carrying their own rank and colour — so they now reach the data
+as `commemorations` rather than as tags. Ten days in the window carry one
+below the day's own line, and none of them reached a reader: their
+biographies ship in `data/fats/saints.json` and could not be opened, because
+the lookup keyed on the day's name alone. Point 3's own example is one of
+them — Florence Nightingale sits under a Rogation Day, and the sentence
+naming her as a line to ignore was the reason she was.
+
+Point 3's separator text is untouched — "And / or" still becomes no
+observance. It is now *read* rather than ignored, as the word that says two
+commemorations stand equal; see point 6.
+
 ## Context
 
 `tools/convert_lectionary.py` carries `OBSERVANCES: dict[str, list[str]]` — 175
@@ -56,10 +71,12 @@ column.**
    octave and one-off national/ecumenical tags), plus one regex for `"Eve of
    X (...)"` that strips the trailing colour/bracket decoration and emits
    `eve_of:X`.
-3. Lines that don't match anything in the table are ignored — the CSV's
-   column 1 also carries alternate/optional commemoration lines ("Florence
-   Nightingale... - Com") and separator text ("And / or") that are not
-   observances and must not become one just for appearing on line 2+.
+3. Lines that don't match anything in the table become no tag — the CSV's
+   column 1 also carries commemoration lines ("Florence Nightingale... -
+   Com") and separator text ("And / or") that are not observances of the
+   fixed-vocabulary kind and must not become one just for appearing on line
+   2+. A ranked line is still read, as a commemoration rather than a tag
+   (amended, #129); only the separator text yields nothing on its own.
 4. The `eve_of:X` target-name spelling (whether `X` keeps a leading "the",
    e.g. `eve_of:the Epiphany` vs `eve_of:Advent II`) is **not** derivable
    from the CSV's own capitalization — it needs its own small hardcoded list
@@ -75,6 +92,22 @@ column.**
    hand-maintained data — the claim of this ADR is that the *165-and-counting
    per-date facts* move to extraction, not that every part of the
    classification becomes mechanical.
+
+6. **A ranked line below the day's own is a commemoration** (#129), parsed
+   for its own name, rank and colour into `commemorations`. Its standing is
+   read from the day's — the day being line 1 whether or not it carries a
+   rank suffix, since an Ember day carries none and still governs the lines
+   under it. A line matching the day's rank *and* colour is the calendar
+   offering either of two days of equal weight, and is marked `coequal` so
+   the header can name both rather than choose one, which ADR 0016 forbids
+   the app doing on the reader's behalf. Anything else is kept under the day
+   and named as a marker. The word joining a co-equal pair comes from
+   `CO_COMMEMORATION_JOINS`, a two-entry vocabulary: the calendar writes it
+   after the pair ("Or Both Together") or between them ("And / or"), so
+   position is not the signal and the wording is. A co-equal pair joined by a
+   wording not in that table blocks extraction with the worklist, on the same
+   terms as the eve gate — the alternative is a header that silently names
+   one of two days.
 
 **Out of scope for this ADR:** how (or whether) `observances` gets a
 reader-facing consumer. That's issue #56's other half and a UI/product
