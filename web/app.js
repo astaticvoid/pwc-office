@@ -1117,15 +1117,9 @@ async function render(dateStr, officeType, translation) {
     </details>`;
   }
 
-  // No form title is rendered — but the reason below no longer holds, and the
-  // decision is now open rather than settled. `form.title` used to be the first
-  // *section* heading ("The Gathering of the Community" on all 30 forms) and
-  // `form.subtitle` was never set, because the running-header filter was eating
-  // the page's own title block. #84 fixed that filter: title is now "Morning
-  // Prayer for Advent" etc., and all 16 seasonal forms carry their printed date
-  // range as subtitle. cli/book.js prints the subtitle; this page prints
-  // neither, so the two modes disagree. Whether the web page should show them
-  // is a layout question this branch does not settle (#100).
+  // Neither form.title nor form.subtitle is rendered here: the day header
+  // already names the day, the date and the office. cli/book.js is the mode
+  // that prints the form's own title and date range (#100).
 
   // ── Gathering ──────────────────────────────────────────────────────────────
   if (asm.sections.some(s => s.name === 'Gathering')) {
