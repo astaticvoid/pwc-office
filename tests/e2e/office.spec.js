@@ -761,3 +761,111 @@ test.describe('Psalm verses', () => {
     expect(stranded, 'verse numbers not sharing a line with their text').toEqual([]);
   });
 });
+
+// ── Eves, day markers, and source notes ──────────────────────────────────────
+
+// 2026-08-14 carries all three facts on one day: a commemoration, a fast, and
+// an eve that takes the evening. Its note is the calendar compiler's apparatus.
+const EVE_DATE = '2026-08-14';
+
+test.describe('Eve identity (#128)', () => {
+  test('evening prayer presents the eve, not the commemoration', async ({ page }) => {
+    await gotoOffice(page, EVE_DATE, 'ep');
+    await expect(page.locator('#day-title')).toHaveText('Eve of Saint Mary the Virgin');
+    await expect(page).toHaveTitle(/Eve of Saint Mary the Virgin/);
+    // The eve's colour, not the commemoration's green.
+    await expect(page.locator('#day-meta .colour-name')).toHaveText('White');
+    await expect(page.locator('#day-meta')).toContainText('Eve');
+  });
+
+  test('morning prayer keeps the commemoration whose propers it prays', async ({ page }) => {
+    await gotoOffice(page, EVE_DATE, 'mp');
+    await expect(page.locator('#day-title')).toContainText('Bonhoeffer');
+    await expect(page.locator('#day-meta .colour-name')).toHaveText('Green');
+    await expect(page.locator('#day-meta')).toContainText('Commemoration');
+  });
+
+  test('the header names the eve in the name column\'s full form', async ({ page }) => {
+    // The office column abbreviates it to "Eve of Saint Mary", which stays
+    // where the source put it — above the readings.
+    await gotoOffice(page, EVE_DATE, 'ep');
+    await expect(page.locator('#day-title')).toHaveText('Eve of Saint Mary the Virgin');
+    await expect(page.locator('.observance-label')).toHaveText('Eve of Saint Mary');
+  });
+
+  test('the observance toggle names the primary slot as the title does', async ({ page }) => {
+    // 2026-01-03: the day is Christmas Feria, the primary evening office is
+    // the Eve of the Epiphany, and both toggle buttons are eves.
+    await gotoOffice(page, '2026-01-03', 'ep');
+    await expect(page.locator('#day-title')).toHaveText('Eve of the Epiphany');
+    const obs = page.locator('.day-ctrl-seg--obs .day-ctrl-btn');
+    await expect(obs).toHaveCount(2);
+    await expect(obs.first()).toHaveText('Eve of the Epiphany');
+  });
+});
+
+test.describe('Day markers (#128)', () => {
+  test('the fast shows on both offices', async ({ page }) => {
+    await gotoOffice(page, EVE_DATE, 'mp');
+    await expect(page.locator('#day-meta')).toContainText('Day of discipline and self-denial');
+    await ensureOffice(page, 'ep');
+    await expect(page.locator('#day-meta')).toContainText('Day of discipline and self-denial');
+  });
+
+  test('each office names the other\'s day', async ({ page }) => {
+    // The eve is a fact about the calendar day, so the morning says so; the
+    // evening, having taken the eve as its title, names the commemoration.
+    await gotoOffice(page, EVE_DATE, 'mp');
+    await expect(page.locator('#day-meta')).toContainText('Eve of Saint Mary the Virgin');
+    await ensureOffice(page, 'ep');
+    await expect(page.locator('#day-meta')).toContainText('Bonhoeffer');
+  });
+
+  test('a day with neither gets no markers', async ({ page }) => {
+    await gotoOffice(page, '2026-08-13', 'mp');
+    await expect(page.locator('#day-meta .meta-item--marker')).toHaveCount(0);
+  });
+});
+
+test.describe('Source notes (#127)', () => {
+  test('apparatus is behind a closed disclosure, not in the reading flow', async ({ page }) => {
+    await gotoOffice(page, EVE_DATE, 'mp');
+    const det = page.locator('.day-note-details');
+    await expect(det).toHaveCount(1);
+    await expect(det).not.toHaveAttribute('open', '');
+    await expect(det.locator('summary')).toHaveText('About these readings');
+    // Not rendered as a pastoral note.
+    await expect(page.locator('.day-note')).toHaveCount(0);
+  });
+
+  test('opening it shows the note and glosses DOL', async ({ page }) => {
+    await gotoOffice(page, EVE_DATE, 'mp');
+    await page.locator('.day-note-details summary').click();
+    await expect(page.locator('.day-note-details-body')).toContainText('two sets of readings');
+    await expect(page.locator('.day-note-gloss')).toContainText('Daily Office Lectionary');
+  });
+
+  test('a rule fused with its sourcing no longer suppresses it', async ({ page }) => {
+    // 2026-06-28 held both in one cell; typing the cell as a whole hid both.
+    await gotoOffice(page, '2026-06-28', 'ep');
+    await page.locator('.day-note-details summary').click();
+    const body = page.locator('.day-note-details-body');
+    await expect(body).toContainText('The readings provided are found in the BCP');
+    // The precedence rule stays suppressed — it is applied, not advisory.
+    await expect(body).not.toContainText('takes precedence');
+  });
+
+  test('a cell of mixed kinds splits by kind', async ({ page }) => {
+    // 2026-01-06: an apparatus note and an actionable office note.
+    await gotoOffice(page, '2026-01-06', 'mp');
+    await expect(page.locator('.day-note-details-body p').first())
+      .toContainText('always kept as the Epiphany');
+    await expect(page.locator('.day-note')).toContainText('Office Note');
+  });
+
+  test('pastoral customs still render in the open', async ({ page }) => {
+    await gotoOffice(page, '2026-12-13', 'mp');
+    await expect(page.locator('.day-note')).toContainText('Gaudete');
+    await expect(page.locator('.day-note-details')).toHaveCount(0);
+  });
+});

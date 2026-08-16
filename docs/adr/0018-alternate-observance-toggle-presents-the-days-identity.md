@@ -3,6 +3,14 @@
 ## Status
 Accepted (2026-08-10)
 
+Corrected (2026-08-15, #128): point 2's rank rule ranked eve lines `feria`
+alongside actual ferias, for want of a token of their own; they now rank
+`eve`. The same enrichment reaches an eve sitting in the *primary* slot,
+which this ADR reached only through the alternate. The decision recorded here
+— the toggle presents the selected observance's identity — is unchanged; an
+eve that replaces the day's propers outright has no toggle to be presented
+by, and that is the gap #128 closed.
+
 ## Context
 
 The lectionary provides days with two possible observances. The office

@@ -403,6 +403,10 @@ body {
 /* Meta: season item */
 .meta-item { display: flex; align-items: center; gap: 0.35rem; color: var(--color-muted); white-space: nowrap; }
 .meta-item--season { font-weight: 500; color: var(--color-text); }
+/* Markers are sentences, not tokens — "Day of discipline and self-denial" is
+   wider than a phone's measure, so this is the one meta item that wraps
+   inside itself rather than pushing the row (#128). */
+.meta-item--marker { white-space: normal; text-wrap: pretty; }
 /* No opacity here. It dimmed --color-muted to 3.64:1 on the page ground, which
    is the #85 defect by a second route — and with the token now properly quiet,
    the label is already distinguished from .meta-val's weight and ink. */
@@ -767,6 +771,34 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
   color: var(--color-muted);
 }
 .day-note--info strong { font-weight: 500; color: var(--color-text); }
+
+/* Source notes: the compiler's apparatus, closed by default (#127). Quieter
+   than .fats-bio — that disclosure holds a life worth reading, this one holds
+   the provenance of a citation. */
+.day-note-details {
+  margin: var(--sp-2) 0;
+  border-left: 2px solid var(--color-border);
+}
+.day-note-details-toggle {
+  padding: 0.15rem 0 0.15rem 0.7rem;
+  font-family: var(--font-ui); font-size: 0.8rem;
+  color: var(--color-muted); cursor: pointer;
+  list-style: none;
+}
+.day-note-details-toggle::-webkit-details-marker { display: none; }
+.day-note-details-toggle::before { content: '▶ '; font-size: 0.6rem; }
+.day-note-details[open] .day-note-details-toggle::before { content: '▼ '; }
+.day-note-details-toggle:hover { color: var(--color-text); }
+.day-note-details-body {
+  padding: 0.35rem 0 0.35rem 0.7rem;
+  font-family: var(--font-ui); font-size: 0.85rem; line-height: 1.6;
+  color: var(--color-muted); text-align: left;
+}
+.day-note-details-body p { margin: 0 0 0.6em; }
+.day-note-details-body p:last-child { margin-bottom: 0; }
+.day-note-details-body a { color: var(--color-link); text-decoration: underline; }
+/* The gloss is ours, not the calendar's; it does not read as quoted text. */
+.day-note-gloss { font-style: italic; }
 
 .note-expand-btn {
   background: none; border: none; font-family: inherit; font-size: inherit;

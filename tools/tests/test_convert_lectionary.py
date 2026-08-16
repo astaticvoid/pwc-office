@@ -10,9 +10,12 @@ from pathlib import Path
 # Allow importing from tools/ without installing a package.
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import pytest
 from convert_lectionary import (
     alternate_identity,
     detect_bounds,
+    eve_identity,
+    parse_extra,
     parse_lesson,
     parse_name_meta,
     parse_observances,
@@ -294,10 +297,12 @@ class TestAlternateIdentity:
         ) == {"colour": "White", "optional": True}
 
     def test_eve_of_ascension(self):
+        # An eve ranks `eve`, not `feria` (#128): it is not standing in for a
+        # feria, and 2026-01-03 puts an eve on both sides of one toggle.
         assert alternate_identity(
             "Eve of the Ascension",
             ["Eve of Ascension Sunday (White or Gold) [if kept on Sunday]"],
-        ) == {"colour": "White or Gold", "optional": True, "rank": "feria"}
+        ) == {"colour": "White or Gold", "optional": True, "rank": "eve"}
 
     def test_no_containment_returns_none(self):
         # "Christmas II" does not appear in "Second Sunday after Christmas".
@@ -312,6 +317,99 @@ class TestAlternateIdentity:
         assert alternate_identity(
             "New Year's Day", ["New Year\u2019s Day"]
         ) == {"optional": False}
+
+
+# \u2500\u2500 eve_identity \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+class TestEveIdentity:
+    """#128: an eve in the primary slot carries its own identity."""
+
+    def test_containment_match(self):
+        assert eve_identity(
+            "Eve of Saint Mary",
+            ["Dietrich Bonhoeffer and Maximilien Kolbe, Martyrs, 1945, 1941 - Com (Green)",
+             "Day of discipline and self-denial",
+             "Eve of Saint Mary the Virgin (White)"],
+        ) == {"colour": "White", "rank": "eve",
+              "title": "Eve of Saint Mary the Virgin"}
+
+    def test_sole_eve_line_when_containment_fails(self):
+        # ACC abbreviates in the office column and does not in the name column;
+        # neither string contains the other.
+        assert eve_identity(
+            "Eve of Saint John the Baptist",
+            ["Feria (Green)", "Eve of the Birth of Saint John the Baptist (White)"],
+        ) == {"colour": "White", "rank": "eve",
+              "title": "Eve of the Birth of Saint John the Baptist"}
+
+    def test_two_eve_lines_keep_containment(self):
+        # 2026-01-03 names two eves; the fallback must not pick arbitrarily.
+        lines = ["Christmas Feria (White)",
+                 "Eve of the Epiphany (White or Gold) [if kept on Sunday]",
+                 "Eve of Christmas II (White)"]
+        assert eve_identity("Eve of Epiphany", lines)["title"] == "Eve of the Epiphany"
+        assert eve_identity("Eve of Christmas II", lines)["title"] == "Eve of Christmas II"
+
+    def test_optional_is_dropped(self):
+        # The bracket belongs to the alternate toggle; an eve in the primary
+        # slot has no toggle to be optional within.
+        assert "optional" not in eve_identity(
+            "Eve of Epiphany",
+            ["Eve of the Epiphany (White or Gold) [if kept on Sunday]"],
+        )
+
+    def test_non_eve_match_returns_none(self):
+        # Containment can land on a line that is not an eve at all; there is
+        # no eve identity to take from it.
+        assert eve_identity("Eve of Sunday", ["Feria (Green)"]) is None
+
+    def test_no_line_returns_none(self):
+        assert eve_identity("Eve of Saint Mary", ["Feria (Green)"]) is None
+
+
+# \u2500\u2500 parse_extra \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+class TestParseExtra:
+    """#127: a cell carrying two kinds of note yields one note per kind."""
+
+    def test_single_type_keeps_the_cell_whole(self):
+        assert parse_extra(
+            "Note: The DOL provides two sets of readings for evening prayer.",
+            "2026-08-14",
+        ) == [{"type": "source_note",
+               "text": "Note: The DOL provides two sets of readings for evening prayer."}]
+
+    def test_empty_cell(self):
+        assert parse_extra("", "2026-08-14") is None
+
+    def test_list_type_splits_on_br_runs(self):
+        # 2026-06-28 fused a precedence rule and its sourcing into one cell;
+        # typing the cell as a whole suppressed both.
+        notes = parse_extra(
+            "Eve of Precedence: The first Eve takes precedence.<br><br>"
+            "Note: The DOL does not provide readings for it.",
+            "2026-06-28",
+        )
+        assert notes == [
+            {"type": "precedence_rule",
+             "text": "Eve of Precedence: The first Eve takes precedence."},
+            {"type": "source_note",
+             "text": "Note: The DOL does not provide readings for it."},
+        ]
+
+    def test_single_br_splits_too(self):
+        # 2025-12-29 separates its two notes with one <br>, not two.
+        assert [n["type"] for n in parse_extra("First.<br>Second.", "2025-12-29")] \
+            == ["source_note", "source_note"]
+
+    def test_segment_count_mismatch_is_fatal(self):
+        # A silent off-by-one would retype every note after the change.
+        with pytest.raises(SystemExit, match="re-split the cell"):
+            parse_extra("Only one segment.", "2026-06-28")
+
+    def test_untyped_date_defaults_to_pastoral(self):
+        assert parse_extra("Gaudete Sunday: rose vestments.", "2026-03-01") \
+            == [{"type": "pastoral", "text": "Gaudete Sunday: rose vestments."}]
 
 
 # ── detect_bounds ─────────────────────────────────────────────────────────────

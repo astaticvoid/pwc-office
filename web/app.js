@@ -357,6 +357,36 @@ function formatRank(rank) {
   return rank.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
+// Day-level observances the header shows as their own meta items (#128).
+// `fast_day` and the plain `eve_of:` tags reached the data under ADR 0017 and
+// stopped there. They are facts about the calendar day, so both offices carry
+// them — but an eve already naming the office it governs is not repeated.
+// What one slot of the observance toggle is called. The header title and the
+// toggle's own buttons must agree, or the day reads as two different days.
+function observanceName(slot, day, isAlternate) {
+  if (slot.rank === 'eve') return slot.title || slot.label;
+  if (isAlternate) return slot.label || slot.name || day.name;
+  return day.name;
+}
+
+const MARKER_LABELS = { fast_day: 'Day of discipline and self-denial' };
+
+function dayMarkers(day, activeName, isEve) {
+  const markers = (day.observances || []).flatMap(tag => {
+    if (tag.startsWith('eve_of:')) {
+      const label = 'Eve of ' + tag.slice(7);
+      return label === activeName ? [] : [label];
+    }
+    return MARKER_LABELS[tag] ? [MARKER_LABELS[tag]] : [];
+  });
+  // The eve took the title, so the day's own commemoration would otherwise
+  // vanish from a header that still carries its fast and still opens its
+  // biography. Each office names the other's day: the eve on the morning,
+  // the commemoration on the evening.
+  if (isEve && day.name && day.name !== activeName) markers.unshift(day.name);
+  return markers;
+}
+
 // ── Psalm parsing and rendering ───────────────────────────────────────────────
 
 // Section headings ("Part I", "Aleph", "Beth", … — see RE_SECTION in
@@ -852,17 +882,13 @@ async function render(dateStr, officeType, translation) {
   }
   const activeObs = state.observance === 'alternate' && officeData.alternate ? 'alternate' : 'primary';
   const activeOfficeData = activeObs === 'alternate' ? officeData.alternate : officeData;
-  const activeName = activeObs === 'alternate'
-    ? (officeData.alternate.label || officeData.alternate.name || day.name)
-    : day.name;
-  // ADR 0018: the selected observance's own identity — colour and rank —
-  // when the alternate carries one; otherwise the day's.
-  const activeColour = activeObs === 'alternate' && officeData.alternate.colour
-    ? officeData.alternate.colour
-    : day.colour;
-  const activeRank = activeObs === 'alternate' && officeData.alternate.rank
-    ? officeData.alternate.rank
-    : day.rank;
+  // ADR 0018: the selected observance's own identity — name, colour and rank
+  // — when it carries one; otherwise the day's. An eve carries one in either
+  // slot (#128): it replaces the day's propers rather than alternating with
+  // them, so on the office it governs it *is* the day being prayed.
+  const activeName = observanceName(activeOfficeData, day, activeObs === 'alternate');
+  const activeColour = activeOfficeData.colour || day.colour;
+  const activeRank = activeOfficeData.rank || day.rank;
   document.title = `${officeName} — ${activeName}`;
   document.getElementById('day-office-name').textContent = officeName;
   document.getElementById('day-title').textContent = activeName;
@@ -888,7 +914,9 @@ async function render(dateStr, officeType, translation) {
     + `<span class="meta-val">${esc(seasonLabel)}</span>`
     + `</span>`
     + `<span class="meta-item">${esc(formatRank(activeRank))}</span>`
-    + colourChip;
+    + colourChip
+    + dayMarkers(day, activeName, activeRank === 'eve').map(m =>
+        `<span class="meta-item meta-item--marker">${esc(m)}</span>`).join('');
 
   document.querySelectorAll('.day-note, .day-note-details').forEach(el => el.remove());
 
@@ -909,7 +937,11 @@ async function render(dateStr, officeType, translation) {
       </div></div>`;
     if (officeData.alternate) {
       const altLabel = officeData.alternate.label || 'Alternate';
-      const primaryLabel = day.name.length > 26 ? day.name.slice(0,24)+'\u2026' : day.name;
+      // The primary slot is not always the day: on 2026-01-03 it is the Eve of
+      // the Epiphany and the day is Christmas Feria (#128). Name it the same
+      // way the title does.
+      const primaryName = observanceName(officeData, day, false);
+      const primaryLabel = primaryName.length > 26 ? primaryName.slice(0,24)+'\u2026' : primaryName;
       ctrlHtml += `<div class="day-ctrl-group day-ctrl-group--obs">
         <div class="day-ctrl-cap">Observance \u00b7 whose readings <span class="day-ctrl-obs-mark">\u25c6</span></div>
         <div class="day-ctrl-seg day-ctrl-seg--obs">
@@ -945,9 +977,43 @@ async function render(dateStr, officeType, translation) {
       return frag;
     };
 
+    // ── Source notes — the compiler's apparatus, behind a disclosure ────────
+    // These explain where a day's propers came from, to whoever assembles a
+    // calendar; the reader is not being asked to decide anything. Reachable
+    // rather than suppressed — the sourcing is real, it is just not part of
+    // the office (#127).
+    const sourceNotes = day.notes.filter(n => typeof n === 'object' && n.type === 'source_note');
+    if (sourceNotes.length) {
+      const det = document.createElement('details');
+      det.className = 'day-note-details';
+      const sum = document.createElement('summary');
+      sum.className = 'day-note-details-toggle';
+      sum.textContent = 'About these readings';
+      det.appendChild(sum);
+      const body = document.createElement('div');
+      body.className = 'day-note-details-body';
+      sourceNotes.forEach(n => {
+        const p = document.createElement('p');
+        p.appendChild(renderNoteText(n.text));
+        body.appendChild(p);
+      });
+      // The source writes "DOL" and never expands it; the BAS names the
+      // section in full and never abbreviates it. Gloss it as app chrome
+      // rather than editing the note — the note is quoted, not authored here.
+      if (sourceNotes.some(n => /\bDOL\b/.test(n.text))) {
+        const gloss = document.createElement('p');
+        gloss.className = 'day-note-gloss';
+        gloss.textContent = 'DOL — the Daily Office Lectionary, BAS pp. 450–497.';
+        body.appendChild(gloss);
+      }
+      det.appendChild(body);
+      headerEl.appendChild(det);
+    }
+
     day.notes.forEach(n => {
       if (typeof n === 'object' && SUPPRESS_NOTE_TYPES.has(n.type)) return;
       const type = typeof n === 'object' ? (n.type || 'pastoral') : 'pastoral';
+      if (type === 'source_note') return;
       const text = typeof n === 'object' ? n.text : n;
 
       // ── O Antiphon — liturgical block with Latin title ──────────────────────

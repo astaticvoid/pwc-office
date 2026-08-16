@@ -165,8 +165,23 @@ OBSERVANCE_FUZZY_RATIO = 0.72
 # ── Note types ─────────────────────────────────────────────────────────────────
 # The CSV extra column contains one block of text per day. The type is
 # determined here rather than by content heuristics to avoid ambiguity.
+#
+# A string types the whole cell as one note. A list splits the cell on its <br>
+# runs and types each segment in order — some cells carry two or three notes of
+# different kinds, and typing the cell as a whole let one kind decide the fate
+# of another (2026-06-28's sourcing note was suppressed because it shared a
+# cell with a precedence rule). The list length must equal the segment count;
+# parse_extra fails loudly when ACC re-splits a cell, since a silent
+# off-by-one would retype every note after the change.
+#
+# `source_note` is the calendar compiler's own apparatus — where a day's
+# propers came from, which of two lectionary options was taken, how two
+# sources package the same commemoration. It explains a decision already
+# applied to the data; the reader is not being asked to do anything with it.
+# It is not `pastoral`, which is a custom addressed to whoever is praying
+# (rose vestments, pancakes, blessing the animals).
 
-NOTE_TYPES: dict[str, str] = {
+NOTE_TYPES: dict[str, str | list[str]] = {
     "2025-12-14": "pastoral",
     "2025-12-17": "o_antiphon",
     "2025-12-18": "o_antiphon",
@@ -175,10 +190,10 @@ NOTE_TYPES: dict[str, str] = {
     "2025-12-21": "o_antiphon",
     "2025-12-22": "o_antiphon",
     "2025-12-23": "o_antiphon",
-    "2025-12-26": "pastoral",
+    "2025-12-26": ["source_note", "source_note"],
     "2025-12-27": "precedence_rule",
-    "2025-12-29": "pastoral",
-    "2026-01-06": "office_note",
+    "2025-12-29": ["source_note", "source_note"],
+    "2026-01-06": ["source_note", "office_note"],
     "2026-01-11": "pastoral",
     "2026-01-18": "week_of_prayer",
     "2026-01-19": "week_of_prayer",
@@ -210,11 +225,11 @@ NOTE_TYPES: dict[str, str] = {
     "2026-05-31": "precedence_rule",
     "2026-06-03": "office_note",
     "2026-06-07": "office_note",
-    "2026-06-28": "precedence_rule",
+    "2026-06-28": ["precedence_rule", "source_note"],
     "2026-07-01": "civil_day",
     "2026-07-25": "precedence_rule",
     "2026-08-06": "reconciliation_propers",
-    "2026-08-14": "pastoral",
+    "2026-08-14": "source_note",
     "2026-08-15": "precedence_rule",
     "2026-08-29": "precedence_rule",
     "2026-09-07": "civil_day",
@@ -223,9 +238,9 @@ NOTE_TYPES: dict[str, str] = {
     "2026-09-16": "ember_crossref",
     "2026-09-18": "ember_crossref",
     "2026-09-19": "ember_crossref",
-    "2026-09-28": "pastoral",
+    "2026-09-28": "source_note",
     "2026-10-04": "pastoral",
-    "2026-10-30": "pastoral",
+    "2026-10-30": "source_note",
     "2026-11-11": "civil_day",
     "2026-12-13": "pastoral",
     "2026-12-16": "ember_crossref",
@@ -236,9 +251,9 @@ NOTE_TYPES: dict[str, str] = {
     "2026-12-21": "o_antiphon",
     "2026-12-22": "o_antiphon",
     "2026-12-23": "o_antiphon",
-    "2026-12-26": "pastoral",
-    "2026-12-28": "pastoral",
-    "2026-12-29": "pastoral",
+    "2026-12-26": ["source_note", "source_note", "precedence_rule"],
+    "2026-12-28": "source_note",
+    "2026-12-29": ["source_note", "source_note"],
 }
 
 
@@ -276,6 +291,11 @@ RE_EVE_OF = re.compile(
     r"^Eve of\s+(.+?)\s*(?:\([^)]*\))?\s*(?:\[[^]]*\])?\s*$",
     re.IGNORECASE,
 )
+
+# An office label naming an eve ("Eve of Saint Mary"). Looser than RE_EVE_OF,
+# which anchors a whole name-column line; this one only has to recognise the
+# label the office column prefixes its propers with.
+RE_EVE_LABEL = re.compile(r"^Eve of\s+\S", re.IGNORECASE)
 
 
 def _classify_observance_line(line: str) -> list[str] | None:
@@ -369,9 +389,7 @@ def alternate_identity(label: str, lines: list[str]) -> dict | None:
     when a line matches, else None (the caller keeps the day's identity).
     Matching is case-insensitive containment in either direction after
     stripping "the" (the label's article form — "Eve of the Ascension" —
-    need not match the CSV's bare form); the rank is ``feria`` when the
-    matched line is a feria line (contains "Feria") or begins with "Eve",
-    otherwise the day's own rank stands.
+    need not match the CSV's bare form); see line_identity for the rank.
     """
     target = re.sub(r"\bthe\s+", "", label, flags=re.I).strip().lower()
     target = target.replace("\u2019", "'")  # CSV typography vs ASCII labels
@@ -382,14 +400,76 @@ def alternate_identity(label: str, lines: list[str]) -> dict | None:
         low = low.replace("\u2019", "'")
         if not low or not (target in low or low in target):
             continue
-        identity: dict = {}
-        if m := re.search(r"\(([^)]*)\)", line):
-            identity["colour"] = m.group(1).strip()
-        identity["optional"] = bool(re.search(r"\[[^]]*\]", line))
-        if re.search(r"\bferia\b", low) or low.startswith("eve "):
-            identity["rank"] = "feria"
-        return identity
+        return line_identity(line, low)
     return None
+
+
+def line_identity(line: str, low: str) -> dict:
+    """Read one name-column line's identity \u2014 {colour, optional, rank}.
+
+    ``low`` is the caller's article-stripped lowercase form of ``line``.
+    """
+    identity: dict = {}
+    if m := re.search(r"\(([^)]*)\)", line):
+        identity["colour"] = m.group(1).strip()
+    identity["optional"] = bool(re.search(r"\[[^]]*\]", line))
+    # ADR 0018 ranked eve lines `feria` alongside actual ferias for want of a
+    # better token. `eve` is that token (#128): an eve alternate and an eve in
+    # the primary slot are the same kind of office, and 2026-01-03 puts one of
+    # each on the two sides of a single toggle.
+    if low.startswith("eve "):
+        identity["rank"] = "eve"
+    elif re.search(r"\bferia\b", low):
+        identity["rank"] = "feria"
+    return identity
+
+
+def eve_identity(label: str, lines: list[str]) -> dict | None:
+    """Identity for an eve's office, from the name column (#128).
+
+    ADR 0018's containment match locates the line. It fails where ACC writes
+    the eve's full title in the name column and an abbreviated one in the
+    office column \u2014 "Eve of the Birth of Saint John the Baptist" against "Eve
+    of Saint John the Baptist" \u2014 so a day naming exactly one eve falls back to
+    that line: with one candidate there is nothing for the label to be
+    ambiguous about. A day naming two (2026-01-03 keeps both the Epiphany's
+    eve and Christmas II's) keeps containment, which separates them correctly.
+
+    Adds `title` \u2014 the eve named as the name column names it, minus the
+    colour and bracket decorations. The office column's own label is an
+    abbreviation ("Eve of Saint Mary" for "Eve of Saint Mary the Virgin");
+    it stays where the source put it, above the readings, while the header
+    announces the day in full.
+    """
+    target = re.sub(r"\bthe\s+", "", label, flags=re.I).strip().lower()
+    target = target.replace("\u2019", "'")
+    line = None
+    for candidate in lines:
+        low = re.sub(r"\bthe\s+", "", candidate, flags=re.I).strip().lower()
+        low = low.replace("\u2019", "'")
+        if low and (target in low or low in target):
+            line = candidate
+            break
+    if line is None:
+        eve_lines = [ln for ln in lines if RE_EVE_OF.match(ln)]
+        if len(eve_lines) != 1:
+            return None
+        line = eve_lines[0]
+
+    low = re.sub(r"\bthe\s+", "", line, flags=re.I).strip().lower()
+    identity = line_identity(line, low.replace("\u2019", "'"))
+    # line_identity ranks the line `eve` only when it reads as one; the
+    # containment match can land on a line that does not (2026-01-03's
+    # "Eve of Christmas II" against "Christmas Feria"). Nothing to take from
+    # such a line \u2014 the caller keeps the day's identity.
+    if identity.get("rank") != "eve":
+        return None
+    if m := RE_EVE_OF.match(line):
+        identity["title"] = "Eve of " + m.group(1).strip()
+    # `optional` is the alternate toggle's concern; an eve in the primary slot
+    # has no toggle, and one in the alternate slot keeps it via ADR 0018.
+    identity.pop("optional", None)
+    return identity
 
 
 
@@ -747,16 +827,36 @@ def parse_eucharist(raw: str) -> str:
 
 # ── Extra / notes parsing ──────────────────────────────────────────────────────
 
+RE_BR_RUN = re.compile(r"(?:<br\s*/?>\s*)+", re.I)
+
+
 def parse_extra(raw: str, date_str: str) -> list[dict] | None:
     """
     Parse the extra column into a notes list.
-    Each day has at most one note. Type is looked up from NOTE_TYPES;
-    text is the HTML-cleaned content of the column.
+    Type is looked up from NOTE_TYPES; text is the HTML-cleaned content.
+
+    A str type makes the whole cell one note. A list type splits the cell on
+    its <br> runs and pairs each segment with the type at the same index, so
+    a cell carrying two kinds of note (a precedence rule and the sourcing it
+    was fused with) yields one note per kind.
     """
+    note_type = NOTE_TYPES.get(date_str, "pastoral")
+
+    if isinstance(note_type, list):
+        segments = [s for s in (clean_inline(p) for p in RE_BR_RUN.split(raw)) if s]
+        if len(segments) != len(note_type):
+            sys.exit(
+                f"{date_str}: NOTE_TYPES lists {len(note_type)} types but the "
+                f"extra column splits into {len(segments)} segments. ACC "
+                f"re-split the cell — retype it in NOTE_TYPES rather than "
+                f"letting the pairing shift silently.\n"
+                + "\n".join(f"  [{i}] {s[:90]}" for i, s in enumerate(segments))
+            )
+        return [{"type": t, "text": s} for t, s in zip(note_type, segments)]
+
     text = clean_inline(raw)
     if not text:
         return None
-    note_type = NOTE_TYPES.get(date_str, "pastoral")
     # Some Advent Ember Days that coincide with O Antiphon days have the Ember Day
     # cross-reference appended to the antiphon text in the CSV. Strip the suffix —
     # it is redundant since the day name already says "Advent Ember Day".
@@ -919,12 +1019,21 @@ def main():
         if not name_lines:
             continue
         for office_key in ("morning", "evening"):
-            alt = entry.get(office_key, {}).get("alternate")
-            if not alt:
+            office = entry.get(office_key, {})
+            if alt := office.get("alternate"):
+                identity = alternate_identity(alt.get("label") or "", name_lines)
+                if identity:
+                    alt.update(identity)
+            # An eve does not alternate with the day's own propers, it replaces
+            # them — so an eve in the primary slot has no toggle to carry its
+            # identity and kept presenting the day's instead (#128). Enriched
+            # whether or not an alternate exists: on 2026-01-03 both slots are
+            # eves, the Epiphany's and Christmas II's.
+            label = office.get("label") or ""
+            if not RE_EVE_LABEL.match(label):
                 continue
-            identity = alternate_identity(alt.get("label") or "", name_lines)
-            if identity:
-                alt.update(identity)
+            if identity := eve_identity(label, name_lines):
+                office.update(identity)
 
     # Group entries by YYYY-MM and write one file per month.
     months: dict[str, dict] = {}
