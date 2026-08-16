@@ -939,6 +939,24 @@ test.describe('Co-commemoration (#129)', () => {
       .toContainText(['The Holy Innocents', 'Thomas Becket, Archbishop of Canterbury, 1170']);
   });
 
+  // #137: the calendar writes this pair on one line, joined by "and", where
+  // the other co-commemorations get a line each.
+  test('a pair written inline on one line is named as two', async ({ page }) => {
+    await gotoOffice(page, '2026-10-15', 'mp');
+    await expect(page.locator('#day-title')).toHaveText(
+      'Teresa of Avila, Spiritual Teacher and Reformer, 1582 and '
+      + 'John of the Cross, Priest, Spiritual Teacher, 1591');
+    await expect(page.locator('.fats-bio-toggle')).toHaveText([
+      'About Teresa of Avila, Spiritual Teacher and Reformer, 1582',
+      'About John of the Cross, Priest, Spiritual Teacher, 1591',
+    ]);
+  });
+
+  test('the header carries no rank marker from the source', async ({ page }) => {
+    await gotoOffice(page, '2026-10-15', 'mp');
+    await expect(page.locator('#day-title')).not.toContainText('- Com');
+  });
+
   test('a day naming one observance is unchanged', async ({ page }) => {
     await gotoOffice(page, '2026-08-13', 'mp');
     await expect(page.locator('#day-meta .meta-item--marker')).toHaveCount(0);
