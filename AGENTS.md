@@ -83,6 +83,7 @@ node tools/compare_staging.cjs [date] [mp|ep]  # A/B diff staging vs production 
 node tools/review_form.cjs FORM   # line-numbered text renderer for manual review
 
 # Quality gates
+make intake-year                  # worklist for a new bas_short_YYYY.csv — reports; extract gates
 make audit-errata                 # data/offices.json vs docs/errata/ — reports, does not gate
 make check-text                   # scan for PDF extraction artifacts
 make check-text --strict          # same but exits non-zero on findings
@@ -222,6 +223,15 @@ ships via the `web/data` symlink. Only the right-hand column is published.
 | `validate_corrections.py` — checks corrections against the pre-correction artifacts | *(read-only)* |
 | `apply_corrections.py` — applies `data/corrections.json` | `data/offices.json`, `data/psalter.json`, `data/fats/saints.json`, `data/lectionary/` |
 | `update_extract_manifest.py` | `tools/extract_manifest.json` (committed) |
+
+**A new lectionary year is not just a re-run.** `convert_lectionary.py` derives
+most of itself from the CSV (ADR 0017), but `NOTE_TYPES` is keyed by date and
+the eve/phrase vocabularies are keyed by wording — none of it carries from one
+year to the next, and the classification is a judgment about who a note is
+addressed to that no heuristic makes reliably. `make extract` therefore refuses
+a CSV whose decisions have not been made, printing the worklist as the error.
+Run `make intake-year` first to see that worklist without failing a build, and
+follow **[docs/runbooks/lectionary-year-intake.md](docs/runbooks/lectionary-year-intake.md)**.
 
 Not part of this chain: `extract_paragraphs.py` generates `data/paragraphs.json`
 from a hand-fetched WEB USFX XML (source URL in the script's docstring). It has

@@ -21,7 +21,11 @@ from convert_lectionary import (
     parse_observances,
     parse_psalm_field,
     parse_single_office,
+    unmatched_eve_offices,
+    untyped_note_dates,
 )
+
+ROOT = Path(__file__).resolve().parent.parent.parent
 
 # ── parse_name_meta ───────────────────────────────────────────────────────────
 
@@ -408,8 +412,100 @@ class TestParseExtra:
             parse_extra("Only one segment.", "2026-06-28")
 
     def test_untyped_date_defaults_to_pastoral(self):
+        # The default is why untyped_note_dates gates extraction: on its own it
+        # would file a new year's apparatus notes as customs to observe.
         assert parse_extra("Gaudete Sunday: rose vestments.", "2026-03-01") \
             == [{"type": "pastoral", "text": "Gaudete Sunday: rose vestments."}]
+
+
+# ── untyped_note_dates ────────────────────────────────────────────────────────
+
+class TestUntypedNoteDates:
+    """The intake gate: NOTE_TYPES is per-date and carries to no new year."""
+
+    def _row(self, date_str, extra):
+        return [date_str, "Feria (Green)", "", "", "", extra]
+
+    def test_a_new_years_note_is_reported(self):
+        rows = {"2027-08-14": self._row("2027-08-14", "Note: The DOL provides two sets.")}
+        assert untyped_note_dates(rows) == [
+            ("2027-08-14", ["Note: The DOL provides two sets."])
+        ]
+
+    def test_segments_are_split_for_the_worklist(self):
+        # The reporter shows the shape so the entry can be typed per segment.
+        rows = {"2027-06-28": self._row("2027-06-28", "One rule.<br><br>Two sourcing.")}
+        assert untyped_note_dates(rows)[0][1] == ["One rule.", "Two sourcing."]
+
+    def test_a_typed_date_is_not_reported(self):
+        rows = {"2026-08-14": self._row("2026-08-14", "Note: anything.")}
+        assert untyped_note_dates(rows) == []
+
+    def test_a_date_with_no_note_is_not_reported(self):
+        rows = {"2027-08-14": self._row("2027-08-14", "   ")}
+        assert untyped_note_dates(rows) == []
+
+    def test_the_current_csv_is_fully_typed(self):
+        # The gate must pass on shipped data or it is not a gate, it is a wall.
+        import csv as _csv
+        import re as _re
+        rows = {}
+        for path in sorted((ROOT / "sources").glob("bas_short_*.csv")):
+            with open(path, newline="", encoding="utf-8") as f:
+                for row in _csv.reader(f, quoting=_csv.QUOTE_MINIMAL):
+                    if len(row) >= 5 and _re.match(r"\d{4}-\d{2}-\d{2}", row[0].strip()):
+                        rows[row[0].strip()] = row
+        if not rows:
+            pytest.skip("no sources/bas_short_*.csv in this checkout")
+        assert untyped_note_dates(rows) == []
+
+
+# ── unmatched_eve_offices ─────────────────────────────────────────────────────
+
+class TestUnmatchedEveOffices:
+    """The eve gate (#128): an 'Eve of …' office label with no matching name
+    line blocks extraction — shared by main()'s gate and the intake tool."""
+
+    def _row(self, name, morning="", evening=""):
+        return ["2026-08-14", name, "", morning, evening, ""]
+
+    def test_an_unmatched_eve_office_is_reported(self):
+        rows = {"2026-08-14": self._row(
+            "Feria (Green)",
+            morning="Eve of Saint Mary the Virgin: Ps 45; Prov 8:22-31; Coll 536",
+        )}
+        assert unmatched_eve_offices(rows) == [
+            ("2026-08-14", "morning", "Eve of Saint Mary the Virgin",
+             ["Feria (Green)"])
+        ]
+
+    def test_an_eve_that_matches_a_name_line_is_not_reported(self):
+        rows = {"2026-08-14": self._row(
+            "Eve of Saint Mary the Virgin (Blue)",
+            morning="Eve of Saint Mary the Virgin: Ps 45; Prov 8:22-31; Coll 536",
+        )}
+        assert unmatched_eve_offices(rows) == []
+
+    def test_a_non_eve_office_is_not_reported(self):
+        rows = {"2026-08-14": self._row(
+            "Feria (Green)",
+            morning="Ps 45; Prov 8:22-31; Coll 536",
+        )}
+        assert unmatched_eve_offices(rows) == []
+
+    def test_the_current_csv_has_no_unmatched_eves(self):
+        # The gate must pass on shipped data or it is not a gate, it is a wall.
+        import csv as _csv
+        import re as _re
+        rows = {}
+        for path in sorted((ROOT / "sources").glob("bas_short_*.csv")):
+            with open(path, newline="", encoding="utf-8") as f:
+                for row in _csv.reader(f, quoting=_csv.QUOTE_MINIMAL):
+                    if len(row) >= 5 and _re.match(r"\d{4}-\d{2}-\d{2}", row[0].strip()):
+                        rows[row[0].strip()] = row
+        if not rows:
+            pytest.skip("no sources/bas_short_*.csv in this checkout")
+        assert unmatched_eve_offices(rows) == []
 
 
 # ── detect_bounds ─────────────────────────────────────────────────────────────

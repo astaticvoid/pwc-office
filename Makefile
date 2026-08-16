@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: check-conservation venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa lint lint-js lint-py test-mutations hooks
+.PHONY: check-conservation venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata intake-year serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa lint lint-js lint-py test-mutations hooks
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -174,6 +174,13 @@ test-tools:
 # whenever docs/errata/ or the office_text corrections change.
 audit-errata:
 	$(PYTHON) tools/audit_errata.py
+
+# Worklist for a new lectionary year: every decision the converter cannot
+# derive from the CSV. Reports; `make extract` is what gates. First thing to
+# run after dropping a new bas_short_YYYY.csv into sources/.
+# See docs/runbooks/lectionary-year-intake.md.
+intake-year:
+	$(PYTHON) tools/intake_year.py
 
 # Scan extracted JSON files for PDF extraction artifacts (missing spaces, etc.).
 check-text:

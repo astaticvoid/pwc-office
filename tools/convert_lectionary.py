@@ -830,6 +830,72 @@ def parse_eucharist(raw: str) -> str:
 RE_BR_RUN = re.compile(r"(?:<br\s*/?>\s*)+", re.I)
 
 
+def note_segments(raw: str) -> list[str]:
+    """The extra column's <br>-separated segments, cleaned, blanks dropped."""
+    return [s for s in (clean_inline(p) for p in RE_BR_RUN.split(raw)) if s]
+
+
+def _type_hint(segments: list[str]) -> str:
+    """A copy-pasteable NOTE_TYPES value shape for an untyped cell.
+
+    The type itself is a judgment call the reporter will not make; only the
+    str-or-list shape follows from the segment count.
+    """
+    if len(segments) == 1:
+        return '"???"'
+    return "[" + ", ".join('"???"' for _ in segments) + "]"
+
+
+def untyped_note_dates(rows_by_date: dict[str, list]) -> list[tuple[str, list[str]]]:
+    """Note-bearing dates with no NOTE_TYPES entry, with their segments.
+
+    NOTE_TYPES is keyed by date, so no classification carries from one
+    lectionary year to the next: 2027's sourcing notes are new keys. The
+    lookup defaults, and a default is how the DOL notes spent a year typed
+    `pastoral` — the reader was told, in the voice of a custom to observe,
+    which of two lectionary options the compiler had taken (#127).
+
+    So a new year's notes are triaged or they are not extracted. Callers
+    report this rather than guessing; tools/intake_year.py reads it too.
+    """
+    untyped = []
+    for date_str, row in sorted(rows_by_date.items()):
+        raw = row[5].strip() if len(row) > 5 else ""
+        if raw and date_str not in NOTE_TYPES:
+            untyped.append((date_str, note_segments(raw)))
+    return untyped
+
+
+def unmatched_eve_offices(
+    rows_by_date: dict[str, list],
+) -> list[tuple[str, str, str, list[str]]]:
+    """Eve offices whose label matches no name-column line (#128).
+
+    Fail-open would put the day's colour on an office praying the eve's
+    propers — green on the Eve of Saint Mary — so these block extraction.
+    Computed from the raw rows so main()'s gate and tools/intake_year.py
+    share one reader and cannot drift apart; the enrichment pass that
+    follows re-derives the same name lines from each entry.
+    """
+    unmatched = []
+    for date_str, row in sorted(rows_by_date.items()):
+        if len(row) < 5:
+            continue
+        name_lines = [ln.strip() for ln in clean(row[1]).split("\n") if ln.strip()]
+        if not name_lines:
+            continue
+        for office_key, idx in (("morning", 3), ("evening", 4)):
+            if len(row) <= idx:
+                continue
+            office = parse_office_column(row[idx])
+            label = (office or {}).get("label") or ""
+            if not RE_EVE_LABEL.match(label):
+                continue
+            if not eve_identity(label, name_lines):
+                unmatched.append((date_str, office_key, label, name_lines))
+    return unmatched
+
+
 def parse_extra(raw: str, date_str: str) -> list[dict] | None:
     """
     Parse the extra column into a notes list.
@@ -900,6 +966,25 @@ def main():
                     rows_by_date[row[0].strip()] = row
     rows = sorted(rows_by_date.values(), key=lambda r: r[0])
     print(f"Loaded {len(rows)} unique dates from {len(csv_paths)} CSV file(s)")
+
+    # Intake gate. Everything a new lectionary year needs decided by hand is
+    # collected here and reported at once, so the worklist arrives whole
+    # rather than one exit at a time. See docs/runbooks/lectionary-year-intake.md.
+    intake: list[str] = []
+    if untyped := untyped_note_dates(rows_by_date):
+        intake.append(
+            f"{len(untyped)} date(s) carry a note with no NOTE_TYPES entry. "
+            f"Classify each, then add it to the table in this file. A list "
+            f"types a cell's <br> segments in order; a string types the whole "
+            f"cell. `source_note` is the compiler's apparatus, `pastoral` is a "
+            f"custom addressed to whoever is praying — the distinction the "
+            f"default silently collapsed (#127).\n"
+            + "\n".join(
+                f'    "{d}": {_type_hint(segs)},'
+                + "".join(f"\n        # [{i}] {s[:96]}" for i, s in enumerate(segs))
+                for d, segs in untyped
+            )
+        )
 
     bounds = detect_bounds(rows)
     _REQUIRED_BOUNDS = [
@@ -1014,6 +1099,23 @@ def main():
     # observance's identity — colour, optionality, rank — matched from the
     # name column's lines, so the app's Primary/Alternate toggle can present
     # the selected observance's own identity rather than the primary's.
+    # The eve gate (#128) is computed up front from the raw rows so the
+    # report tool and this gate share one reader (unmatched_eve_offices).
+    unmatched_eves = unmatched_eve_offices(rows_by_date)
+    if unmatched_eves:
+        intake.append(
+            f"{len(unmatched_eves)} eve office(s) matched no name-column line, "
+            f"so the eve has no colour of its own and the header would show "
+            f"the day's (#128). Either the office label and the name line have "
+            f"drifted apart — extend eve_identity's matching — or ACC omitted "
+            f"the eve from the name column, which is a correction.\n"
+            + "\n".join(
+                f"    {d} {office} label={label!r}\n"
+                + "".join(f"        name line: {ln}\n" for ln in lines)
+                for d, office, label, lines in unmatched_eves
+            )
+        )
+
     for entry in entries:
         name_lines = entry.pop("_name_lines", None)
         if not name_lines:
@@ -1034,6 +1136,14 @@ def main():
                 continue
             if identity := eve_identity(label, name_lines):
                 office.update(identity)
+
+    if intake:
+        sys.exit(
+            "\nLectionary intake — this CSV needs decisions that cannot be "
+            "derived from it.\nSee docs/runbooks/lectionary-year-intake.md.\n\n"
+            + "\n\n".join(f"── {p}" for p in intake)
+            + "\n\nNothing was written. Resolve the above and re-run.\n"
+        )
 
     # Group entries by YYYY-MM and write one file per month.
     months: dict[str, dict] = {}
