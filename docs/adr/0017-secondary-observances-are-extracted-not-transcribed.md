@@ -20,6 +20,13 @@ the lookup keyed on the day's name alone. Point 3's own example is one of
 them — Florence Nightingale sits under a Rogation Day, and the sentence
 naming her as a line to ignore was the reason she was.
 
+Amended (2026-08-16, #137): the calendar does not always write one
+observance to a line. 2026-10-15 joins two onto one, and a correction had
+been patching the resulting name by hand — re-inserting the rank markers so
+the second commemoration's rank survived, which put source shorthand in
+front of the reader. Point 7 normalises the column instead, and that
+correction is deleted.
+
 Point 3's separator text is untouched — "And / or" still becomes no
 observance. It is now *read* rather than ignored, as the word that says two
 commemorations stand equal; see point 6.
@@ -102,12 +109,23 @@ column.**
    the header can name both rather than choose one, which ADR 0016 forbids
    the app doing on the reader's behalf. Anything else is kept under the day
    and named as a marker. The word joining a co-equal pair comes from
-   `CO_COMMEMORATION_JOINS`, a two-entry vocabulary: the calendar writes it
-   after the pair ("Or Both Together") or between them ("And / or"), so
-   position is not the signal and the wording is. A co-equal pair joined by a
-   wording not in that table blocks extraction with the worklist, on the same
-   terms as the eve gate — the alternative is a header that silently names
-   one of two days.
+   `CO_COMMEMORATION_JOINS`, a three-entry vocabulary: the calendar writes it
+   after the pair ("Or Both Together"), between them ("And / or"), or inline
+   between two observances on one line ("and"), so position is not the signal
+   and the wording is. A co-equal pair joined by a wording not in that table
+   blocks extraction with the worklist, on the same terms as the eve gate —
+   the alternative is a header that silently names one of two days.
+7. **One observance to a line** (#137). The calendar almost always writes
+   them that way, and where it does not — 2026-10-15 joins two onto one line
+   — `observance_lines` splits them before anything else reads the column, so
+   points 1 to 6 need know nothing about the shape. The rank marker is the
+   seam: an "and" before it belongs to the name, since "Basil the Great and
+   Gregory of Nazianzus … - Mem" is one commemoration of two people, and one
+   after it starts another observance. The join word survives as a line of
+   its own, which is how it reaches point 6's vocabulary as a written
+   separator line would. The split requires what follows to carry a rank
+   marker too: only ranked lines are read back, so splitting off a tail that
+   is not an observance would drop it.
 
 **Out of scope for this ADR:** how (or whether) `observances` gets a
 reader-facing consumer. That's issue #56's other half and a UI/product
