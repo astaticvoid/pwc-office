@@ -5,7 +5,7 @@ import {
   filterSeasonalCollects, renderAlternatives, renderSegments, renderSubsection,
   lessonHtml, lessonsPickRubricHtml, bindMidpoints, parseCitation, expandCitationForDisplay,
   SC_HEADER, SC_FOOTER,
-  collectSecondaryPage, assembleSections, formatLiturgicalText, invitatorySegments, phosHilaronSegments,
+  collectSecondaryPage, collectCommemorations, assembleSections, formatLiturgicalText, invitatorySegments, phosHilaronSegments,
   splitPsalmRubrics, splitReadingRubrics,
   parseRanges, extractVersesWithChapter, parsePsalmCitation,
   collectPageNum, lookupCollect,
@@ -737,6 +737,25 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared, fatsEntry
   const occPage = collectRef ? collectSecondaryPage(collectRef) : null;
   const occCollect = (occPage && collects[occPage]) || null;
 
+  // The commemoration's own collect, which the ref names in parentheses and
+  // the leading-page lookup could not see (#135). A peer of the day's collect,
+  // as the book offers it — a day ranked and coloured a commemoration was
+  // being given only the season's.
+  const commemorationEntries = collectCommemorations(collectRef || '').flatMap(cm =>
+    cm.pages.map(page => [page, collects[page]])
+      .filter(([, col]) => col)
+      .map(([, col]) => [
+        cm.of ? `${cm.of}: ${col.name}` : col.name,
+        `<p class="alt-source">${esc(col.name)}</p>${collectTextHtml(col.text)}`,
+      ]));
+
+  // Everything the ref offers beside the day's own collect, in the order the
+  // ref names them.
+  const extraEntries = [
+    ...(occCollect ? [[occCollect.name, occPanelHtml()]] : []),
+    ...commemorationEntries,
+  ];
+
   // FATS collect: shown as fallback when BAS collect is absent or unresolvable.
   const fatsCollect = (!hasDaily || !basResolvable) ? (fatsEntry && fatsEntry.collect) || null : null;
 
@@ -773,7 +792,7 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared, fatsEntry
       );
       entries.push(['Seasonal ' + g.label, `<div class="liturgy">${renderSegments(cleanSegs, shared)}</div>`]);
     });
-    if (occCollect) entries.push([occCollect.name, occPanelHtml()]);
+    entries.push(...extraEntries);
     html += tabBlock(entries);
     return html;
   }
@@ -786,14 +805,11 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared, fatsEntry
       ['Collect of the Day', dailyHtml()],
       ['Seasonal Collect', seasonalTitle + `<div class="liturgy">${renderSegments(displaySeasonal, shared)}</div>`],
     ];
-    if (occCollect) entries.push([occCollect.name, occPanelHtml()]);
+    entries.push(...extraEntries);
     html += tabBlock(entries);
   } else if (hasDaily) {
-    if (occCollect) {
-      html += tabBlock([
-        ['Collect of the Day', dailyHtml()],
-        [occCollect.name, occPanelHtml()],
-      ]);
+    if (extraEntries.length) {
+      html += tabBlock([['Collect of the Day', dailyHtml()], ...extraEntries]);
     } else {
       html += `<h3 class="office-subsection-title">Collect of the Day</h3>${dailyHtml()}`;
     }
@@ -806,7 +822,10 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared, fatsEntry
       html += tabBlock([
         ['Collect of the Day', fatsPanelHtml()],
         ['Seasonal Collect', seasonalTitle + `<div class="liturgy">${renderSegments(displaySeasonal, shared)}</div>`],
+        ...extraEntries,
       ]);
+    } else if (extraEntries.length) {
+      html += tabBlock([['Collect of the Day', fatsPanelHtml()], ...extraEntries]);
     } else {
       html += `<h3 class="office-subsection-title">Collect of the Day</h3>${fatsPanelHtml()}`;
     }

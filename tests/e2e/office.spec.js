@@ -868,6 +868,46 @@ test.describe('Eve identity (#128)', () => {
   });
 });
 
+test.describe('Commemoration collect (#135)', () => {
+  // The book names the day's collect and the commemoration's; the app kept
+  // only the leading page, so a day ranked a Commemoration offered the
+  // season's collect alone.
+  test('the commemoration collect is offered beside the day\'s', async ({ page }) => {
+    await gotoOffice(page, '2025-12-03', 'mp');   // "268 (Com: 434 or FAS 361)"
+    const tabs = page.locator('#prayers-collect .alt-tab');
+    await expect(tabs.filter({ hasText: 'Common of a Missionary' })).toHaveCount(1);
+  });
+
+  test('a slashed page offers both facing collects', async ({ page }) => {
+    await gotoOffice(page, '2025-12-04', 'mp');   // "268 (Com: 438/9 or FAS 363)"
+    const tabs = page.locator('#prayers-collect .alt-tab');
+    await expect(tabs.filter({ hasText: 'Common of a Saint 1' })).toHaveCount(1);
+    await expect(tabs.filter({ hasText: 'Common of a Saint 2' })).toHaveCount(1);
+  });
+
+  test('a day commemorating two people says whose collect is whose', async ({ page }) => {
+    await gotoOffice(page, '2026-10-30', 'mp');
+    const tabs = page.locator('#prayers-collect .alt-tab');
+    await expect(tabs.filter({ hasText: 'Wyclyf: Common of a Saint 1' })).toHaveCount(1);
+    await expect(tabs.filter({ hasText: 'Hus: Common of Doctors' })).toHaveCount(1);
+  });
+
+  test('selecting one shows that collect, not the day\'s', async ({ page }) => {
+    await gotoOffice(page, '2026-10-30', 'mp');
+    await page.locator('#prayers-collect .alt-tab')
+      .filter({ hasText: 'Hus: Common of Doctors' }).click();
+    await expect(page.locator('#prayers-collect .alt-source:visible').first())
+      .toHaveText('Common of Doctors and Teachers of the Faith');
+  });
+
+  test('a day with no commemoration gains no tab', async ({ page }) => {
+    // 2025-12-02 is an Advent feria — collect "268", no parenthetical at all.
+    await gotoOffice(page, '2025-12-02', 'mp');
+    await expect(page.locator('#prayers-collect .alt-tab').filter({ hasText: 'Common of' }))
+      .toHaveCount(0);
+  });
+});
+
 test.describe('Co-commemoration (#129)', () => {
   // 2026-10-30 names two commemorations of equal standing. Naming one of them
   // in the title would be the app choosing a day for the reader (ADR 0016).
