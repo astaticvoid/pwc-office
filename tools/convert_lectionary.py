@@ -301,10 +301,12 @@ RE_EVE_LABEL = re.compile(r"^Eve of\s+\S", re.IGNORECASE)
 def _classify_observance_line(line: str) -> list[str] | None:
     """Classify one cleaned name-column line into observance tags.
 
-    Returns a list of tags (usually one), or None when the line is not an
-    observance — alternate commemorations ("Florence Nightingale, … - Com"),
-    separator text ("And / or"), and plain eves ("Eve of Sunday") are all
-    deliberately ignored (ADR 0017 point 3).
+    Returns a list of tags (usually one), or None when the line carries no tag
+    of this kind — commemorations ("Florence Nightingale, … - Com"), separator
+    text ("And / or") and plain eves ("Eve of Sunday") yield none here. A
+    commemoration is read by parse_commemorations instead, and the separator
+    by the joining vocabulary; neither is an observance tag (ADR 0017 points
+    3 and 6).
     """
     if m := RE_EVE_OF.match(line):
         target = m.group(1).strip()
@@ -483,8 +485,27 @@ RANK_SUFFIXES = {
 }
 
 
+# A name-column line carrying a rank suffix — the shape that names an
+# observance, as against the separator and note lines around it.
+RE_RANKED_LINE = re.compile(r"\s-\s(?:PF|HD|Mem|Com)\b")
+
+# How the calendar joins two commemorations of equal standing, and the word
+# the header joins them with. Written after the pair ("Or Both Together") or
+# between them ("And / or"), so position is not the signal; the wording is.
+# Small and explicit on purpose: a joining a new year writes differently is
+# reported rather than guessed at (ADR 0017).
+CO_COMMEMORATION_JOINS = {
+    "or both together": "or",
+    "and / or": "and / or",
+}
+
+
 def parse_name_meta(raw: str):
-    desc = first_line(clean(raw))
+    return _line_meta(first_line(clean(raw)))
+
+
+def _line_meta(desc: str):
+    """Name, rank and colour from one name-column line."""
     colour = ""
     if (i := desc.rfind("(")) >= 0:
         if (j := desc.rfind(")")) > i:
@@ -504,6 +525,49 @@ def parse_name_meta(raw: str):
         rank = "holy_day"
 
     return desc.strip(), rank, colour
+
+
+def parse_commemorations(raw: str) -> tuple[list[dict], str]:
+    """The ranked name-column lines below the day's own (#129).
+
+    ADR 0017 point 3 dropped these, so a day naming two observances shipped
+    one. Returns them with the day's own standing recorded against each: a
+    line matching the day's rank *and* colour is the calendar offering either
+    of two days, which the header names as two; anything else is an
+    observance kept under the day, which the header carries as a marker.
+
+    The day is line 1, ranked or not — an Ember day carries no rank suffix and
+    still governs the lines under it, so what a commemoration is compared
+    against comes from parse_name_meta rather than from the first line that
+    happens to carry a suffix.
+
+    The second element is the word to join co-equal names with, empty when
+    none of them is co-equal. A co-equal pair whose joining wording is not in
+    CO_COMMEMORATION_JOINS returns no word, and the caller reports it.
+    """
+    lines = [ln.strip() for ln in clean(raw).split("\n") if ln.strip()]
+    if len(lines) < 2:
+        return [], ""
+
+    _, day_rank, day_colour = parse_name_meta(raw)
+    commemorations = []
+    for line in [ln for ln in lines[1:] if RE_RANKED_LINE.search(ln)]:
+        name, rank, colour = _line_meta(line)
+        entry = {"name": name, "rank": rank}
+        if colour:
+            entry["colour"] = colour
+        if rank == day_rank and colour == day_colour:
+            entry["coequal"] = True
+        commemorations.append(entry)
+
+    if not any(c.get("coequal") for c in commemorations):
+        return commemorations, ""
+
+    for line in lines:
+        key = re.sub(r"\s+", " ", line).strip().lower()
+        if key in CO_COMMEMORATION_JOINS:
+            return commemorations, CO_COMMEMORATION_JOINS[key]
+    return commemorations, ""
 
 
 # ── Season boundaries ──────────────────────────────────────────────────────────
@@ -970,6 +1034,31 @@ def unlabelled_alternates(
     return unlabelled
 
 
+def unjoined_co_commemorations(
+    rows_by_date: dict[str, list],
+) -> list[tuple[str, list[str]]]:
+    """Co-equal commemorations the calendar joins in a wording we don't read.
+
+    The header names both, so it needs the word the calendar joins them with
+    (#129). Rank and colour say the two stand equal; only the wording says
+    "either" as against "both", and CO_COMMEMORATION_JOINS is small enough
+    that a new one is a decision rather than a pattern. Read from the raw
+    rows, as the other gates are, so main() and tools/intake_year.py share
+    one reader.
+    """
+    unjoined = []
+    for date_str, row in sorted(rows_by_date.items()):
+        if len(row) < 2:
+            continue
+        commemorations, join = parse_commemorations(row[1])
+        if join or not any(c.get("coequal") for c in commemorations):
+            continue
+        unjoined.append(
+            (date_str, [ln.strip() for ln in clean(row[1]).split("\n") if ln.strip()])
+        )
+    return unjoined
+
+
 def parse_extra(raw: str, date_str: str) -> list[dict] | None:
     """
     Parse the extra column into a notes list.
@@ -1085,8 +1174,8 @@ def main():
 
         name, rank, colour = parse_name_meta(row[1])
 
-        # Field order: date, name, rank, colour, observances, eucharist,
-        #              morning, evening, notes.
+        # Field order: date, name, rank, colour, commemorations, observances,
+        #              eucharist, morning, evening, notes.
         entry: dict = {
             "date": date_str,
             "name": name,
@@ -1094,6 +1183,12 @@ def main():
         }
         if colour:
             entry["colour"] = colour
+
+        commemorations, join = parse_commemorations(row[1])
+        if commemorations:
+            entry["commemorations"] = commemorations
+        if join:
+            entry["commemoration_join"] = join
 
         obs = parse_observances(row[1])
         if obs:
@@ -1190,6 +1285,19 @@ def main():
                 f"    {d} {office} label={label!r}\n"
                 + "".join(f"        name line: {ln}\n" for ln in lines)
                 for d, office, label, lines in unmatched_eves
+            )
+        )
+
+    if unjoined := unjoined_co_commemorations(rows_by_date):
+        intake.append(
+            f"{len(unjoined)} day(s) name two commemorations of equal standing "
+            f"joined by a wording CO_COMMEMORATION_JOINS does not carry, so the "
+            f"header would name one of the two and pick a day on the reader's "
+            f"behalf (#129). Read the line that joins them and add it, with the "
+            f"word the header should join the names with.\n"
+            + "\n".join(
+                f"    {d}\n" + "".join(f"        {ln}\n" for ln in lines)
+                for d, lines in unjoined
             )
         )
 

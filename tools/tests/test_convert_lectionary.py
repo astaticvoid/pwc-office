@@ -16,12 +16,14 @@ from convert_lectionary import (
     detect_bounds,
     eve_identity,
     is_calendar_name,
+    parse_commemorations,
     parse_extra,
     parse_lesson,
     parse_name_meta,
     parse_observances,
     parse_psalm_field,
     parse_single_office,
+    unjoined_co_commemorations,
     unlabelled_alternates,
     unmatched_eve_offices,
     untyped_note_dates,
@@ -626,6 +628,117 @@ class TestUnmatchedEveOffices:
         if not rows:
             pytest.skip("no sources/bas_short_*.csv in this checkout")
         assert unmatched_eve_offices(rows) == []
+
+
+# ── parse_commemorations ──────────────────────────────────────────────────────
+
+class TestParseCommemorations:
+    """#129: a ranked line after the first names someone else the day
+    remembers. Whether it stands equal to the day is read from rank+colour."""
+
+    def test_a_day_naming_one_observance_has_no_commemorations(self):
+        assert parse_commemorations("Wednesday (Green)") == ([], "")
+
+    def test_the_day_is_line_one_even_when_it_carries_no_rank(self):
+        # An Ember day has no rank suffix and still governs the line under it,
+        # so standing is judged against the day rather than against the first
+        # line that happens to be ranked.
+        raw = ("Rogation Day (Violet or White)\n"
+               "Florence Nightingale, Nurse, Social Reformer, 1910 - Com (White)")
+        commemorations, join = parse_commemorations(raw)
+        assert commemorations == [{
+            "name": "Florence Nightingale, Nurse, Social Reformer, 1910",
+            "rank": "commemoration", "colour": "White",
+        }]
+        assert join == ""
+
+    def test_two_commemorations_under_an_unranked_day_are_not_coequal(self):
+        # Both match each other; neither matches the day, which is what counts.
+        raw = ("Lenten Ember Day (Violet)\n"
+               "George Herbert, Priest and Poet, 1633 - Com (Violet)\n"
+               "Another Commemoration - Com (Violet)\n"
+               "Or Both Together")
+        commemorations, join = parse_commemorations(raw)
+        assert [c.get("coequal") for c in commemorations] == [None, None]
+        assert join == ""
+
+    def test_a_commemoration_under_a_holy_day_is_not_coequal(self):
+        raw = ("The Holy Innocents - HD (Red)\n"
+               "Thomas Becket, Archbishop of Canterbury, 1170 - Com (White)")
+        commemorations, join = parse_commemorations(raw)
+        assert commemorations == [{
+            "name": "Thomas Becket, Archbishop of Canterbury, 1170",
+            "rank": "commemoration", "colour": "White",
+        }]
+        assert join == ""
+
+    def test_two_commemorations_of_one_rank_and_colour_are_coequal(self):
+        raw = ("John Wyclyf, Reformer, 1384 - Com (Green)\n"
+               "Jan Hus, Reformer, 1415 - Com (Green)\n"
+               "Or Both Together")
+        commemorations, join = parse_commemorations(raw)
+        assert commemorations[0]["coequal"] is True
+        assert join == "or"
+
+    def test_the_join_is_read_from_between_the_pair_too(self):
+        # "And / or" sits between the two lines; "Or Both Together" after them.
+        raw = ("Philip Lindel Tsen, Bishop of Honan, 1954 - Com (Violet)\n"
+               "And / or\n"
+               "Paul Shinji Sasaki, Bishop of Mid-Japan & Tokyo, 1946 - Com (Violet)")
+        commemorations, join = parse_commemorations(raw)
+        assert commemorations[0]["coequal"] is True
+        assert join == "and / or"
+
+    def test_a_coequal_pair_with_an_unread_joining_returns_no_word(self):
+        raw = ("John Wyclyf, Reformer, 1384 - Com (Green)\n"
+               "Jan Hus, Reformer, 1415 - Com (Green)\n"
+               "Or Either Of Them")
+        commemorations, join = parse_commemorations(raw)
+        assert commemorations[0]["coequal"] is True
+        assert join == ""          # the gate reports it rather than guessing
+
+
+class TestUnjoinedCoCommemorations:
+    """The co-commemoration gate (#129): naming one of two equal days is the
+    app choosing for the reader, so an unread joining blocks extraction."""
+
+    def _row(self, name):
+        return ["2026-10-30", name, "", "Ps 1", "Ps 2", ""]
+
+    def test_an_unread_joining_is_reported(self):
+        rows = {"2026-10-30": self._row(
+            "John Wyclyf, Reformer, 1384 - Com (Green)\n"
+            "Jan Hus, Reformer, 1415 - Com (Green)\n"
+            "Or Either Of Them")}
+        reported = unjoined_co_commemorations(rows)
+        assert [d for d, _ in reported] == ["2026-10-30"]
+
+    def test_a_known_joining_is_not_reported(self):
+        rows = {"2026-10-30": self._row(
+            "John Wyclyf, Reformer, 1384 - Com (Green)\n"
+            "Jan Hus, Reformer, 1415 - Com (Green)\n"
+            "Or Both Together")}
+        assert unjoined_co_commemorations(rows) == []
+
+    def test_a_subordinate_commemoration_needs_no_joining(self):
+        rows = {"2026-10-30": self._row(
+            "The Holy Innocents - HD (Red)\n"
+            "Thomas Becket, Archbishop of Canterbury, 1170 - Com (White)")}
+        assert unjoined_co_commemorations(rows) == []
+
+    def test_the_current_csv_has_no_unjoined_co_commemorations(self):
+        # The gate must pass on shipped data or it is not a gate, it is a wall.
+        import csv as _csv
+        import re as _re
+        rows = {}
+        for path in sorted((ROOT / "sources").glob("bas_short_*.csv")):
+            with open(path, newline="", encoding="utf-8") as f:
+                for row in _csv.reader(f, quoting=_csv.QUOTE_MINIMAL):
+                    if len(row) >= 5 and _re.match(r"\d{4}-\d{2}-\d{2}", row[0].strip()):
+                        rows[row[0].strip()] = row
+        if not rows:
+            pytest.skip("no sources/bas_short_*.csv in this checkout")
+        assert unjoined_co_commemorations(rows) == []
 
 
 # ── unlabelled_alternates ─────────────────────────────────────────────────────

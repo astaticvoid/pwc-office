@@ -37,6 +37,7 @@ from convert_lectionary import (  # noqa: E402
     _type_hint,
     clean,
     detect_bounds,
+    unjoined_co_commemorations,
     unlabelled_alternates,
     unmatched_eve_offices,
     untyped_note_dates,
@@ -186,6 +187,19 @@ def main() -> None:
             print(f"        branch: {branch[:100]}")
     else:
         print("\n  No unlabelled office alternates.")
+
+    unjoined = unjoined_co_commemorations(rows_by_date)
+    if unjoined:
+        print(f"\n  {len(unjoined)} day(s) name two commemorations of equal")
+        print("  standing joined by a wording CO_COMMEMORATION_JOINS does not")
+        print("  carry — blocking: the header would name one of the two (#129).")
+        print("  Read the joining line and add it, with the word to join by:")
+        for d, lines in unjoined:
+            print(f"    {d}")
+            for ln in lines[:4]:
+                print(f"        {ln}")
+    else:
+        print("\n  No unjoined co-commemorations.")
 
     # ── 4. Observance phrases ──────────────────────────────────────────────────
     head(4, "OBSERVANCE PHRASES (drift in wording the classifier matches on)")
