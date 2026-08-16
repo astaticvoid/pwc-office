@@ -16,6 +16,7 @@ from extract_offices import (
     _hoist_office_transition,
     _normalize_whitespace,
     _reflow_by_geometry,
+    _rehome_reading_handoff,
 )
 
 # ── normalize_whitespace space-punct fix ─────────────────────────────────────
@@ -249,6 +250,65 @@ class TestHoistOfficeTransition:
     def test_no_alternatives_tail_untouched(self):
         segs = [seg("rubric", "Morning Prayer continues with the Dismissal.")]
         assert _hoist_office_transition(segs) == segs
+
+
+# ── _rehome_reading_handoff ───────────────────────────────────────────────────
+
+
+def _rubric_sections(handoff):
+    return {
+        "psalm_rubrics": [
+            seg("label", "The Psalm"),
+            seg("rubric", "A Psalm is said or sung."),
+            seg("rubric", "At the end of the Psalm the following is said."),
+            seg("rubric", handoff),
+        ],
+        "reading_rubrics": [
+            seg("label", "The Reading"),
+            seg("rubric", "A Reading is read."),
+        ],
+    }
+
+
+class TestRehomeReadingHandoff:
+    """The hand-off is printed at the foot of the Psalm block and introduces the
+    Reading, so it ships with the reading rubrics, after the section label (#84).
+    The match reads a sentence, not a line: a break the reflow judged structural
+    would otherwise hide the sentence and leave the rubric under "The Psalm"."""
+
+    def test_handoff_moves_below_the_reading_label(self):
+        sections = _rubric_sections("Morning Prayer continues with the Reading.")
+        _rehome_reading_handoff(sections)
+        assert [s["text"] for s in sections["reading_rubrics"]] == [
+            "The Reading",
+            "Morning Prayer continues with the Reading.",
+            "A Reading is read.",
+        ]
+        assert sections["psalm_rubrics"][-1]["text"].startswith("At the end of the Psalm")
+
+    def test_handoff_split_over_two_lines_still_moves(self):
+        sections = _rubric_sections("Evening Prayer continues with the\nReading.")
+        _rehome_reading_handoff(sections)
+        assert len(sections["psalm_rubrics"]) == 3
+        assert sections["reading_rubrics"][1]["text"].startswith("Evening Prayer continues")
+
+    def test_unlabelled_reading_block_takes_it_first(self):
+        sections = _rubric_sections("Morning Prayer continues with the Reading.")
+        sections["reading_rubrics"] = sections["reading_rubrics"][1:]
+        _rehome_reading_handoff(sections)
+        assert sections["reading_rubrics"][0]["text"].endswith("continues with the Reading.")
+
+    def test_other_transitions_stay_in_the_psalm_block(self):
+        sections = _rubric_sections("Morning Prayer continues with the Canticle.")
+        _rehome_reading_handoff(sections)
+        assert len(sections["psalm_rubrics"]) == 4
+        assert len(sections["reading_rubrics"]) == 2
+
+    def test_missing_reading_block_is_left_alone(self):
+        sections = _rubric_sections("Morning Prayer continues with the Reading.")
+        del sections["reading_rubrics"]
+        _rehome_reading_handoff(sections)
+        assert len(sections["psalm_rubrics"]) == 4
 
 
 # ── _reflow_by_geometry ───────────────────────────────────────────────────────

@@ -751,6 +751,26 @@ describe('rubric block splits', () => {
       expect(runs, `${key} every rubric placed`).toBe(rubrics);
     }
   });
+
+  // The words of a printed sentence are separated by what the page set between
+  // them. The extractor re-homes the hand-off on that reading (#89), so this
+  // side must classify every sentence it hands over, or the hand-off falls
+  // through to the intro run and prints below the Reading heading it opens.
+  test.each([
+    ['a forced break kept as structural', 'Morning Prayer continues with the\nReading.'],
+    ['a non-breaking space', 'Evening Prayer continues with\u00a0the Reading.'],
+  ])('the hand-off is classified across %s', (_label, text) => {
+    const segs = [{ type: 'label', text: 'The Reading' }, { type: 'rubric', text }];
+    expect(splitReadingRubrics(segs).handoff.map(s => s.text)).toEqual([text]);
+  });
+
+  test('the doxology cue is classified across a non-breaking space', () => {
+    // The book sets one in this very rubric, just past where the cue stops
+    // matching; the classifier must not depend on where it happens to fall.
+    const text = 'At the end of\u00a0the Psalm\u00a0one of the following may be said or sung.';
+    const segs = [{ type: 'label', text: 'The Psalm' }, { type: 'rubric', text }];
+    expect(splitPsalmRubrics(segs).doxologyCue.map(s => s.text)).toEqual([text]);
+  });
 });
 
 

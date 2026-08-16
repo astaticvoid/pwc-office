@@ -624,9 +624,14 @@ export function rubricBlockSegments(segs) {
 // following may be said or sung." above the psalm it follows, and leaves the
 // Gloria with nothing introducing it. Both renderers split them here rather
 // than each keeping its own idea of the order (ADR 0004).
-const PSALM_DOXOLOGY_CUE = /^(?:At the end of|After) the Psalm/i;
-const READING_HANDOFF    = /^(?:Morning|Evening) Prayer continues with the Reading\./i;
-const READING_TRANSITION = /^(?:(?:Morning|Evening) Prayer continues with the Responsory|If two Readings are read)/i;
+// Each pattern reads a printed sentence, so the words are separated by whatever
+// the page set between them: a non-breaking space, or a break the column forced
+// and extraction judged structural. `\s+` is the same reading the extractor's
+// own _READING_HANDOFF takes, so a sentence it re-homes is one this classifies
+// (#89).
+const PSALM_DOXOLOGY_CUE = /^(?:At\s+the\s+end\s+of|After)\s+the\s+Psalm/i;
+const READING_HANDOFF    = /^(?:Morning|Evening)\s+Prayer\s+continues\s+with\s+the\s+Reading\./i;
+const READING_TRANSITION = /^(?:(?:Morning|Evening)\s+Prayer\s+continues\s+with\s+the\s+Responsory|If\s+two\s+Readings\s+are\s+read)/i;
 
 const split = (segs, tests) => {
   const rest = rubricBlockSegments(segs) || [];

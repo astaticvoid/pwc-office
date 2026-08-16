@@ -794,6 +794,36 @@ def _split_lords_prayer(segs: list[dict]) -> tuple[list[dict], list[dict]]:
 _OFFICE_TRANSITION = re.compile(r'^(?:Morning|Evening) Prayer continues with\b',
                                 re.IGNORECASE)
 
+# The hand-off reads as one sentence on the page, but the column may set it over
+# two lines and _reflow_by_geometry keeps a break it judges structural, so the
+# words are separated by whatever whitespace survived rather than by a space.
+_READING_HANDOFF = re.compile(
+    r'^(?:Morning|Evening)\s+Prayer\s+continues\s+with\s+the\s+Reading\.',
+    re.IGNORECASE)
+
+
+def _rehome_reading_handoff(sections: dict) -> None:
+    """Move the "{office} Prayer continues with the Reading." rubric from
+    `psalm_rubrics` to `reading_rubrics`.
+
+    The book prints it at the foot of the Psalm block, but it introduces the
+    Reading, so it renders with the reading rubrics (#84). It goes after the
+    section label, which heads the block it now opens.
+
+    Runs after the sections are reflowed: the hand-off is a sentence, and a
+    sentence the page column-wrapped is only whole once the wrap is joined.
+    """
+    pr, rr = sections.get("psalm_rubrics"), sections.get("reading_rubrics")
+    if not pr or not rr:
+        return
+    moved = [s for s in pr
+             if s["type"] == "rubric" and _READING_HANDOFF.match(s["text"].strip())]
+    if not moved:
+        return
+    sections["psalm_rubrics"] = [s for s in pr if s not in moved]
+    insert_at = 1 if rr[0]["type"] == "label" else 0
+    sections["reading_rubrics"] = rr[:insert_at] + moved + rr[insert_at:]
+
 
 def _hoist_office_transition(segs: list, office_key: str = "", section: str = "") -> list:
     """Lift a section-closing "{office} Prayer continues with …" rubric out of
@@ -1286,21 +1316,6 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
 
     _flush()
 
-    # Re-home the "{office} Prayer continues with the Reading." transition: it
-    # is printed at the foot of the Psalm block but introduces the Reading, so
-    # it renders with the reading rubrics, not the psalm rubrics (#84).
-    if sections.get("psalm_rubrics") and sections.get("reading_rubrics"):
-        pr = sections["psalm_rubrics"]
-        moved = [s for s in pr
-                 if s["type"] == "rubric"
-                 and re.match(r'^(?:Morning|Evening) Prayer continues with the Reading\.',
-                              s["text"].strip(), re.IGNORECASE)]
-        if moved:
-            sections["psalm_rubrics"] = [s for s in pr if s not in moved]
-            rr = sections["reading_rubrics"]
-            insert_at = 1 if rr and rr[0]["type"] == "label" else 0
-            sections["reading_rubrics"] = rr[:insert_at] + moved + rr[insert_at:]
-
     # Post-process: split seasonal collects and Lord's Prayer out of litany block.
     if "litany" in sections:
         sections["litany"], sc = _split_litany_collects(sections["litany"])
@@ -1357,6 +1372,9 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
         if key in sections:
             _reflow_by_geometry(sections[key], office_key, key, prose=True,
                                 types=("rubric",))
+    # Both blocks are reflowed first, so the hand-off is a whole sentence by the
+    # time it is matched and moved (#89).
+    _rehome_reading_handoff(sections)
 
     # Hymn stanza breaks come from the page's own leading, not an assumed
     # stanza length. Must run here, while break_leads is still attached.
