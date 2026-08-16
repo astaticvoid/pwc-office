@@ -598,6 +598,21 @@ function rubricRunHtml(segs, shared, heading) {
  * @param {object} shared - offices._shared
  * @returns {string} HTML string
  */
+/**
+ * What an observance's readings are headed by: its name, a rubric governing
+ * when the office is used, or both. The two are set differently because they
+ * are different things — the name is a caption on this block, the rubric is
+ * the book speaking to whoever is praying (#132).
+ * @param {object} officeData - an office object, primary or alternate
+ * @returns {string} HTML string
+ */
+function obsHeadingHtml(officeData) {
+  let html = '';
+  if (officeData.rubric) html += `<p class="office-rubric">${esc(officeData.rubric)}</p>`;
+  if (officeData.label) html += `<p class="observance-label">${esc(officeData.label)}</p>`;
+  return html;
+}
+
 function proclamationHtml(officeData, form, shared) {
   const lessons = (officeData.lessons || []);
   // The extracted Psalm/Reading rubrics (#84) print on both sides of the
@@ -1129,7 +1144,7 @@ async function render(dateStr, officeType, translation) {
   // The Psalm/Reading rubric blocks render inside proclamationHtml, each above
   // the content it introduces.
   html += `<div class="obs-readings${activeObs !== 'primary' ? ' obs-hidden' : ''}" data-obs="primary">`;
-  if (officeData.label) html += `<p class="observance-label">${esc(officeData.label)}</p>`;
+  html += obsHeadingHtml(officeData);
   html += proclamationHtml(officeData, form, shared);
   html += `</div>`;
 
@@ -1137,7 +1152,7 @@ async function render(dateStr, officeType, translation) {
   if (officeData.alternate) {
     const alt = officeData.alternate;
     html += `<div class="obs-readings${activeObs !== 'alternate' ? ' obs-hidden' : ''}" data-obs="alternate">`;
-    if (alt.label) html += `<p class="observance-label">${esc(alt.label)}</p>`;
+    html += obsHeadingHtml(alt);
     html += proclamationHtml(alt, form, shared);
     html += `</div>`;
   }

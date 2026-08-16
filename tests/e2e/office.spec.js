@@ -574,6 +574,18 @@ test.describe('Observance toggle', () => {
     await expect(page.locator('#day-meta')).toContainText('Feria', { timeout: 5000 });
   });
 
+  // #132: a rubric standing where a branch's name would stand is set as a
+  // rubric. The observance caption is small spaced capitals, which is a
+  // reasonable setting for "Feria" and not for a sentence.
+  test('a rubric heading an office is set as a rubric, not as an observance name', async ({ page }) => {
+    // 2026-04-04 EP — the office is conditional on the Great Vigil.
+    await gotoOffice(page, '2026-04-04', 'ep');
+    const rubric = page.locator('.office-rubric');
+    await expect(rubric).toHaveText('This office is only to be used before the Great Vigil');
+    await expect(page.locator('.observance-label')).toHaveCount(0);
+    await expect(rubric).toHaveCSS('text-transform', 'none');
+  });
+
   // The label is the whole name, at any length: the control is the only place
   // the primary observance is named, and touch has no hover (#82).
   test('a long observance name is written out in full', async ({ page }) => {

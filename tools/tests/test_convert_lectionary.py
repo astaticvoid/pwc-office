@@ -15,6 +15,7 @@ from convert_lectionary import (
     alternate_identity,
     detect_bounds,
     eve_identity,
+    is_calendar_name,
     parse_extra,
     parse_lesson,
     parse_name_meta,
@@ -198,7 +199,7 @@ class TestParseSingleOffice:
             "Two of the following three readings: Jon 2:2-9; Eph 6:10-20; Jn 11:17-27"
         )
         assert office["lessons_pick"] == 2
-        assert "label" not in office
+        assert "label" not in office and "rubric" not in office
         assert office["lessons"] == ["Jon 2:2-9", "Eph 6:10-20", "Jn 11:17-27"]
 
     def test_a_named_branch_keeps_both_its_name_and_the_pick_two_marker(self):
@@ -208,6 +209,77 @@ class TestParseSingleOffice:
         )
         assert office["label"] == "Eve of Corpus Christi"
         assert office["lessons_pick"] == 2
+
+    def test_a_rubric_in_the_prefix_is_a_rubric_not_a_label(self):
+        # #132: the prefix slot holds whatever the branch opens with. Only a
+        # calendar name belongs in `label`.
+        office = parse_single_office(
+            "This office is only to be used before the Great Vigil: "
+            "Ps 27; (Job 19:21-27a); Rom 8:1-11; Coll 320"
+        )
+        assert office["rubric"] == "This office is only to be used before the Great Vigil"
+        assert "label" not in office
+
+    def test_a_prefix_rubric_does_not_become_a_lesson(self):
+        # Leaving it in the text would hand the lesson renderer a sentence.
+        office = parse_single_office(
+            "This office is only to be used before the Great Vigil: "
+            "Ps 27; (Job 19:21-27a); Rom 8:1-11; Coll 320"
+        )
+        assert office["lessons"] == [
+            {"citation": "Job 19:21-27a", "optional": True}, "Rom 8:1-11"
+        ]
+        assert office["psalms"] == ["27"]
+
+
+class TestIsCalendarName:
+    """#132: a name is capitalised but for its particles; a rubric is a
+    sentence. The two arrive in the same position and must be told apart."""
+
+    @pytest.mark.parametrize("prefix", [
+        "Feria",
+        "Corpus Christi",
+        "Eve of Saint Peter and Saint Paul",   # the longest name shipped
+        "Eve of the Transfiguration",
+        "Proper 10",
+        "Easter VII",
+        "Uganda",
+    ])
+    def test_calendar_names(self, prefix):
+        assert is_calendar_name(prefix)
+
+    @pytest.mark.parametrize("prefix", [
+        "This office is only to be used before the Great Vigil",
+        "This office may be said before the Vigil",
+    ])
+    def test_rubrics(self, prefix):
+        assert not is_calendar_name(prefix)
+
+    def test_every_label_the_shipped_csv_produces_is_a_name(self):
+        # The classifier decides what reaches `label`, so the corpus is the
+        # check on it: a rubric slipping through would be set as a caption.
+        import csv as _csv
+        import re as _re
+
+        from convert_lectionary import RE_OR_SPLIT, clean
+
+        paths = sorted((ROOT / "sources").glob("bas_short_*.csv"))
+        if not paths:
+            pytest.skip("no sources/bas_short_*.csv in this checkout")
+        labels = set()
+        for path in paths:
+            with open(path, newline="", encoding="utf-8") as f:
+                for row in _csv.reader(f, quoting=_csv.QUOTE_MINIMAL):
+                    if len(row) < 5 or not _re.match(r"\d{4}-\d{2}-\d{2}", row[0].strip()):
+                        continue
+                    for idx in (3, 4):
+                        for branch in RE_OR_SPLIT.split(clean(row[idx])):
+                            office = parse_single_office(branch.strip())
+                            if "label" in office:
+                                labels.add(office["label"])
+        assert labels, "expected the CSV to produce labels"
+        assert {name for name in labels if not is_calendar_name(name)} == set()
+
 
 # ── parse_observances ─────────────────────────────────────────────────────────
 

@@ -748,6 +748,33 @@ RE_COLLECT_OF_DAY = re.compile(
 # column; `Ps ` is refused outright rather than resting on that space (#131).
 RE_BRANCH_LABEL = re.compile(r"^([^;:,]{1,119}):\s")
 
+# The lowercase words a calendar name is allowed to contain. Everything else in
+# a name is capitalised, which is what tells "Eve of Saint Peter and Saint Paul"
+# from "This office is only to be used before the Great Vigil" — a rubric, not
+# a name, standing in the same position (#132). Length would separate these two
+# strings as well, but it would say nothing about which is which.
+#
+# The set is drawn from how this source names days rather than from English at
+# large: the name column is full of "Second Sunday after Pentecost" and "Sunday
+# next before Advent", so a branch adopting that wording must still read as a
+# name. None of them rescues the rubric, which fails on `office`, `is`, `only`
+# and `used` whatever the particles are.
+NAME_PARTICLES = {"of", "the", "and", "in", "after", "before", "next", "for"}
+
+# One word of a name, apostrophes and accents included. `\w` minus digits and
+# underscore is letters in any script, so "Peter's" stays one word rather than
+# a stray lowercase "s", and "État" keeps the capital that says it is a name.
+RE_NAME_WORD = re.compile(r"[^\W\d_]+(?:['’][^\W\d_]+)*")
+
+
+def is_calendar_name(prefix: str) -> bool:
+    """Whether a branch prefix names a day rather than directing the reader."""
+    return all(
+        w[0].isupper() or w.lower() in NAME_PARTICLES
+        for w in RE_NAME_WORD.findall(prefix)
+    )
+
+
 def parse_single_office(text: str) -> dict:
     text = text.strip()
     if not text:
@@ -766,7 +793,12 @@ def parse_single_office(text: str) -> dict:
 
     if (m := RE_BRANCH_LABEL.match(text)) and not m.group(1).startswith("Ps "):
         prefix = m.group(1).strip()
-        office["label"] = prefix
+        # Both are the branch's own opening words, and both must reach the
+        # reader; only one of them is the branch's name. A rubric left in the
+        # label would be set as an observance caption — small, spaced capitals
+        # — and a rubric taken out of the prefix mechanism entirely would parse
+        # as this office's first lesson (#132).
+        office["label" if is_calendar_name(prefix) else "rubric"] = prefix
         text = text[m.end():].strip()
 
     psalms_found = False

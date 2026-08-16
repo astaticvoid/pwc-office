@@ -481,6 +481,17 @@ body.book-mode .alt-panel + .alt-panel::before {
   margin: var(--sp-1) 0 var(--sp-3);
 }
 
+/* A rubric the lectionary attaches to one office rather than to a segment —
+   the condition on which the office is said at all (#132). Set as the office's
+   own rubrics are, so it reads as the book speaking and not as a caption. */
+.office-rubric {
+  font-family: var(--font-liturgy);
+  font-size: var(--fs-rubric);
+  font-style: italic;
+  color: var(--color-rubric);
+  margin: var(--sp-1) 0 var(--sp-3);
+}
+
 /* ── Labels ─────────────────────────────────────────────────────────────────── */
 
 /* Two label styles carry every non-liturgical caption in the app. Colour stays
