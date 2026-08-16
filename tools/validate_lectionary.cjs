@@ -110,7 +110,7 @@ function resolvesToVerses(citation, { parseCitation, parseRanges, extractVersesW
 }
 
 async function main() {
-  const { parseCitation, parseRanges, extractVersesWithChapter, parsePsalmCitation, lookupCollect } =
+  const { parseCitation, parseRanges, extractVersesWithChapter, parsePsalmCitation, lookupCollect, collectCommemorations } =
     await import('../web/render.js');
 
   const useJson = process.argv.includes('--json');
@@ -258,6 +258,18 @@ async function main() {
             failures.push({ date, office: ot, detail: `collect unparseable: "${ref}"` });
           } else if (!lookupCollect(collects, ref)) {
             failures.push({ date, office: ot, detail: `collect "${ref}" does not resolve to any entry in collects.json` });
+          }
+          // The commemoration's own collect, named in parentheses (#135). The
+          // leading-page check above cannot see it, so an unresolvable common
+          // would reach a rendered tab as "Collect not available."
+          for (const cm of collectCommemorations(ref)) {
+            for (const page of cm.pages) {
+              if (!collects[page]) {
+                failures.push({ date, office: ot, detail:
+                  `commemoration collect p.${page}${cm.of ? ` (${cm.of})` : ''} in "${ref}" ` +
+                  `does not resolve to any entry in collects.json` });
+              }
+            }
           }
         }
       }
