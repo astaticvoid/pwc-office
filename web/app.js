@@ -939,14 +939,14 @@ async function render(dateStr, officeType, translation) {
       const altLabel = officeData.alternate.label || 'Alternate';
       // The primary slot is not always the day: on 2026-01-03 it is the Eve of
       // the Epiphany and the day is Christmas Feria (#128). Name it the same
-      // way the title does.
+      // way the title does, in full — the button wraps to hold the name, and a
+      // phone has no hover to recover anything the label drops (#82).
       const primaryName = observanceName(officeData, day, false);
-      const primaryLabel = primaryName.length > 26 ? primaryName.slice(0,24)+'\u2026' : primaryName;
       ctrlHtml += `<div class="day-ctrl-group day-ctrl-group--obs">
         <div class="day-ctrl-cap">Observance \u00b7 whose readings <span class="day-ctrl-obs-mark">\u25c6</span></div>
         <div class="day-ctrl-seg day-ctrl-seg--obs">
           <button data-navigate="${esc(dateStr)}|${esc(officeType)}|primary" class="day-ctrl-btn${activeObs === 'primary' ? ' is-active' : ''}">
-            ${esc(primaryLabel)}</button>
+            ${esc(primaryName)}</button>
           <button data-navigate="${esc(dateStr)}|${esc(officeType)}|alternate" class="day-ctrl-btn${activeObs === 'alternate' ? ' is-active' : ''}">
             ${esc(altLabel)}</button>
         </div></div>`;

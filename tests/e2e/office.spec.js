@@ -573,6 +573,36 @@ test.describe('Observance toggle', () => {
     await page.locator(OBS_ALT).click();
     await expect(page.locator('#day-meta')).toContainText('Feria', { timeout: 5000 });
   });
+
+  // The label is the whole name, at any length: the control is the only place
+  // the primary observance is named, and touch has no hover (#82).
+  test('a long observance name is written out in full', async ({ page }) => {
+    // 2026-06-03 MP carries the longest name in the window, at 69 characters.
+    await gotoOffice(page, '2026-06-03', 'mp');
+    const primary = page.locator('.day-ctrl-seg--obs .day-ctrl-btn').first();
+    await expect(primary).toHaveText(
+      'Martyrs of Uganda, 1886, and Janani Luwum, Archbishop of Uganda, 1977');
+  });
+
+  // Writing the name out costs nothing if the segment then leaves the column:
+  // above the 820px step the control group is sized by its content, so the
+  // segment's own max-width has to be clamped against something narrower.
+  test('the segment stays inside the header column and keeps its 44px target', async ({ page }) => {
+    await gotoOffice(page, '2026-06-06', 'ep');   // long name against a long alternate
+    await expect(page.locator('.day-ctrl-group--obs')).toBeVisible({ timeout: 5000 });
+    const box = await page.evaluate(() => {
+      const right = sel => document.querySelector(sel).getBoundingClientRect().right;
+      return {
+        overflow: right('.day-ctrl-seg--obs') - right('#day-header'),
+        pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        minHeight: Math.min(...[...document.querySelectorAll('.day-ctrl-seg--obs .day-ctrl-btn')]
+          .map(b => b.getBoundingClientRect().height)),
+      };
+    });
+    expect(box.overflow).toBeLessThanOrEqual(0.5);
+    expect(box.pageOverflow).toBeLessThanOrEqual(0);
+    expect(box.minHeight).toBeGreaterThanOrEqual(44);
+  });
 });
 
 // ── BUG-19 regression ─────────────────────────────────────────────────────────

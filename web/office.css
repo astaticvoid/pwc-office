@@ -819,6 +819,12 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 .day-ctrl-group {
   display: flex; flex-direction: column; gap: var(--sp-2);
   justify-content: flex-start; align-items: flex-start;
+  /* The seg inside is `max-width: 100%`, and a percentage resolves against this
+     group. At the 820px step the group is itself flex-start rather than
+     stretched, so its width is its content's — which is what the seg is trying
+     to be clamped against. Without this the clamp is circular and a long
+     observance name runs outside the column (#82). */
+  max-width: 100%;
 }
 
 .day-ctrl-obs-mark { color: var(--color-brass); font-size: 0.6em; vertical-align: middle; }
@@ -851,6 +857,13 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 }
 /* Observance seg: brass outline style (distinct category from time-of-day) */
 .day-ctrl-seg--obs { background: transparent; border-color: color-mix(in oklab, var(--color-brass) 40%, var(--color-border)); }
+/* Both slots here are calendar names rather than verbs — "Martyrs of Uganda,
+   1886, and Janani Luwum, Archbishop of Uganda, 1977" is a routine one — so the
+   segment's max-width sets either of them in as many lines as it takes (#82).
+   Left-aligned and tightened, so a wrap reads as a name rather than as centred
+   ragged type. The office toggle names two times of day and never wraps, so it
+   keeps the shared centring. */
+.day-ctrl-seg--obs .day-ctrl-btn { justify-content: flex-start; text-align: left; line-height: 1.35; }
 .day-ctrl-seg--obs .day-ctrl-btn.is-active {
   background: color-mix(in oklab, var(--color-brass) 15%, var(--color-bg));
   color: var(--color-heading);
