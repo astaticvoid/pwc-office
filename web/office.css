@@ -361,14 +361,6 @@ body {
   margin-bottom: var(--sp-2);
 }
 
-#day-subtitle {
-  font-family: var(--font-liturgy);
-  font-size: 1.05rem; font-style: italic;
-  color: var(--color-text);
-  margin-bottom: var(--sp-1);
-}
-#day-subtitle:empty { display: none; }
-
 #day-date-nav {
   display: flex; justify-content: flex-start; align-items: flex-start;
   margin-bottom: 0.5rem;
