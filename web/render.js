@@ -857,6 +857,46 @@ export function collectSecondaryPage(ref) {
   return m ? m[1] : null;
 }
 
+const RE_COMMEMORATION = /\((?:Com|Mem)([^:)]*):([^)]*)\)/g;
+
+/**
+ * The commemoration collects a ref names in parentheses (#135):
+ *   "268 (Com: 434 or FAS 361)"        → [{ of: '', pages: ['434'] }]
+ *   "336 (Mem: 432/3 or FAS 187)"      → [{ of: '', pages: ['432','433'] }]
+ *   "388 (Com Wyclyf: 438/9 …) or (Com Hus: 436 …)"
+ *                                      → [{of:'Wyclyf',pages:['438','439']},
+ *                                         {of:'Hus',   pages:['436']}]
+ *
+ * On a commemoration the book names the day's collect and the commemoration's,
+ * and this is the half collectPageNum cannot see — it stops at the first run
+ * of digits. `438/9` is the printed shorthand for two facing pages and so for
+ * two collects, Common of a Saint 1 and 2, which ADR 0014 says are offered
+ * rather than chosen between. The `FAS nnn` alternative is deliberately not
+ * returned: ADR 0020 keeps the For All the Saints collect a fallback and
+ * never a peer.
+ */
+export function collectCommemorations(ref) {
+  if (!ref) return [];
+  const out = [];
+  for (const m of String(ref).matchAll(RE_COMMEMORATION)) {
+    const pages = [];
+    for (const tok of m[2].split(/\bFAS\b/)[0].matchAll(/(\d+)(?:\/(\d+))?/g)) {
+      pages.push(tok[1]);
+      // "438/9" abbreviates 439 by its final digits, as the book prints it —
+      // the tail replaces as many digits as it has. It can only abbreviate a
+      // page it is shorter than, so a tail at least as long as the page it
+      // follows is already the whole number ("99/100").
+      if (tok[2]) {
+        pages.push(tok[2].length >= tok[1].length
+          ? tok[2]
+          : tok[1].slice(0, tok[1].length - tok[2].length) + tok[2]);
+      }
+    }
+    if (pages.length) out.push({ of: m[1].trim(), pages });
+  }
+  return out;
+}
+
 // ── Full-office structured output ─────────────────────────────────────────
 
 function resolveSharedRef(field, shared) {

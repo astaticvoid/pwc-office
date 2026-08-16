@@ -7,6 +7,7 @@ import {
   LITURGICAL_TEXT_REGISTER, SKIP_RUBRICS, assembleSections, esc,
   formatLiturgicalText, formatProseText, splitPsalmRubrics, splitReadingRubrics,
   parseCitation, expandCitationForDisplay, SINGLE_CHAPTER_BOOKS,
+  collectCommemorations,
 } from '../../web/render.js';
 
 const DATA_DIR = join(import.meta.dirname, '../../data');
@@ -822,5 +823,72 @@ describe('expandCitationForDisplay', () => {
       }
     }
     expect(checked, 'lectionary had readings to check').toBeGreaterThan(0);
+  });
+});
+
+// ── collectCommemorations (#135) ──────────────────────────────────────────────
+
+describe('collectCommemorations', () => {
+  test('reads the commemoration collect the ref names in parentheses', () => {
+    expect(collectCommemorations('268 (Com: 434 or FAS 361)'))
+      .toEqual([{ of: '', pages: ['434'] }]);
+  });
+
+  test('a slashed page is the book\'s shorthand for two facing collects', () => {
+    expect(collectCommemorations('268 (Com: 438/9 or FAS 363)'))
+      .toEqual([{ of: '', pages: ['438', '439'] }]);
+    expect(collectCommemorations('336 (Mem: 432/3 or FAS 187)'))
+      .toEqual([{ of: '', pages: ['432', '433'] }]);
+  });
+
+  test('a tail no shorter than its page is the whole page number', () => {
+    // The shorthand can only abbreviate a page it is shorter than. Not a shape
+    // the current window carries; the arithmetic should not invent 9100 if it
+    // ever does.
+    expect(collectCommemorations('268 (Com: 99/100 or FAS 361)'))
+      .toEqual([{ of: '', pages: ['99', '100'] }]);
+  });
+
+  test('a day commemorating two people names whose collect is whose', () => {
+    expect(collectCommemorations(
+      '388 (Com Wyclyf: 438/9 or FAS 323) or (Com Hus: 436 or FAS 325)'
+    )).toEqual([
+      { of: 'Wyclyf', pages: ['438', '439'] },
+      { of: 'Hus', pages: ['436'] },
+    ]);
+  });
+
+  test('the FAS page is not returned — ADR 0020 keeps it a fallback', () => {
+    const [entry] = collectCommemorations('268 (Com: 434 or FAS 361)');
+    expect(entry.pages).not.toContain('361');
+  });
+
+  test('a ref with no commemoration yields none', () => {
+    expect(collectCommemorations('344 or 8, 677 (The King)')).toEqual([]);
+    expect(collectCommemorations('268')).toEqual([]);
+    expect(collectCommemorations('')).toEqual([]);
+  });
+
+  test.skipIf(!HAS_LECTIONARY)('every commemoration page in the window resolves', () => {
+    const collects = JSON.parse(readFileSync(join(DATA_DIR, 'collects.json'), 'utf8'));
+    const missing = [];
+    let slots = 0;
+    for (const file of readdirSync(LECT_DIR).filter(f => f.endsWith('.json'))) {
+      const days = JSON.parse(readFileSync(join(LECT_DIR, file), 'utf8'));
+      for (const [date, day] of Object.entries(days)) {
+        if (!day || typeof day !== 'object') continue;
+        for (const office of ['morning', 'evening']) {
+          const ref = (day[office] || {}).collect;
+          if (typeof ref !== 'string') continue;
+          const found = collectCommemorations(ref);
+          if (found.length) slots++;
+          for (const cm of found)
+            for (const page of cm.pages)
+              if (!collects[page]) missing.push(`${date} ${office} p.${page}`);
+        }
+      }
+    }
+    expect(slots).toBeGreaterThan(0);
+    expect(missing).toEqual([]);
   });
 });
