@@ -320,8 +320,11 @@ async function main() {
     // rubrics _hoist_office_transition lifts back out of the alternatives
     // block that swallowed them (#84), so they close canticle, affirmation
     // and responsory in every form.
+    // The words are separated by what the page set between them, which is the
+    // reading the extractor and web/render.js both take (#138): a wrap inside
+    // the sentence is no-prose-line-breaks' finding to report, not this rule's.
     const trailingOkRe = [
-      /^(?:Morning|Evening) Prayer continues with .+\.$/,
+      /^(?:Morning|Evening)\s+Prayer\s+continues\s+with\s[\s\S]+\.$/,
     ];
 
     // Exact texts: the Psalm block's doxology cue and the Reading block's

@@ -486,8 +486,10 @@ _CANTICLE_DOXOLOGY_INTRO = re.compile(
     r'^(?:At the end of the Canticle|After the Canticle)\b', re.IGNORECASE
 )
 # Used as a structural separator to prevent "continues with…" rubrics from merging
-# with adjacent segments. All variants are kept as PWC text (#93).
-_CONTINUES_ALT  = re.compile(r'(?:Morning|Evening) Prayer continues', re.IGNORECASE)
+# with adjacent segments. All variants are kept as PWC text (#93). The phrase is
+# read across whatever the page set between its words — a non-breaking space, or
+# a break the column forced — so a wrap cannot hide it (#138).
+_CONTINUES_ALT  = re.compile(r'(?:Morning|Evening)\s+Prayer\s+continues', re.IGNORECASE)
 
 def _is_structural_rubric(text: str) -> bool:
     """True for rubrics with structural meaning that must not be merged with neighbours."""
@@ -791,7 +793,7 @@ def _split_lords_prayer(segs: list[dict]) -> tuple[list[dict], list[dict]]:
 
 # ── Section-closing office transitions ───────────────────────────────────────
 
-_OFFICE_TRANSITION = re.compile(r'^(?:Morning|Evening) Prayer continues with\b',
+_OFFICE_TRANSITION = re.compile(r'^(?:Morning|Evening)\s+Prayer\s+continues\s+with\b',
                                 re.IGNORECASE)
 
 # The hand-off reads as one sentence on the page, but the column may set it over

@@ -14,6 +14,7 @@ from extract_offices import (
     _dedup_shared,
     _group_alternatives,
     _hoist_office_transition,
+    _is_structural_rubric,
     _normalize_whitespace,
     _reflow_by_geometry,
     _rehome_reading_handoff,
@@ -250,6 +251,39 @@ class TestHoistOfficeTransition:
     def test_no_alternatives_tail_untouched(self):
         segs = [seg("rubric", "Morning Prayer continues with the Dismissal.")]
         assert _hoist_office_transition(segs) == segs
+
+    def test_transition_split_over_two_lines_is_hoisted(self):
+        # The transition is a printed sentence, and the column may set it over
+        # two lines. Missing it leaves it inside the group, where _dedup_shared
+        # keys by shape and gives every form one office's copy (#138).
+        segs = [_alt([{"label": "I", "segments": [
+            seg("leader", "Collect text."),
+            seg("rubric", "Morning\nPrayer continues with the Litany."),
+        ]}])]
+        result = _hoist_office_transition(segs)
+        assert len(result) == 2
+        assert result[1]["text"] == "Morning\nPrayer continues with the Litany."
+
+    def test_transition_across_a_non_breaking_space_is_hoisted(self):
+        segs = [_alt([{"label": "I", "segments": [
+            seg("leader", "Collect text."),
+            seg("rubric", "Evening Prayer\u00a0continues with the Litany."),
+        ]}])]
+        assert len(_hoist_office_transition(segs)) == 2
+
+
+class TestStructuralRubric:
+    """A "continues with…" rubric must not merge with its neighbours, and the
+    page may have set the phrase across a break or a non-breaking space."""
+
+    def test_phrase_is_structural_across_whitespace(self):
+        for text in ("Morning Prayer continues with the Litany.",
+                     "Morning\nPrayer continues with the Litany.",
+                     "Evening Prayer\u00a0continues with the Litany."):
+            assert _is_structural_rubric(text), text
+
+    def test_ordinary_rubric_is_not_structural(self):
+        assert not _is_structural_rubric("A Psalm is said or sung.")
 
 
 # ── _rehome_reading_handoff ───────────────────────────────────────────────────
