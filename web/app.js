@@ -369,6 +369,32 @@ function observanceName(slot, day, isAlternate) {
   return day.name;
 }
 
+// Everyone the day commemorates, the day's own name first (#129).
+function commemoratedNames(day) {
+  return [day.name, ...(day.commemorations || []).map(c => c.name)].filter(Boolean);
+}
+
+// The header's name for the day. Where the calendar offers either of two
+// observances of equal standing it has named two days, and choosing one of
+// them for the title would be the app picking a branch on the reader's
+// behalf — so both are named, joined as the calendar joins them (#129).
+// A commemoration kept *under* the day is subordinate, not a second title,
+// and travels as a marker instead.
+//
+// `activeName !== day.name` is how a selected alternate or an eve opts out:
+// both name themselves, so the joined title belongs only to the day's own
+// slot. An alternate carrying neither label nor name would fall back to
+// day.name (observanceName) and take the joined title with it while showing
+// its own propers — every published alternate carries a label, and
+// unlabelled_alternates blocks extraction over one that does not.
+function dayTitle(day, activeName) {
+  if (activeName !== day.name || !day.commemoration_join) return activeName;
+  const coequal = (day.commemorations || []).filter(c => c.coequal).map(c => c.name);
+  return coequal.length
+    ? [activeName, ...coequal].join(` ${day.commemoration_join} `)
+    : activeName;
+}
+
 const MARKER_LABELS = { fast_day: 'Day of discipline and self-denial' };
 
 function dayMarkers(day, activeName, isEve) {
@@ -379,6 +405,12 @@ function dayMarkers(day, activeName, isEve) {
     }
     return MARKER_LABELS[tag] ? [MARKER_LABELS[tag]] : [];
   });
+  // A commemoration the day keeps without being named for it — Thomas Becket
+  // under the Holy Innocents. The title names the day; this names who else it
+  // remembers. A co-equal one is in the title instead (#129).
+  for (const c of day.commemorations || []) {
+    if (!c.coequal) markers.push(c.name);
+  }
   // The eve took the title, so the day's own commemoration would otherwise
   // vanish from a header that still carries its fast and still opens its
   // biography. Each office names the other's day: the eve on the morning,
@@ -911,9 +943,12 @@ async function render(dateStr, officeType, translation) {
   const ownIdentity = activeObs === 'primary' || activeOfficeData.optional !== undefined;
   const activeColour = ownIdentity ? (activeOfficeData.colour || day.colour) : '';
   const activeRank = ownIdentity ? (activeOfficeData.rank || day.rank) : '';
+  // The tab and the observance toggle keep the principal name; only the
+  // header title carries both names of a co-commemoration (#129), which is
+  // where the day is named and so where naming one of two would mislead.
   document.title = `${officeName} — ${activeName}`;
   document.getElementById('day-office-name').textContent = officeName;
-  document.getElementById('day-title').textContent = activeName;
+  document.getElementById('day-title').textContent = dayTitle(day, activeName);
   document.getElementById('day-date-label').textContent = fmtFullDate(dateStr);
 
   const hexes = colourHexes(activeColour);
@@ -1109,10 +1144,15 @@ async function render(dateStr, officeType, translation) {
   let html = '';
 
   // ── FATS biographical notice ───────────────────────────────────────────────
-  if (fatsEntry && fatsEntry.bio) {
-    const bioParas = fatsEntry.bio.split(/\n\n+/).map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
+  // One disclosure per person the day commemorates. A second commemoration is
+  // a second life, extracted and shipped like the first, and keying the
+  // lookup to the day's name alone left it unreachable (#129).
+  for (const person of commemoratedNames(day)) {
+    const entry = person === day.name ? fatsEntry : lookupFatsEntry(fats, person);
+    if (!entry || !entry.bio) continue;
+    const bioParas = entry.bio.split(/\n\n+/).map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
     html += `<details class="fats-bio">
-      <summary class="fats-bio-toggle">About ${esc(day.name)}</summary>
+      <summary class="fats-bio-toggle">About ${esc(person)}</summary>
       <div class="fats-bio-body">${bioParas}</div>
     </details>`;
   }

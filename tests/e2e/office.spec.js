@@ -868,6 +868,43 @@ test.describe('Eve identity (#128)', () => {
   });
 });
 
+test.describe('Co-commemoration (#129)', () => {
+  // 2026-10-30 names two commemorations of equal standing. Naming one of them
+  // in the title would be the app choosing a day for the reader (ADR 0016).
+  test('two co-equal commemorations are both named in the title', async ({ page }) => {
+    await gotoOffice(page, '2026-10-30', 'mp');
+    await expect(page.locator('#day-title'))
+      .toHaveText('John Wyclyf, Reformer, 1384 or Jan Hus, Reformer, 1415');
+  });
+
+  test('each co-commemorated saint has their own biography', async ({ page }) => {
+    await gotoOffice(page, '2026-10-30', 'mp');
+    await expect(page.locator('.fats-bio-toggle')).toHaveText([
+      'About John Wyclyf, Reformer, 1384',
+      'About Jan Hus, Reformer, 1415',
+    ]);
+  });
+
+  // A commemoration kept under a Holy Day is subordinate, not a second title.
+  test('a commemoration under a holy day is a marker, not a title', async ({ page }) => {
+    await gotoOffice(page, '2025-12-29', 'mp');
+    await expect(page.locator('#day-title')).toHaveText('The Holy Innocents');
+    await expect(page.locator('#day-meta'))
+      .toContainText('Thomas Becket, Archbishop of Canterbury, 1170');
+  });
+
+  test('a subordinate commemoration still reaches its biography', async ({ page }) => {
+    await gotoOffice(page, '2025-12-29', 'mp');
+    await expect(page.locator('.fats-bio-toggle'))
+      .toContainText(['The Holy Innocents', 'Thomas Becket, Archbishop of Canterbury, 1170']);
+  });
+
+  test('a day naming one observance is unchanged', async ({ page }) => {
+    await gotoOffice(page, '2026-08-13', 'mp');
+    await expect(page.locator('#day-meta .meta-item--marker')).toHaveCount(0);
+  });
+});
+
 test.describe('Day markers (#128)', () => {
   test('the fast shows on both offices', async ({ page }) => {
     await gotoOffice(page, EVE_DATE, 'mp');
