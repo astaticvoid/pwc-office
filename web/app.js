@@ -8,7 +8,7 @@ import {
   collectSecondaryPage, collectCommemorations, assembleSections, formatLiturgicalText, invitatorySegments, phosHilaronSegments,
   splitPsalmRubrics, splitReadingRubrics,
   parseRanges, extractVersesWithChapter, parsePsalmCitation,
-  collectPageNum, lookupCollect,
+  collectPageNum, lookupCollect, lookupFatsEntry,
 } from './render.js';
 
 // ── Data path ─────────────────────────────────────────────────────────────────
@@ -271,22 +271,6 @@ function showLoadError(container, err, onRetry) {
   </div>`;
   const btn = container.querySelector('.error-retry-btn');
   if (btn) btn.addEventListener('click', onRetry, { once: true });
-}
-
-// ── For All The Saints (FATS) lookup ─────────────────────────────────────────
-
-// Known name mismatches between lectionary and FATS keys. Add entries as discovered.
-const FATS_ALIASES = {};
-
-/** Find a FATS entry by saint name using case-insensitive substring matching. */
-function lookupFatsEntry(fats, name) {
-  if (!fats || !name) return null;
-  const needle = (FATS_ALIASES[name] || name).toLowerCase();
-  const key = Object.keys(fats).find(k => {
-    const kl = k.toLowerCase();
-    return kl === needle || kl.includes(needle) || needle.includes(kl);
-  });
-  return key ? fats[key] : null;
 }
 
 // ── Season computation ────────────────────────────────────────────────────────

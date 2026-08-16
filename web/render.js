@@ -857,6 +857,86 @@ export function collectSecondaryPage(ref) {
   return m ? m[1] : null;
 }
 
+// ── For All The Saints (FATS) lookup ─────────────────────────────────────────
+
+// Known name mismatches between lectionary and FATS keys. Add entries as discovered.
+export const FATS_ALIASES = {};
+
+const RE_ESCAPE = /[.*+?^${}()|[\]\\]/g;
+
+/**
+ * Every FATS key the name contains as a whole name, with where it starts (#136).
+ * Whole-name, so `Richard` is not found inside `Richard Hooker`'s surname; a
+ * key is a person, not a string.
+ */
+function fatsMatches(keys, needle) {
+  const hits = [];
+  for (const key of keys) {
+    const pattern = key.toLowerCase().replace(RE_ESCAPE, '\\$&');
+    const m = new RegExp(`(^|[^\\p{L}])(${pattern})([^\\p{L}]|$)`, 'u').exec(needle);
+    if (m) hits.push({ key, at: m.index });
+  }
+  return hits;
+}
+
+/**
+ * The FATS entry for a saint's name, or null (#136).
+ *
+ * Two keys can both appear in one name — `Richard` and `Richard Hooker` — and
+ * the earlier-starting one is the person the day is named for, with the longer
+ * winning where both start together. Taking whichever came first in the file
+ * served Richard of Chichester's life on Richard Hooker's day, and Clement of
+ * Rome's on Clement of Alexandria's, with nothing to say so.
+ */
+export function lookupFatsEntry(fats, name) {
+  if (!fats || !name) return null;
+  const keys = Object.keys(fats);
+  const needle = (FATS_ALIASES[name] || name).toLowerCase();
+
+  const exact = keys.find(k => k.toLowerCase() === needle);
+  if (exact) return fats[exact];
+
+  const hits = fatsMatches(keys, needle);
+  if (hits.length) {
+    hits.sort((a, b) => a.at - b.at || b.key.length - a.key.length
+                                    || a.key.localeCompare(b.key));
+    return fats[hits[0].key];
+  }
+
+  // The name is part of a longer entry title rather than the other way round —
+  // the shortest such entry is the closest thing to the name asked for.
+  const containing = keys.filter(k => k.toLowerCase().includes(needle));
+  if (containing.length) {
+    containing.sort((a, b) => a.length - b.length || a.localeCompare(b));
+    return fats[containing[0]];
+  }
+  return null;
+}
+
+/**
+ * The distinct people a name names, best key first for each (#136).
+ *
+ * Keys that overlap in the name are one person written more or less fully —
+ * `Richard` inside `Richard Hooker` — and collapse to the fuller. Keys that
+ * occupy different parts of it are different people, which is what makes a
+ * name ambiguous rather than merely imprecise.
+ */
+export function fatsCandidates(fats, name) {
+  if (!fats || !name) return [];
+  const needle = (FATS_ALIASES[name] || name).toLowerCase();
+  const hits = fatsMatches(Object.keys(fats), needle)
+    .map(h => ({ ...h, end: h.at + h.key.length }))
+    .sort((a, b) => a.at - b.at || b.key.length - a.key.length);
+
+  const people = [];
+  let reach = -1;
+  for (const hit of hits) {
+    if (hit.at >= reach) people.push(hit.key);
+    reach = Math.max(reach, hit.end);
+  }
+  return people;
+}
+
 const RE_COMMEMORATION = /\((?:Com|Mem)([^:)]*):([^)]*)\)/g;
 
 /**

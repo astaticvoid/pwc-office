@@ -7,7 +7,7 @@ import {
   LITURGICAL_TEXT_REGISTER, SKIP_RUBRICS, assembleSections, esc,
   formatLiturgicalText, formatProseText, splitPsalmRubrics, splitReadingRubrics,
   parseCitation, expandCitationForDisplay, SINGLE_CHAPTER_BOOKS,
-  collectCommemorations,
+  collectCommemorations, lookupFatsEntry, fatsCandidates,
 } from '../../web/render.js';
 
 const DATA_DIR = join(import.meta.dirname, '../../data');
@@ -890,5 +890,62 @@ describe('collectCommemorations', () => {
     }
     expect(slots).toBeGreaterThan(0);
     expect(missing).toEqual([]);
+  });
+});
+
+
+// ── lookupFatsEntry (#136) ────────────────────────────────────────────────────
+
+describe('lookupFatsEntry', () => {
+  // Insertion order is what the old matcher followed, so the short key is
+  // deliberately first here — it is the order that served the wrong life.
+  const fats = {
+    'Richard': { bio: 'Richard of Chichester' },
+    'Richard Hooker': { bio: 'Richard Hooker' },
+    'Clement': { bio: 'Clement of Rome' },
+    'Clement of Alexandria': { bio: 'Clement of Alexandria' },
+    'Teresa of Avila': { bio: 'Teresa' },
+    'John of the Cross': { bio: 'John' },
+  };
+
+  test('the fuller name wins over a shorter one starting in the same place', () => {
+    expect(lookupFatsEntry(fats, 'Richard Hooker, Priest and Teacher of the Faith, 1600').bio)
+      .toBe('Richard Hooker');
+    expect(lookupFatsEntry(fats, 'Clement of Alexandria, Priest, c. 210').bio)
+      .toBe('Clement of Alexandria');
+  });
+
+  test('a name that is only a shorter key still finds it', () => {
+    expect(lookupFatsEntry(fats, 'Richard, Bishop of Chichester, 1253').bio)
+      .toBe('Richard of Chichester');
+  });
+
+  test('the earliest-named person is the day\'s, where two are named', () => {
+    expect(lookupFatsEntry(fats, 'Teresa of Avila, 1582 and John of the Cross, 1591').bio)
+      .toBe('Teresa');
+  });
+
+  test('a key is a person, not a substring', () => {
+    // "Richard" must not be found inside a surname it merely spells.
+    expect(lookupFatsEntry({ 'Richard': { bio: 'x' } }, 'Prichards of Wales')).toBeNull();
+  });
+
+  test('an unknown name resolves to nothing', () => {
+    expect(lookupFatsEntry(fats, 'Advent Feria')).toBeNull();
+    expect(lookupFatsEntry(fats, '')).toBeNull();
+    expect(lookupFatsEntry(null, 'Richard')).toBeNull();
+  });
+});
+
+describe('fatsCandidates', () => {
+  const fats = { 'Richard': {}, 'Richard Hooker': {}, 'Teresa of Avila': {}, 'John of the Cross': {} };
+
+  test('overlapping keys are one person written more or less fully', () => {
+    expect(fatsCandidates(fats, 'Richard Hooker, Priest, 1600')).toEqual(['Richard Hooker']);
+  });
+
+  test('keys in different parts of the name are different people', () => {
+    expect(fatsCandidates(fats, 'Teresa of Avila, 1582 and John of the Cross, 1591'))
+      .toEqual(['Teresa of Avila', 'John of the Cross']);
   });
 });
