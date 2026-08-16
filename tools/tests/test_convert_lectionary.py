@@ -16,6 +16,7 @@ from convert_lectionary import (
     detect_bounds,
     eve_identity,
     is_calendar_name,
+    observance_lines,
     parse_commemorations,
     parse_extra,
     parse_lesson,
@@ -652,6 +653,19 @@ class TestParseCommemorations:
         }]
         assert join == ""
 
+    def test_a_second_observance_joined_onto_the_line_is_split_out(self):
+        # 2026-10-15 writes both on one line (#137). The rank marker is the
+        # seam, and the joining word survives as its own line so the header
+        # knows how to join the names.
+        raw = ("Teresa of Avila, Spiritual Teacher and Reformer, 1582 - Com (Green) "
+               "and John of the Cross, Priest, Spiritual Teacher, 1591 - Com (Green)")
+        commemorations, join = parse_commemorations(raw)
+        assert commemorations == [{
+            "name": "John of the Cross, Priest, Spiritual Teacher, 1591",
+            "rank": "commemoration", "colour": "Green", "coequal": True,
+        }]
+        assert join == "and"
+
     def test_two_commemorations_under_an_unranked_day_are_not_coequal(self):
         # Both match each other; neither matches the day, which is what counts.
         raw = ("Lenten Ember Day (Violet)\n"
@@ -698,6 +712,41 @@ class TestParseCommemorations:
         assert join == ""          # the gate reports it rather than guessing
 
 
+class TestObservanceLines:
+    """#137: one observance to a line, whatever the calendar wrote."""
+
+    def test_lines_without_a_join_are_unchanged(self):
+        assert observance_lines("The Holy Innocents - HD (Red)\nThomas Becket - Com (White)") == [
+            "The Holy Innocents - HD (Red)", "Thomas Becket - Com (White)"]
+
+    def test_a_join_after_the_rank_marker_splits_the_line(self):
+        assert observance_lines(
+            "Teresa of Avila, 1582 - Com (Green) and John of the Cross, 1591 - Com (Green)"
+        ) == ["Teresa of Avila, 1582 - Com (Green)", "and",
+              "John of the Cross, 1591 - Com (Green)"]
+
+    def test_a_join_onto_something_that_is_not_an_observance_does_not_split(self):
+        # Only ranked lines are read back, so splitting off a tail that is not
+        # one would drop it.
+        line = "Some Saint, 1900 - Com [transferred from Nov 1] and this note continues"
+        assert observance_lines(line) == [line]
+
+    def test_or_joins_the_same_way_and_and_does(self):
+        assert observance_lines(
+            "A Saint, 1900 - Com (Green) or B Saint, 1901 - Com (Green)"
+        ) == ["A Saint, 1900 - Com (Green)", "or", "B Saint, 1901 - Com (Green)"]
+
+    @pytest.mark.parametrize("line", [
+        # "and" before the marker belongs to the name: one commemoration of two
+        # people, which the calendar writes as one observance.
+        "Basil the Great and Gregory of Nazianzus, Bishops & Teachers of the Faith, 379, 389 - Mem (White)",
+        "Dietrich Bonhoeffer and Maximilien Kolbe, Martyrs, 1945, 1941 - Com (Green)",
+        "Martyrs of Uganda, 1886, and Janani Luwum, Archbishop of Uganda, 1977 - Mem (Red)",
+    ])
+    def test_a_name_containing_and_is_not_split(self, line):
+        assert observance_lines(line) == [line]
+
+
 class TestUnjoinedCoCommemorations:
     """The co-commemoration gate (#129): naming one of two equal days is the
     app choosing for the reader, so an unread joining blocks extraction."""
@@ -725,6 +774,14 @@ class TestUnjoinedCoCommemorations:
             "The Holy Innocents - HD (Red)\n"
             "Thomas Becket, Archbishop of Canterbury, 1170 - Com (White)")}
         assert unjoined_co_commemorations(rows) == []
+
+    def test_a_bare_or_is_not_a_joining_word_and_blocks(self):
+        # "or" splits the line but is not in CO_COMMEMORATION_JOINS, so the pair
+        # reaches the worklist rather than the header naming one of two days.
+        rows = {"2026-10-30": ["2026-10-30",
+            "A Saint, 1900 - Com (Green) or B Saint, 1901 - Com (Green)",
+            "", "Ps 1", "Ps 2", ""]}
+        assert [d for d, _ in unjoined_co_commemorations(rows)] == ["2026-10-30"]
 
     def test_the_current_csv_has_no_unjoined_co_commemorations(self):
         # The gate must pass on shipped data or it is not a gate, it is a wall.

@@ -769,16 +769,7 @@
       "reason": "CSV has \"(2 Kgs 17:1-18), Mt 13:44-52\" — optional citation comma-merged with the following lesson. BUG-32."
     }
   ],
-  "lectionary_names": [
-    {
-      "id": "name-2026-10-15",
-      "source": "acc-csv-error",
-      "date": "2026-10-15",
-      "old": "Teresa of Avila, Spiritual Teacher and Reformer, 1582 - Com (Green) and John of the Cross, Priest, Spiritual Teacher, 1591",
-      "new": "Teresa of Avila, Spiritual Teacher and Reformer, 1582 - Com and John of the Cross, Priest, Spiritual Teacher, 1591 - Com",
-      "reason": "parse_name_meta strips the trailing \"- Com\" as a rank marker, losing the rank indicator that belongs to John of the Cross in this combined feast."
-    }
-  ],
+  "lectionary_names": [],
   "lectionary_ranks": [
     {
       "id": "rank-2026-02-27",

@@ -43,11 +43,7 @@ const COLLECT_RE = /^\d+/;
  * terms: a new one fails, and one that stops being ambiguous fails until its
  * entry goes.
  */
-const KNOWN_AMBIGUOUS_FATS = {
-  // The CSV writes this pair inline on one line rather than on two, so the
-  // second commemoration never became its own name. See #137.
-  '2026-10-15/Teresa of Avila, Spiritual Teacher and Reformer, 1582 - Com and John of the Cross, Priest, Spiritual Teacher, 1591 - Com': 137,
-};
+const KNOWN_AMBIGUOUS_FATS = {};
 
 /*
  * ADR 0018 gives an alternate its own colour and rank by matching its label

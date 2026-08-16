@@ -497,11 +497,41 @@ RE_RANKED_LINE = re.compile(r"\s-\s(?:PF|HD|Mem|Com)\b")
 CO_COMMEMORATION_JOINS = {
     "or both together": "or",
     "and / or": "and / or",
+    "and": "and",
 }
+
+# A second observance joined onto the end of the first, on one line (#137).
+# The rank marker is the seam: an "and" before it belongs to the name — "Basil
+# the Great and Gregory of Nazianzus … - Mem" is one commemoration of two
+# people — and one after it starts another observance.
+RE_INLINE_OBSERVANCE_JOIN = re.compile(
+    r"(\s-\s(?:PF|HD|Mem|Com)\b(?:\s*\([^()]*\))?(?:\s*\[[^\]]*\])?)"
+    r"\s+(and|or)\s+"
+    # What follows has to be an observance itself, or the join word was joining
+    # something else and the tail is not a line to split off — it would be
+    # dropped, since only ranked lines are read back.
+    r"(?=[^\n]*\s-\s(?:PF|HD|Mem|Com)\b)",
+    re.I,
+)
+
+
+def observance_lines(raw: str) -> list[str]:
+    """The name column's lines, one observance to a line (#137).
+
+    The calendar almost always writes them that way; where it does not, the
+    join is split out and kept as a line of its own, so the joining word
+    reaches CO_COMMEMORATION_JOINS exactly as a written separator line does.
+    """
+    lines = []
+    for line in clean(raw).split("\n"):
+        split = RE_INLINE_OBSERVANCE_JOIN.sub(r"\1\n\2\n", line.strip())
+        lines.extend(part.strip() for part in split.split("\n") if part.strip())
+    return lines
 
 
 def parse_name_meta(raw: str):
-    return _line_meta(first_line(clean(raw)))
+    lines = observance_lines(raw)
+    return _line_meta(lines[0] if lines else "")
 
 
 def _line_meta(desc: str):
@@ -545,7 +575,7 @@ def parse_commemorations(raw: str) -> tuple[list[dict], str]:
     none of them is co-equal. A co-equal pair whose joining wording is not in
     CO_COMMEMORATION_JOINS returns no word, and the caller reports it.
     """
-    lines = [ln.strip() for ln in clean(raw).split("\n") if ln.strip()]
+    lines = observance_lines(raw)
     if len(lines) < 2:
         return [], ""
 
@@ -1197,9 +1227,7 @@ def main():
         # ADR 0018: keep the cleaned name-column lines for the
         # alternate-identity enrichment pass below (popped there, like
         # _coll_ref).
-        entry["_name_lines"] = [
-            line.strip() for line in clean(row[1]).split("\n") if line.strip()
-        ]
+        entry["_name_lines"] = observance_lines(row[1])
 
         eucharist = parse_eucharist(row[2]) if len(row) > 2 else ""
         if eucharist:
