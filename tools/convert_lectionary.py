@@ -1182,7 +1182,10 @@ def main():
             f"so the eve has no colour of its own and the header would show "
             f"the day's (#128). Either the office label and the name line have "
             f"drifted apart — extend eve_identity's matching — or ACC omitted "
-            f"the eve from the name column, which is a correction.\n"
+            f"the eve from the name column, which no correction category "
+            f"reaches: corrections replace parsed values, and the missing "
+            f"thing is an input line, so that case needs an extractor "
+            f"change (#134).\n"
             + "\n".join(
                 f"    {d} {office} label={label!r}\n"
                 + "".join(f"        name line: {ln}\n" for ln in lines)

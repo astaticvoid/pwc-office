@@ -164,8 +164,9 @@ def main() -> None:
     if unmatched:
         print(f"\n  {len(unmatched)} eve office(s) matched no name-column line —")
         print("  blocking: fail-open would put the day's colour on an office")
-        print("  praying the eve's propers (#128). Extend eve_identity's matching")
-        print("  or add a correction:")
+        print("  praying the eve's propers (#128). Extend eve_identity's matching;")
+        print("  no correction category reaches a missing name line, so an eve")
+        print("  the source omits needs an extractor change (#134):")
         for d, office_key, label, lines in unmatched:
             print(f"    {d} {office_key} label={label!r}")
             for ln in lines[:3]:
