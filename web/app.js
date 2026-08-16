@@ -902,8 +902,15 @@ async function render(dateStr, officeType, translation) {
   // slot (#128): it replaces the day's propers rather than alternating with
   // them, so on the office it governs it *is* the day being prayed.
   const activeName = observanceName(activeOfficeData, day, activeObs === 'alternate');
-  const activeColour = activeOfficeData.colour || day.colour;
-  const activeRank = activeOfficeData.rank || day.rank;
+  // Where the name column states no identity for the alternate there is
+  // nothing to fall back to that is about the alternate, so the chips say
+  // nothing rather than saying the primary's (ADR 0018 amended, #133). ADR
+  // 0018's match sets `optional` on every line it matches, colour only on a
+  // line that carries one, so `optional` is what distinguishes "no line
+  // matched" from "a line matched and named no colour".
+  const ownIdentity = activeObs === 'primary' || activeOfficeData.optional !== undefined;
+  const activeColour = ownIdentity ? (activeOfficeData.colour || day.colour) : '';
+  const activeRank = ownIdentity ? (activeOfficeData.rank || day.rank) : '';
   document.title = `${officeName} — ${activeName}`;
   document.getElementById('day-office-name').textContent = officeName;
   document.getElementById('day-title').textContent = activeName;
@@ -928,7 +935,7 @@ async function render(dateStr, officeType, translation) {
     + `<span class="meta-lbl">Season</span>`
     + `<span class="meta-val">${esc(seasonLabel)}</span>`
     + `</span>`
-    + `<span class="meta-item">${esc(formatRank(activeRank))}</span>`
+    + (activeRank ? `<span class="meta-item">${esc(formatRank(activeRank))}</span>` : '')
     + colourChip
     + dayMarkers(day, activeName, activeRank === 'eve').map(m =>
         `<span class="meta-item meta-item--marker">${esc(m)}</span>`).join('');

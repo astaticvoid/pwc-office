@@ -586,6 +586,28 @@ test.describe('Observance toggle', () => {
     await expect(rubric).toHaveCSS('text-transform', 'none');
   });
 
+  // ADR 0018 as amended (#133): an alternate the name column never identifies
+  // shows no colour or rank rather than the primary's. The season stays — it
+  // is a fact about the date, not about the observance.
+  test('an alternate with no identity of its own shows no colour or rank', async ({ page }) => {
+    // 2026-01-12: The Holy Innocents (Red, Holy Day) or the feria, which the
+    // name column does not name and so cannot colour.
+    await gotoOffice(page, '2026-01-12', 'mp');
+    await expect(page.locator('#day-meta')).toContainText('Holy Day', { timeout: 5000 });
+    await expect(page.locator('#day-meta .colour-name')).toHaveText('Red');
+
+    await page.locator(OBS_ALT).click();
+    await expect(page.locator('#day-meta')).not.toContainText('Holy Day');
+    await expect(page.locator('#day-meta .colour-name')).toHaveCount(0);
+    await expect(page.locator('#day-meta')).toContainText('Epiphany');
+
+    // Back to the primary and both return — suppression is about the slot,
+    // not a one-way erase of the header.
+    await page.locator('.day-ctrl-seg--obs .day-ctrl-btn').first().click();
+    await expect(page.locator('#day-meta')).toContainText('Holy Day');
+    await expect(page.locator('#day-meta .colour-name')).toHaveText('Red');
+  });
+
   // The label is the whole name, at any length: the control is the only place
   // the primary observance is named, and touch has no hover (#82).
   test('a long observance name is written out in full', async ({ page }) => {

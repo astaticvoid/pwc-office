@@ -11,6 +11,20 @@ which this ADR reached only through the alternate. The decision recorded here
 eve that replaces the day's propers outright has no toggle to be presented
 by, and that is the gap #128 closed.
 
+Amended (2026-08-16, #133): point 3's fallback is withdrawn. Where the name
+column states no identity for the alternate, the colour and rank chips are
+omitted rather than filled from the day. The fallback was adopted as the
+safe option because it was the behaviour already shipping, but what it
+actually does is attribute the primary's colour and rank to the observance
+the reader has just chosen instead of it — and it does so in the one place
+the reader looks to see which day is being kept. Saying nothing is the only
+option that neither misdescribes the alternate nor asserts a colour the
+source withholds; the third, inferring the colour the label implies, would
+have the app author an identity and belongs to the ADR 0015/0016 family if
+it is ever wanted. The Negative bullet's request for an audit is met in the
+same change: `validate_lectionary.cjs` licenses the slots this affects and
+fails when the set moves in either direction.
+
 ## Context
 
 The lectionary provides days with two possible observances. The office
@@ -56,18 +70,21 @@ colour chips and the rank chip follow the selected observance.**
    it sets `alternate.colour` from the line's colour decoration `(White)`,
    `(White or Gold)`) and `alternate.optional` from
    the presence of an `[if …]` bracket. Where no line matches — 2026-01-12's
-   "Feria" alternate has no feria line in the name column — the alternate
-   keeps the day's colour (documented limitation, fail-open).
+   "Feria" alternate has no feria line in the name column — none of those
+   fields is written, and `optional` is the one the match always sets, so its
+   absence is what marks an alternate the name column never identified. What
+   the UI does with that is point 3.
 2. **Rank.** The alternate's rank is `feria` when its matched line is a
    feria line (contains "Feria" — "Easter Feria", "Feria in Christmastide")
    or begins with "Eve"; otherwise it keeps the day's rank (a feast kept on
    Sunday takes the Sunday's rank). This is the one judgment call in the
    ADR; it matches how the transferable-feast days actually parse.
-3. **UI — `web/app.js`.** When the alternate is active and
-   `officeData.alternate.colour` is present, the colour chips and rank chip
-   render from the alternate's identity; otherwise they fall back to the
-   day's (today's behaviour). No new control: the existing toggle buttons
-   are the whole surface.
+3. **UI — `web/app.js`.** When the alternate is active and it matched a
+   name-column line, the colour chips and rank chip render from the
+   alternate's identity, falling back to the day's for a field that line does
+   not carry — a feast kept on Sunday takes the Sunday's rank. When it
+   matched no line at all, both chips are omitted (amended, #133). No new
+   control: the existing toggle buttons are the whole surface.
 4. **Tests.** Unit tests for the enrichment pass (matching, colour, rank,
    fallback) and an e2e assertion that toggling 2026-06-07 MP swaps the
    colour chip Green → White and toggling 2026-12-26 swaps the rank chip
@@ -91,10 +108,11 @@ separate decision.
 
 ### Negative
 - A matching heuristic (containment after "the"-stripping) is a new
-  hand-encoded rule; a future date whose alternate label and secondary line
-  don't contain each other falls back to the day's identity. The fallback is
-  safe (it is today's behaviour) but silently wrong in the rare mismatch
-  case. The audit tool should flag alternates with no matched colour.
+  hand-encoded rule; a date whose alternate matches no secondary line shows
+  no colour or rank at all (amended, #133 — it showed the day's until then).
+  Seven slots are in that state, licensed in `validate_lectionary.cjs`, and
+  in every one of them the name column simply never states the alternate's
+  identity, so there is nothing a better match would find.
 - The rank rule is a judgment call, not derivable from the source alone.
 - Adds a second post-pass over the name column alongside the observances
   classifier; the two must stay in sync if the CSV's line structure changes.

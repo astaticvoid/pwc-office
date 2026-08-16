@@ -36,6 +36,28 @@ const LESSON_RE = /^\d?\s*[A-Z][A-Za-z]*\s+\d+/;
 // Accepts: "384", "438/9", "430 or FAS 359", "268 (Com: 434 or FAS 361)"
 const COLLECT_RE = /^\d+/;
 
+/*
+ * ADR 0018 gives an alternate its own colour and rank by matching its label
+ * against the name column's secondary lines, and keeps the day's where no line
+ * matches. That fallback is safe but silently describes the other observance,
+ * and the ADR's own Negative section asked for it to be counted. These are the
+ * slots where the name column states no identity for the alternate to take, so
+ * there is nothing to match rather than a match that failed.
+ *
+ * Licensing runs both ways, as conservation_baseline.json's does: an alternate
+ * that starts carrying its own identity, or that stops existing, fails until
+ * its entry goes — so the count only moves when something actually changed.
+ */
+const KNOWN_NO_ALTERNATE_IDENTITY = {
+  '2025-12-29/morning': 133,
+  '2025-12-29/evening': 133,
+  '2026-01-04/morning': 133,
+  '2026-01-04/evening': 133,
+  '2026-01-12/morning': 133,
+  '2026-01-12/evening': 133,
+  '2026-06-03/morning': 133,
+};
+
 function checkCitation(cit) {
   const results = [];
   const parts = cit.split(/\s+or\s+/);
@@ -106,6 +128,7 @@ async function main() {
 
   const failures = [];
   let dates = 0, offices = 0;
+  const noIdentity = new Set();
 
   for (const file of files) {
     const data = JSON.parse(readFileSync(join(lectionaryDir, file), 'utf8'));
@@ -135,6 +158,22 @@ async function main() {
         if (!od) {
           failures.push({ date, office: ot, detail: 'missing office entry' });
           continue;
+        }
+
+        // An alternate the reader can select but which the name column never
+        // identified (#133). `optional` is the field ADR 0018's match sets on
+        // every line it matches, where `colour` needs the line to carry a
+        // decoration — so this is the test web/app.js suppresses the chips on,
+        // and auditing the other one would count a matched line that named no
+        // colour as though nothing had matched at all.
+        if (od.alternate && od.alternate.optional === undefined) {
+          const key = `${date}/${ot}`;
+          noIdentity.add(key);
+          if (!(key in KNOWN_NO_ALTERNATE_IDENTITY)) {
+            failures.push({ date, office: ot, detail:
+              `alternate ${JSON.stringify(od.alternate.label || null)} matched no name-column ` +
+              `line, so selecting it shows no colour or rank at all (#133)` });
+          }
         }
 
         // Psalm citations must parse as valid psalm references AND resolve
@@ -222,6 +261,18 @@ async function main() {
           }
         }
       }
+    }
+  }
+
+  // A licence for a slot that now carries its own identity — or that no longer
+  // has an alternate at all — is spent, and the commit that fixed it should
+  // have taken the entry with it.
+  for (const key of Object.keys(KNOWN_NO_ALTERNATE_IDENTITY)) {
+    if (!noIdentity.has(key)) {
+      const [date, office] = key.split('/');
+      failures.push({ date, office, detail:
+        `licensed in KNOWN_NO_ALTERNATE_IDENTITY (#${KNOWN_NO_ALTERNATE_IDENTITY[key]}) but the ` +
+        `alternate has an identity now, or is gone — delete the entry` });
     }
   }
 
