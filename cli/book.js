@@ -85,10 +85,13 @@ const { intro: psalmIntro, doxologyCue: psalmDoxCue } = splitPsalmRubrics(form.p
 const { handoff: readingHandoff, intro: readingIntro, after: readingAfter } =
   splitReadingRubrics(form.reading_rubrics);
 
-function renderLesson(lesson) {
+// readingIntro is the sentence above the reading ("A Reading is read. After a
+// period of silent reflection...") — the book prints it once, ahead of the
+// first reading, not before each (#98).
+function renderLesson(lesson, { showIntro = false } = {}) {
   return [
     'The Reading',
-    readingIntro.length ? text(readingIntro) : '',
+    showIntro && readingIntro.length ? text(readingIntro) : '',
     `[Reading: ${citationStr(lesson)}]`,
     text(form.reading_response),
   ].filter(Boolean).join('\n\n');
@@ -144,7 +147,7 @@ if (officeData?.lessons_pick) {
 // "continues with the Responsory or the Canticle or both" and the two-reading
 // rule back to back, with no Reading between them.
 if (lessons[0] && readingHandoff.length) B.push(text(readingHandoff));
-if (lessons[0]) B.push(renderLesson(lessons[0]));
+if (lessons[0]) B.push(renderLesson(lessons[0], { showIntro: true }));
 
 if (lessons[0] && readingAfter.length) B.push(text(readingAfter));
 B.push('The Responsory');
