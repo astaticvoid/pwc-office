@@ -127,8 +127,11 @@ function runValidator({ officesMutator = null, renderPatch = null } = {}) {
   const dir = mkdtempSync(join(os.tmpdir(), 'pwc-mutation-'));
   try {
     mkdirSync(join(dir, 'tools'));
-    copyFileSync(join(root, 'tools/validate_office.cjs'), join(dir, 'tools/validate_office.cjs'));
-    copyFileSync(join(root, 'tools/qa_dates.json'), join(dir, 'tools/qa_dates.json'));
+    // Everything validate_office.cjs requires from tools/, or the sandbox runs
+    // a validator that cannot load.
+    for (const f of ['validate_office.cjs', 'qa_days.cjs', 'qa_dates.json']) {
+      copyFileSync(join(root, 'tools', f), join(dir, 'tools', f));
+    }
 
     mkdirSync(join(dir, 'data'));
     for (const entry of readdirSync(join(root, 'data'))) {

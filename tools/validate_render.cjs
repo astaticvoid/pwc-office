@@ -12,6 +12,7 @@
 const { readFileSync } = require('fs');
 const { join, dirname } = require('path');
 const root = join(dirname(__filename), '..');
+const { resolveQaDates } = require('./qa_days.cjs');
 
 async function main() {
   const { assembleSections, renderSegments, renderSegmentsText, renderSubsection,
@@ -178,21 +179,9 @@ async function main() {
   if (bounds && qaDates.length) {
     const { seasonOf, officeFormSeason, seasonWeekIndex } = await import('../web/render.js');
 
-    const dateCache = {};
-    for (const entry of qaDates) {
-      const [year, month] = entry.date.split('-');
-      let lect;
-      const cacheKey = `${year}-${month}`;
-      if (dateCache[cacheKey]) {
-        lect = dateCache[cacheKey];
-      } else {
-        try {
-          lect = JSON.parse(readFileSync(join(root, `data/lectionary/${year}-${month}.json`), 'utf8'));
-          dateCache[cacheKey] = lect;
-        } catch (_) { continue; }
-      }
-      const day = lect[entry.date];
-      if (!day) continue;
+    const { resolved } = resolveQaDates(root, qaDates, bounds, officeFormSeason);
+    for (const entry of resolved) {
+      const day = entry.day;
 
       for (const fk of entry.forms) {
         const form = offices[fk];

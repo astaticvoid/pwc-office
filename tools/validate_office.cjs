@@ -13,6 +13,7 @@
 const { readFileSync } = require('fs');
 const { join, dirname } = require('path');
 const root = join(dirname(__filename), '..');
+const { resolveQaDates } = require('./qa_days.cjs');
 
 async function main() {
   const { renderOfficeJSON, segmentsToJSON, walkSegments, seasonOf, officeFormSeason, seasonWeekIndex,
@@ -512,28 +513,12 @@ async function main() {
   // count. That is how allsaints-mp/-ep lost all 10 dynamic rules when
   // 2025-11-01 rolled out of the lectionary's 12-month window, with `make qa`
   // green throughout. Record rather than skip, and fail loudly below.
-  const dateCache = {};
-  for (const entry of qaDates) {
-    const [year, month] = entry.date.split('-');
-    let lect;
-    const cacheKey = `${year}-${month}`;
-    if (dateCache[cacheKey]) {
-      lect = dateCache[cacheKey];
-    } else {
-      try {
-        lect = JSON.parse(readFileSync(join(root, `data/lectionary/${year}-${month}.json`), 'utf8'));
-        dateCache[cacheKey] = lect;
-      } catch (_) {
-        unresolved.push({ date: entry.date, forms: entry.forms, reason: `no lectionary file for ${cacheKey}` });
-        continue;
-      }
-    }
-    const day = lect[entry.date];
-    if (!day) {
-      unresolved.push({ date: entry.date, forms: entry.forms, reason: 'date not in the lectionary window' });
-      continue;
-    }
+  const { resolved, unresolved: unresolvable } = resolveQaDates(
+    root, qaDates, bounds, officeFormSeason);
+  unresolved.push(...unresolvable);
 
+  for (const entry of resolved) {
+    const day = entry.day;
     for (const fk of entry.forms) {
       const form = offices[fk];
       if (!form) {
