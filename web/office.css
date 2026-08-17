@@ -560,10 +560,20 @@ body.book-mode .alt-panel + .alt-panel::before {
    adjacent said texts below, which is the same relationship. */
 .stanza-break { display: block; height: var(--sp-4); }
 
-/* Couplets touch; stanzas breathe. Book ratio ≈ 1 : 1.7 */
+/* The book prints versicle/response dialogue as one continuous, single-spaced
+   block — no gap between a response and the next leader line. Matching that
+   here rather than inserting stanza-sized air between couplets (#157); a real
+   stanza break within a said text still gets one, via the explicit
+   .stanza-break marker below, not this rule. Verified against the source
+   page for the three sections that actually run more than one consecutive
+   leader/response pair today — Introductory Responses, the Litany, the
+   Responsory — since the selector is global across every .seg-leader/
+   .seg-response pair in the app: a new section added later with its own
+   multi-pair dialogue inherits this silently and should be checked against
+   its own page before assuming it's covered. */
 .seg-response + .seg-leader,
 .seg-leader   + .seg-leader,
-.seg-response + .seg-response { margin-top: var(--sp-4); }
+.seg-response + .seg-response,
 .seg-leader   + .seg-response { margin-top: 0; }
 .seg-label    + .seg-leader   { margin-top: 0; }
 /* A said text running straight into an alternatives block: .alt-block carries
@@ -621,10 +631,12 @@ body.book-mode .alt-panel + .alt-panel::before {
 .midpoint { color: var(--color-brass-ink); font-style: normal; }
 .midpoint-group { white-space: nowrap; }
 
+/* No divider: the book prints the Gloria Patri as plain running text after
+   its rubric, the same as the Invitatory's and the Canticle's own Gloria
+   (#159) — this class no longer sets anything beyond the shared face, kept
+   as a hook for the wrapper rather than removed. */
 .psalm-gloria {
   font-family: var(--font-liturgy);
-  margin-top: var(--sp-4); padding-top: var(--sp-3);
-  border-top: 1px solid var(--color-border);
 }
 
 /* ── Scripture reading ──────────────────────────────────────────────────────── */
