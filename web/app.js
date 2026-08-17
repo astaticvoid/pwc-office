@@ -1002,7 +1002,9 @@ async function render(dateStr, officeType, translation) {
     + `<span class="meta-lbl">Season</span>`
     + `<span class="meta-val">${esc(seasonLabel)}</span>`
     + `</span>`
-    + (activeRank ? `<span class="meta-item">${esc(formatRank(activeRank))}</span>` : '')
+    + (activeRank
+        ? `<span class="meta-item"><span class="meta-lbl">Rank</span><span class="meta-val">${esc(formatRank(activeRank))}</span></span>`
+        : '')
     + colourChip
     + dayMarkers(day, activeName, activeRank === 'eve').map(m =>
         `<span class="meta-item meta-item--marker">${esc(m)}</span>`).join('');
