@@ -1,7 +1,10 @@
 // @ts-check
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { test, expect } from '@playwright/test';
 import { gotoOffice, ensureOffice, openDatePicker } from './helpers.js';
 import { richDay, daysNamed, shiftDate, findDay, extremeDay, dayOf, officeOf, seasonFor } from './days.js';
+import { parsePsalmCitation } from '../../web/render.js';
 
 // A day with structure to exercise rather than today, whose shape is whatever
 // the calendar happens to give: an alternate observance in both offices, two
@@ -876,6 +879,42 @@ test.describe('Psalm verses', () => {
       return bad;
     });
     expect(stranded, 'verse numbers not sharing a line with their text').toEqual([]);
+  });
+});
+
+// A merged citation's `omit` span is read off the CSV, not off the psalter —
+// so it can name a verse the psalter itself does not reach (data/psalter.json's
+// numbering does not always run as far as the citation's nominal end).
+// Bracketing on the citation's own numbers would then open a '[' with no
+// verse left to carry the matching ']' (#78).
+const PSALTER = JSON.parse(readFileSync(join(import.meta.dirname, '../../data/psalter.json'), 'utf8'));
+function psalmMaxVerse(num) {
+  const nums = [...(PSALTER[String(num)]?.text || '').matchAll(/^(\d+)\s/gm)].map(m => parseInt(m[1]));
+  return nums.length ? Math.max(...nums) : 0;
+}
+const OVERREACHING_OMIT = (() => {
+  for (const office of ['morning', 'evening']) {
+    const date = findDay(
+      `an ${office} office whose omit span names a verse beyond the psalm's own last verse`,
+      d => (d[office]?.psalms || []).some(p => {
+        if (typeof p !== 'object' || !p.omit) return false;
+        const { num } = parsePsalmCitation(p.citation);
+        return p.omit.some(o => parsePsalmCitation(o.citation).end > psalmMaxVerse(num));
+      }));
+    if (date) return { date, office: office === 'morning' ? 'mp' : 'ep' };
+  }
+  throw new Error('no office in the published lectionary has an omit span beyond its psalm\'s last verse');
+})();
+
+test.describe('Psalm omit-range clamping (#78)', () => {
+  test('a bracket never opens without closing, even when the citation omits past the psalm\'s own last verse', async ({ page }) => {
+    await gotoOffice(page, OVERREACHING_OMIT.date, OVERREACHING_OMIT.office);
+    await waitForContentLoaded(page);
+    const text = (await page.locator('.psalm-block').allInnerTexts()).join('\n');
+    const opens = (text.match(/\[/g) || []).length;
+    const closes = (text.match(/\]/g) || []).length;
+    expect(opens, 'fixture no longer exercises an overreaching omit span').toBeGreaterThan(0);
+    expect(closes, 'unmatched brackets in rendered psalm text').toBe(opens);
   });
 });
 

@@ -628,6 +628,18 @@ describe('verse rendering structure', () => {
     expect(out.startsWith('<span class="verse-line"><sup>1 </sup><span class="midpoint-group">')).toBe(true);
   });
 
+  test('formatLiturgicalText places a suffix inside the last line block', () => {
+    // The mirror of the prefix case (#78's omit-span bracket): a suffix
+    // outside the last block would sit on a line of its own too.
+    const out = formatLiturgicalText('Hallelujah! *\nPraise the Lord.', '<sup>1 </sup>', ']');
+    expect(out.endsWith('Praise the Lord.]</span>')).toBe(true);
+  });
+
+  test('formatLiturgicalText applies prefix and suffix on a single-line verse', () => {
+    const out = formatLiturgicalText('Save me, O God.', '<sup>1 </sup>', ']');
+    expect(out).toBe('<sup>1 </sup>Save me, O God.]');
+  });
+
   test('prose leader (verse=false) does not emit <br>', () => {
     const segs = [{ type: 'leader', text: 'A reading from the Book of Joshua.' }];
     const html = renderSegments(segs, shared, false);

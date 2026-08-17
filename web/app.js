@@ -427,24 +427,50 @@ function parsePsalmText(rawText) {
   return verses;
 }
 
+// `citation.omit` (ADR 0019 item 8) names verse spans that may be left out —
+// shown, not hidden, per item 9: a control may only filter what a rubric
+// makes optional, and nothing here makes a range of *verses within one
+// reading* a thing to hide. `psalmOmitRanges` turns it into the [start, end]
+// pairs renderPsalm brackets.
+function psalmOmitRanges(citation) {
+  if (typeof citation !== 'object' || !citation.omit) return null;
+  return citation.omit.map(o => {
+    const ref = parsePsalmCitation(o.citation);
+    return [ref.start, ref.end];
+  });
+}
+
 function psalmPlaceholder(citation) {
   const citStr = typeof citation === 'object' ? citation.citation : String(citation);
   const optional = typeof citation === 'object' && citation.optional;
   const label = optional ? `[${citStr}]` : citStr;
-  return `<div class="psalm-loading" data-citation="${esc(citStr)}"><p class="loading">Psalm ${esc(label)}…</p></div>`;
+  const omit = psalmOmitRanges(citation);
+  const omitAttr = omit ? ` data-omit="${esc(omit.map(([s, e]) => `${s}-${e}`).join(','))}"` : '';
+  return `<div class="psalm-loading" data-citation="${esc(citStr)}"${omitAttr}><p class="loading">Psalm ${esc(label)}…</p></div>`;
 }
 
-async function renderPsalm(citStr) {
+async function renderPsalm(citStr, omitRanges) {
   const ref = parsePsalmCitation(citStr);
   const data = await fetchPsalm(ref.num);
   const verses = parsePsalmText(data.text);
   const filtered = ref.start !== null ? verses.filter(v => v.num >= ref.start && v.num <= ref.end) : verses;
+  // Clamp each omit range to the verses actually rendered: a citation's
+  // omit span can name a verse the psalter doesn't have (a bad span, or one
+  // trimmed by `ref`), and bracketing on the citation's own numbers would
+  // then open a '[' with no verse left to carry the matching ']'.
+  const clampedOmitRanges = (omitRanges || [])
+    .map(([s, e]) => filtered.filter(v => v.num >= s && v.num <= e).map(v => v.num))
+    .filter(nums => nums.length)
+    .map(nums => [Math.min(...nums), Math.max(...nums)]);
   const titleHtml = `<p class="psalm-title">Psalm ${data.number}${data.title ? ` — <span lang="la">${data.title}</span>` : ''}</p>`;
   // Each verse is its own block. formatLiturgicalText emits block-level lines,
   // so a <br> join would add an empty line box between every verse, and the
   // number would sit on a line above its own text.
   const versesHtml = filtered.map(v => {
-    const txt = formatLiturgicalText(v.text, `<sup>${v.num} </sup>`);
+    const range = clampedOmitRanges.find(([s, e]) => v.num >= s && v.num <= e);
+    const prefix = `${range && v.num === range[0] ? '[' : ''}<sup>${v.num} </sup>`;
+    const suffix = range && v.num === range[1] ? ']' : '';
+    const txt = formatLiturgicalText(v.text, prefix, suffix);
     return `<span class="psalm-verse">${txt}</span>`;
   }).join('');
   return `${titleHtml}<p class="psalm-block">${versesHtml}</p>`;
@@ -1258,8 +1284,11 @@ function prefetchOtherOffice(day, officeType, translation) {
 
 async function fillPsalmEl(el) {
   const cit = el.dataset.citation;
+  const omit = el.dataset.omit
+    ? el.dataset.omit.split(',').map(r => r.split('-').map(Number))
+    : null;
   try {
-    el.innerHTML = await renderPsalm(cit);
+    el.innerHTML = await renderPsalm(cit, omit);
   } catch (e) {
     showLoadError(el, e, () => { el.innerHTML = '<p class="loading">Loading…</p>'; fillPsalmEl(el); });
   }

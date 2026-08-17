@@ -217,10 +217,14 @@ export function formatProseText(text) {
 // `prefix` is trusted HTML placed inside the first line's block — a psalm verse
 // number belongs on the same line as the text it numbers, and the lines are
 // block boxes, so an inline prefix outside them would sit on a line of its own.
-export function formatLiturgicalText(text, prefix = '') {
+// `suffix` is the mirror of `prefix`: appended inside the last line's block
+// rather than after it, for the same reason — an inline suffix outside a
+// block box would sit on a line of its own (used to bracket a psalm verse
+// ADR 0019 item 8 marks omittable).
+export function formatLiturgicalText(text, prefix = '', suffix = '') {
   // Dropping the leading blanks also keeps `prefix` on a real line.
   const lines = stanzaLines(text);
-  if (lines.length < 2) return prefix + transformSaidLine(esc(lines[0] ?? ''));
+  if (lines.length < 2) return prefix + transformSaidLine(esc(lines[0] ?? '')) + suffix;
   let prevEndsWithStar = false;
   return lines.map((l, i) => {
     // A break interrupts the caesura pairing: the line after it starts a new
@@ -230,7 +234,7 @@ export function formatLiturgicalText(text, prefix = '') {
     const indented = hasLeadingSpace || prevEndsWithStar;
     const clean = hasLeadingSpace ? l.slice(1) : l;
     prevEndsWithStar = clean.trimEnd().endsWith('*');
-    const html = (i === 0 ? prefix : '') + transformSaidLine(esc(clean));
+    const html = (i === 0 ? prefix : '') + transformSaidLine(esc(clean)) + (i === lines.length - 1 ? suffix : '');
     // One block per line rather than <br>-joined spans, so each line can carry
     // a hanging indent: a wrapped full verse tucks under itself instead of
     // landing at the half-verse offset and imitating one.
