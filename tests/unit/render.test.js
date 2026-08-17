@@ -156,6 +156,14 @@ describe('placeholder N', () => {
     const html = renderSegments([{ type: 'leader', text: 'Nations and peoples' }], shared);
     expect(html).not.toContain('<em>N</em>');
   });
+
+  test('the formatter applies the transforms itself, not a caller post-pass', () => {
+    // renderPsalm calls formatLiturgicalText directly with no bindMidpoints /
+    // italicise wrapper, so both transforms must happen inside the formatter (#76).
+    const out = formatLiturgicalText('May N our bishop, *');
+    expect(out).toContain('<em>N</em>');
+    expect(out).toContain('<span class="midpoint">*</span>');
+  });
 });
 
 // ── Shared-ref render coverage ────────────────────────────────────────────────
@@ -601,10 +609,9 @@ describe('verse rendering structure', () => {
     expect(html).toContain('class="seg-leader"');
   });
 
-  // bindMidpoints runs over already-built HTML. A \S+ word class backtracks past
-  // a tag's '>' into its attributes when the starred word is first in its
-  // element, splicing markup into the page as visible text (it rendered as
-  // `class="verse-line">Hallelujah! *`). One word before the * is the trigger.
+  // The midpoint transform runs on escaped line text, not assembled HTML, so a
+  // one-word line before the * cannot capture a tag's attributes into the output
+  // as visible text (#76). One word before the * is the shape that would splice.
   test('a one-word starred first line does not splice markup into the text', () => {
     const segs = [{ type: 'leader', text: 'Hallelujah! *\nPraise the Lord, O my soul!' }];
     const html = renderSegments(segs, shared, true);
@@ -617,9 +624,9 @@ describe('verse rendering structure', () => {
   test('formatLiturgicalText places a prefix inside the first line block', () => {
     // The psalm verse number must share a line with the text it numbers; the
     // lines are block boxes, so a prefix outside them lands on its own line.
+    // The starred word is midpoint-wrapped on the same line, inside the block.
     const out = formatLiturgicalText('Hallelujah! *\nPraise the Lord.', '<sup>1 </sup>');
-    expect(out.startsWith('<span class="verse-line"><sup>1 </sup>Hallelujah!')).toBe(true);
-    expect(out).not.toContain('</sup><span');
+    expect(out.startsWith('<span class="verse-line"><sup>1 </sup><span class="midpoint-group">')).toBe(true);
   });
 
   test('prose leader (verse=false) does not emit <br>', () => {

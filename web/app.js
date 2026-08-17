@@ -3,7 +3,7 @@
 import {
   esc, seasonOf, officeFormSeason, seasonWeekIndex, formKey,
   filterSeasonalCollects, renderAlternatives, renderSegments, renderSubsection,
-  lessonHtml, lessonsPickRubricHtml, bindMidpoints, parseCitation, expandCitationForDisplay,
+  lessonHtml, lessonsPickRubricHtml, parseCitation, expandCitationForDisplay,
   SC_HEADER, SC_FOOTER,
   collectSecondaryPage, collectCommemorations, assembleSections, formatLiturgicalText, invitatorySegments, phosHilaronSegments,
   splitPsalmRubrics, splitReadingRubrics,
@@ -444,7 +444,7 @@ async function renderPsalm(citStr) {
   // so a <br> join would add an empty line box between every verse, and the
   // number would sit on a line above its own text.
   const versesHtml = filtered.map(v => {
-    const txt = bindMidpoints(formatLiturgicalText(v.text, `<sup>${v.num} </sup>`));
+    const txt = formatLiturgicalText(v.text, `<sup>${v.num} </sup>`);
     return `<span class="psalm-verse">${txt}</span>`;
   }).join('');
   return `${titleHtml}<p class="psalm-block">${versesHtml}</p>`;

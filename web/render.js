@@ -150,15 +150,28 @@ export function esc(s) {
 
 export function parseDate(s) { return s ? new Date(s + 'T00:00:00Z') : null; }
 
-export function bindMidpoints(html) {
-  // Wrap [word * ] in a nowrap group so the asterisk never orphans on a new line.
-  // The word class excludes '>' as well as whitespace: this runs over HTML, and
-  // a bare \S+ backtracks past a tag's closing '>' into its attributes whenever
-  // the starred word is the first in its element (`<span class="verse-line">Hallelujah! *`),
-  // splicing the markup into the output as visible text. Escaped text never
-  // contains a literal '>', so excluding it cannot truncate a real word.
-  return html.replace(/([^\s>]+)(\s*)\*/g, (_, word, sp) =>
+// Wrap [word * ] in a nowrap group so the asterisk never orphans at a line end.
+// Applied to a single escaped line, before it is wrapped in any element (see
+// transformSaidLine), so the word class can never reach into a tag and re-emit
+// its markup as visible text (#76).
+function bindMidpoints(text) {
+  return text.replace(/(\S+)(\s*)\*/g, (_, word, sp) =>
     `<span class="midpoint-group">${word}${sp}<span class="midpoint">*</span></span>`);
+}
+
+// The printed book italicises the placeholder N (e.g. "May N our bishop
+// and all bishops"); a plain capital "N" reads as a typo. The 2 standalone-N
+// instances in offices.json are both this placeholder.
+function italicisePlaceholderN(text) {
+  return text.replace(/\bN\b(?=[ ,.])/g, '<em>N</em>');
+}
+
+// The two said-text transforms — midpoint nowrap and placeholder-N italics —
+// run here, on one escaped line, before any element wraps it. Running them over
+// assembled HTML instead lets a regex match part of a tag and splice it into the
+// output as visible text (#76).
+function transformSaidLine(escaped) {
+  return italicisePlaceholderN(bindMidpoints(escaped));
 }
 
 // A blank line in the source is a stanza break. It gets a box of its own: the
@@ -191,7 +204,7 @@ export function formatProseText(text) {
   const lines = stanzaLines(text);
   return lines.reduce((out, l, i) => {
     if (l === BREAK) return out + STANZA_BREAK;
-    return out + (i > 0 && lines[i - 1] !== BREAK ? '\n' : '') + esc(l);
+    return out + (i > 0 && lines[i - 1] !== BREAK ? '\n' : '') + transformSaidLine(esc(l));
   }, '');
 }
 
@@ -207,7 +220,7 @@ export function formatProseText(text) {
 export function formatLiturgicalText(text, prefix = '') {
   // Dropping the leading blanks also keeps `prefix` on a real line.
   const lines = stanzaLines(text);
-  if (lines.length < 2) return prefix + esc(lines[0] ?? '');
+  if (lines.length < 2) return prefix + transformSaidLine(esc(lines[0] ?? ''));
   let prevEndsWithStar = false;
   return lines.map((l, i) => {
     // A break interrupts the caesura pairing: the line after it starts a new
@@ -217,7 +230,7 @@ export function formatLiturgicalText(text, prefix = '') {
     const indented = hasLeadingSpace || prevEndsWithStar;
     const clean = hasLeadingSpace ? l.slice(1) : l;
     prevEndsWithStar = clean.trimEnd().endsWith('*');
-    const html = (i === 0 ? prefix : '') + esc(clean);
+    const html = (i === 0 ? prefix : '') + transformSaidLine(esc(clean));
     // One block per line rather than <br>-joined spans, so each line can carry
     // a hanging indent: a wrapped full verse tucks under itself instead of
     // landing at the half-verse offset and imitating one.
@@ -526,14 +539,6 @@ export function renderAlternatives(seg, shared, contextKey, verse = false) {
   return `<div class="alt-block"><div class="alt-tabs" role="tablist">${tabsHtml}</div>${panelsHtml}</div>`;
 }
 
-// The printed book italicises the placeholder N (e.g. "May N our bishop
-// and all bishops"); a plain capital "N" reads as a typo. Applied to
-// already-escaped leader/response HTML only — the 2 standalone-N instances in
-// offices.json are both this placeholder.
-function italicisePlaceholderN(html) {
-  return html.replace(/\bN\b(?=[ ,.])/g, '<em>N</em>');
-}
-
 export function renderSegments(segs, shared, verse = false) {
   if (!segs || !segs.length) return '';
   return segs.map(seg => {
@@ -546,15 +551,15 @@ export function renderSegments(segs, shared, verse = false) {
       return `<p class="seg-rubric">${esc(text)}</p>`;
     }
     if (seg.type === 'label')    return `<p class="seg-label">${esc(text)}</p>`;
-    if (seg.type === 'response') return `<p class="seg-response">${italicisePlaceholderN(bindMidpoints(formatLiturgicalText(text)))}</p>`;
+    if (seg.type === 'response') return `<p class="seg-response">${formatLiturgicalText(text)}</p>`;
     const formatted = verse ? formatLiturgicalText(text) : formatProseText(text);
     const amenMatch = seg.type === 'leader' && text.match(/^([\s\S]+)\s(Amen\.)$/);
     if (amenMatch) {
       const amenBody = verse ? formatLiturgicalText(amenMatch[1]) : formatProseText(amenMatch[1]);
-      return `<p class="seg-leader">${italicisePlaceholderN(bindMidpoints(amenBody))}</p>`
+      return `<p class="seg-leader">${amenBody}</p>`
            + `<p class="seg-response">Amen.</p>`;
     }
-    return `<p class="seg-leader">${italicisePlaceholderN(bindMidpoints(formatted))}</p>`;
+    return `<p class="seg-leader">${formatted}</p>`;
   }).join('');
 }
 

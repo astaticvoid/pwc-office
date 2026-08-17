@@ -821,17 +821,14 @@ test.describe('Small caps', () => {
 // ── Psalm verse layout ────────────────────────────────────────────────────────
 
 // web/app.js renderPsalm is a second consumer of formatLiturgicalText and is not
-// reachable from the Vitest suite, so three regressions shipped past a green unit
-// run and only showed in a browser: markup spliced into the text by bindMidpoints,
-// an empty line box per verse from a <br> join between block boxes, and the verse
-// number stranded on a line above its own text.
+// reachable from the Vitest suite, so renderer regressions only show in a browser:
+// markup spliced into the text, an empty line box per verse from a <br> join
+// between block boxes, and the verse number stranded on a line above its own text.
 //
-// Deliberately NOT the module-wide DATE. The splice only fires when a line's whole
-// content before the * is one word, so the greedy backtrack reaches through the
-// tag's '>' with no intervening whitespace. Every line of Psalm 66/67 (DATE's MP)
-// has several words before its *, so that fixture cannot catch it. 2026-11-29 MP
-// is the shape that broke: a psalm whose first word is immediately followed
-// by the mid-verse marker.
+// Deliberately NOT the module-wide DATE. A one-word line before the * exercises
+// the midpoint transform on the first line of a verse, immediately after the
+// verse-number prefix (Psalm 146 opens "Hallelujah! *"). Every line of Psalm 66/67
+// (DATE's MP) has several words before its *, so that fixture cannot catch it.
 const PSALM_SPLICE_DATE = findDay(
   'a morning appointing Psalm 146, which opens "Hallelujah! *"',
   d => (d.morning?.psalms || []).some(x => (typeof x === 'object' ? x.citation : x) === '146'));
