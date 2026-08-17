@@ -2,7 +2,7 @@
 
 import {
   esc, seasonOf, officeFormSeason, seasonWeekIndex, formKey,
-  filterSeasonalCollects, renderAlternatives, renderSegments, renderSubsection,
+  filterSeasonalCollects, renderAlternatives, renderSegments, renderSubsection, renderSubsectionWithCitation,
   lessonHtml, lessonsPickRubricHtml, parseCitation,
   SC_HEADER, SC_FOOTER,
   collectSecondaryPage, collectCommemorations, assembleSections, formatLiturgicalText, invitatorySegments, phosHilaronSegments,
@@ -1206,9 +1206,9 @@ async function render(dateStr, officeType, translation) {
       html += renderSubsection('Thanksgiving', form.thanksgiving_for_light, shared, true);
     // Ordinary-time EP: evening hymn reference (Phos Hilaron).
     if (form.phos_hilaron && form.phos_hilaron.length)
-      html += renderSubsection('Evening Hymn', phosHilaronSegments(form), shared, true);
+      html += renderSubsectionWithCitation('Evening Hymn', phosHilaronSegments(form), shared, true);
     if (form.invitatory && form.invitatory.length)
-      html += renderSubsection('Invitatory Psalm', invitatorySegments(form), shared, true);
+      html += renderSubsectionWithCitation('Invitatory Psalm', invitatorySegments(form), shared, true);
   }
 
   // ── Proclamation ───────────────────────────────────────────────────────────

@@ -578,6 +578,21 @@ export function renderSubsection(label, segs, shared, verse = false) {
   return `<h3 class="office-subsection-title">${esc(label)}</h3><div class="liturgy">${renderSegments(segs, shared, verse)}</div>`;
 }
 
+// Like renderSubsection, but for the two subsections whose book heading is
+// itself "label: citation" on one line (Invitatory Psalm, Evening Hymn) —
+// folds the citation into the heading instead of printing it a second time as
+// its own seg-label paragraph below (#158). invitatorySegments/
+// phosHilaronSegments already strip the segment's own "Invitatory Psalm:"/
+// "Evening Hymn:" prefix down to the bare citation; this reassembles the
+// single printed line from that citation plus the subsection's own title.
+export function renderSubsectionWithCitation(label, segs, shared, verse = false) {
+  if (!segs || !segs.length) return '';
+  const labelSeg = segs.find(s => s.type === 'label');
+  const heading = labelSeg ? `${label}: ${labelSeg.text}` : label;
+  const rest = labelSeg ? segs.filter(s => s !== labelSeg) : segs;
+  return `<h3 class="office-subsection-title">${esc(heading)}</h3><div class="liturgy">${renderSegments(rest, shared, verse)}</div>`;
+}
+
 // form.invitatory's extracted "label" segment carries the PDF's full heading
 // ("Invitatory Psalm: Psalm 95:1–7") — see issue #1. The subsection already gets an "Invitatory Psalm"
 // title bar (matching Introductory Responses etc.), so strip the redundant
