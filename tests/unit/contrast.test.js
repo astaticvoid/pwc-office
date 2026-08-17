@@ -78,8 +78,9 @@ describe('palette parsing', () => {
   });
 
   test('a season with no dark accent keeps its light one, as the cascade does', () => {
-    expect(palette.dark.Advent['--color-accent']).toBe('#7B6FBC');       // overridden
-    expect(palette.dark.OrdinaryTime['--color-accent']).toBe('#3B6B4E'); // not (issue #106)
+    expect(palette.dark.Advent['--color-accent']).toBe('#7B6FBC'); // overridden
+    const p = readPalette(css + '\n[data-season="Ascension"] { --color-accent: #101010; }\n');
+    expect(p.dark.Ascension['--color-accent']).toBe('#101010'); // no dark rule: the light value carries
   });
 
   test('a seasonal rule setting some other token keeps both it and the accent', () => {
@@ -245,9 +246,9 @@ describe('the audit fails when it should', () => {
   });
 
   test('a licence for a pair nothing measures any more is stale too', () => {
-    // The season renamed out from under `dark/AllSaints/...`.
-    const { stale } = auditContrast(css.replace(/data-season="AllSaints"/g, 'data-season="Ascension"'));
-    expect(keysOf(stale)).toContain('dark/AllSaints/--color-accent/--color-bg');
+    // The season renamed out from under `dark/Passiontide/...`.
+    const { stale } = auditContrast(css.replace(/data-season="Passiontide"/g, 'data-season="Ascension"'));
+    expect(keysOf(stale)).toContain('dark/Passiontide/--color-accent/--color-bg');
   });
 
   test('border-color and background-color are not read as foregrounds', () => {

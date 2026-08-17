@@ -114,11 +114,19 @@
   --color-brass-on-nav:#D8B968;
 }
 
-/* Dark-mode seasonal accents — lighten for visibility on dark background */
-[data-theme="dark"][data-season="Advent"]      { --color-accent: #7B6FBC; }
-[data-theme="dark"][data-season="Lent"]        { --color-accent: #9070B0; }
-[data-theme="dark"][data-season="Passiontide"] { --color-accent: #C85040; }
-[data-theme="dark"][data-season="Pentecost"]   { --color-accent: #D06050; }
+/* Dark-mode seasonal accents — lighten for visibility on dark background.
+   Every season gets an explicit value here, even where the light value
+   already clears AA on dark ground (Christmas, Easter), so none of them
+   depend on inheriting an accent chosen against the other ground. See #106. */
+[data-theme="dark"][data-season="Advent"]       { --color-accent: #7B6FBC; }
+[data-theme="dark"][data-season="Christmas"]    { --color-accent: #B0863A; }
+[data-theme="dark"][data-season="Epiphany"]     { --color-accent: #38928F; }
+[data-theme="dark"][data-season="Lent"]         { --color-accent: #9070B0; }
+[data-theme="dark"][data-season="Passiontide"]  { --color-accent: #C85040; }
+[data-theme="dark"][data-season="Easter"]       { --color-accent: #B0863A; }
+[data-theme="dark"][data-season="Pentecost"]    { --color-accent: #D06050; }
+[data-theme="dark"][data-season="AllSaints"]    { --color-accent: #6E87AB; }
+[data-theme="dark"][data-season="OrdinaryTime"] { --color-accent: #51926B; }
 
 /* ── Reset ─────────────────────────────────────────────────────────────────── */
 

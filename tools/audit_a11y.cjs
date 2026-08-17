@@ -115,24 +115,19 @@ const DECORATIVE = {
  */
 const KNOWN_CONTRAST = {
   // #106 — the seasonal accent is painted as text (office name, antiphon label,
-  // bio toggle, expand button). Five seasons have no dark override at all and
-  // keep their light value on the dark ground, which is the worst of it.
+  // bio toggle, expand button). The structural gap (five seasons with no dark
+  // override at all) is closed; what's left needs a design review that keeps
+  // each accent recognizably its own season's hue — that's ADR 0010.
   'light/Christmas/--color-accent/--color-bg': 106,
   'light/Christmas/--color-accent/--color-surface': 106,
   'light/Easter/--color-accent/--color-bg': 106,
   'light/Easter/--color-accent/--color-surface': 106,
   'dark/Advent/--color-accent/--color-bg': 106,
   'dark/Advent/--color-accent/--color-surface': 106,
-  'dark/Epiphany/--color-accent/--color-bg': 106,
-  'dark/Epiphany/--color-accent/--color-surface': 106,
   'dark/Lent/--color-accent/--color-surface': 106,
   'dark/Passiontide/--color-accent/--color-bg': 106,
   'dark/Passiontide/--color-accent/--color-surface': 106,
   'dark/Pentecost/--color-accent/--color-surface': 106,
-  'dark/AllSaints/--color-accent/--color-bg': 106,
-  'dark/AllSaints/--color-accent/--color-surface': 106,
-  'dark/OrdinaryTime/--color-accent/--color-bg': 106,
-  'dark/OrdinaryTime/--color-accent/--color-surface': 106,
 };
 
 function srgbToLinear(c) { return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }
