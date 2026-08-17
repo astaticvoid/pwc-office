@@ -464,7 +464,7 @@ async function renderPsalm(citStr, omitRanges) {
     .map(nums => [Math.min(...nums), Math.max(...nums)]);
   // A single (untabbed) psalm's citation appears nowhere else on the page —
   // psalmHtml only puts the citation on a tab label when there's more than
-  // one psalm to choose between (#161) — so a partial citation's verse range
+  // one psalm to choose between (#162) — so a partial citation's verse range
   // has to survive into this heading or the reader has no way to know they
   // aren't seeing the whole psalm.
   const range = ref.start !== null ? `:${ref.start}${ref.end !== ref.start ? `-${ref.end}` : ''}` : '';

@@ -71,7 +71,7 @@ test.describe('Office loads', () => {
   });
 
   test('a single untabbed psalm citation shows its verse range in the heading', async ({ page }) => {
-    // #161: psalmHtml only puts a citation on a tab label when there's more
+    // #162: psalmHtml only puts a citation on a tab label when there's more
     // than one psalm to choose between — for a single partial-range psalm
     // (no tab), the in-content heading is the only place the range can show,
     // or the reader has no way to know they aren't seeing the whole psalm.

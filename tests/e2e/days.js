@@ -133,7 +133,7 @@ export function extremeDay(what, predicate, score) {
  * A day with exactly one appointed psalm carrying a verse range (no psalm
  * set, no second psalm to tab against) — the one shape whose citation
  * appears nowhere on the page but the in-content heading, since psalmHtml
- * only puts a citation on a tab label when there's a choice to label (#161).
+ * only puts a citation on a tab label when there's a choice to label (#162).
  * Returns {date, office}: which office at that date carries the property,
  * since psalms are appointed per-office rather than per-day.
  */
