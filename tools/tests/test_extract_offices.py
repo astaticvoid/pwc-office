@@ -5,8 +5,11 @@ Run: python3 -m pytest tools/tests/ -v
      (from the repo root)
 """
 
+import json
 import sys
 from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -18,6 +21,7 @@ from extract_offices import (
     _normalize_whitespace,
     _reflow_by_geometry,
     _rehome_reading_handoff,
+    extract_office,
 )
 
 # ── normalize_whitespace space-punct fix ─────────────────────────────────────
@@ -521,3 +525,55 @@ class TestDedupSharedReconciliation:
         assert out["advent-ep"]["affirmation"] == [{"type": "shared", "key": "affirmation"}]
         assert offices["advent-mp"]["affirmation"][0] == canon
         assert offices["advent-ep"]["affirmation"][0] == divergent
+
+
+# ── subtitle bound (#90) ──────────────────────────────────────────────────────
+
+ROOT = Path(__file__).resolve().parent.parent.parent
+OFFICES = ROOT / "data" / "offices.json"
+
+
+class TestSubtitleBound:
+    """The date-range subtitle is collected from at most two leader lines; a
+    third leader line before the first section heading is not subtitle text and
+    is warned about rather than glued on silently (#90)."""
+
+    def _header(self, *extra):
+        lines = [
+            ("heading", "Morning Prayer", 0, 0, 0),
+            ("leader", "From Ash Wednesday until the", 0, 0, 0),
+            ("leader", "Sunday before Palm/Passion Sunday", 0, 0, 0),
+        ]
+        lines.extend(extra)
+        return lines
+
+    def test_two_leader_lines_join_into_the_subtitle(self):
+        office = extract_office(self._header(), office_key="lent-mp")
+        assert office["subtitle"] == (
+            "From Ash Wednesday until the Sunday before Palm/Passion Sunday")
+
+    def test_a_third_leader_line_is_not_collected(self, capsys):
+        office = extract_office(self._header(
+            ("leader", "A stray body line mis-typed as leader", 0, 0, 0),
+            ("heading", "The Gathering of the Community", 0, 0, 0),
+        ), office_key="lent-mp")
+        assert office["subtitle"] == (
+            "From Ash Wednesday until the Sunday before Palm/Passion Sunday")
+        assert "subtitle would exceed two leader lines" in capsys.readouterr().err
+
+
+@pytest.mark.skipif(not OFFICES.exists(), reason="data/offices.json not extracted")
+def test_subtitles_are_seasonal_only_and_date_ranged():
+    # Every seasonal form carries a short "From …" date range; no ordinary form
+    # carries one. Guards the subtitle against unbounded accumulation (#90).
+    data = json.loads(OFFICES.read_text(encoding="utf-8"))
+    for form, body in data.items():
+        if form.startswith("_") or not isinstance(body, dict):
+            continue
+        subtitle = body.get("subtitle")
+        if form.startswith("ordinary-"):
+            assert subtitle is None, f"{form} should have no subtitle, got {subtitle!r}"
+        else:
+            assert subtitle, f"{form} is seasonal but has no subtitle"
+            assert subtitle.startswith("From "), f"{form} subtitle {subtitle!r}"
+            assert len(subtitle) < 80, f"{form} subtitle too long: {len(subtitle)} chars"

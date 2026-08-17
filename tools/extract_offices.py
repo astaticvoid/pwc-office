@@ -1181,6 +1181,7 @@ def _fix_shared_affirmation(offices: dict) -> dict:
 def extract_office(typed_lines: list, office_key: str = "") -> dict:
     title = ""
     subtitle = ""
+    subtitle_lines = 0
     header_done = False
     filtered_lines: list = []
 
@@ -1199,12 +1200,19 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
             if title and typ == "leader":
                 # The date-range subtitle is set as a centred block, two lines
                 # on eight of the seasonal forms ("From Ash Wednesday until the
-                # / Sunday before Palm/Passion Sunday"). Taking only the first
-                # line left those eight ending mid-clause, so collect leader
-                # lines until the first section heading closes the header.
-                subtitle = f"{subtitle} {text}".strip() if subtitle else text
-                _dbg(f"  SUBTITLE {repr(subtitle[:60])}", office=office_key)
-                continue
+                # / Sunday before Palm/Passion Sunday"), so collect leader lines
+                # until the first section heading closes the header. The book
+                # never sets more than two, so a third leader line is not
+                # subtitle text: warn and leave it to the content walk (which
+                # drops it as NO-SECTION, ahead of the first heading) rather
+                # than glue it on silently (#90).
+                if subtitle_lines < 2:
+                    subtitle = f"{subtitle} {text}".strip() if subtitle else text
+                    subtitle_lines += 1
+                    _dbg(f"  SUBTITLE {repr(subtitle[:60])}", office=office_key)
+                    continue
+                print(f"  WARNING [{office_key}] subtitle would exceed two leader lines; "
+                      f"not collected as subtitle: {text[:60]!r}", file=sys.stderr)
             if title and typ == "heading":
                 header_done = True
         filtered_lines.append((typ, text, gap, slack, lead))
