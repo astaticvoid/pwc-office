@@ -158,6 +158,10 @@ if (lessons[1]) B.push(renderLesson(lessons[1]));
 B.push('The Canticle');
 B.push(text(form.canticle, { showLabel: true }));
 
+// A third appointed lesson is rare but real (#148) — web/app.js's
+// proclamationHtml carries the same lessons.slice(2) loop after the Canticle.
+for (const lesson of lessons.slice(2)) B.push(renderLesson(lesson));
+
 // Affirmation
 B.push('Affirmation of Faith');
 B.push(text(form.affirmation, { showLabel: true }));

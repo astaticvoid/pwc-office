@@ -1,36 +1,11 @@
 import { describe, test, expect } from 'vitest';
 import { execFileSync } from 'child_process';
-import { readdirSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { expandCitationForDisplay } from '../../web/render.js';
+import { ROOT, HAS_DATA, findLessonDay } from './lectionary-days.js';
 
 // Each lesson slot in cli/office.js holds the reading appointed for that slot,
 // and nothing else (#95).
-
-const ROOT = join(import.meta.dirname, '../..');
-const DATA_DIR = join(ROOT, 'data');
-const LECT_DIR = join(DATA_DIR, 'lectionary');
-const HAS_DATA = existsSync(join(DATA_DIR, 'offices.json')) && existsSync(LECT_DIR);
-
-// Pinning a date would rot as the lectionary is regenerated; ask the data for
-// one instead. Two lessons is what exercises both slots.
-function findTwoLessonDay() {
-  // vitest runs a skipped describe's factory, so the read is guarded here as
-  // well as on the suite — data/ is gitignored and absent on a fresh clone.
-  if (!HAS_DATA) return null;
-  for (const file of readdirSync(LECT_DIR).sort()) {
-    if (!file.endsWith('.json')) continue;
-    const month = JSON.parse(readFileSync(join(LECT_DIR, file), 'utf8'));
-    for (const [date, day] of Object.entries(month)) {
-      for (const [office, type] of [['morning', 'mp'], ['evening', 'ep']]) {
-        if ((day[office]?.lessons || []).length >= 2) {
-          return { date, type, lessons: day[office].lessons };
-        }
-      }
-    }
-  }
-  return null;
-}
 
 const run = (type, date) =>
   execFileSync('node', [join(ROOT, 'cli/office.js'), type, date], { encoding: 'utf8' });
@@ -46,7 +21,7 @@ function section(out, heading) {
 }
 
 describe.skipIf(!HAS_DATA)('cli/office.js lesson slots', () => {
-  const day = findTwoLessonDay();
+  const day = findLessonDay(2);
 
   test.skipIf(!day)('prints each appointed reading in its own slot', () => {
     const out = run(day.type, day.date);
@@ -68,5 +43,19 @@ describe.skipIf(!HAS_DATA)('cli/office.js lesson slots', () => {
     for (const slot of ['Lesson 1', 'Lesson 2']) {
       expect(section(out, slot), `${slot} is not the responsory`).not.toContain(refrain);
     }
+  });
+});
+
+describe.skipIf(!HAS_DATA)('cli/office.js: a third appointed lesson (#148)', () => {
+  const day = findLessonDay(3);
+
+  test.skipIf(!day)('reaches the page in its own slot, after the Canticle', () => {
+    const out = run(day.type, day.date);
+    const cite = l => expandCitationForDisplay(typeof l === 'object' ? l.citation : String(l));
+
+    expect(section(out, 'Lesson 3')).toContain(cite(day.lessons[2]));
+    // Book order: Canticle, then any lesson beyond the second.
+    expect(out.indexOf('## Canticle')).toBeGreaterThan(-1);
+    expect(out.indexOf('## Lesson 3')).toBeGreaterThan(out.indexOf('## Canticle'));
   });
 });

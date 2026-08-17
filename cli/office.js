@@ -105,6 +105,11 @@ if (lessons[1]) {
   out += `\n## Lesson 2\n${citation(lessons[1])}\n${text(form.reading_response)}\n`;
 }
 out += `\n## Canticle\n${text(form.canticle)}\n`;
+// A third appointed lesson is rare but real (#148) — web/app.js's
+// proclamationHtml carries the same lessons.slice(2) after the Canticle.
+lessons.slice(2).forEach((lesson, i) => {
+  out += `\n## Lesson ${i + 3}\n${citation(lesson)}\n${text(form.reading_response)}\n`;
+});
 out += `\n## Intercessions\n${text(form.intercessions)}\n`;
 out += `\n## Litany\n${text(form.litany)}\n`;
 
