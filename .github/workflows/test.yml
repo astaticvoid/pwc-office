@@ -26,6 +26,11 @@ jobs:
           npm install
           python3 -m pip install pymupdf pytest striprtf ruff
 
+      # What ships in the app binary, and nothing else — the dev toolchain's own
+      # advisories are not a reason to fail a build of the office (#143).
+      - name: Audit shipped dependencies
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Fetch sources
         run: make fetch-sources
 
