@@ -226,6 +226,8 @@ qa:
 	@node tools/validate_lectionary.cjs
 	@echo "=== Cross-form text ==="
 	@node tools/audit_text.cjs
+	@echo "=== Rubric repeats and cue consistency ==="
+	@node tools/audit_rubric_repeats.cjs
 	@echo "=== Accessibility ==="
 	@node tools/audit_a11y.cjs
 

@@ -657,6 +657,26 @@
       "new": "Holy Word, Holy Wisdom.",
       "count": 1,
       "reason": "Extracted reading response (#91): the 14 ordinary forms print the third alternative with the words in the wrong order ('Holy wisdom, holy word.'); errata Ordinary p. 132 corrects it ('PWC has the wrong order'). Now that the responses are extracted rather than synthesized, the correction lives in the manifest (ADR 0005) instead of in code — this supersedes ADR 0015's 'code fix, not a manifest entry' premise for the Holy Word text."
+    },
+    {
+      "id": "pdf-error-tuesday-ep-canticle-cue",
+      "source": "pwc-pdf-error",
+      "office": "ordinary-tuesday-ep",
+      "field": "canticle",
+      "old": "After the Psalm one of the following may be said or sung.",
+      "new": "After the Canticle one of the following may be said or sung.",
+      "count": 1,
+      "reason": "Ordinary Tuesday EP, p. 170: the cue introducing the Canticle doxology reads 'After the Psalm...', identical to the correct cue at p. 168 for the Psalm doxology — a copy-paste never adjusted. Extraction is faithful; confirmed as a book typo, not an extractor defect (#97)."
+    },
+    {
+      "id": "pdf-error-wednesday-ep-canticle-cue",
+      "source": "pwc-pdf-error",
+      "office": "ordinary-wednesday-ep",
+      "field": "canticle",
+      "old": "After the Canticle of the following may be said or sung.",
+      "new": "After the Canticle one of the following may be said or sung.",
+      "count": 1,
+      "reason": "Ordinary Wednesday EP, p. 185: the cue introducing the Canticle doxology reads 'After the Canticle of the following...', missing 'one'. Compare Ordinary Thursday EP, p. 199, which prints it correctly. Extraction is faithful; confirmed as a book typo, not an extractor defect (#97)."
     }
   ],
   "lectionary_citations": [],
