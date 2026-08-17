@@ -677,6 +677,16 @@
       "new": "After the Canticle one of the following may be said or sung.",
       "count": 1,
       "reason": "Ordinary Wednesday EP, p. 185: the cue introducing the Canticle doxology reads 'After the Canticle of the following...', missing 'one'. Compare Ordinary Thursday EP, p. 199, which prints it correctly. Extraction is faithful; confirmed as a book typo, not an extractor defect (#97)."
+    },
+    {
+      "id": "extraction-artifact-intercessions-litany-handoff-break",
+      "source": "pdf-extraction-artifact",
+      "office": "*",
+      "field": "intercessions",
+      "old": "\nThe Prayers continue with the Litany and a concluding collect.",
+      "new": "\n\nThe Prayers continue with the Litany and a concluding collect.",
+      "count": 14,
+      "reason": "All 14 Ordinary Time forms (7 weekdays x MP/EP): the printed page sets 'The Prayers continue with the Litany and a concluding collect.' as its own paragraph, visually separated from the preceding bulleted intercessions rubric by a blank line (confirmed on pp. 137 and 147 of the PDF, Sunday and Monday MP). Extraction joins the two with a single newline, which white-space:pre-wrap renders with no gap at all, since nothing distinguishes this break from an ordinary kept line break (e.g. between bullets). The PDF is correct; this is an artifact of the extractor not carrying paragraph-sized leading through for this rubric (#154)."
     }
   ],
   "lectionary_citations": [],
