@@ -616,7 +616,6 @@ def extract_fats(pdf_path: Path) -> dict:
                 bio_info['bio'] = (bio_info['bio'] + '\n\n' + extra).strip()
             i += 1
 
-        # Need a propers page
         if i >= len(page_indices) or not is_propers_page(pages[page_indices[i]]):
             continue
 

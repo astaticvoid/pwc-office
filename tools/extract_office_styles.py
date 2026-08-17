@@ -390,7 +390,6 @@ def main():
             json.dump(output, f, ensure_ascii=False, indent=2)
         print(f"Wrote {args.json}")
     else:
-        # Print summary
         for form_key, pages in sorted(output.items()):
             total = sum(len(segs) for segs in pages)
             types = {}

@@ -94,9 +94,7 @@ OBSERVANCE_PHRASES: dict[str, str] = {
 # the eve target ("eve_of:the Epiphany", never "eve_of:Epiphany"). The CSV's
 # own capitalization is not a trustworthy signal for this (it capitalizes
 # "the" in "Eve of the Epiphany" and omits it in "Eve of Advent II"), so the
-# convention is encoded here — deliberately independent of the outgoing
-# per-date dict, so the replacement does not quietly depend on the thing it
-# replaces (ADR 0017).
+# convention is encoded here rather than read off the source (ADR 0017).
 EVE_THE_ARTICLE = frozenset({
     "naming of jesus",
     "epiphany",
@@ -1420,11 +1418,11 @@ def main():
     print(f"Season bounds: {bounds}")
 
     # ── Verification ──────────────────────────────────────────────────────────
-    # One-off CSV-error corrections (name/rank/colour/lessons/notes) are no
-    # longer applied or stale-checked here — that's data/corrections.json +
-    # validate_corrections.py/apply_corrections.py now, which run later in
-    # `make extract` and do the same staleness check generically for every
-    # correction category, not just this file's.
+    # Counts only. One-off CSV-error corrections (name/rank/colour/lessons/
+    # notes) are neither applied nor stale-checked here: data/corrections.json
+    # carries them, and validate_corrections.py/apply_corrections.py run later
+    # in `make extract`, checking staleness generically for every correction
+    # category rather than only this file's.
     with_eucharist = sum(1 for e in entries if e.get("eucharist"))
     with_obs = sum(1 for e in entries if e.get("observances"))
     with_notes = sum(1 for e in entries if e.get("notes"))

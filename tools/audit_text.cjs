@@ -44,7 +44,6 @@ async function main() {
     };
   }
 
-  // Peer groups
   const groups = {
     'seasonal-mp': formKeys.filter(k => lengths[k].isMP && !lengths[k].isOrdinary),
     'seasonal-ep': formKeys.filter(k => lengths[k].isEP && !lengths[k].isOrdinary),

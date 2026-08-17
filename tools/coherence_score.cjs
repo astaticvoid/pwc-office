@@ -27,7 +27,6 @@ try {
   expectedOutliers = JSON.parse(readFileSync(expPath, 'utf8')).expected_outliers || [];
 } catch (_) { /* file missing — treat as empty */ }
 
-// Tier penalties
 const PENALTY = {
   tier1: 10,
   tier2: 3,

@@ -284,9 +284,9 @@ def _insert_stanza_breaks(segs: list) -> list:
 #
 # `slack` answers the question directly, so this list only catches breaks inside
 # the dead band where the measure's own precision (about a point) is the limit.
-# It went from 24 entries to 2 when the margin stopped being measured per page;
-# the other 22 were never ambiguous, only mis-measured. Keyed by the text of the
-# line the break follows.
+# Two entries, because the margin is measured once for the document rather than
+# per page: a break geometry can measure is not adjudicated here. Keyed by the
+# text of the line the break follows.
 #
 # Both entries below are couplets whose first line happens to run nearly the full
 # measure, so the next word does not quite fit and the geometry reads as forced.
@@ -1411,7 +1411,6 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
     for segs in sections.values():
         _strip_internal(segs)
 
-    # Build result.
     result: dict = {"title": title}
     if subtitle:
         result["subtitle"] = subtitle
@@ -1482,7 +1481,6 @@ def run():
         json.dump(offices, f, ensure_ascii=False, indent=2)
     print(f"Wrote {len(offices) - (1 if '_shared' in offices else 0)} offices + {n_shared} shared → {out_path}")
 
-    # Spot checks.
     shared_blocks = offices.get('_shared', {})
 
     def _resolve(seg):

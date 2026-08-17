@@ -637,7 +637,6 @@ def audit_quality(start: date | None = None, end: date | None = None) -> None:
         for date_str, name, problems in stats["issues"]:
             print(f"    {date_str} {name}: {', '.join(problems)}")
 
-        # Spot-checks
         for md, frag, colour in _SPOT_CHECKS:
             ds = f"{yr}-{md}"
             entry = None
@@ -698,7 +697,6 @@ def main():
         print(f"Earliest available date: {start}")
         return
 
-    # Determine date range
     end_date = date.fromisoformat(args.end) if args.end else date.today() - timedelta(days=1)
 
     if args.re_parse:
@@ -724,7 +722,6 @@ def main():
             print(f"  wrote {mk}.json ({len(entries)} entries)")
         return
 
-    # Determine start date
     if args.start:
         start_date = date.fromisoformat(args.start)
     else:

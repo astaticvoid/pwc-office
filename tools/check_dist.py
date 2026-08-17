@@ -234,7 +234,6 @@ for entry in lect_entries:
                     warnings.append(f"{date} {office_type}: collect '{ref}' (p.{page}) not extracted — will show page number only")
                     collect_errors += 1
 
-        # Office form key
         key = form_key(season, office_type, weekday, rank)
         if offices and key not in offices:
             errors.append(f"{date} {office_type}: form key '{key}' not in offices.json")
