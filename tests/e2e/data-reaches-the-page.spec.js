@@ -24,11 +24,12 @@ test.describe('the page shows what the data carries', () => {
   });
 
   test('a day offering a choice of readings announces it', async ({ page }) => {
-    // The rubric is the fixed form from LITURGICAL_TEXT_REGISTER (ADR 0014/#63),
-    // not a per-count computed sentence — same text regardless of pick/total.
+    // The rubric is the fixed form from LITURGICAL_TEXT_REGISTER (ADR 0019
+    // item 7/#77), not a per-count computed sentence — same text regardless
+    // of pick/total.
     const date = findDay('a day offering a choice of readings', d => d.morning?.lessons_pick);
     await gotoOffice(page, date, 'mp');
-    await expect(page.locator('.seg-rubric', { hasText: 'One or two of the following readings are read.' }))
+    await expect(page.locator('.seg-rubric', { hasText: 'One or two readings are read.' }))
       .toBeVisible({ timeout: 5000 });
   });
 
@@ -37,7 +38,7 @@ test.describe('the page shows what the data carries', () => {
       d => d.morning && !d.morning.lessons_pick && (d.morning.lessons || []).length);
     await gotoOffice(page, date, 'mp');
     await expect(page.locator('.office-section-title').first()).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText('One or two of the following readings are read.')).toHaveCount(0);
+    await expect(page.getByText('One or two readings are read.')).toHaveCount(0);
   });
 
   test('the litany divine title reaches the page with its capital (#4)', async ({ page }) => {

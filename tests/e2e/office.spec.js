@@ -117,10 +117,10 @@ test.describe('Office loads', () => {
     // Scope to primary readings only — alternate readings also render response tabs.
     const responseTabs = page.locator('.obs-readings[data-obs="primary"] [data-key="pwc-alt-reading_response"]');
     await expect(responseTabs.first()).toBeVisible({ timeout: CONTENT_TIMEOUT });
-    // The reading selector (ADR 0014/#63) shows each lesson twice — once in
-    // the "All" panel, once in its own individual tab — so each of the 2
-    // lessons' 3 response tabs renders twice: 3 × 2 × 2 = 12.
-    await expect(responseTabs).toHaveCount(12);
+    // Both readings stay in the office in book order, no per-reading selector
+    // (ADR 0019 item 7, #77) — so each of the 2 lessons' 3 response tabs
+    // renders once: 3 × 2 = 6.
+    await expect(responseTabs).toHaveCount(6);
   });
 
   test('morning prayer: affirmation is in Proclamation, not Prayers', async ({ page }) => {
@@ -456,27 +456,26 @@ test.describe('Psalm and reading selectors', () => {
     await expect(panel1.locator(`[data-citation="${psalms[1]}"]`)).toHaveCount(0);
   });
 
-  test('multiple readings renders an All + one-tab-per-reading selector', async ({ page }) => {
+  test('multiple readings stay in book order with no selector', async ({ page }) => {
     await gotoOffice(page, DATE, 'mp'); // richDay(): two lessons per office
-    const readingBlock = page.locator('.alt-block:has(> .alt-tabs > .alt-tab[data-key^="pwc-reading-"])').first();
-    await readingBlock.waitFor();
-    const tabs = readingBlock.locator(':scope > .alt-tabs > .alt-tab');
-    await expect(tabs).toHaveCount(3); // All, Reading 1, Reading 2
-    await expect(tabs.nth(0)).toHaveText('All');
+    // The choice between readings is carried by rubrics, not a control that
+    // could remove the Responsory or the Canticle from a per-reading view
+    // (ADR 0019 item 7, #77) — so no reading tab strip exists at all.
+    await expect(page.locator('.alt-tab[data-key^="pwc-reading-"]')).toHaveCount(0);
 
-    // The "All" panel keeps today's full interleaved sequence.
-    const panel0 = readingBlock.locator(':scope > .alt-panel').nth(0);
-    await expect(panel0.locator('.reading-heading')).toHaveCount(2);
+    const primary = page.locator('.obs-readings[data-obs="primary"]');
+    await expect(primary.locator('.reading-heading')).toHaveCount(2);
+    await expect(primary.locator('.office-subsection-title', { hasText: 'Responsory' })).toHaveCount(1);
+    await expect(primary.locator('.office-subsection-title', { hasText: 'Canticle' })).toHaveCount(1);
 
-    // An individual tab isolates just that one reading — no Responsory/Canticle,
-    // which are fixed-position elements tied to the full sequence, not to a
-    // single reading (ADR 0014).
-    await tabs.nth(1).click();
-    const panel1 = readingBlock.locator(':scope > .alt-panel').nth(1);
-    await expect(panel1).not.toHaveClass(/alt-panel-hidden/);
-    await expect(panel1.locator('.reading-heading')).toHaveCount(1);
-    await expect(panel1.locator('.office-subsection-title', { hasText: 'Responsory' })).toHaveCount(0);
-    await expect(panel1.locator('.office-subsection-title', { hasText: 'Canticle' })).toHaveCount(0);
+    // Book order: lesson 1 → Responsory → lesson 2 → Canticle.
+    const headings = await primary.locator('.reading-heading, .office-subsection-title').allTextContents();
+    const order = headings.filter(t => /^The Reading:|Responsory|Canticle/.test(t));
+    expect(order).toHaveLength(4);
+    expect(order[0]).toMatch(/^The Reading:/);
+    expect(order[1]).toContain('Responsory');
+    expect(order[2]).toMatch(/^The Reading:/);
+    expect(order[3]).toContain('Canticle');
   });
 });
 

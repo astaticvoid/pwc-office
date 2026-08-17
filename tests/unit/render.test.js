@@ -116,25 +116,24 @@ describe('lessonHtml', () => {
   });
 });
 
-// ── lessons_pick rubric (fixed form per ADR 0014/#63) ───────────────────────
+// ── lessons_pick rubric (fixed form per ADR 0019 item 7/#77) ────────────────
 describe('lessonsPick', () => {
   test('2 of 3 renders the load-bearing rubric, in its fixed approved form', () => {
-    expect(lessonsPickText(2, 3)).toBe('One or two of the following readings are read.');
+    expect(lessonsPickText(2, 3)).toBe('One or two readings are read.');
     expect(lessonsPickRubricHtml(2, 3)).toBe(
-      '<p class="seg-rubric">One or two of the following readings are read.</p>');
+      '<p class="seg-rubric">One or two readings are read.</p>');
   });
 
   test('the fixed form does not vary with pick/total', () => {
-    // ADR 0014: "one mechanism, not two adjacent ones" — the selector presents
-    // the actual branches, so the rubric announces the choice without spelling
-    // out a count.
+    // Both readings stay in the office in book order — there is no selector
+    // whose branches the rubric would otherwise need to spell out a count for.
     expect(lessonsPickText(1, 4)).toBe(lessonsPickText(2, 3));
   });
 
   test('rubric is not hidden in the interactive app: it is load-bearing', () => {
     // The pick rubric renders unconditionally: it is load-bearing in the
     // interactive app, not book-only chrome (ADR 0013/#59).
-    expect(lessonsPickRubricHtml(2, 3)).toContain('One or two of the following readings are read.');
+    expect(lessonsPickRubricHtml(2, 3)).toContain('One or two readings are read.');
     expect(lessonsPickRubricHtml(2, 3)).not.toMatch(/hidden|display:\s*none/);
   });
 
@@ -223,7 +222,7 @@ describe('liturgical text register', () => {
 
   test.skipIf(!HAS_DATA)('the settled readings reach the data, not a second string beside it', () => {
     expect(LITURGICAL_TEXT_REGISTER.readingsPick.text)
-      .toBe('One or two of the following readings are read.');
+      .toBe('One or two readings are read.');
     expect(LITURGICAL_TEXT_REGISTER.readingsPick.source).toBe('upstream-review');
 
     // ADR 0019 items 3, 4 and 6 now reach the page as `adr0019-*` corrections

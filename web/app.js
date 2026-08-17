@@ -3,7 +3,7 @@
 import {
   esc, seasonOf, officeFormSeason, seasonWeekIndex, formKey,
   filterSeasonalCollects, renderAlternatives, renderSegments, renderSubsection,
-  lessonHtml, lessonsPickRubricHtml, parseCitation, expandCitationForDisplay,
+  lessonHtml, lessonsPickRubricHtml, parseCitation,
   SC_HEADER, SC_FOOTER,
   collectSecondaryPage, collectCommemorations, assembleSections, formatLiturgicalText, invitatorySegments, phosHilaronSegments,
   splitPsalmRubrics, splitReadingRubrics,
@@ -600,12 +600,12 @@ function rubricRunHtml(segs, shared, heading) {
 }
 
 /**
- * Render the full Proclamation of the Word section: psalms → lesson 1 → responsory → lesson 2 → canticle.
- * With more than one appointed reading, offers a tab selector (All + one tab
- * per reading, ADR 0014) alongside the fixed head-of-section rubric; the
- * Responsory and Canticle are fixed-position liturgical elements tied to the
- * full sequence, not to any single reading, so an individual reading tab
- * shows just that reading on its own — matching the psalm selector's pattern.
+ * Render the full Proclamation of the Word section: psalms → lesson 1 →
+ * responsory → lesson 2 → canticle, in book order, always. With more than one
+ * appointed reading, the choice of how many to read is carried by rubrics —
+ * the fixed head-of-section sentence and the book's own transition after the
+ * first reading — not by a control that could hide the Responsory or the
+ * Canticle from a per-reading view (ADR 0019 item 7, #77).
  * @param {object} officeData - morning|evening office object
  * @param {object} form - office form from offices.json
  * @param {object} shared - offices._shared
@@ -650,27 +650,12 @@ function proclamationHtml(officeData, form, shared) {
   html += rubricRunHtml(reading.handoff, shared);
   html += rubricRunHtml(reading.intro, shared, 'The Reading');
   if (officeData.lessons_pick) html += lessonsPickRubricHtml(officeData.lessons_pick, lessons.length);
-  if (lessons.length > 1) {
-    let allHtml = lessonHtml(lessons[0], shared, form);
-    allHtml += rubricRunHtml(reading.after, shared);
-    if (form) allHtml += renderSubsection('The Responsory', form.responsory, shared, true);
-    allHtml += lessonHtml(lessons[1], shared, form);
-    if (form) allHtml += renderSubsection('The Canticle', form.canticle, shared, true);
-    for (const lesson of lessons.slice(2)) allHtml += lessonHtml(lesson, shared, form);
-
-    const stateKey = 'pwc-reading-' + lessons.map(l => typeof l === 'object' ? l.citation : l).join('-');
-    const entries = [['All', allHtml]].concat(lessons.map(l => {
-      const c = typeof l === 'object' ? l.citation : l;
-      const display = expandCitationForDisplay(c);
-      const label = (typeof l === 'object' && l.optional) ? `(${display})` : display;
-      return [label, lessonHtml(l, shared, form)];
-    }));
-    return html + tabBlockHtml(stateKey, entries);
-  }
   if (lessons.length > 0) html += lessonHtml(lessons[0], shared, form);
   html += rubricRunHtml(reading.after, shared);
   if (form) html += renderSubsection('The Responsory', form.responsory, shared, true);
+  if (lessons.length > 1) html += lessonHtml(lessons[1], shared, form);
   if (form) html += renderSubsection('The Canticle', form.canticle, shared, true);
+  for (const lesson of lessons.slice(2)) html += lessonHtml(lesson, shared, form);
   return html;
 }
 

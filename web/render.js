@@ -112,9 +112,9 @@ export const SC_FOOTER = /^the\s+Lord['’]s\s+Prayer/i;
 // divergence auditable against the source (#84, ADR 0019).
 export const LITURGICAL_TEXT_REGISTER = {
   readingsPick: {
-    text: 'One or two of the following readings are read.',
+    text: 'One or two readings are read.',
     source: 'upstream-review',
-    note: 'ADR 0014/#63: the approved fixed form announcing the choice, whatever the count.',
+    note: 'ADR 0019 item 7/#77: the settled short form announcing the choice, whatever the count. Both readings stay in the office in book order; the choice is carried by this rubric and the book\'s own transition after the first reading, not by a selector.',
   },
 };
 
@@ -662,11 +662,11 @@ export function lessonHtml(lesson, shared, form) {
     + responseHtml;
 }
 
-// When the lectionary says pick N of M readings, the app offers a tab
-// selector over them (ADR 0014/#63) and this rubric is the fixed
-// head-of-section text announcing the choice. Load-bearing, not book-only —
-// the reader must know a choice exists. Returns '' when there is none.
-// ADR 0019 item 7 withdraws that selector; #77 is where it goes.
+// When the lectionary says pick N of M readings, both readings render in
+// book order (ADR 0019 item 7) and this rubric is the fixed head-of-section
+// text announcing that a choice exists. Load-bearing, not book-only — the
+// reader must know a choice exists even though nothing is hidden from them.
+// Returns '' when there is none.
 export function lessonsPickText(pick, total) {
   if (!pick || pick >= total) return '';
   return LITURGICAL_TEXT_REGISTER.readingsPick.text;

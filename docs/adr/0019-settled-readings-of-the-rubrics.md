@@ -154,8 +154,8 @@ Canticle; and re-adopting the longer head-of-section wording, *"One or two of
 the following readings are read."*, which the earlier round approved and the
 later round shortened.
 
-*Status:* open (#77). **Amends ADR 0014**, whose "Applied" list adopted both the
-per-reading selector and the longer sentence.
+*Status:* shipped (#77). **Amends ADR 0014**, whose "Applied" list adopted both
+the per-reading selector and the longer sentence.
 
 ### 8. Brackets mean optional
 
@@ -187,7 +187,10 @@ question a selector has to answer first is *what does the rubric say is
 optional*, and the answer is frequently narrower than the block the widget is
 convenient to wrap around.
 
-*Status:* new here; #77 is its first application.
+*Status:* shipped (#77), by removing the offending control rather than
+narrowing it — #77 dropped the reading selector outright, so no selector in
+the app yet has to honour this rule under load. #78's psalm selector is the
+next real test.
 
 ## Consequences
 
@@ -195,8 +198,9 @@ convenient to wrap around.
 - The interpretations become checkable. Each item names what a future diff must
   not do, so a reviewer has something to test a change against rather than a
   general principle to feel their way around.
-- Three settled items (5, 6, 7) are open work; recording them before they ship
-  keeps the reasoning from having to be rebuilt from an issue thread.
+- Items 5, 6 and 7 were open work when this ADR was written; recording them
+  before they shipped kept the reasoning from having to be rebuilt from an
+  issue thread. All three have since shipped (see their Status lines).
 - Item 9 generalises the reading-selector defect, so the next control does not
   have to make the same mistake to discover the rule.
 - The divergences we are authorized to keep (item 3) are recorded *as*
