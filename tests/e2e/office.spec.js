@@ -1,17 +1,39 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
 import { gotoOffice, ensureOffice, openDatePicker } from './helpers.js';
+import { richDay, daysNamed, shiftDate, findDay, extremeDay, dayOf, officeOf, seasonFor } from './days.js';
 
-// Use a fixed known-good date rather than today so tests don't break
-// on days with unusual structure (e.g. no alternate, no optional lesson).
-// 2026-05-17 (Seventh Sunday of Easter) has:
-//   - MP + EP
-//   - Two alternate observances (Easter VII + Ascension)
-//   - Two lessons per office
-//   - Long pastoral note (tests note expand/collapse)
-const DATE      = '2026-05-17';
-const DATE_PREV = '2026-05-16';
-const DATE_NEXT = '2026-05-18';
+// A day with structure to exercise rather than today, whose shape is whatever
+// the calendar happens to give: an alternate observance in both offices, two
+// lessons in each, and a pastoral note long enough to expand. Asked for by
+// those properties rather than named, so the rolling window cannot drop it
+// (#141).
+const DATE      = richDay();
+const DATE_PREV = shiftDate(DATE, -1);
+const DATE_NEXT = shiftDate(DATE, +1);
+
+// Days named by the shape that makes them the case under test (#141).
+const twoNamedCollects = () => findDay(
+  'a day whose collect ref names a page per commemorated person',
+  d => ((d.morning?.collect || '').match(/\(Com \w+:/g) || []).length >= 2);
+const namesInCollectRef = date =>
+  [...officeOf(date, 'mp').collect.matchAll(/\(Com (\w+):/g)].map(m => m[1]);
+const coequalDay = () => findDay(
+  'a day whose commemoration is co-equal with the day itself',
+  d => (d.commemorations || []).some(c => c.coequal));
+const subordinateDay = () => findDay(
+  'a holy day keeping a commemoration under it rather than beside it',
+  d => d.rank === 'holy_day' && (d.commemorations || []).some(c => !c.coequal));
+const ordinaryTimeDay = () => findDay(
+  'a feria in Ordinary Time',
+  d => d.morning && d.rank === 'feria' && seasonFor(d.date) === 'OrdinaryTime');
+const inlinePairDay = () => findDay(
+  'a day whose calendar line joins its co-equal pair with "and"',
+  d => (d.commemorations || []).some(c => c.coequal) && d.commemoration_join === 'and');
+const plainDay = () => findDay(
+  'an ordinary commemorated day with nothing else to mark — no second name, no fast, no eve',
+  d => d.morning && !d.commemorations && !(d.observances || []).length
+    && ['memorial', 'commemoration'].includes(d.rank));
 
 // How long to wait for async content (psalms, scripture fetches).
 const CONTENT_TIMEOUT = 20_000;
@@ -360,9 +382,13 @@ test.describe('Alternatives', () => {
     // ordinary-saturday canticle alternatives. On a narrow viewport the pill
     // must wrap the row rather than truncate or overflow — the names are the
     // book's, and "A Song of Jerusalem Our Mo…" is worse than a second line.
-    // 2026-08-22 is a feria, so it resolves to ordinary-saturday-mp.
+    // ordinary-saturday-mp is the form carrying the long canticle name, and a
+    // Saturday reaches it only in Ordinary Time.
+    const date = findDay('a feria Saturday in Ordinary Time', d =>
+      new Date(d.date + 'T12:00:00Z').getUTCDay() === 6 && d.rank === 'feria'
+      && d.morning && seasonFor(d.date) === 'OrdinaryTime');
     await page.setViewportSize({ width: 320, height: 800 });
-    await gotoOffice(page, '2026-08-22', 'mp');
+    await gotoOffice(page, date, 'mp');
 
     const longTab = page.locator('.alt-tab', { hasText: 'A Song of Jerusalem Our Mother' });
     // Guard the fixture: if the lectionary moves and this day stops being
@@ -390,12 +416,14 @@ test.describe('Alternatives', () => {
 
 test.describe('Psalm and reading selectors', () => {
   test('psalm_sets renders an All + one-tab-per-set selector', async ({ page }) => {
-    // 2026-04-05 evening psalm_sets: [[113, 114], [118]]
-    await gotoOffice(page, '2026-04-05', 'ep');
+    const date = findDay('an evening offering two alternative psalm sets, the second a single psalm',
+      d => (d.evening?.psalm_sets || []).length === 2 && d.evening.psalm_sets[1].length === 1);
+    const sets = officeOf(date, 'ep').psalm_sets;
+    await gotoOffice(page, date, 'ep');
     const psalmBlock = page.locator('.alt-block:has(> .alt-tabs > .alt-tab[data-key^="pwc-psalmset-"])').first();
     await psalmBlock.waitFor();
     const tabs = psalmBlock.locator(':scope > .alt-tabs > .alt-tab');
-    await expect(tabs).toHaveCount(3); // All, "113, 114", "118"
+    await expect(tabs).toHaveCount(sets.length + 1); // All, then one per set
     await expect(tabs.nth(0)).toHaveText('All');
     await expect(tabs.nth(0)).toHaveClass(/alt-tab-active/);
 
@@ -403,29 +431,33 @@ test.describe('Psalm and reading selectors', () => {
     await tabs.nth(2).click();
     await expect(psalmBlock.locator(':scope > .alt-panel').nth(0)).toHaveClass(/alt-panel-hidden/);
     await expect(psalmBlock.locator(':scope > .alt-panel').nth(2)).not.toHaveClass(/alt-panel-hidden/);
-    await expect(psalmBlock.locator(':scope > .alt-panel').nth(2).locator('[data-citation="118"]')).toHaveCount(1);
+    const soleCitation = typeof sets[1][0] === 'object' ? sets[1][0].citation : sets[1][0];
+    await expect(psalmBlock.locator(':scope > .alt-panel').nth(2)
+      .locator(`[data-citation="${soleCitation}"]`)).toHaveCount(1);
   });
 
   test('multiple plain psalms renders an All + one-tab-per-psalm selector', async ({ page }) => {
-    // 2026-01-03 evening psalms: ['29', '98']
-    await gotoOffice(page, '2026-01-03', 'ep');
+    const date = findDay('an evening appointing exactly two plain psalms',
+      d => !d.evening?.psalm_sets && (d.evening?.psalms || []).length === 2);
+    const psalms = officeOf(date, 'ep').psalms;
+    await gotoOffice(page, date, 'ep');
     const psalmBlock = page.locator('.alt-block:has(> .alt-tabs > .alt-tab[data-key^="pwc-psalm-"])').first();
     await psalmBlock.waitFor();
     const tabs = psalmBlock.locator(':scope > .alt-tabs > .alt-tab');
-    await expect(tabs).toHaveCount(3); // All, Psalm 29, Psalm 98
-    await expect(tabs.nth(1)).toHaveText('Psalm 29');
-    await expect(tabs.nth(2)).toHaveText('Psalm 98');
+    await expect(tabs).toHaveCount(psalms.length + 1); // All, then one per psalm
+    await expect(tabs.nth(1)).toHaveText(`Psalm ${psalms[0]}`);
+    await expect(tabs.nth(2)).toHaveText(`Psalm ${psalms[1]}`);
 
     await tabs.nth(1).click();
     const panel1 = psalmBlock.locator(':scope > .alt-panel').nth(1);
     await expect(panel1).not.toHaveClass(/alt-panel-hidden/);
     // Individual panel is self-contained: just the one psalm, not the other.
-    await expect(panel1.locator('[data-citation="29"]')).toHaveCount(1);
-    await expect(panel1.locator('[data-citation="98"]')).toHaveCount(0);
+    await expect(panel1.locator(`[data-citation="${psalms[0]}"]`)).toHaveCount(1);
+    await expect(panel1.locator(`[data-citation="${psalms[1]}"]`)).toHaveCount(0);
   });
 
   test('multiple readings renders an All + one-tab-per-reading selector', async ({ page }) => {
-    await gotoOffice(page, DATE, 'mp'); // 2026-05-17: two lessons per office
+    await gotoOffice(page, DATE, 'mp'); // richDay(): two lessons per office
     const readingBlock = page.locator('.alt-block:has(> .alt-tabs > .alt-tab[data-key^="pwc-reading-"])').first();
     await readingBlock.waitFor();
     const tabs = readingBlock.locator(':scope > .alt-tabs > .alt-tab');
@@ -565,8 +597,11 @@ test.describe('Observance toggle', () => {
   });
 
   test('rank chip follows the alternate observance', async ({ page }) => {
-    // 2026-12-26: Saint Stephen, Deacon & Martyr (Holy Day) OR Feria.
-    await gotoOffice(page, '2026-12-26', 'mp');
+    // A day whose alternate states a rank of its own, differing from the day's,
+    // so the chip has something to follow.
+    const date = findDay('a holy day whose morning alternate is the feria, ranked as such',
+      d => d.rank === 'holy_day' && d.morning?.alternate?.rank === 'feria');
+    await gotoOffice(page, date, 'mp');
     await expect(page.locator('#day-meta')).toContainText('Holy Day', { timeout: 5000 });
     await expect(page.locator(OBS_ALT)).toBeVisible({ timeout: 5000 });
     await page.locator(OBS_ALT).click();
@@ -577,10 +612,13 @@ test.describe('Observance toggle', () => {
   // rubric. The observance caption is small spaced capitals, which is a
   // reasonable setting for "Feria" and not for a sentence.
   test('a rubric heading an office is set as a rubric, not as an observance name', async ({ page }) => {
-    // 2026-04-04 EP — the office is conditional on the Great Vigil.
-    await gotoOffice(page, '2026-04-04', 'ep');
+    // The one office in the window whose branch is headed by a rubric rather
+    // than a name — a sentence standing where an observance label would.
+    const date = findDay('an evening headed by a rubric rather than an observance name',
+      d => /^This office is only to be used/.test(d.evening?.rubric || ''));
+    await gotoOffice(page, date, 'ep');
     const rubric = page.locator('.office-rubric');
-    await expect(rubric).toHaveText('This office is only to be used before the Great Vigil');
+    await expect(rubric).toHaveText(dayOf(date).evening.rubric);
     await expect(page.locator('.observance-label')).toHaveCount(0);
     await expect(rubric).toHaveCSS('text-transform', 'none');
   });
@@ -589,11 +627,14 @@ test.describe('Observance toggle', () => {
   // shows no colour or rank rather than the primary's. The season stays — it
   // is a fact about the date, not about the observance.
   test('an alternate with no identity of its own shows no colour or rank', async ({ page }) => {
-    // 2026-01-12: The Holy Innocents (Red, Holy Day) or the feria, which the
-    // name column does not name and so cannot colour.
-    await gotoOffice(page, '2026-01-12', 'mp');
+    // A holy day whose alternate the name column never identifies: it carries
+    // a label and nothing else, so there is no colour or rank to show.
+    const date = findDay('a holy day whose alternate states neither colour nor rank',
+      d => d.rank === 'holy_day' && d.colour && d.morning?.alternate
+        && !d.morning.alternate.colour && !d.morning.alternate.rank);
+    await gotoOffice(page, date, 'mp');
     await expect(page.locator('#day-meta')).toContainText('Holy Day', { timeout: 5000 });
-    await expect(page.locator('#day-meta .colour-name')).toHaveText('Red');
+    await expect(page.locator('#day-meta .colour-name')).toHaveText(dayOf(date).colour);
 
     await page.locator(OBS_ALT).click();
     await expect(page.locator('#day-meta')).not.toContainText('Holy Day');
@@ -610,18 +651,24 @@ test.describe('Observance toggle', () => {
   // The label is the whole name, at any length: the control is the only place
   // the primary observance is named, and touch has no hover (#82).
   test('a long observance name is written out in full', async ({ page }) => {
-    // 2026-06-03 MP carries the longest name in the window, at 69 characters.
-    await gotoOffice(page, '2026-06-03', 'mp');
+    // The longest name the window carries, whatever it is: the point is that
+    // length does not truncate it.
+    const date = extremeDay('a day with an alternate observance',
+      d => d.morning?.alternate && d.name, d => d.name.length);
+    await gotoOffice(page, date, 'mp');
     const primary = page.locator('.day-ctrl-seg--obs .day-ctrl-btn').first();
-    await expect(primary).toHaveText(
-      'Martyrs of Uganda, 1886, and Janani Luwum, Archbishop of Uganda, 1977');
+    await expect(primary).toHaveText(dayOf(date).name);
   });
 
   // Writing the name out costs nothing if the segment then leaves the column:
   // above the 820px step the control group is sized by its content, so the
   // segment's own max-width has to be clamped against something narrower.
   test('the segment stays inside the header column and keeps its 44px target', async ({ page }) => {
-    await gotoOffice(page, '2026-06-06', 'ep');   // long name against a long alternate
+    // Both sides long, so the segment is under the most pressure the data offers.
+    const date = extremeDay('an evening with an alternate observance',
+      d => d.evening?.alternate?.label && d.name,
+      d => d.name.length + d.evening.alternate.label.length);
+    await gotoOffice(page, date, 'ep');
     await expect(page.locator('.day-ctrl-group--obs')).toBeVisible({ timeout: 5000 });
     const box = await page.evaluate(() => {
       const right = sel => document.querySelector(sel).getBoundingClientRect().right;
@@ -641,9 +688,11 @@ test.describe('Observance toggle', () => {
 // ── Section shapes the renderer depends on ───────────────────────────────────
 
 test.describe('Reading response renders after lesson', () => {
+  // One of each: the seasonal forms and the weekday forms carry their own
+  // reading-response block, so a day from each season proves both.
   for (const [label, date, office] of [
-    ['seasonal (Lent)', '2026-02-25', 'mp'],
-    ['ordinary-time', '2026-06-17', 'mp'],
+    ['seasonal (Lent)', findDay('a day in Lent', d => d.morning && seasonFor(d.date) === 'Lent'), 'mp'],
+    ['ordinary-time', ordinaryTimeDay(), 'mp'],
   ]) {
     test(label, async ({ page }) => {
       await gotoOffice(page, date, office);
@@ -665,7 +714,7 @@ test.describe('Reading response renders after lesson', () => {
 });
 
 test("Lord's Prayer present in ordinary-time office", async ({ page }) => {
-  await gotoOffice(page, '2026-06-17', 'mp');
+  await gotoOffice(page, ordinaryTimeDay(), 'mp');
   await expect(page.locator('.office-subsection-title', { hasText: "The Lord's Prayer" })).toBeVisible();
 });
 
@@ -675,20 +724,26 @@ test("Lord's Prayer present in ordinary-time office", async ({ page }) => {
 // from the Go implementations in season.go.
 
 test.describe('Season theming parity', () => {
+  // Each case is a day the calendar names, so it recurs and the window always
+  // holds one. Advent I and Christmas Day appear twice — first and last — which
+  // is the point of those two: the season must be read the same either side of
+  // the liturgical new year.
+  const advent = daysNamed(/^First Sunday of Advent$/);
+  const christmas = daysNamed(/Christmas Day$/);
   const cases = [
     // data-season is set by seasonOf() in app.js
-    { date: '2025-11-30', season: 'Advent',       label: 'Advent I' },
-    { date: '2025-12-25', season: 'Christmas',    label: 'Christmas Day' },
-    { date: '2026-01-11', season: 'Epiphany',     label: 'Baptism of the Lord' },
-    { date: '2026-02-18', season: 'Lent',         label: 'Ash Wednesday' },
-    { date: '2026-03-22', season: 'Passiontide',  label: '5th Sunday in Lent' },
-    { date: '2026-04-05', season: 'Easter',       label: 'Easter Day' },
+    { date: advent[0],                       season: 'Advent',      label: 'Advent I' },
+    { date: christmas[0],                    season: 'Christmas',   label: 'Christmas Day' },
+    { date: daysNamed(/^The Baptism of the Lord$/)[0],   season: 'Epiphany',    label: 'Baptism of the Lord' },
+    { date: daysNamed(/^Ash Wednesday$/)[0],             season: 'Lent',        label: 'Ash Wednesday' },
+    { date: daysNamed(/^Fifth Sunday in Lent$/)[0],      season: 'Passiontide', label: '5th Sunday in Lent' },
+    { date: daysNamed(/Easter Day$/)[0],                 season: 'Easter',      label: 'Easter Day' },
     // Ascension: seasonOf uses Pentecost as season boundary (not Ascension)
-    { date: '2026-05-14', season: 'Easter',       label: 'Ascension — still Easter theme' },
-    { date: '2026-05-24', season: 'Pentecost',    label: 'Pentecost Sunday' },
-    { date: '2026-11-01', season: 'AllSaints',    label: 'All Saints' },
-    { date: '2026-11-29', season: 'Advent',       label: 'Advent I (year N+1)' },
-    { date: '2026-12-25', season: 'Christmas',    label: 'Christmas Day 2026' },
+    { date: daysNamed(/^Ascension of the Lord$/)[0],     season: 'Easter',      label: 'Ascension — still Easter theme' },
+    { date: daysNamed(/^The Day of Pentecost$/)[0],      season: 'Pentecost',   label: 'Pentecost Sunday' },
+    { date: daysNamed(/^All Saints/)[0],                 season: 'AllSaints',   label: 'All Saints' },
+    { date: advent[advent.length - 1],        season: 'Advent',      label: 'Advent I (the next year)' },
+    { date: christmas[christmas.length - 1],  season: 'Christmas',   label: 'Christmas Day (the next year)' },
   ];
 
   for (const { date, season, label } of cases) {
@@ -775,8 +830,11 @@ test.describe('Small caps', () => {
 // content before the * is one word, so the greedy backtrack reaches through the
 // tag's '>' with no intervening whitespace. Every line of Psalm 66/67 (DATE's MP)
 // has several words before its *, so that fixture cannot catch it. 2026-11-29 MP
-// is Psalms 146-147, and 146 opens "Hallelujah! *" — the shape that broke.
-const PSALM_SPLICE_DATE = '2026-11-29';
+// is the shape that broke: a psalm whose first word is immediately followed
+// by the mid-verse marker.
+const PSALM_SPLICE_DATE = findDay(
+  'a morning appointing Psalm 146, which opens "Hallelujah! *"',
+  d => (d.morning?.psalms || []).some(x => (typeof x === 'object' ? x.citation : x) === '146'));
 
 test.describe('Psalm verses', () => {
   test('render one block per verse, number inline, no markup leak', async ({ page }) => {
@@ -827,9 +885,13 @@ test.describe('Psalm verses', () => {
 
 // ── Eves, day markers, and source notes ──────────────────────────────────────
 
-// 2026-08-14 carries all three facts on one day: a commemoration, a fast, and
-// an eve that takes the evening. Its note is the calendar compiler's apparatus.
-const EVE_DATE = '2026-08-14';
+// All three facts on one day: a commemoration, a fast, and an eve that takes
+// the evening — the combination the markers have to keep apart.
+const EVE_DATE = findDay(
+  'a day carrying a commemoration, a fast, and an eve on its evening',
+  d => (d.observances || []).includes('fast_day')
+    && (d.observances || []).some(o => /^eve_of:/.test(o))
+    && d.rank === 'commemoration');
 
 test.describe('Eve identity (#128)', () => {
   test('evening prayer presents the eve, not the commemoration', async ({ page }) => {
@@ -857,13 +919,18 @@ test.describe('Eve identity (#128)', () => {
   });
 
   test('the observance toggle names the primary slot as the title does', async ({ page }) => {
-    // 2026-01-03: the day is Christmas Feria, the primary evening office is
-    // the Eve of the Epiphany, and both toggle buttons are eves.
-    await gotoOffice(page, '2026-01-03', 'ep');
-    await expect(page.locator('#day-title')).toHaveText('Eve of the Epiphany');
+    // An evening whose primary slot is an eve rather than the day itself, so
+    // naming the slot after the day would name the wrong thing.
+    const date = findDay('an evening whose primary slot is an eve, with an alternate beside it',
+      d => /^Eve of /i.test(d.evening?.label || '') && d.evening?.alternate);
+    await gotoOffice(page, date, 'ep');
+    const title = page.locator('#day-title');
+    await expect(title).toContainText(/^Eve of /);
     const obs = page.locator('.day-ctrl-seg--obs .day-ctrl-btn');
     await expect(obs).toHaveCount(2);
-    await expect(obs.first()).toHaveText('Eve of the Epiphany');
+    // The two must say the same thing — which is the claim, and it holds
+    // without either side being spelled out here.
+    await expect(obs.first()).toHaveText((await title.textContent()).trim());
   });
 });
 
@@ -872,36 +939,61 @@ test.describe('Commemoration collect (#135)', () => {
   // only the leading page, so a day ranked a Commemoration offered the
   // season's collect alone.
   test('the commemoration collect is offered beside the day\'s', async ({ page }) => {
-    await gotoOffice(page, '2025-12-03', 'mp');   // "268 (Com: 434 or FAS 361)"
+    // A day whose collect ref names a commemoration's collect beside the day's.
+    const date = findDay("a day whose collect ref names a commemoration's collect",
+      d => /^\d+ \(Com: \d/.test(d.morning?.collect || ''));
+    await gotoOffice(page, date, 'mp');
     const tabs = page.locator('#prayers-collect .alt-tab');
-    await expect(tabs.filter({ hasText: 'Common of a Missionary' })).toHaveCount(1);
+    // Both are offered: the day's own and the one the ref names beside it.
+    await expect(tabs.filter({ hasText: 'Common of' })).toHaveCount(1);
+    await expect(tabs).toHaveCount(2);
   });
 
   test('a slashed page offers both facing collects', async ({ page }) => {
-    await gotoOffice(page, '2025-12-04', 'mp');   // "268 (Com: 438/9 or FAS 363)"
+    // "438/9" abbreviates a facing page by its final digits, so the ref names
+    // two collects where it looks like one.
+    const date = findDay('a day whose commemoration ref abbreviates a facing page',
+      d => /\(Com: \d+\/\d/.test(d.morning?.collect || ''));
+    await gotoOffice(page, date, 'mp');
     const tabs = page.locator('#prayers-collect .alt-tab');
-    await expect(tabs.filter({ hasText: 'Common of a Saint 1' })).toHaveCount(1);
-    await expect(tabs.filter({ hasText: 'Common of a Saint 2' })).toHaveCount(1);
+    await expect(tabs.filter({ hasText: 'Common of' })).toHaveCount(2);
   });
 
   test('a day commemorating two people says whose collect is whose', async ({ page }) => {
-    await gotoOffice(page, '2026-10-30', 'mp');
+    const date = twoNamedCollects();
+    const who = namesInCollectRef(date);
+    await gotoOffice(page, date, 'mp');
     const tabs = page.locator('#prayers-collect .alt-tab');
-    await expect(tabs.filter({ hasText: 'Wyclyf: Common of a Saint 1' })).toHaveCount(1);
-    await expect(tabs.filter({ hasText: 'Hus: Common of Doctors' })).toHaveCount(1);
+    // The ref names the person against each page, and so must the tab. One
+    // person can carry more than one tab: an abbreviated facing page ("438/9")
+    // is two collects under the same name.
+    for (const name of who) {
+      await expect
+        .poll(() => tabs.filter({ hasText: new RegExp(`^${name}: `) }).count())
+        .toBeGreaterThan(0);
+    }
   });
 
   test('selecting one shows that collect, not the day\'s', async ({ page }) => {
-    await gotoOffice(page, '2026-10-30', 'mp');
-    await page.locator('#prayers-collect .alt-tab')
-      .filter({ hasText: 'Hus: Common of Doctors' }).click();
-    await expect(page.locator('#prayers-collect .alt-source:visible').first())
-      .toHaveText('Common of Doctors and Teachers of the Faith');
+    const date = twoNamedCollects();
+    const who = namesInCollectRef(date);
+    await gotoOffice(page, date, 'mp');
+    const source = page.locator('#prayers-collect .alt-source:visible').first();
+    const tabFor = n => page.locator('#prayers-collect .alt-tab')
+      .filter({ hasText: new RegExp(`^${n}: `) }).first();
+    await tabFor(who[0]).click();
+    const first = (await source.textContent()).trim();
+    await tabFor(who[1]).click();
+    // A different person's page is a different collect, not the day's again.
+    await expect(source).not.toHaveText(first);
+    await expect(source).not.toHaveText('');
   });
 
   test('a day with no commemoration gains no tab', async ({ page }) => {
-    // 2025-12-02 is an Advent feria — collect "268", no parenthetical at all.
-    await gotoOffice(page, '2025-12-02', 'mp');
+    // A day whose collect ref is a bare page: nothing to offer beside it.
+    const date = findDay('a day whose collect ref is a bare page number',
+      d => /^\d+$/.test((d.morning?.collect || '').trim()));
+    await gotoOffice(page, date, 'mp');
     await expect(page.locator('#prayers-collect .alt-tab').filter({ hasText: 'Common of' }))
       .toHaveCount(0);
   });
@@ -911,53 +1003,57 @@ test.describe('Co-commemoration (#129)', () => {
   // 2026-10-30 names two commemorations of equal standing. Naming one of them
   // in the title would be the app choosing a day for the reader (ADR 0016).
   test('two co-equal commemorations are both named in the title', async ({ page }) => {
-    await gotoOffice(page, '2026-10-30', 'mp');
+    await gotoOffice(page, coequalDay(), 'mp');
     await expect(page.locator('#day-title'))
       .toHaveText('John Wyclyf, Reformer, 1384 or Jan Hus, Reformer, 1415');
   });
 
   test('each co-commemorated saint has their own biography', async ({ page }) => {
-    await gotoOffice(page, '2026-10-30', 'mp');
-    await expect(page.locator('.fats-bio-toggle')).toHaveText([
-      'About John Wyclyf, Reformer, 1384',
-      'About Jan Hus, Reformer, 1415',
-    ]);
+    const date = coequalDay();
+    const day = dayOf(date);
+    await gotoOffice(page, date, 'mp');
+    await expect(page.locator('.fats-bio-toggle')).toHaveText(
+      [day.name, ...day.commemorations.map(c => c.name)].map(n => `About ${n}`));
   });
 
   // A commemoration kept under a Holy Day is subordinate, not a second title.
   test('a commemoration under a holy day is a marker, not a title', async ({ page }) => {
-    await gotoOffice(page, '2025-12-29', 'mp');
-    await expect(page.locator('#day-title')).toHaveText('The Holy Innocents');
-    await expect(page.locator('#day-meta'))
-      .toContainText('Thomas Becket, Archbishop of Canterbury, 1170');
+    const date = subordinateDay();
+    const day = dayOf(date);
+    await gotoOffice(page, date, 'mp');
+    await expect(page.locator('#day-title')).toHaveText(day.name);
+    await expect(page.locator('#day-meta')).toContainText(day.commemorations[0].name);
   });
 
   test('a subordinate commemoration still reaches its biography', async ({ page }) => {
-    await gotoOffice(page, '2025-12-29', 'mp');
+    const date = subordinateDay();
+    const day = dayOf(date);
+    await gotoOffice(page, date, 'mp');
     await expect(page.locator('.fats-bio-toggle'))
-      .toContainText(['The Holy Innocents', 'Thomas Becket, Archbishop of Canterbury, 1170']);
+      .toContainText([day.name, day.commemorations[0].name]);
   });
 
-  // #137: the calendar writes this pair on one line, joined by "and", where
-  // the other co-commemorations get a line each.
+  // #137: the calendar writes this pair on one line joined by "and", where the
+  // other co-commemorations are offered as alternatives and joined by "or".
+  // The title carries the source's own joiner (commemoration_join), so the day
+  // is asked for by which joiner it uses.
   test('a pair written inline on one line is named as two', async ({ page }) => {
-    await gotoOffice(page, '2026-10-15', 'mp');
-    await expect(page.locator('#day-title')).toHaveText(
-      'Teresa of Avila, Spiritual Teacher and Reformer, 1582 and '
-      + 'John of the Cross, Priest, Spiritual Teacher, 1591');
-    await expect(page.locator('.fats-bio-toggle')).toHaveText([
-      'About Teresa of Avila, Spiritual Teacher and Reformer, 1582',
-      'About John of the Cross, Priest, Spiritual Teacher, 1591',
-    ]);
+    const date = inlinePairDay();
+    const day = dayOf(date);
+    await gotoOffice(page, date, 'mp');
+    await expect(page.locator('#day-title'))
+      .toHaveText(`${day.name} ${day.commemoration_join} ${day.commemorations[0].name}`);
+    await expect(page.locator('.fats-bio-toggle')).toHaveText(
+      [day.name, day.commemorations[0].name].map(n => `About ${n}`));
   });
 
   test('the header carries no rank marker from the source', async ({ page }) => {
-    await gotoOffice(page, '2026-10-15', 'mp');
+    await gotoOffice(page, inlinePairDay(), 'mp');
     await expect(page.locator('#day-title')).not.toContainText('- Com');
   });
 
   test('a day naming one observance is unchanged', async ({ page }) => {
-    await gotoOffice(page, '2026-08-13', 'mp');
+    await gotoOffice(page, plainDay(), 'mp');
     await expect(page.locator('#day-meta .meta-item--marker')).toHaveCount(0);
   });
 });
@@ -980,7 +1076,7 @@ test.describe('Day markers (#128)', () => {
   });
 
   test('a day with neither gets no markers', async ({ page }) => {
-    await gotoOffice(page, '2026-08-13', 'mp');
+    await gotoOffice(page, plainDay(), 'mp');
     await expect(page.locator('#day-meta .meta-item--marker')).toHaveCount(0);
   });
 });
@@ -1004,8 +1100,11 @@ test.describe('Source notes (#127)', () => {
   });
 
   test('a rule fused with its sourcing no longer suppresses it', async ({ page }) => {
-    // 2026-06-28 held both in one cell; typing the cell as a whole hid both.
-    await gotoOffice(page, '2026-06-28', 'ep');
+    // A cell holding an advisory note and a precedence rule together: typing
+    // the cell as a whole would let one kind decide the other's fate.
+    const date = findDay('an evening whose notes carry both an advisory and a rule',
+      d => (d.notes || []).some(n => /readings provided are found in the BCP/.test(n.text || '')));
+    await gotoOffice(page, date, 'ep');
     await page.locator('.day-note-details summary').click();
     const body = page.locator('.day-note-details-body');
     await expect(body).toContainText('The readings provided are found in the BCP');
@@ -1014,15 +1113,20 @@ test.describe('Source notes (#127)', () => {
   });
 
   test('a cell of mixed kinds splits by kind', async ({ page }) => {
-    // 2026-01-06: an apparatus note and an actionable office note.
-    await gotoOffice(page, '2026-01-06', 'mp');
+    // A day whose notes are of two kinds at once: apparatus behind the
+    // disclosure, an actionable office note in the open.
+    const date = findDay('a day carrying both an apparatus note and an office note',
+      d => (d.notes || []).some(n => /always kept as the Epiphany/.test(n.text || '')));
+    await gotoOffice(page, date, 'mp');
     await expect(page.locator('.day-note-details-body p').first())
       .toContainText('always kept as the Epiphany');
     await expect(page.locator('.day-note')).toContainText('Office Note');
   });
 
   test('pastoral customs still render in the open', async ({ page }) => {
-    await gotoOffice(page, '2026-12-13', 'mp');
+    const date = findDay('a day whose note is a pastoral custom',
+      d => (d.notes || []).some(n => n.type === 'pastoral' && /Gaudete/.test(n.text || '')));
+    await gotoOffice(page, date, 'mp');
     await expect(page.locator('.day-note')).toContainText('Gaudete');
     await expect(page.locator('.day-note-details')).toHaveCount(0);
   });

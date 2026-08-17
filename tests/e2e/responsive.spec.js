@@ -1,8 +1,10 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
 import { gotoOffice } from './helpers.js';
+import { ordinaryDay } from './days.js';
 
-const DATE = '2026-07-12';
+// Layout at three widths, so the day only has to be an ordinary one (#141).
+const DATE = ordinaryDay();
 
 const VIEWPORTS = [
   { name: 'mobile', width: 320, height: 568 },
