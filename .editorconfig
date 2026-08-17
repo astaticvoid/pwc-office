@@ -1,0 +1,25 @@
+# The linters check trailing whitespace and a final newline (eslint's
+# no-trailing-spaces / eol-last, ruff's W). This tells an editor about them, so
+# they are prevented rather than reported.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+
+[*.{js,cjs,mjs,json,css,html,yml,yaml}]
+indent_size = 2
+
+[*.py]
+indent_size = 4
+max_line_length = 100
+
+[Makefile]
+indent_style = tab
+
+[*.md]
+# A trailing double space is a hard line break in Markdown.
+trim_trailing_whitespace = false

@@ -8,6 +8,8 @@
     "@playwright/test": "^1.49.0",
     "eslint": "^9.39.5",
     "globals": "^15.15.0",
+    "stylelint": "^17.14.1",
+    "stylelint-config-standard": "^40.0.0",
     "vitest": "^4.1.10"
   },
   "scripts": {

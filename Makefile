@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: check-conservation venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata intake-year serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa lint lint-js lint-py test-mutations hooks
+.PHONY: lint-css check-conservation venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata intake-year serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa lint lint-js lint-py test-mutations hooks
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -22,7 +22,7 @@ RUFF := $(shell [ -x .venv/bin/ruff ] && echo .venv/bin/ruff || echo ruff)
 # any time, and needed once per fresh clone (CI is unaffected).
 hooks:
 	git config core.hooksPath githooks
-	@echo "Git hooks installed: core.hooksPath=githooks (commit-msg active)."
+	@echo "Git hooks installed: core.hooksPath=githooks (commit-msg, pre-commit)."
 
 # Create the venv and install Python dependencies.
 venv:
@@ -82,7 +82,10 @@ lint-js:
 lint-py:
 	$(RUFF) check tools/
 
-lint: lint-js lint-py
+lint-css:
+	npx stylelint "web/*.css"
+
+lint: lint-js lint-py lint-css
 
 # check-integrity runs first and fails fast: it catches data/ that no longer
 # matches the manifest, which is the state left by editing an extractor and

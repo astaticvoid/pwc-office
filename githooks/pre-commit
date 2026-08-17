@@ -1,0 +1,15 @@
+#!/bin/sh
+# pre-commit hook — run the linters over the staged tree.
+#
+# `make test` runs them too, and that is what gates a merge; this is the
+# earlier, cheaper report. It runs the linters only: the full suite re-extracts
+# and takes minutes, which is not a thing to put in front of every commit.
+#
+# Installed by `make hooks` (sets core.hooksPath=githooks). Skip a run with
+# `git commit --no-verify` when committing work in progress.
+
+if ! make lint; then
+  echo "pre-commit: refused commit — lint failed. Fix, or commit with --no-verify." >&2
+  exit 1
+fi
+exit 0

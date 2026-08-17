@@ -54,6 +54,7 @@ make extract                      # full pipeline → data/*.json + data/lection
 # Testing
 make test                         # go-to command, no network. Composite:
                                   #   lint → check-integrity → test-unit → test-tools → qa
+make lint                         # eslint (JS) + ruff (Python) + stylelint (CSS)
 make test-unit                    # Vitest only (tests/unit/) — `npm test`
 make test-tools                   # pytest only (tools/tests/) — extraction-tool units
 make test-full                    # structural check: every day × MP+EP in lectionary
@@ -432,7 +433,8 @@ it pins, not the bug that prompted it.
   Never accumulate unrelated changes into a "ball of mud" commit. Each commit
   message should explain what changed at the concern level, not file-by-file.
 - **No Co-Authored-By** trailers in commits — enforced by the `commit-msg`
-  hook in `githooks/`, installed with `make hooks`. This is a hard rule, not a
+  hook in `githooks/`, installed with `make hooks` along with a `pre-commit`
+  hook that runs `make lint`. This is a hard rule, not a
   preference; the trailer is what makes an AI agent a visible co-author on
   GitHub, and this repo keeps its history attributed to the human author alone.
 - **Subagent code review before commit.** Every change must be reviewed by a hostile subagent before committing. The subagent checks for bugs, edge cases, silent failures, performance issues, and integration problems. Fix all high-severity findings before committing.
