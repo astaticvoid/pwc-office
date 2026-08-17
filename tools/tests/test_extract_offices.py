@@ -24,10 +24,9 @@ from extract_offices import (
 
 
 class TestNormalizeWhitespaceSpacePunct:
-    """Space-before-punctuation fix in _normalize_whitespace — moved here from
-    the removed _fix_casing function (issue #15, 2026-07-30).  Two live
-    space-before-punct instances ("Holy One !", "this city ,") remain and are
-    handled by .replace() in _fix()."""
+    """_normalize_whitespace closes a space before punctuation, and leaves the
+    text otherwise alone. Two live instances ("Holy One !", "this city ,") are
+    handled by .replace() in _fix() (#15)."""
 
     def test_space_before_punctuation_normalised(self):
         office = {

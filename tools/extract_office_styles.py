@@ -251,8 +251,8 @@ def spans_to_typed_lines(page_spans: list[dict], margin: float | None = None,
     # Israel) is typeset with extra vertical space between its credal
     # stanzas — ~18-22pt between consecutive "response" lines vs. ~12.5pt
     # for an ordinary line within a stanza. Checked against every "response"
-    # line-pair gap >13pt across all 31 office forms (2026-07-27): every one
-    # is a real stanza boundary in the Affirmation, with zero false
+    # line-pair gap >13pt across all 31 office forms: every one is a real
+    # stanza boundary in the Affirmation, with zero false
     # positives — narrow enough that no other response-typed content
     # (there is none with this gap) can be mismarked. Insert a blank line so
     # the stanza break survives extraction; reset the baseline whenever the

@@ -70,10 +70,9 @@ def normalize(data, dry_run=False):
         # reading_response ships as a single alternatives block, not the
         # list-wrapped field value: the renderer consumes it via
         # renderAlternatives(shared[key], …) and the CLI via
-        # renderSegmentsText, both of which take the block directly (the shape
-        # the synthesizer produced before #91 extracted it). opening_responses,
-        # by contrast, is a list-valued field the renderer iterates as a list —
-        # each keeps its own convention.
+        # renderSegmentsText, both of which take the block directly (#91).
+        # opening_responses, by contrast, is a list-valued field the renderer
+        # iterates as a list — each keeps its own convention.
         block = (canonical[0] if (isinstance(canonical, list) and len(canonical) == 1
                                   and isinstance(canonical[0], dict)
                                   and canonical[0].get('type') == 'alternatives')

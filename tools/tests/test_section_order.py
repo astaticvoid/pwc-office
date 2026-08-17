@@ -72,8 +72,8 @@ def test_split_sections_are_listed_in_section_order():
 
 @pytest.mark.skipif(not OFFICES.exists(), reason="data/offices.json not extracted")
 def test_sections_of_finds_the_split_sections():
-    # The regression this accessor exists to prevent: a form with collects must
-    # report them, where heading-derived walking would return nothing.
+    # A form with collects must report them: they are carved out of the litany
+    # block, so walking headings alone returns nothing for them.
     data = json.loads(OFFICES.read_text(encoding="utf-8"))
     with_collects = [
         f for f, body in data.items()

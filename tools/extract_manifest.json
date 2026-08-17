@@ -1,5 +1,5 @@
 {
-  "extracted_at": "2026-08-16T23:35:23Z",
+  "extracted_at": "2026-08-16T23:43:29Z",
   "tool_versions": {
     "fitz": [
       "1.28.2",
@@ -8,13 +8,13 @@
     ]
   },
   "source_hashes": {
-    "tools/extract_offices.py": "2d51f6fd53174fcfbd0596909cc8493d7c8ca9a4b4c6a5cf39b7c32e11e758c6",
-    "tools/extract_office_styles.py": "77df942372bebf533d4716d366b2dfdd5862a7b24055c1353666e4151e1d7e7e",
-    "tools/normalize_offices.py": "23d677f82aa34ed6b05154002adb72e0d19cbe0cb8b13e5898e4545930717808",
-    "tools/extract_psalter.py": "49abfe5e67a8d0bfadd73aac88da4ba6811fcda71eb1b5f3583e3e184c511e11",
+    "tools/extract_offices.py": "b8e3245e1df4c614fb5edbf82e396d40254ca4be6bad8673c883f2bbe00c201b",
+    "tools/extract_office_styles.py": "3ceae0b277f080299780cd2401473ce6de88d90f9da25c3aa09c3593071ff9d0",
+    "tools/normalize_offices.py": "9411c1db3e21adc364edaceb0ac9e80d623b64e51398e353eb5c1a02eec932ce",
+    "tools/extract_psalter.py": "6d697ded980ebd3d24afc90c1c9ec588be15fb38cb13c9c683e5a91ea98712f5",
     "tools/extract_collects.py": "e5406ec72298ddd63b7b26f8eea21604ffac0922ad4402ce8921d08860e800b2",
-    "tools/extract_fats.py": "40bd5c0cfe2b837aa707c6388b86b3e1ce527ee979645fdc117fd25224827caf",
-    "tools/convert_lectionary.py": "557c2ca531194eb2945d1e2149edd45eecc2eb04cc224db04d94b2dce9a2ba2c",
+    "tools/extract_fats.py": "47c68b9df80cf4b76f451e478455fafb91c71e791ee1d50ce126a733e72809ee",
+    "tools/convert_lectionary.py": "5f0de593f8c96c94fe9c78cd0ac75e9f55a84d0144204dcaaf54132081cce4a9",
     "tools/apply_corrections.py": "6e3fafcd98b00ed39675877e828e0f7515109dffe309b6980ddc59fcff33c44b",
     "tools/corrections_lib.py": "aeb8e2cd6319225421c845fc921a435829d3bf4da0ff802d77ed14fb59cb20c8",
     "tools/extract_lib.py": "2d77e3c60dad78a693e88557fd84115815a62128355c04d78bd0c6f42014d72e",

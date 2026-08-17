@@ -125,15 +125,15 @@ describe('lessonsPick', () => {
   });
 
   test('the fixed form does not vary with pick/total', () => {
-    // ADR 0014: "one mechanism, not two adjacent ones" — the reading selector
-    // now presents the actual branches, so the rubric no longer needs to
-    // spell out a computed count.
+    // ADR 0014: "one mechanism, not two adjacent ones" — the selector presents
+    // the actual branches, so the rubric announces the choice without spelling
+    // out a count.
     expect(lessonsPickText(1, 4)).toBe(lessonsPickText(2, 3));
   });
 
   test('rubric is not hidden in the interactive app (BUG-28 load-bearing)', () => {
-    // The class that used to hide book-navigation rubrics in Office mode is
-    // gone (ADR 0013 #59); the pick rubric must render unconditionally.
+    // The pick rubric renders unconditionally: it is load-bearing in the
+    // interactive app, not book-only chrome (ADR 0013/#59).
     expect(lessonsPickRubricHtml(2, 3)).toContain('One or two of the following readings are read.');
     expect(lessonsPickRubricHtml(2, 3)).not.toMatch(/hidden|display:\s*none/);
   });
@@ -511,10 +511,9 @@ describe.skipIf(!HAS_DATA)('renderOfficeJSON sync with renderSegments', () => {
     }
   });
 
-  // Line counts alone cannot catch a misplaced stanza break: the old every-4th-line
-  // rule gave ordinary-sunday-ep stanzas of 4/4/1 where the page shows 3/3/3, and
-  // both come to 11 lines, so MIN_LINES passed on the wrong answer while a sentence
-  // was split across the break. Assert the shape, not just the total.
+  // The shape is asserted, not just the total: a line count cannot catch a
+  // misplaced break. Stanzas of 4/4/1 and the page's 3/3/3 both come to 11
+  // lines, and one of them splits a sentence across the break.
   test('phos_hilaron stanza breaks fall where the page puts them', () => {
     const SHAPE = {
       'ordinary-sunday-ep':    [3, 3, 3],
@@ -632,8 +631,8 @@ describe('verse rendering structure', () => {
   });
 
   test('psalm title uses psalm-title class, not verse grid', () => {
-    // The psalm rendering is in app.js (browser), but we can verify
-    // that renderSegments never emits the old grid-based classes.
+    // The psalm rendering is in app.js (browser); what is checkable here is
+    // that renderSegments emits the psalm-title class and no verse grid.
     const segs = [
       { type: 'leader', text: 'Happy are they who have not walked in the counsel of the wicked, *\nnor lingered in the way of sinners,\nnor sat in the seats of the scornful.' },
     ];
@@ -917,8 +916,8 @@ describe('collectCommemorations', () => {
 // ── lookupFatsEntry (#136) ────────────────────────────────────────────────────
 
 describe('lookupFatsEntry', () => {
-  // Insertion order is what the old matcher followed, so the short key is
-  // deliberately first here — it is the order that served the wrong life.
+  // The short key is deliberately first: a matcher that followed insertion
+  // order would serve Richard of Chichester's life for Richard Hooker.
   const fats = {
     'Richard': { bio: 'Richard of Chichester' },
     'Richard Hooker': { bio: 'Richard Hooker' },

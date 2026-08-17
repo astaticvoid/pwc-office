@@ -264,8 +264,8 @@ def main():
     if corrections.get("office_text"):
         # The pre-correction artifact, named explicitly. This check is about
         # whether a correction still matches the text it was written against, so
-        # it must never see corrected output — previously guaranteed by running
-        # before apply_corrections, now by reading a different file (#48).
+        # it must never see corrected output — which naming its own input
+        # guarantees whenever this runs, rather than an order to remember (#48).
         offices = json.loads((BUILD / "offices.2-normalized.json").read_text())
         errors.extend(validate_office_text(corrections["office_text"], offices))
 

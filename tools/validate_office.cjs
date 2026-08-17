@@ -205,12 +205,9 @@ async function main() {
   // Sections that contain *any* intentional line breaks, so no-prose-line-breaks
   // must not treat a \n here as a prose orphan.
   //
-  // This list is now validator-only. extract_offices.py used to carry a
-  // stricter counterpart, _VERSE_SECTIONS, gating a regex that joined breaks by
-  // guessing from punctuation; both were removed once extraction began deciding
-  // each break from the page geometry instead (#39, #41, #42, #46). A section
-  // no longer needs to be classified as verse or prose to be extracted
-  // correctly — only to be validated. See #36 and the revert of c81b341.
+  // Validator-only: extraction decides each break from the page geometry, so a
+  // section needs no verse/prose classification to be extracted correctly —
+  // only to be validated here (#36, #39, #41, #42, #46).
   const VERSE_SECTIONS = ['opening_responses', 'responsory', 'canticle', 'invitatory',
     'phos_hilaron', 'thanksgiving_for_light', 'lords_prayer_intro',
     'intercessions', 'affirmation', 'litany', 'dismissal'];
@@ -299,12 +296,11 @@ async function main() {
   rules.push({ name: 'no-orphan-rubrics', tier: 2, check(form, formKey, data) {
     const orphans = [];
     // Rubrics that legitimately close a subsection with nothing after them.
-    // BOOK_ONLY_RUBRICS used to exempt them by regex; ADR 0013 deleted that
-    // regex (#59), so the exemption now names what it covers — and names it
-    // tightly. A bare prefix is an exemption for every longer rubric starting
-    // the same way: 'The Lord’s Prayer' would wave through a real orphan like
-    // "The Lord's Prayer is omitted.", and isSkippedRubric already matches the
-    // exact-match form, so such an entry buys nothing but the hole.
+    // The exemption names what it covers, tightly (ADR 0013/#59). A bare prefix
+    // would exempt every longer rubric starting the same way: 'The Lord’s
+    // Prayer' waves through a real orphan like "The Lord's Prayer is omitted.",
+    // and isSkippedRubric already matches the exact-match form, so such an entry
+    // buys nothing but the hole.
 
     // Prefix matching survives only where the exempt rubric is a long block
     // with a stable opening — the intercessions free-prayer prompt, whose

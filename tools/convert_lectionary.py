@@ -36,26 +36,24 @@ from extract_lib import check_manifest
 
 # One-off corrections for lesson citations, names, ranks, colours, and notes
 # where the CSV source has errors (missing separators, typos, mis-parsed
-# markers) used to be hardcoded dicts here (LESSON_FIXES, NAME_FIXES,
-# RANK_FIXES, COLOUR_FIXES, CLEAR_NOTES). They now live in
-# data/corrections.json ("lectionary_lessons"/"lectionary_names"/
-# "lectionary_ranks"/"lectionary_colours"/"lectionary_notes"), applied by
-# apply_corrections.py after this script runs — the same mechanism used for
-# office text, psalter, and FATS corrections. This extractor only parses the
-# CSV; it no longer patches its own output. See issue #13 and ADR 0005.
-# (NOTE_TYPES below is not migrated: it is substantive project-authored
-# classification data, not a correction of a wrong value — there's no "old"
-# the CSV got wrong to record provenance against. OBSERVANCES was the same
-# until ADR 0017 replaced its hand-transcribed per-date dict with real
-# extraction from the CSV name column, below.)
+# markers) live in data/corrections.json ("lectionary_lessons"/
+# "lectionary_names"/"lectionary_ranks"/"lectionary_colours"/
+# "lectionary_notes"), applied by apply_corrections.py after this script runs —
+# the same mechanism used for office text, psalter, and FATS corrections. This
+# extractor only parses the CSV; it does not patch its own output. See issue
+# #13 and ADR 0005.
+#
+# NOTE_TYPES below is not a correction and stays here: it is project-authored
+# classification data, not a wrong value the CSV got wrong, so there is no
+# "old" to record provenance against.
 
 
 # ── Observances ────────────────────────────────────────────────────────────────
 # Secondary liturgical labels not encoded in the primary name/rank fields.
-# ADR 0017: these used to be a hand-transcribed per-date dict (175 entries);
-# they are now extracted from the CSV name column by the classifier in the
-# "Observance classification" section below. The tables here are the ~30
-# general rules the per-date facts collapse into.
+# Extracted from the CSV name column by the classifier in the "Observance
+# classification" section below, rather than transcribed per date, so a new
+# lectionary year carries them (ADR 0017). The tables here are the ~30 general
+# rules those per-date facts collapse into.
 
 # phrase → tag substring map, matched against lowercased lines. "Eve of …"
 # lines are classified by RE_EVE_OF before this table is consulted — some

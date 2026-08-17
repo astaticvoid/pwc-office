@@ -317,10 +317,9 @@ const CASES = [
   {
     name: 'non-empty-responses fires when every response in the corpus is emptied (regression for #72)',
     rule: 'non-empty-responses',
-    // Same corpus-wide mutation #70 used to show this rule was
-    // unfalsifiable: emptying every response segment, including through
-    // _shared, didn't make it fire. Now checks raw form segments before
-    // web/render.js's empty-segment filter runs, so it should.
+    // The rule reads raw form segments, ahead of web/render.js's
+    // empty-segment filter, so emptying every response in the corpus —
+    // including through _shared — must make it fire (#70, #72).
     run: () => runValidator({ officesMutator: emptyAllResponsesInCorpus }),
     check: result => result.failures.some(f => f.rule === 'non-empty-responses'),
   },

@@ -97,9 +97,9 @@ class TestParseBio:
         assert bio["bio"].startswith("Today the Church honours Martin")
 
     def test_em_dash_prose_does_not_truncate_bio(self):
-        # Regression: an em-dash in the bio prose ("citizens — all these")
-        # used to be read as a rank line, cutting the first paragraph off the
-        # bio (Canada Day, July 1).
+        # An em-dash in the bio prose ("citizens — all these") is prose, not
+        # a rank line: reading it as one cuts the first paragraph off the bio
+        # (Canada Day, July 1).
         page = "\n".join([
             "Canada Day",
             "1 July",

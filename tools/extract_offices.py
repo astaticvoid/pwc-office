@@ -254,7 +254,7 @@ def _insert_stanza_breaks(segs: list) -> list:
         # cannot be measured. Resolve those from the stanza length the rest of
         # this hymn actually shows: take the measurable boundaries first, and if
         # they agree on one length, apply it. If they disagree, leave the break
-        # out rather than guess — that is what the old every-4 rule did wrong.
+        # out rather than guess at a stanza length the page does not show.
         unknown = {i for i, lead in enumerate(leads) if lead is None}
         measured = [i for i, lead in enumerate(leads) if lead is not None and lead > _PARAGRAPH_LEAD]
         lengths, prev = [], -1
@@ -1326,14 +1326,11 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
             lp_found = bool(lp_segs) and _OUR_FATHER.match(lp_segs[0]["text"].strip())
             if lp_found:
                 # pre_lp[-1] is the LP intro ("Rejoicing in God's new creation…").
-                # The Lord's Prayer hand-off rubric sits before it in pre_lp and
-                # stays with the collects it closes (#93) — the old pipeline
-                # discarded it in _split_litany_collects. The Dismissal hand-off
-                # closes the prayer itself and stays as the last segment of
-                # lords_prayer_intro (#93) — the old pipeline filtered every
-                # "continues with…" rubric out of lp_body, which is the mechanism
-                # issue #93 could not trace. Both were silent drops of printed
-                # text; ADR 0013 renders what the page prints.
+                # Each hand-off rubric stays with the section it closes: the
+                # Lord's Prayer one sits before the intro in pre_lp and goes with
+                # the collects, the Dismissal one closes the prayer itself and is
+                # the last segment of lords_prayer_intro. Neither may be dropped
+                # on the way past — ADR 0013 renders what the page prints (#93).
                 sections["seasonal_collects"] = pre_lp[:-1] if len(pre_lp) > 1 else pre_lp
                 sections["lords_prayer_intro"] = (pre_lp[-1:] if pre_lp else []) + lp_segs
             else:
@@ -1441,9 +1438,8 @@ def run():
         sys.exit(1)
 
     # Stage 1 of the offices chain. Each stage writes its own artifact and never
-    # mutates a predecessor's, so an intermediate can never be mistaken for the
-    # finished file — running this script alone used to leave a complete-looking
-    # data/offices.json whose _shared was missing three blocks (#48).
+    # mutates a predecessor's, so running this script alone cannot produce
+    # something that looks like the finished data/offices.json (#48).
     out_path = ROOT / ".build" / "offices.1-extract.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
 

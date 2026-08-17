@@ -104,31 +104,17 @@ export const SC_FOOTER = /^the\s+Lord['’]s\s+Prayer/i;
 // authorizes it; `source` uses the manifest vocabulary (PERMITTED_SOURCES in
 // tools/validate_corrections.py). Call sites read from here rather than
 // re-declaring the string.
+//
+// The bar for an entry is that no printed sentence stands behind it. A rubric
+// the book prints belongs in the extracted data, and a wording review has
+// settled reaches the page as a correction on that rubric (`adr0019-*` in
+// data/corrections.json) — one sentence per rubric, in one place, with any
+// divergence auditable against the source (#84, ADR 0019).
 export const LITURGICAL_TEXT_REGISTER = {
-  // Nine of the ten entries ADR 0015 registered are gone, and the reason is the
-  // same for all of them: #84 recovered the printed rubrics that the old
-  // running-header filter had been swallowing, so the sentences the app was
-  // authoring turned out to be book text we simply could not see.
-  //
-  //   readingIntro, reflectionPrompt -> form.reading_rubrics
-  //   psalmIntro, psalmsIntro,
-  //     singlePsalmIntro, psalmEnd   -> form.psalm_rubrics
-  //   affirmationTransition          -> the canticle section trailer
-  //   litanyTransition               -> the affirmation section trailer
-  //   intercessionsPrompt            -> retired earlier, by ADR 0013 (#60)
-  //
-  // Where review had settled a wording (ADR 0019 items 3, 4 and 6), the
-  // settled text now reaches the page as a correction on the extracted rubric
-  // — `adr0019-*` in data/corrections.json — rather than as a second string
-  // rendered beside the book's. That is the point: there is one sentence per
-  // rubric now, in one place, with the divergence from the page recorded in
-  // the manifest where it can be audited against the source.
-  //
-  // What is left is the one string with no printed sentence behind it at all.
   readingsPick: {
     text: 'One or two of the following readings are read.',
     source: 'upstream-review',
-    note: 'ADR 0014/#63: replaces the app-computed per-count sentence (BUG-28) with the approved fixed form — one mechanism, not two adjacent ones.',
+    note: 'ADR 0014/#63: the approved fixed form announcing the choice, whatever the count.',
   },
 };
 
@@ -520,11 +506,9 @@ export function renderAlternatives(seg, shared, contextKey, verse = false) {
   const activeIdx = Math.min(Math.max(0, savedIdx), seg.groups.length - 1);
   const idBase = stateKey.replace(/[^a-zA-Z0-9-]/g, '_') + '-' + (++_altUid);
   // One layout for every label length: a wrapping row of pills, each sized by
-  // its own label. The stacked variant and the 34-character truncation both
-  // existed to fit labels into an equal-width segmented track; there is no
-  // track any more, so a long name wraps the row instead of losing its tail —
-  // the names are the book's, and "A Song of Jerusalem Our Mo…" is worse than
-  // a second line.
+  // its own label. No equal-width track, so a long name wraps the row instead
+  // of losing its tail — the names are the book's, and "A Song of Jerusalem
+  // Our Mo…" is worse than a second line.
   const tabsHtml = seg.groups.map((g, i) => {
     const label = g.label || '';
     const isActive = i === activeIdx;
@@ -673,11 +657,10 @@ export function lessonHtml(lesson, shared, form) {
     + responseHtml;
 }
 
-// When the lectionary says pick N of M readings, the app now offers a tab
-// selector over the readings (ADR 0014/#63) instead of silently rendering
-// all M; this rubric is the fixed head-of-section text that announces the
-// choice. Load-bearing, not book-only — the reader must know a choice
-// exists. Returns '' when there's nothing to pick.
+// When the lectionary says pick N of M readings, the app offers a tab
+// selector over them (ADR 0014/#63) and this rubric is the fixed
+// head-of-section text announcing the choice. Load-bearing, not book-only —
+// the reader must know a choice exists. Returns '' when there is none.
 export function lessonsPickText(pick, total) {
   if (!pick || pick >= total) return '';
   return LITURGICAL_TEXT_REGISTER.readingsPick.text;
@@ -764,11 +747,7 @@ export function renderSegmentsText(segs, shared, opts = {}) {
     if (seg.type === 'rubric') {
       // One suppression allowlist, shared with renderSegments — ADR 0004
       // requires the two modes to agree, and a rule set passed per caller
-      // cannot be one policy. The options this replaces (skipRubrics,
-      // condenseRubrics) also dropped every rubric matching no condense
-      // pattern, so the callers that set them rendered 14 of 321 (#58).
-      // ADR 0013 (#59) deleted BOOK_ONLY_RUBRICS, so the two modes now share
-      // the same SKIP_RUBRICS allowlist.
+      // cannot be one policy (#58, ADR 0013/#59).
       if (isSkippedRubric(text)) continue;
       blocks.push({ type: 'rubric', text });
     } else if (seg.type === 'label') {
@@ -777,9 +756,9 @@ export function renderSegmentsText(segs, shared, opts = {}) {
       // leader or response
       // Every newline surviving extraction is a break the book prints: forced
       // column wraps are joined at extraction time, so a \n here is always
-      // deliberate and must never be flattened. This used to be opt-in via
-      // opts.verse, which left the CLI and the QA tools showing verse as prose
-      // and unable to see a whole class of lineation bug (#43).
+      // deliberate and must never be flattened. Unconditional, in every mode —
+      // a caller that could ask for prose would show verse as prose and hide a
+      // whole class of lineation bug from the CLI and the QA tools (#43).
       let formatted = text;
       // Italicise the liturgical "N" placeholder (Name) in text mode
       formatted = formatted.replace(/\bN\b(?=[ ,.])/g, '(N)');

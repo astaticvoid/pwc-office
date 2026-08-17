@@ -70,9 +70,9 @@ def test_clean_tree_reports_no_drift(manifest):
 
 
 def test_a_changed_source_is_detected(manifest):
-    # The regression this exists for: one source no longer matches what produced
-    # the data. Simulated by corrupting the recorded hash, which is equivalent to
-    # editing the file and not re-extracting.
+    # A source that no longer matches what produced the data must be caught.
+    # Simulated by corrupting the recorded hash, which is equivalent to editing
+    # the file and not re-extracting.
     tampered = dict(manifest)
     tampered["source_hashes"] = dict(manifest["source_hashes"])
     victim = "tools/extract_offices.py"

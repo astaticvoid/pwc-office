@@ -775,10 +775,9 @@ def run_offices(args) -> int:
 # shape (a dict of psalm → verse text), so it gets its own source reader, its
 # own shipped reader and its own `corrected` rule — but the same two-direction
 # conservation argument, the same named-rule ledger, the same baseline and the
-# same exit code. A line silently dropped or invented in the psalter is as
-# invisible to `make qa` as one in the offices was before #94; historically the
-# psalter carried its own hardcoded fix dicts (removed under #13), and nothing
-# compared it to the page.
+# same exit code. Without it, a line silently dropped or invented in the
+# psalter is invisible to `make qa` — the argument #94 makes for the offices,
+# and the psalter is the other half of the same PDF (#102).
 
 PSALTER_PAGE_RULES: list[tuple[str, str]] = [
     ("verbatim",  "ships exactly as printed"),

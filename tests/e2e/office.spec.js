@@ -153,8 +153,7 @@ test.describe('Navigation', () => {
   });
 
   // The office toggle is a visible segmented control in the day header at every
-  // width, so there is no longer a mobile path through the picker sheet, and no
-  // project-dependent branch here.
+  // width, so one path serves both projects — no branch on viewport here.
   test('MP/EP toggle switches office', async ({ page }) => {
     await gotoOffice(page, DATE, 'mp');
     const seg = page.locator('.day-ctrl-group--office');
@@ -195,8 +194,8 @@ test.describe('Navigation', () => {
       .toHaveText('Evening Prayer');
   });
 
-  // The day title used to open the picker. A heading that silently swallows
-  // taps is not discoverable, and it no longer claims to be a button.
+  // A heading that silently swallows taps is not discoverable, so the title
+  // neither opens the picker nor claims to be a button; the date does.
   test('the day title is a heading, not a control', async ({ page }) => {
     await gotoOffice(page, DATE, 'mp');
     const title = page.locator('#day-title');

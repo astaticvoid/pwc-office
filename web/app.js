@@ -451,11 +451,10 @@ async function renderPsalm(citStr) {
 }
 
 // ── Scripture citation parsing ────────────────────────────────────────────────
-// parseRanges/parseVerseRange/parseChapterVerse/extractVersesWithChapter moved
-// to render.js (2026-07-27) — pure logic, needed by validate_lectionary.cjs to
-// verify every lectionary reading resolves to real verses, and render.js is the
-// module non-browser tools can safely import (app.js touches `window` at
-// module scope). See issue #19.
+// Citation parsing lives in render.js, which is the module non-browser tools can
+// import — app.js touches `window` at module scope, and validate_lectionary.cjs
+// needs the parsers to check that every lectionary reading resolves to real
+// verses (#19).
 
 /**
  * Render a chapter's verses as HTML paragraphs.
@@ -539,9 +538,9 @@ function tabBlockHtml(stateKey, entries) {
 function gloriaHtml(shared, cue) {
   if (!shared || !shared.doxology) return '';
   // `cue` is the book's own "At the end of the Psalm…" / "After the Psalm…"
-  // rubric, extracted per form (#84), replacing the single fixed string that
-  // was wrong for 16 of the 30 forms. It introduces the Gloria, so it travels
-  // with it into each tab panel rather than sitting above the psalms.
+  // rubric, extracted per form because the wording differs across them (#84).
+  // It introduces the Gloria, so it travels with it into each tab panel rather
+  // than sitting above the psalms.
   return renderSegments(cue || [], shared, false)
     + `<div class="psalm-gloria">${renderAlternatives(shared.doxology, shared, 'doxology')}</div>`;
 }
@@ -558,18 +557,16 @@ function gloriaHtml(shared, cue) {
 function psalmHtml(officeData, shared, doxologyCue) {
   const psalms = officeData.psalms || [];
   const psalmSets = officeData.psalm_sets;
-  // No introduction is emitted here. It used to be one of three registered
-  // variants chosen by what the day appointed; the book prints one sentence
-  // regardless (ADR 0019 item 6), and it is now extracted into
-  // form.psalm_rubrics and rendered once, above this, by proclamationHtml.
+  // No introduction is emitted here: the book prints one sentence whatever the
+  // day appoints, extracted into form.psalm_rubrics and rendered once above
+  // this by proclamationHtml (ADR 0019 item 6).
   //
   // The doxology and the cue introducing it sit OUTSIDE the selector, once, for
   // the same reason: the selector chooses which psalms are said, and the
   // doxology follows whichever they were, so it is not part of the choice.
-  // Inside the panels it printed once per branch — and book mode makes every
-  // panel visible (`.alt-panel-hidden { display: block }`), so the reader saw
-  // the whole thing N+1 times over. That repetition is the second half of what
-  // ADR 0019 item 6 forbids; the three variants were the first.
+  // Inside the panels it would print once per branch — book mode makes every
+  // panel visible (`.alt-panel-hidden { display: block }`), so the reader would
+  // meet the whole thing N+1 times over.
   let html = '';
   if (psalmSets && psalmSets.length) {
     const allFlat = psalmSets.flat();
@@ -1205,12 +1202,10 @@ async function render(dateStr, officeType, translation) {
   if (asm.sections.some(s => s.name === 'Proclamation')) {
     const proc = asm.sections.find(s => s.name === 'Proclamation');
     if (proc && proc.dynamic && proc.dynamic.hasAffirmation) {
-      // No transition rubric is emitted here. It was authored from the office
-      // type and a `form.litany` test, in two wordings, neither of which the
-      // page could check against anything. The book prints it as the Canticle's
-      // closing rubric, per form; #84 extracts it and ADR 0019 item 4's "…or
-      // the Prayers" reaches it as a manifest correction, so it renders once,
-      // from the canticle subsection above.
+      // No transition rubric is emitted here: the book prints it as the
+      // Canticle's closing rubric, per form, so it renders once from the
+      // canticle subsection above — extracted (#84), with ADR 0019 item 4's
+      // "…or the Prayers" reaching it as a manifest correction.
       html += renderSubsection('Affirmation of Faith', form.affirmation, shared);
     }
   }
@@ -1222,10 +1217,9 @@ async function render(dateStr, officeType, translation) {
     if (form.intercessions && form.intercessions.length)
       html += renderSubsection('Intercessions and Thanksgivings', form.intercessions, shared);
     if (form.litany && form.litany.length) {
-      // The pre-Litany transition ("{office} Prayer continues with the
-      // Litany.") used to be authored here and is printed book text since #84,
-      // closing the affirmation section per form. Emitting it here too printed
-      // it twice, verbatim.
+      // No transition rubric is emitted here either. The pre-Litany hand-off
+      // ("{office} Prayer continues with the Litany.") is printed book text,
+      // extracted per form, and closes the affirmation section above (#84).
       html += renderSubsection('The Litany', form.litany, shared);
     }
     html += `<h3 class="office-subsection-title">The Collect</h3>`;
@@ -1513,7 +1507,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const todayBtn = document.getElementById('today-btn');
 
   // The date opens the picker; the title does not. A heading that silently
-  // swallows taps is not discoverable, and office switching now has its own
+  // swallows taps is not discoverable, and office switching has its own
   // visible control in the day header.
   document.getElementById('day-date-nav').addEventListener('click', openDayPicker);
 

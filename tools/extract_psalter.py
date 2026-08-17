@@ -204,11 +204,11 @@ def main():
     if missing:
         print(f"WARNING: missing psalms: {missing}", file=sys.stderr)
 
-    # One-off text corrections (spelling, typos, missing words) are no longer
-    # hardcoded here -- they live in data/corrections.json ("psalter") and are
-    # applied by apply_corrections.py later in the pipeline (make extract),
-    # the same mechanism used for office text and lectionary data. This
-    # extractor only does extraction. See issue #13 and ADR 0005.
+    # One-off text corrections (spelling, typos, missing words) live in
+    # data/corrections.json ("psalter") and are applied by apply_corrections.py
+    # later in the pipeline (make extract), the same mechanism used for office
+    # text and lectionary data. This extractor only extracts. See issue #13 and
+    # ADR 0005.
     psalms_by_num: dict[int, dict] = {p["number"]: p for p in psalms_list}
 
     # ── Write: combined dict ─────────────────────────────────────────────
