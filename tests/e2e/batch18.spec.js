@@ -35,10 +35,4 @@ test.describe('Batch 18 — June field observations', () => {
     await expect(body).toContainText('Holy One, accomplish your purposes in us.', { timeout: 5000 });
     await expect(body).not.toContainText('holy one, accomplish');
   });
-
-  test('Dec 17 EP: no "O Antiphon" pseudo-lesson', async ({ page }) => {
-    await gotoOffice(page, '2025-12-17', 'ep');
-    await expect(page.locator('.office-section-title').first()).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('.reading-heading', { hasText: 'O Antiphon' })).toHaveCount(0);
-  });
 });

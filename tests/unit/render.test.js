@@ -213,7 +213,7 @@ describe('liturgical text register', () => {
     expect(all).not.toContain('or the Litany');
   });
 
-  test('the settled readings reach the data, not a second string beside it', () => {
+  test.skipIf(!HAS_DATA)('the settled readings reach the data, not a second string beside it', () => {
     expect(LITURGICAL_TEXT_REGISTER.readingsPick.text)
       .toBe('One or two of the following readings are read.');
     expect(LITURGICAL_TEXT_REGISTER.readingsPick.source).toBe('upstream-review');
@@ -223,7 +223,6 @@ describe('liturgical text register', () => {
     // register entry: the introductions say the settled sentence once, in
     // every form, and the named lectionaries the page prints are gone from the
     // rubric blocks. Before #88 both wordings rendered, a few lines apart.
-    if (!HAS_DATA) return;
     let psalmIntros = 0, readingIntros = 0;
     for (const [key, form] of forms) {
       const texts = f => (form[f] || []).map(s => s.text || '').join('\n');
@@ -240,7 +239,7 @@ describe('liturgical text register', () => {
     expect(readingIntros).toBe(30);
   });
 
-  test('the office transitions come from the data, worded per office', () => {
+  test.skipIf(!HAS_DATA)('the office transitions come from the data, worded per office', () => {
     // Retired from the register by #84. ADR 0015 left litanyTransition alone
     // and flagged it for confirmation; the book turns out to print it, so it
     // is extracted, and emitting it from the register too printed it twice
@@ -255,7 +254,6 @@ describe('liturgical text register', () => {
     // blocks by shape, not equality — would hand all 30 forms whichever copy
     // it met first, giving every Evening Prayer form "Morning Prayer continues
     // with the Litany." _hoist_office_transition lifts them back out.
-    if (!HAS_DATA) return;
     let checked = 0;
     for (const [key, form] of forms) {
       const office = key.endsWith('-ep') ? 'Evening' : 'Morning';
@@ -716,13 +714,12 @@ describe('stanza breaks', () => {
 // ── Psalm/Reading rubric placement (#84) ─────────────────────────────────────
 
 describe('rubric block splits', () => {
-  test('every form splits into the runs both renderers place', () => {
+  test.skipIf(!HAS_DATA)('every form splits into the runs both renderers place', () => {
     // The blocks are not preambles: the book prints their rubrics on either
     // side of the lectionary content. Rendering one whole puts "At the end of
     // the Psalm…" above the psalm it follows and leaves the Gloria with
     // nothing introducing it. web/app.js and cli/book.js share this split so
     // they cannot disagree about which side a rubric belongs on (ADR 0004).
-    if (!HAS_DATA) return;
     for (const [key, form] of forms) {
       const office = key.endsWith('-ep') ? 'Evening' : 'Morning';
       const psalm = splitPsalmRubrics(form.psalm_rubrics);
