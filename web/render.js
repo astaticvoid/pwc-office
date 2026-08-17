@@ -84,10 +84,16 @@ export const CANTICLE_SOURCE = {
 // and mode. The exemption lives at the thing it exempts: validate_render.cjs
 // asserts the duplicate heading is in the rendered DOM, so a suppression whose
 // heading stops being emitted fails rather than silently swallowing the rubric.
+//
+// "The Responsory is said or sung." and "The Litany is said or sung." are not
+// on this list. They read like the same shape of duplicate, but checked
+// against the actual upstream correspondence neither was ever raised there \u2014
+// unlike this entry and the Affirmation-of-Faith case ADR 0013 also named,
+// which do trace to specific requests. Absent that, ADR 0016 rule 1's default
+// governs: they render, the same way "A Psalm is said or sung." does under
+// ADR 0019 item 6. See ADR 0013's amendment note.
 export const SKIP_RUBRICS = [
   { re: /^The Lord['\u2019]?s Prayer\.?\s*$/i, duplicate: "The Lord's Prayer" },
-  { re: /^The Responsory is said or sung\.$/i, duplicate: 'The Responsory' },
-  { re: /^The Litany is said or sung\.$/i, duplicate: 'The Litany' },
 ];
 
 export function isSkippedRubric(text) {

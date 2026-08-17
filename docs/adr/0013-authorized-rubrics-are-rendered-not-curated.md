@@ -3,6 +3,18 @@
 ## Status
 Accepted (2026-08-07)
 
+Amended (2026-08-17): two of the four `SKIP_RUBRICS` entries this ADR named —
+"The Responsory is said or sung." and "The Litany is said or sung." — are
+withdrawn. Checked against the actual upstream correspondence this ADR's
+Context section paraphrases, neither was ever raised as a duplicate to
+suppress; only the Lord's Prayer intro and the Affirmation-of-Faith heading
+were. The "duplicate of the heading" reasoning below was this ADR's own
+extension by analogy, not a reviewed decision, and it sat oddly next to ADR
+0019 item 6 keeping the equivalent "A Psalm is said or sung." unsuppressed for
+the identical reason. Both rubrics now render, under ADR 0016 rule 1's
+default (authorized text renders absent a justified exception). The `SKIP_RUBRICS`
+mechanism itself, and its remaining Lord's Prayer entry, are unaffected.
+
 ## Context
 
 ACC rubrics are authorized text — the national church and the diocesan bishops
@@ -95,10 +107,14 @@ Four permitted transformations, exhaustive:
    the reader sees are the book's words.
 3. **Suppress as a duplicate.** Permitted only when the same text is already
    rendered elsewhere *in the same view and the same mode*, and only per-text
-   with the duplicate named. The four `SKIP_RUBRICS` entries qualify:
-   `Affirmation of Faith.`, `The Lord's Prayer`, `The Responsory is said or
-   sung.`, `The Litany is said or sung.` are each emitted as a heading by
-   `renderSubsection`.
+   with the duplicate named, **and only where that suppression was itself
+   put to upstream review** — this ADR is not itself the authority to decide
+   a rubric is "just a duplicate." Of the four `SKIP_RUBRICS` entries
+   originally listed here, only `The Lord's Prayer` (each emitted as a
+   heading by `renderSubsection`) and `Affirmation of Faith.` (recovered
+   under #84, no longer suppressed) trace to an actual request; `The
+   Responsory is said or sung.` and `The Litany is said or sung.` did not and
+   are withdrawn as of the 2026-08-17 amendment above.
 4. **Restyle.** Any typography, spacing, or emphasis.
 
 Paraphrase and hide-by-mode are not on the list.

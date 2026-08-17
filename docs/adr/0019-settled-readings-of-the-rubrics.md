@@ -66,10 +66,14 @@ it appears.
 
 *Forbids:* any mode-, setting-, or density-conditional rubric suppression. The
 `SKIP_RUBRICS` duplicates are the only exemption, and each is pinned to the
-heading it defers to (ADR 0013). Written when there were four; three remain
-since #84 recovered the first line of the `Affirmation of Faith.` rubric, which
-had been a bare heading-shaped fragment only because the running-header filter
-was eating the rest of the sentence.
+heading it defers to (ADR 0013). Written when there were four; three remained
+after #84 recovered the first line of the `Affirmation of Faith.` rubric,
+which had been a bare heading-shaped fragment only because the running-header
+filter was eating the rest of the sentence. One remains as of the 2026-08-17
+correction to ADR 0013: `The Responsory is said or sung.` and `The Litany is
+said or sung.` were withdrawn from the allowlist on discovering neither traced
+to an actual upstream request, unlike the other two entries this item
+originally counted.
 
 *Status:* shipped (#59).
 
