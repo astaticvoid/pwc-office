@@ -26,7 +26,7 @@ The app currently answers a branch three different ways, and the three disagree:
 |---|---|---|
 | `alternatives` blocks (canticle, affirmation, collect) | tab widget, one panel visible, selection persisted in `localStorage` | interactive-app convention |
 | Multiple psalms | all rendered, no selector — the selector was built, then removed | maintainer's devotional preference |
-| Multiple readings | all rendered, no selector; optional ones parenthesized; an advisory rubric from `lessonsPickText` (`render.js:526-535`, BUG-28) | no interaction was built |
+| Multiple readings | all rendered, no selector; optional ones parenthesized; an advisory rubric from `lessonsPickText` in `render.js` | no interaction was built |
 
 The psalm row is the problem in miniature: a control that presented an
 authorized choice was deleted on the maintainer's own devotional preference. The

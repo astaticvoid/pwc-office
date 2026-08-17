@@ -2,7 +2,7 @@
 
 _Updated: 2026-06-06. Forms audited: Saturday MP (pp. 217–223), Wednesday MP (pp. 174–181), Wednesday EP (pp. 182–188)._
 
-_Historical record. This audit predates the pdfplumber→fitz migration, and its findings are framed in terms of mechanisms that no longer exist — the `pdftotext` casing oracle (`check_casing.py`), `_DIVINE_FIXES`, and `_TEXT_PATCHES` were all removed once fitz was shown to decode the source correctly without them (ADR 0011, issue #4). Preserved as written in June 2026; see [GitHub Issues](https://github.com/astaticvoid/pwc-office/issues) for current state._
+_Historical record. This audit predates the pdfplumber→fitz migration, and its findings are framed in terms of mechanisms that no longer exist — the `pdftotext` casing oracle (`check_casing.py`), `_DIVINE_FIXES`, and `_TEXT_PATCHES` were all removed once fitz was shown to decode the source correctly without them (ADR 0011, issue #4). Preserved as written in June 2026; see [GitHub Issues](https://github.com/astaticvoid/pwc-office/issues) for current state. The `BUG-NN` labels below name entries in `BUGS.md`, the in-repo tracker retired on 2026-07-30 (e0d9f29) — the file is still in git history. Of the labels used here only BUG-25 became an issue, #4; the others were closed and trimmed before that migration._
 
 ---
 
