@@ -361,12 +361,6 @@ body {
   padding: var(--sp-2) 0 var(--sp-6);
 }
 
-#day-office-name {
-  color: var(--color-accent);
-  margin-bottom: var(--sp-2);
-  display: inline-block; position: relative;
-}
-
 #day-title {
   font-family: var(--font-liturgy);
   font-size: var(--fs-day-title); font-weight: 600; line-height: 1.2;
@@ -502,7 +496,6 @@ body.book-mode .alt-panel + .alt-panel::before {
 /* Two label styles carry every non-liturgical caption in the app. Colour stays
    on the individual selectors where it carries meaning. */
 .label-eyebrow,
-#day-office-name,
 .note-antiphon-label {
   font-family: var(--font-ui);
   font-size: var(--fs-eyebrow);

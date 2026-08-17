@@ -980,7 +980,6 @@ async function render(dateStr, officeType, translation) {
   // header title carries both names of a co-commemoration (#129), which is
   // where the day is named and so where naming one of two would mislead.
   document.title = `${officeName} — ${activeName}`;
-  document.getElementById('day-office-name').textContent = officeName;
   document.getElementById('day-title').textContent = dayTitle(day, activeName);
   document.getElementById('day-date-label').textContent = fmtFullDate(dateStr);
 

@@ -57,7 +57,7 @@ test.describe('Office loads', () => {
     await expect(page).toHaveTitle(/Morning Prayer/);
     await expect(page.locator('#day-title')).toContainText('Easter');
     await expect(page.locator('#day-date-label')).toContainText('2026');
-    await expect(page.locator('#day-office-name')).toHaveText('Morning Prayer');
+    await expect(page.locator('.day-ctrl-group--office .day-ctrl-btn:text-is("Morning Prayer")')).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('morning prayer: psalms render with number and verses @smoke', async ({ page }) => {
@@ -165,8 +165,8 @@ test.describe('Office loads', () => {
 // URL, and a fresh load always lands on today + the time-of-day default
 // office. Day-jump is the calendar date-picker (#day-date-picker), "today"
 // is the brand logo (#nav-brand), and MP/EP is a two-button segmented control
-// in the day header (.day-ctrl-group--office). #day-office-name is a label
-// showing the current office, not a control.
+// in the day header (.day-ctrl-group--office) — its active button is the only
+// indicator of the current office; there is no separate label.
 test.describe('Navigation', () => {
   test('date picker navigates to a chosen date', async ({ page }) => {
     await gotoOffice(page, DATE, 'mp');
@@ -188,7 +188,6 @@ test.describe('Navigation', () => {
 
     await seg.locator('.day-ctrl-btn:text-is("Evening Prayer")').click();
 
-    await expect(page.locator('#day-office-name')).toHaveText('Evening Prayer');
     await expect(page).toHaveTitle(/Evening Prayer/);
     await expect(seg.locator('.day-ctrl-btn.is-active')).toHaveText('Evening Prayer');
     await expect(seg.locator('.day-ctrl-btn:text-is("Evening Prayer")'))
@@ -208,13 +207,13 @@ test.describe('Navigation', () => {
     const altLabel = await obs.locator('.day-ctrl-btn.is-active').textContent();
     await page.locator('.day-ctrl-group--office .day-ctrl-btn:text-is("Evening Prayer")').click();
 
-    await expect(page.locator('#day-office-name')).toHaveText('Evening Prayer');
+    await expect(page.locator('.day-ctrl-group--office .day-ctrl-btn.is-active'))
+      .toHaveText('Evening Prayer');
     await expect(page.locator('.day-ctrl-group--obs .day-ctrl-btn.is-active'))
       .toHaveText(String(altLabel));
 
     // and back the other way: flipping observance keeps the office
     await page.locator('.day-ctrl-group--obs .day-ctrl-btn').nth(0).click();
-    await expect(page.locator('#day-office-name')).toHaveText('Evening Prayer');
     await expect(page.locator('.day-ctrl-group--office .day-ctrl-btn.is-active'))
       .toHaveText('Evening Prayer');
   });

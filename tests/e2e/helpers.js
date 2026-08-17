@@ -30,14 +30,13 @@ export async function gotoOffice(page, date, office) {
 /**
  * Drive the Office segmented control in the day header until the requested
  * office shows. One path at every width now: the control is always visible, so
- * there is no breakpoint-dependent fallback through the picker sheet, and
- * #day-office-name is a label rather than a control.
+ * there is no breakpoint-dependent fallback through the picker sheet.
  */
 export async function ensureOffice(page, office) {
   const label = office === 'ep' ? 'Evening Prayer' : 'Morning Prayer';
-  const nameEl = page.locator('#day-office-name');
-  if ((await nameEl.textContent()) !== label) {
-    await page.locator(`.day-ctrl-group--office .day-ctrl-btn:text-is("${label}")`).click();
+  const btn = page.locator(`.day-ctrl-group--office .day-ctrl-btn:text-is("${label}")`);
+  if ((await btn.getAttribute('aria-pressed')) !== 'true') {
+    await btn.click();
   }
-  await expect(nameEl).toHaveText(label);
+  await expect(btn).toHaveAttribute('aria-pressed', 'true');
 }
