@@ -696,7 +696,14 @@ function proclamationHtml(officeData, form, shared) {
 function collectTextHtml(text) {
   const m = text.match(/^([\s\S]+?)\s*Amen\.?\s*$/);
   const body = m ? m[1] : text;
-  return `<p class="collect-text">${esc(body)}</p><p class="seg-response">Amen.</p>`;
+  // .seg-leader, not .collect-text (#156): .collect-text's own margin-bottom
+  // is sp-4, meant to space it from whatever *unrelated* content follows a
+  // collect elsewhere (occPanelHtml, fatsPanelHtml). Margins collapse to the
+  // larger side, so a .collect-text + .seg-response {margin-top:0} rule can't
+  // close that gap — only the earlier element's margin-bottom can. .seg-leader
+  // already carries margin-bottom:0 and the same typography, which is exactly
+  // what the seasonal collects' identical Amen-split gets via renderSegments.
+  return `<p class="seg-leader">${esc(body)}</p><p class="seg-response">Amen.</p>`;
 }
 
 function collectHtml(collects, ref) {
