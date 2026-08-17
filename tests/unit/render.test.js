@@ -751,18 +751,25 @@ describe('rubric block splits', () => {
       expect(reading.handoff.map(s => s.text), `${key} reading handoff`)
         .toEqual([`${office} Prayer continues with the Reading.`]);
       expect(reading.intro.map(s => s.text), `${key} reading intro`)
-        .toEqual(['A Reading is read. After a period of silent reflection one of the following is said.']);
+        .toEqual(['A Reading is read.']);
+      // The reflection cue shares the intro's own extracted paragraph rather
+      // than being its own rubric segment, since the page prints both
+      // sentences as one paragraph with no Scripture text between them (#150).
+      expect(reading.reflection.map(s => s.text), `${key} reading reflection`)
+        .toEqual(['After a period of silent reflection one of the following is said.']);
       // One form runs the two transitions together on a line, so they merge
       // into a single segment; every other form keeps them separate.
       expect(reading.after.length, `${key} reading after`).toBeGreaterThanOrEqual(1);
       for (const seg of reading.after) {
         expect(seg.text).toMatch(/^(?:\w+ Prayer continues with the Responsory|If two Readings are read)/);
       }
-      // Nothing may fall out of a block: every rubric lands in exactly one run.
+      // Nothing may fall out of a block: every rubric lands in exactly one run,
+      // except the reading-intro paragraph, which is one extracted segment
+      // deliberately split into two (intro + reflection), hence the +1.
       const runs = [...psalm.intro, ...psalm.doxologyCue].length
-                 + [...reading.handoff, ...reading.intro, ...reading.after].length;
+                 + [...reading.handoff, ...reading.intro, ...reading.reflection, ...reading.after].length;
       const rubrics = (form.psalm_rubrics.length - 1) + (form.reading_rubrics.length - 1);
-      expect(runs, `${key} every rubric placed`).toBe(rubrics);
+      expect(runs, `${key} every rubric placed`).toBe(rubrics + 1);
     }
   });
 

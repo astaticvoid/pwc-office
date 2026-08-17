@@ -659,6 +659,10 @@ function proclamationHtml(officeData, form, shared) {
   // side it belongs on — the same split cli/book.js uses, shared from render.js
   // so the two modes cannot drift. The doxology cue goes with the Gloria it
   // introduces, inside psalmHtml; the reading transitions follow the reading.
+  // The reflection cue is a second sentence sharing the intro's own book
+  // paragraph rather than a separately extracted rubric, so it doesn't get a
+  // run here — it goes into lessonHtml, on the far side of the fetched
+  // Scripture text from the sentence it was printed next to (#150).
   //
   // Each run is guarded on the content it introduces, as cli/book.js guards
   // the same runs: a day entry with no psalms or no lessons would otherwise
@@ -676,7 +680,7 @@ function proclamationHtml(officeData, form, shared) {
   html += rubricRunHtml(reading.handoff, shared);
   html += rubricRunHtml(reading.intro, shared, 'The Reading');
   if (officeData.lessons_pick) html += lessonsPickRubricHtml(officeData.lessons_pick, lessons.length);
-  if (lessons.length > 0) html += lessonHtml(lessons[0], shared, form);
+  if (lessons.length > 0) html += lessonHtml(lessons[0], shared, form, reading.reflection);
   html += rubricRunHtml(reading.after, shared);
   if (form) html += renderSubsection('The Responsory', form.responsory, shared, true);
   if (lessons.length > 1) html += lessonHtml(lessons[1], shared, form);

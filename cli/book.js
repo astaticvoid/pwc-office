@@ -82,17 +82,22 @@ function citationStr(lesson) {
 // block. The split lives in render.js so this mode and the web renderer cannot
 // disagree about which side of the content a rubric belongs on (#84).
 const { intro: psalmIntro, doxologyCue: psalmDoxCue } = splitPsalmRubrics(form.psalm_rubrics);
-const { handoff: readingHandoff, intro: readingIntro, after: readingAfter } =
+const { handoff: readingHandoff, intro: readingIntro, reflection: readingReflection, after: readingAfter } =
   splitReadingRubrics(form.reading_rubrics);
 
-// readingIntro is the sentence above the reading ("A Reading is read. After a
-// period of silent reflection...") — the book prints it once, ahead of the
-// first reading, not before each (#98).
+// readingIntro is the sentence above the reading ("A Reading is read.") — the
+// book prints it, and the reflection cue that shares its paragraph, once,
+// ahead of the first reading, not before each (#98). The reflection cue moves
+// below the reading text: the book runs its paragraph straight into the
+// response with nothing between them, but book mode prints the Scripture
+// itself there, so the cue introducing the response has to sit next to it,
+// not across the reading from it (#150).
 function renderLesson(lesson, { showIntro = false } = {}) {
   return [
     'The Reading',
     showIntro && readingIntro.length ? text(readingIntro) : '',
     `[Reading: ${citationStr(lesson)}]`,
+    showIntro && readingReflection.length ? text(readingReflection) : '',
     text(form.reading_response),
   ].filter(Boolean).join('\n\n');
 }

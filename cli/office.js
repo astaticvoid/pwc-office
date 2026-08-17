@@ -52,7 +52,7 @@ function text(segs, opts = {}) {
 // heads, so both blocks are split rather than printed whole. cli/book.js and
 // web/app.js split them with the same two helpers (#84).
 const { intro: psalmIntro, doxologyCue: psalmDoxCue } = splitPsalmRubrics(form.psalm_rubrics);
-const { handoff: readingHandoff, intro: readingIntro, after: readingAfter } =
+const { handoff: readingHandoff, intro: readingIntro, reflection: readingReflection, after: readingAfter } =
   splitReadingRubrics(form.reading_rubrics);
 
 // This CLI names dynamic content rather than resolving it: citations, not
@@ -97,7 +97,11 @@ if (lessons[0]) {
   out += '\n## Lesson 1\n';
   // The intro rubric heads the Reading block once, as the book prints it (#98).
   if (readingIntro.length) out += `${text(readingIntro)}\n`;
-  out += `${citation(lessons[0])}\n${text(form.reading_response)}\n`;
+  out += `${citation(lessons[0])}\n`;
+  // The reflection cue shares the intro's book paragraph but belongs beside
+  // the response it introduces, on the far side of the reading (#150).
+  if (readingReflection.length) out += `${text(readingReflection)}\n`;
+  out += `${text(form.reading_response)}\n`;
 }
 if (lessons[0] && readingAfter.length) out += `\n${text(readingAfter)}\n`;
 out += `\n## Responsory\n${text(form.responsory)}\n`;

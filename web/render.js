@@ -640,29 +640,55 @@ export function splitPsalmRubrics(segs) {
   return { intro, doxologyCue };
 }
 
-/** → { handoff, intro, after } — the hand-off printed at the foot of the Psalm
- *  block, the sentence above the reading, and the transitions that follow it. */
+// The reading-intro rubric is one book paragraph (#84), unlike the Psalm's two
+// separately extracted rubrics: "A Reading is read. After a period of silent
+// reflection one of the following is said." The page has no Scripture text
+// between those sentences — the reading is read live — but the app inserts
+// the fetched reading text right there, so the second sentence has to move to
+// the other side of it, next to the response it introduces, or it reads as
+// describing something that hasn't happened yet (#150). Splits the segment's
+// text rather than filtering whole segments, since both sentences share one.
+const READING_REFLECTION_CUE = /\bAfter\s+a\s+period\s+of\s+silent\s+reflection\b[\s\S]*$/i;
+
+/** → { handoff, intro, reflection, after } — the hand-off printed at the foot
+ *  of the Psalm block, the sentence above the reading, the silent-reflection
+ *  cue that belongs beside the response it introduces, and the transitions
+ *  that follow the reading. */
 export function splitReadingRubrics(segs) {
-  const [handoff, after, intro] = split(segs, [READING_HANDOFF, READING_TRANSITION]);
-  return { handoff, intro, after };
+  const [handoff, after, rest] = split(segs, [READING_HANDOFF, READING_TRANSITION]);
+  const intro = [];
+  const reflection = [];
+  for (const seg of rest) {
+    const text = seg.text || '';
+    const m = text.match(READING_REFLECTION_CUE);
+    if (!m) { intro.push(seg); continue; }
+    const before = text.slice(0, m.index).trim();
+    if (before) intro.push({ ...seg, text: before });
+    reflection.push({ ...seg, text: m[0].trim() });
+  }
+  return { handoff, intro, reflection, after };
 }
 
-export function lessonHtml(lesson, shared, form) {
+export function lessonHtml(lesson, shared, form, reflection) {
   const rawCitation = typeof lesson === 'object' ? lesson.citation : lesson;
   const optional = typeof lesson === 'object' && lesson.optional;
   const displayCitation = expandCitationForDisplay(rawCitation);
   const display = optional ? `(${displayCitation})` : displayCitation;
-  // The rubrics that introduce the reading and the silent-reflection prompt
-  // are extracted book text since #84 and render with form.reading_rubrics —
-  // they must not also be emitted per-lesson here.
+  // The rubric introducing the reading is extracted book text since #84 and
+  // renders with form.reading_rubrics, above this block — it must not also be
+  // emitted per-lesson here. The silent-reflection cue that shares its book
+  // paragraph is passed in separately: it belongs beside the response, on the
+  // far side of the Scripture text this function inserts (#150).
   if (!form || !form.reading_response) console.warn('lessonHtml: no reading_response on form, using fallback');
   let readingResponse = (form && form.reading_response) || READING_RESPONSE;
   if (readingResponse?.type === 'shared' && shared) {
     readingResponse = shared[readingResponse.key] || READING_RESPONSE;
   }
+  const reflectionHtml = renderSegments(reflection, shared);
   const responseHtml = `<div class="liturgy">${renderAlternatives(readingResponse, shared, 'reading_response')}</div>`;
   return `<h3 class="reading-heading">The Reading: ${esc(display)}</h3>`
     + `<div class="scripture-placeholder" data-citation="${esc(rawCitation)}"><p class="loading">Loading…</p></div>`
+    + reflectionHtml
     + responseHtml;
 }
 
