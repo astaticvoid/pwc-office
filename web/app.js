@@ -779,6 +779,17 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared, fatsEntry
 
   if (isSingleAlt) {
     const altGroups = seasonalContent[0].groups || [];
+    // The "Either the Collect of the Day or one of the following collects may
+    // be said or sung." rubric governs the whole toggle, not just the group it
+    // happens to be extracted onto — ADR 0014 obligation 1 requires it render
+    // unconditionally. Pull it out and print it once above the tabs, rather
+    // than filtering it out of every panel (#155).
+    let eitherRubric = null;
+    for (const g of altGroups) {
+      const found = g.segments.find(s => s.type === 'rubric' && SC_ALT_EITHER.test(s.text));
+      if (found) { eitherRubric = found; break; }
+    }
+    if (eitherRubric) html += `<div class="liturgy">${renderSegments([eitherRubric], shared)}</div>`;
     const entries = [];
     if (hasDaily) entries.push(['Collect of the Day', dailyHtml()]);
     if (fatsCollect && !hasDaily) entries.push(['Collect of the Day', fatsPanelHtml()]);
