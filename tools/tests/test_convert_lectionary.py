@@ -91,13 +91,56 @@ class TestParsePsalmField:
         assert result == {"psalms": ["1", "2", "3"]}
 
     def test_optional_psalm_in_parens(self):
+        # The trailing parenthesised span merges into one citation for the
+        # whole psalm, with an `omit` list — not a peer entry (#78).
         result = parse_psalm_field("Ps 139:1-17, (18-23)")
-        psalms = result["psalms"]
-        # "18-23" becomes "139:18-23" (continuation), marked optional
-        assert any(
-            isinstance(p, dict) and p.get("optional") and "139:18-23" in p["citation"]
-            for p in psalms
-        ), f"Expected optional continuation in {psalms}"
+        assert result["psalms"] == [
+            {"citation": "139:1-23", "omit": [{"citation": "139:18-23"}]}
+        ]
+
+    def test_leading_whole_psalm_is_a_choice_against_the_merged_group(self):
+        # "101, 109:1-4, (5-19), 20-30" is Psalm 101 *or* Psalm 109 (minus its
+        # cursing verses if wanted) — 101 stays its own entry, 109's three
+        # fragments merge into one with the omission recorded inside it.
+        result = parse_psalm_field("Ps 101, 109:1-4, (5-19), 20-30")
+        assert result["psalms"] == [
+            "101",
+            {"citation": "109:1-30", "omit": [{"citation": "109:5-19"}]},
+        ]
+
+    def test_trailing_whole_psalms_are_additional_not_a_choice(self):
+        # "110:1-5, (6-7), 116, 117" — 116 and 117 are extra psalms read
+        # afterward, not alternatives to 110; only 110's own fragments merge.
+        result = parse_psalm_field("Ps 110:1-5, (6-7), 116, 117")
+        assert result["psalms"] == [
+            {"citation": "110:1-7", "omit": [{"citation": "110:6-7"}]},
+            "116",
+            "117",
+        ]
+
+    def test_single_verse_optional_continuation_keeps_its_psalm_number(self):
+        # "143:1-11, (12)" — a parenthesised *single* verse (no dash) with no
+        # colon of its own; must still resolve against psalm 143, not become
+        # a bare, wrong "citation": "12".
+        result = parse_psalm_field("Ps 141, 143:1-11, (12)")
+        assert result["psalms"] == [
+            "141",
+            {"citation": "143:1-12", "omit": [{"citation": "143:12"}]},
+        ]
+
+    def test_bare_whole_psalms_never_merge(self):
+        # "146, 147" — both required, read in sequence; not a continuation.
+        result = parse_psalm_field("Ps 146, 147")
+        assert result["psalms"] == ["146", "147"]
+
+    def test_unresolvable_bare_token_does_not_merge_or_crash(self):
+        # "95 (Invitatory)" has no colon and isn't a clean verse range, so it
+        # must be left exactly as before rather than merged or int()-crashed.
+        result = parse_psalm_field("Ps 95 (Invitatory), 69:1-23, (24-30), 31-38")
+        assert result["psalms"] == [
+            "95 (Invitatory)",
+            {"citation": "69:1-38", "omit": [{"citation": "69:24-30"}]},
+        ]
 
     def test_or_split_gives_psalm_sets(self):
         result = parse_psalm_field("Ps 1 or 2")

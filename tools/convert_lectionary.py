@@ -730,6 +730,41 @@ def _psalm_token(token: str):
     return t
 
 
+def _parse_verse_bounds(c: str):
+    """"5-19" -> (5, 19); "12" -> (12, 12); anything else -> (None, None)."""
+    c = c.strip()
+    try:
+        if "-" in c:
+            a, b = c.split("-", 1)
+            return int(a), int(b)
+        return int(c), int(c)
+    except ValueError:
+        return None, None
+
+
+def _verse_citation(num: str, start: int, end: int) -> str:
+    return f"{num}:{start}" if start == end else f"{num}:{start}-{end}"
+
+
+def _merge_psalm_run(run: list) -> list:
+    """A run of tokens that all resolved to the same psalm number becomes one
+    merged citation with an `omit` list of the parenthesised spans within it —
+    "101, 109:1-4, (5-19), 20-30" is one choice (101 or 109) with an omission
+    inside 109, not four peers (#78; ADR 0019 item 8). A single-token run, or
+    one whose verse bounds did not parse cleanly, is left exactly as the old
+    per-token parser produced it.
+    """
+    starts = [t["start"] for t in run]
+    ends = [t["end"] for t in run]
+    if len(run) == 1 or any(v is None for v in starts + ends):
+        return [t["raw"] for t in run]
+    citation = _verse_citation(run[0]["num"], min(starts), max(ends))
+    omit = [_verse_citation(run[0]["num"], t["start"], t["end"]) for t in run if t["optional"]]
+    if not omit:
+        return [citation]
+    return [{"citation": citation, "omit": [{"citation": o} for o in omit]}]
+
+
 def _psalm_group(s: str) -> list:
     s = s.strip()
     if s.startswith("[") and s.endswith("]"):
@@ -739,7 +774,12 @@ def _psalm_group(s: str) -> list:
             for t in inner.split(",")
             if t.strip()
         ]
-    result = []
+
+    # First pass: resolve each token to (num, start, end) where possible,
+    # keeping the psalm number as a string (as the old parser did) so a token
+    # that never resolves one (a bare whole-psalm number, or an oddity like
+    # "95 (Invitatory)") can carry num=None without needing to be a clean int.
+    tokens = []
     last_psalm_num: str | None = None
     for tok in s.split(", "):
         p = _psalm_token(tok)
@@ -747,15 +787,34 @@ def _psalm_group(s: str) -> list:
             continue
         is_optional = isinstance(p, dict)
         c = p["citation"] if is_optional else p
+        num = None
+        start = end = None
         if ":" in c:
             # Normal "139:1-17" style — record psalm number for continuations.
-            last_psalm_num = c.split(":")[0]
-        elif "-" in c and last_psalm_num:
-            # Bare verse range like "(18-23)" following "139:1-17".
-            # The parenthesised suffix continues the same psalm, not a new one.
-            new_c = f"{last_psalm_num}:{c}"
-            p = {"citation": new_c, "optional": True} if is_optional else new_c
-        result.append(p)
+            num, body = c.split(":", 1)
+            last_psalm_num = num
+            start, end = _parse_verse_bounds(body)
+        elif last_psalm_num and ("-" in c or is_optional):
+            # A bare range like "18-23", or a parenthesised single verse like
+            # "(12)", following "139:1-17" — either continues the same psalm,
+            # not a new one. A bare *non-optional* single number ("147" after
+            # "146") is never a continuation — that is two whole psalms.
+            start, end = _parse_verse_bounds(c)
+            if start is not None:
+                num = last_psalm_num
+        tokens.append({"num": num, "start": start, "end": end, "optional": is_optional, "raw": p})
+
+    # Second pass: merge consecutive tokens that resolved to the same psalm
+    # number.
+    result = []
+    i = 0
+    while i < len(tokens):
+        j = i + 1
+        while (j < len(tokens) and tokens[j]["num"] is not None
+               and tokens[j]["num"] == tokens[i]["num"]):
+            j += 1
+        result.extend(_merge_psalm_run(tokens[i:j]))
+        i = j
     return result
 
 

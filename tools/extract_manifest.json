@@ -1,5 +1,5 @@
 {
-  "extracted_at": "2026-08-17T05:24:52Z",
+  "extracted_at": "2026-08-17T14:24:10Z",
   "tool_versions": {
     "fitz": [
       "1.28.2",
@@ -14,7 +14,7 @@
     "tools/extract_psalter.py": "6d697ded980ebd3d24afc90c1c9ec588be15fb38cb13c9c683e5a91ea98712f5",
     "tools/extract_collects.py": "8dae34411e9e522390832492a34716c1e458fd489f1d7f5f3a7b34c111a29a18",
     "tools/extract_fats.py": "4be8d66eda97592996196a648de3b67ffecaa0de285dd31020266103a593fe2b",
-    "tools/convert_lectionary.py": "efae881103bbd0abb3a1eb9f6cbe66e130812df55efb2f1434355510338fc3f2",
+    "tools/convert_lectionary.py": "c34f88a9ae4b2e8bc9c6a64b9aceac3c2d41f4f14e2af8e1f6513ce4f9ea046b",
     "tools/apply_corrections.py": "6e3fafcd98b00ed39675877e828e0f7515109dffe309b6980ddc59fcff33c44b",
     "tools/corrections_lib.py": "aeb8e2cd6319225421c845fc921a435829d3bf4da0ff802d77ed14fb59cb20c8",
     "tools/extract_lib.py": "2d77e3c60dad78a693e88557fd84115815a62128355c04d78bd0c6f42014d72e",
@@ -43,7 +43,7 @@
       "entries": 174
     },
     "data/lectionary": {
-      "sha256": "75a7ea09d330b9e9bb6b3c6fa0c031325c78e2af408630d034b9e5c51dde3af5",
+      "sha256": "5aff4852fc1be40b48d6ceb7c729956c74810b7755be7a8207b6c7c85fd462f6",
       "months": 14
     }
   }
