@@ -26,7 +26,12 @@
   --color-surface:     #FBF6EB;
   --color-heading:     #15382A;
   --color-brass:       #9A7B3F;
-  --color-brass-ink:   #8A6B2F;
+  /* Darkened from #8A6B2F, which cleared only the surface ground (4.61) and
+     not the page ground (4.29) for the verse numbers and psalm midpoint —
+     both small, so no large-text exemption. 4.72 / 5.07 here, and still
+     visibly quieter than --color-text at 13.69. See issue #107;
+     audit_a11y.cjs measures both grounds so it cannot drift back. */
+  --color-brass-ink:   #826527;
   --color-brass-on-nav:#CBA85A;
 
   /* Liturgical accent — overridden per season on <html> */

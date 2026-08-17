@@ -114,9 +114,6 @@ const DECORATIVE = {
  * Key: `theme/season/fg/ground`; season is `-` for pairs that do not vary.
  */
 const KNOWN_CONTRAST = {
-  // #107 — verse numbers and the psalm midpoint asterisk, 4.29 on the page ground.
-  'light/-/--color-brass-ink/--color-bg': 107,
-
   // #106 — the seasonal accent is painted as text (office name, antiphon label,
   // bio toggle, expand button). Five seasons have no dark override at all and
   // keep their light value on the dark ground, which is the worst of it.

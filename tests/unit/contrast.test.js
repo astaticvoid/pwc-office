@@ -156,9 +156,9 @@ describe('the audit fails when it should', () => {
   });
 
   test('a licensed pair that starts passing is reported as a stale licence', () => {
-    const { stale } = auditContrast(css.replace('--color-brass-ink:   #8A6B2F', '--color-brass-ink:   #6B5424'));
-    expect(keysOf(stale)).toContain('light/-/--color-brass-ink/--color-bg');
-    expect(stale[0].issue).toBe(107);
+    const { stale } = auditContrast(css.replace('--color-accent: #7B6FBC', '--color-accent: #9C91D8'));
+    expect(keysOf(stale)).toContain('dark/Advent/--color-accent/--color-bg');
+    expect(stale[0].issue).toBe(106);
   });
 
   test('a newly painted token with no declared ground fails', () => {
