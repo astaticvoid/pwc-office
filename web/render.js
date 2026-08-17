@@ -675,7 +675,7 @@ export function splitReadingRubrics(segs) {
   return { handoff, intro, reflection, after };
 }
 
-export function lessonHtml(lesson, shared, form, reflection) {
+export function lessonHtml(lesson, shared, form, reflection, isFirst = false) {
   const rawCitation = typeof lesson === 'object' ? lesson.citation : lesson;
   const optional = typeof lesson === 'object' && lesson.optional;
   const displayCitation = expandCitationForDisplay(rawCitation);
@@ -692,7 +692,15 @@ export function lessonHtml(lesson, shared, form, reflection) {
   }
   const reflectionHtml = renderSegments(reflection, shared);
   const responseHtml = `<div class="liturgy">${renderAlternatives(readingResponse, shared, 'reading_response')}</div>`;
-  return `<h3 class="reading-heading">The Reading: ${esc(display)}</h3>`
+  // The first reading sits directly under the "The Reading" subsection title
+  // (form.reading_rubrics, rendered just above), so its own heading is just
+  // the citation — "The Reading: " there would repeat the title one line up.
+  // A second or third reading has no subsection title of its own (it follows
+  // the Responsory/Canticle), so it keeps the full "The Reading: " heading —
+  // dropping the prefix there would leave a bare citation with no indication
+  // it's a reading at all.
+  const heading = isFirst ? esc(display) : `The Reading: ${esc(display)}`;
+  return `<h3 class="reading-heading">${heading}</h3>`
     + `<div class="scripture-placeholder" data-citation="${esc(rawCitation)}"><p class="loading">Loading…</p></div>`
     + reflectionHtml
     + responseHtml;

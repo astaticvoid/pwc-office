@@ -472,13 +472,20 @@ test.describe('Psalm and reading selectors', () => {
     await expect(primary.locator('.office-subsection-title', { hasText: 'Canticle' })).toHaveCount(1);
 
     // Book order: lesson 1 → Responsory → lesson 2 → Canticle.
-    const headings = await primary.locator('.reading-heading, .office-subsection-title').allTextContents();
-    const order = headings.filter(t => /^The Reading:|Responsory|Canticle/.test(t));
+    const items = await primary.locator('.reading-heading, .office-subsection-title').evaluateAll(
+      els => els.map(el => ({ isReading: el.classList.contains('reading-heading'), text: el.textContent }))
+    );
+    const order = items.filter(i => i.isReading || /Responsory|Canticle/.test(i.text));
     expect(order).toHaveLength(4);
-    expect(order[0]).toMatch(/^The Reading:/);
-    expect(order[1]).toContain('Responsory');
-    expect(order[2]).toMatch(/^The Reading:/);
-    expect(order[3]).toContain('Canticle');
+    expect(order[0].isReading).toBe(true);
+    expect(order[1].text).toContain('Responsory');
+    expect(order[2].isReading).toBe(true);
+    expect(order[3].text).toContain('Canticle');
+    // The first reading sits right under the "The Reading" subsection title,
+    // so its own heading is just the citation (#158); the second has no
+    // subsection title of its own and keeps the full "The Reading: " prefix.
+    expect(order[0].text).not.toMatch(/^The Reading:/);
+    expect(order[2].text).toMatch(/^The Reading:/);
   });
 });
 

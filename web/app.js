@@ -680,7 +680,7 @@ function proclamationHtml(officeData, form, shared) {
   html += rubricRunHtml(reading.handoff, shared);
   html += rubricRunHtml(reading.intro, shared, 'The Reading');
   if (officeData.lessons_pick) html += lessonsPickRubricHtml(officeData.lessons_pick, lessons.length);
-  if (lessons.length > 0) html += lessonHtml(lessons[0], shared, form, reading.reflection);
+  if (lessons.length > 0) html += lessonHtml(lessons[0], shared, form, reading.reflection, true);
   html += rubricRunHtml(reading.after, shared);
   if (form) html += renderSubsection('The Responsory', form.responsory, shared, true);
   if (lessons.length > 1) html += lessonHtml(lessons[1], shared, form);
