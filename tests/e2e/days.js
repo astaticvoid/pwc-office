@@ -96,7 +96,11 @@ export function richDay() {
     'a day with an alternate observance in both offices, two lessons in each, and a long pastoral note',
     d => d.morning?.alternate && d.evening?.alternate
       && (d.morning.lessons || []).length >= 2 && (d.evening.lessons || []).length >= 2
-      && (d.notes || []).some(n => n.type === 'pastoral' && (n.text || '').length > 200),
+      && (d.notes || []).some(n => n.type === 'pastoral' && (n.text || '').length > 200)
+      // Navigation tests step to the neighbours, and the bounds check refuses a
+      // date outside the published window — so the reference day must not be the
+      // window's own edge. Same room ordinaryDay() leaves.
+      && d.date > DAYS[2]?.date && d.date < DAYS[DAYS.length - 3]?.date,
   );
 }
 

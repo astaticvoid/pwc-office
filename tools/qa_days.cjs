@@ -25,10 +25,22 @@ function publishedDays(root) {
   } catch (_) {
     return [];
   }
-  return files
-    .flatMap(f => Object.entries(JSON.parse(readFileSync(join(dir, f), 'utf8'))))
-    .filter(([date, day]) => date && day)
-    .sort(([a], [b]) => a.localeCompare(b));
+  const days = [];
+  for (const f of files) {
+    let lect;
+    try {
+      lect = JSON.parse(readFileSync(join(dir, f), 'utf8'));
+    } catch (_) {
+      // A month that cannot be read contributes no days. The entries whose only
+      // qualifying days it held stay unresolved and are reported below, exactly
+      // as a missing month's were before the season-based resolution.
+      continue;
+    }
+    for (const [date, day] of Object.entries(lect)) {
+      if (date && day) days.push([date, day]);
+    }
+  }
+  return days.sort(([a], [b]) => a.localeCompare(b));
 }
 
 /**
