@@ -603,7 +603,7 @@ def run():
         print("\nExtracting supplemental collect...")
         _extract_supplemental_collect(pdf, collects, bas_txt)
 
-    # BUG-29: collect texts are single prose prayers; the PDF's column-width
+    # Collect texts are single prose prayers; the PDF's column-width
     # hard wraps are typographic, not semantic. Join internal line breaks so the
     # app wraps them naturally instead of mid-clause.
     for entry in collects.values():

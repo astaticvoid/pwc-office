@@ -1,10 +1,10 @@
 """Verify every office form in offices.json has all required sections.
 
-BUG-19 was caused by normalize_offices.py converting lords_prayer_intro
+normalize_offices.py must not convert lords_prayer_intro
 from an array to a shared ref dict, silently breaking .length checks.
 This test catches that class of regression immediately.
 
-BUG-14: opening_responses is intentionally normalized to a shared ref for 7
+opening_responses is intentionally normalized to a shared ref for 7
 seasonal EP forms — the test allows either an inline array or a valid shared ref.
 lords_prayer_intro and dismissal must always be inline arrays.
 """
@@ -23,12 +23,12 @@ shared = offices.get('_shared', {})
 
 @pytest.mark.parametrize('name,form', forms)
 def test_required_sections_are_arrays(name, form):
-    # lords_prayer_intro and dismissal must always be inline arrays (BUG-19 guard)
+    # lords_prayer_intro and dismissal must always be inline arrays
     for field in ('lords_prayer_intro', 'dismissal'):
         assert isinstance(form.get(field), list), \
             f'{name}.{field} must be a list, got {type(form.get(field)).__name__}'
         assert len(form[field]) > 0, f'{name}.{field} is empty'
-    # opening_responses may be an inline array OR a valid shared ref (BUG-14)
+    # opening_responses may be an inline array OR a valid shared ref
     or_ = form.get('opening_responses')
     is_inline = isinstance(or_, list) and len(or_) > 0
     is_shared_ref = isinstance(or_, dict) and or_.get('type') == 'shared' and or_.get('key') in shared
@@ -39,7 +39,7 @@ def test_required_sections_are_arrays(name, form):
 def test_reading_response_present(name, form):
     rr = form.get('reading_response')
     assert rr is not None, f'{name} missing reading_response'
-    # After BUG-19 fix, may be a shared ref dict OR inline alternatives — both ok
+    # May be a shared ref dict OR inline alternatives — both ok
     # What's NOT ok is None
 
 @pytest.mark.parametrize('name,form', forms)

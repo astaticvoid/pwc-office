@@ -113,7 +113,7 @@ const state = {
 };
 
 // Evening Prayer (and eve-of-feast observance) begins mid-afternoon in Anglican
-// practice; 3pm is the traditional hinge (BUG-31).
+// practice; 3pm is the traditional hinge.
 function defaultOffice() {
   return new Date().getHours() >= 15 ? 'ep' : 'mp';
 }
@@ -696,7 +696,7 @@ function collectHtml(collects, ref) {
 // Renders the collect section as a toggle between the daily collect and
 // the seasonal alternatives, as the rubric directs: "either…or".
 // collectInline: day-level {name, text} extracted from special-day propers
-// (BUG-27) — used as the Collect of the Day when no BAS collect ref exists.
+// — used as the Collect of the Day when no BAS collect ref exists.
 function collectToggleHtml(collects, collectRef, seasonalSegs, shared, fatsEntry, collectInline) {
   // Separate the general "Additional intercessions…" rubric (display above toggle)
   // from the actual seasonal collect content.

@@ -526,7 +526,7 @@ export function renderAlternatives(seg, shared, contextKey, verse = false) {
   return `<div class="alt-block"><div class="alt-tabs" role="tablist">${tabsHtml}</div>${panelsHtml}</div>`;
 }
 
-// BUG-30: the printed book italicises the placeholder N (e.g. "May N our bishop
+// The printed book italicises the placeholder N (e.g. "May N our bishop
 // and all bishops"); a plain capital "N" reads as a typo. Applied to
 // already-escaped leader/response HTML only — the 2 standalone-N instances in
 // offices.json are both this placeholder.

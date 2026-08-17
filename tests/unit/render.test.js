@@ -61,12 +61,12 @@ describe('officeFormSeason', () => {
 
 describe.skipIf(!HAS_DATA)('all forms have required sections as arrays', () => {
   test.each(forms)('%s', (name, form) => {
-    // lords_prayer_intro and dismissal must always be inline arrays (BUG-19 guard)
+    // lords_prayer_intro and dismissal must always be inline arrays
     for (const field of ['lords_prayer_intro', 'dismissal']) {
       expect(Array.isArray(form[field]), `${name}.${field} must be array`).toBe(true);
       expect(form[field].length, `${name}.${field} must be non-empty`).toBeGreaterThan(0);
     }
-    // opening_responses may be an inline array OR a valid shared ref (BUG-14: EP seasonal forms)
+    // opening_responses may be an inline array OR a valid shared ref (EP seasonal forms)
     const or = form.opening_responses;
     const isInlineArray = Array.isArray(or) && or.length > 0;
     const isSharedRef = or?.type === 'shared' && shared[or.key] != null;
@@ -116,7 +116,7 @@ describe('lessonHtml', () => {
   });
 });
 
-// ── lessons_pick rubric (BUG-28, fixed form per ADR 0014/#63) ────────────────
+// ── lessons_pick rubric (fixed form per ADR 0014/#63) ───────────────────────
 describe('lessonsPick', () => {
   test('2 of 3 renders the load-bearing rubric, in its fixed approved form', () => {
     expect(lessonsPickText(2, 3)).toBe('One or two of the following readings are read.');
@@ -131,7 +131,7 @@ describe('lessonsPick', () => {
     expect(lessonsPickText(1, 4)).toBe(lessonsPickText(2, 3));
   });
 
-  test('rubric is not hidden in the interactive app (BUG-28 load-bearing)', () => {
+  test('rubric is not hidden in the interactive app: it is load-bearing', () => {
     // The pick rubric renders unconditionally: it is load-bearing in the
     // interactive app, not book-only chrome (ADR 0013/#59).
     expect(lessonsPickRubricHtml(2, 3)).toContain('One or two of the following readings are read.');
@@ -145,7 +145,7 @@ describe('lessonsPick', () => {
   });
 });
 
-// ── placeholder N italics (BUG-30) ────────────────────────────────────────────
+// ── placeholder N italics ────────────────────────────────────────────────────
 describe('placeholder N', () => {
   test('leader "May N our bishop" renders italic N', () => {
     const html = renderSegments([{ type: 'leader', text: 'May N our bishop and all bishops' }], shared);

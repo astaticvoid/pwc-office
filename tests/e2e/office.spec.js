@@ -638,7 +638,7 @@ test.describe('Observance toggle', () => {
   });
 });
 
-// ── BUG-19 regression ─────────────────────────────────────────────────────────
+// ── Section shapes the renderer depends on ───────────────────────────────────
 
 test.describe('Reading response renders after lesson', () => {
   for (const [label, date, office] of [

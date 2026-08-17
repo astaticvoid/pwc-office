@@ -811,16 +811,16 @@ def parse_collect(raw: str) -> str:
 RE_MULTI = re.compile(r"(?i)two of the following (\w+) readings:\s*")
 RE_IS_COLL = re.compile(r"(?i)^Coll\s+\d")
 # CSV shorthand "Coll above" / "Coll below" points at the Collect of the Day in
-# the propers — it is not a lesson (BUG-26). Case-sensitive by design.
+# the propers — it is not a lesson. Case-sensitive by design.
 RE_COLL_REF = re.compile(r"^Coll (above|below)\b")
-# "O Antiphon" leaks from the CSV into the lessons array on Dec 17–23 (BUG-33);
+# "O Antiphon" leaks from the CSV into the lessons array on Dec 17–23;
 # the antiphon is already delivered as a typed o_antiphon note. Not a lesson.
 RE_O_ANTIPHON = re.compile(r"^O Antiphon$")
 # "Preface of a Saint" / "Preface of a Martyr" etc. — Eucharistic rubrics that
 # occasionally leak into the lessons array via the Br/Or alternative separator.
 RE_PREFACE = re.compile(r"(?i)^Preface of")
 
-# Collect of the Day inside a eucharist propers blob (BUG-27). The blob runs
+# Collect of the Day inside a eucharist propers blob. The blob runs
 # "… Collect of the Day: <text> Amen <next heading>: …".
 RE_COLLECT_OF_DAY = re.compile(
     r"Collect of the Day:\s*(.*?)\s*"
@@ -1234,7 +1234,7 @@ def main():
 
         # Remember when this row's offices referenced the propers Collect
         # ("Coll above/below" — stripped from lessons by RE_COLL_REF); a second
-        # pass below surfaces the collect itself as collect_inline (BUG-27).
+        # pass below surfaces the collect itself as collect_inline.
         raw_offices = " ".join(row[3:5])
         if m := re.search(r"\bColl (above|below)\b", raw_offices):
             entry["_coll_ref"] = m.group(1)
@@ -1252,7 +1252,7 @@ def main():
 
         entries.append(entry)
 
-    # Second pass (BUG-27): days whose offices said "Coll above/below" get the
+    # Second pass: days whose offices said "Coll above/below" get the
     # Collect of the Day extracted from the propers blob as collect_inline.
     # "below" on an eve means the collect lives on the following day's blob.
     by_date = {e["date"]: e for e in entries}

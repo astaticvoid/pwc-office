@@ -5,7 +5,7 @@ import { gotoOffice } from './helpers.js';
 // Run against a built dist served on BASE_URL (e.g. make serve-dist on :8081).
 
 test.describe('Batch 18 — June field observations', () => {
-  test('June 21 MP: propers collect surfaced, no "Coll above" reading (BUG-26/27)', async ({ page }) => {
+  test('June 21 MP: propers collect surfaced, no "Coll above" reading', async ({ page }) => {
     await gotoOffice(page, '2026-06-21', 'mp');
     const collect = page.locator('#prayers-collect');
     await expect(collect).toContainText('National Indigenous Day of Prayer', { timeout: 5000 });
@@ -14,7 +14,7 @@ test.describe('Batch 18 — June field observations', () => {
     await expect(page.locator('.reading-heading', { hasText: 'Coll above' })).toHaveCount(0);
   });
 
-  test('June 23 MP: reading-pick rubric renders (BUG-28)', async ({ page }) => {
+  test('June 23 MP: reading-pick rubric renders', async ({ page }) => {
     // The rubric is the fixed form from LITURGICAL_TEXT_REGISTER (ADR 0014/#63),
     // not a per-count computed sentence — same text regardless of pick/total.
     await gotoOffice(page, '2026-06-23', 'mp');
@@ -22,13 +22,13 @@ test.describe('Batch 18 — June field observations', () => {
       .toBeVisible({ timeout: 5000 });
   });
 
-  test('June 24 MP: no pick rubric on a day without lessons_pick (BUG-28 negative)', async ({ page }) => {
+  test('June 24 MP: no pick rubric on a day without lessons_pick', async ({ page }) => {
     await gotoOffice(page, '2026-06-24', 'mp');
     await expect(page.locator('.office-section-title').first()).toBeVisible({ timeout: 5000 });
     await expect(page.getByText('One or two of the following readings are read.')).toHaveCount(0);
   });
 
-  test('Wednesday litany: "Holy One" capitalised, placeholder N italic (BUG-25/30)', async ({ page }) => {
+  test('Wednesday litany: "Holy One" capitalised, placeholder N italic (#4)', async ({ page }) => {
     // 2026-06-17 is an ordinary Wednesday → ordinary-wednesday-mp litany.
     await gotoOffice(page, '2026-06-17', 'mp');
     const body = page.locator('body');
@@ -36,7 +36,7 @@ test.describe('Batch 18 — June field observations', () => {
     await expect(body).not.toContainText('holy one, accomplish');
   });
 
-  test('Dec 17 EP: no "O Antiphon" pseudo-lesson (BUG-33)', async ({ page }) => {
+  test('Dec 17 EP: no "O Antiphon" pseudo-lesson', async ({ page }) => {
     await gotoOffice(page, '2025-12-17', 'ep');
     await expect(page.locator('.office-section-title').first()).toBeVisible({ timeout: 5000 });
     await expect(page.locator('.reading-heading', { hasText: 'O Antiphon' })).toHaveCount(0);

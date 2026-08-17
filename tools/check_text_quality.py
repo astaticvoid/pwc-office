@@ -8,7 +8,7 @@ Checks for:
   - Suspiciously long merged tokens
   - Hanging hyphens at line breaks
   - Column wraps in prose fields (collect texts, seasonal_collects leaders):
-    a non-final line ending mid-clause is a suspected PDF column wrap (BUG-29
+    a non-final line ending mid-clause is a suspected PDF column wrap
     regression guard; should be zero after Batch 18 Fix G)
 
 Exits 0 always (warnings only).  Pass --strict to exit 1 on any finding.
@@ -128,7 +128,7 @@ def check_file(rel_path: str, findings: list) -> None:
     _walk_json(data, rel_path, findings)
 
 
-# ── Column-wrap detector (BUG-29 regression guard) ────────────────────────────
+# ── Column-wrap detector ─────────────────────────────────────────────────────
 
 # Collect prayers are single prose sentences (Batch 18 Fix G reflowed them). A
 # non-final line that ends WITHOUT terminal punctuation is a suspected PDF

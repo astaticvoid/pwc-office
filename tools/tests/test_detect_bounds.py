@@ -1,6 +1,6 @@
 """Tests for detect_bounds() canonical phrase matching.
 
-BUG-02: detect_bounds() previously used ad-hoc `in` substring checks.
+detect_bounds() matches a canonical phrase exactly before any fuzzy fallback.
 CANONICAL_BOUNDS_PHRASES now defines the expected wording per key.
 Exact matches (== or startswith) are silent; fuzzy matches emit a warning.
 """

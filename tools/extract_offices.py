@@ -1346,7 +1346,7 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
             sections[key] = _group_alternatives(sections[key], office=office_key, section=key)
             sections[key] = _hoist_office_transition(sections[key], office_key, key)
 
-    # BUG-29: seasonal collect leaders are prose; the PDF's column-width hard
+    # Seasonal collect leaders are prose; the PDF's column-width hard
     # wraps are typographic, not semantic. Join them. Rubric segments (bullet
     # lists) and response segments keep their lineation.
     if "seasonal_collects" in sections:
