@@ -994,6 +994,12 @@ test.describe('Commemoration collect (#135)', () => {
     const date = findDay('a day whose collect ref is a bare page number',
       d => /^\d+$/.test((d.morning?.collect || '').trim()));
     await gotoOffice(page, date, 'mp');
+    // The assertion below is an absence, which an unrendered page satisfies
+    // too. #day-title is written past every early return in render(), so it
+    // holding this day's name is what says this day rendered — where "some
+    // element is visible" is satisfied by the header gotoOffice already
+    // painted for today, which nothing clears.
+    await expect(page.locator('#day-title')).toHaveText(dayOf(date).name);
     await expect(page.locator('#prayers-collect .alt-tab').filter({ hasText: 'Common of' }))
       .toHaveCount(0);
   });
@@ -1053,7 +1059,12 @@ test.describe('Co-commemoration (#129)', () => {
   });
 
   test('a day naming one observance is unchanged', async ({ page }) => {
-    await gotoOffice(page, plainDay(), 'mp');
+    const date = plainDay();
+    await gotoOffice(page, date, 'mp');
+    // Anchored on the day's own name: #day-meta is in the header, outside the
+    // #office-content render() clears, so its presence says nothing about the
+    // day under test.
+    await expect(page.locator('#day-title')).toHaveText(dayOf(date).name);
     await expect(page.locator('#day-meta .meta-item--marker')).toHaveCount(0);
   });
 });
@@ -1076,7 +1087,12 @@ test.describe('Day markers (#128)', () => {
   });
 
   test('a day with neither gets no markers', async ({ page }) => {
-    await gotoOffice(page, plainDay(), 'mp');
+    const date = plainDay();
+    await gotoOffice(page, date, 'mp');
+    // Anchored on the day's own name: #day-meta is in the header, outside the
+    // #office-content render() clears, so its presence says nothing about the
+    // day under test.
+    await expect(page.locator('#day-title')).toHaveText(dayOf(date).name);
     await expect(page.locator('#day-meta .meta-item--marker')).toHaveCount(0);
   });
 });
