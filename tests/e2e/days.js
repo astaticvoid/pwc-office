@@ -130,6 +130,28 @@ export function extremeDay(what, predicate, score) {
 }
 
 /**
+ * A day with exactly one appointed psalm carrying a verse range (no psalm
+ * set, no second psalm to tab against) — the one shape whose citation
+ * appears nowhere on the page but the in-content heading, since psalmHtml
+ * only puts a citation on a tab label when there's a choice to label (#161).
+ * Returns {date, office}: which office at that date carries the property,
+ * since psalms are appointed per-office rather than per-day.
+ */
+export function partialPsalmDay() {
+  const isIt = o => {
+    if (!o || o.psalm_sets || !o.psalms || o.psalms.length !== 1) return false;
+    const cit = typeof o.psalms[0] === 'object' ? o.psalms[0].citation : o.psalms[0];
+    return typeof cit === 'string' && cit.includes(':');
+  };
+  const hit = [...DAYS].reverse().find(d => isIt(d.morning) || isIt(d.evening));
+  if (!hit) {
+    throw new Error(
+      'no day in the published lectionary has exactly one appointed psalm carrying a verse range');
+  }
+  return { date: hit.date, office: isIt(hit.morning) ? 'mp' : 'ep' };
+}
+
+/**
  * An unremarkable weekday: no alternate observance, no eve, no reading choice,
  * both offices present. What a test that is about the chrome rather than the
  * day wants, and what breaks if it accidentally lands on Christmas.

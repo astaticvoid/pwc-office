@@ -462,7 +462,13 @@ async function renderPsalm(citStr, omitRanges) {
     .map(([s, e]) => filtered.filter(v => v.num >= s && v.num <= e).map(v => v.num))
     .filter(nums => nums.length)
     .map(nums => [Math.min(...nums), Math.max(...nums)]);
-  const titleHtml = `<p class="psalm-title">Psalm ${data.number}${data.title ? ` — <span lang="la">${data.title}</span>` : ''}</p>`;
+  // A single (untabbed) psalm's citation appears nowhere else on the page —
+  // psalmHtml only puts the citation on a tab label when there's more than
+  // one psalm to choose between (#161) — so a partial citation's verse range
+  // has to survive into this heading or the reader has no way to know they
+  // aren't seeing the whole psalm.
+  const range = ref.start !== null ? `:${ref.start}${ref.end !== ref.start ? `-${ref.end}` : ''}` : '';
+  const titleHtml = `<p class="psalm-title">Psalm ${data.number}${range}${data.title ? ` — <span lang="la">${data.title}</span>` : ''}</p>`;
   // Each verse is its own block. formatLiturgicalText emits block-level lines,
   // so a <br> join would add an empty line box between every verse, and the
   // number would sit on a line above its own text.

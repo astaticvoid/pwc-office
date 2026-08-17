@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { test, expect } from '@playwright/test';
 import { gotoOffice, ensureOffice, openDatePicker } from './helpers.js';
-import { richDay, daysNamed, shiftDate, findDay, extremeDay, dayOf, officeOf, seasonFor } from './days.js';
+import { richDay, daysNamed, shiftDate, findDay, extremeDay, dayOf, officeOf, seasonFor, partialPsalmDay } from './days.js';
 import { parsePsalmCitation } from '../../web/render.js';
 
 // A day with structure to exercise rather than today, whose shape is whatever
@@ -68,6 +68,23 @@ test.describe('Office loads', () => {
     // At least one verse should be rendered, with its verse number visible
     await expect(page.locator('.psalm-block').first()).not.toBeEmpty();
     await expect(page.locator('.psalm-block sup').first()).toBeVisible();
+  });
+
+  test('a single untabbed psalm citation shows its verse range in the heading', async ({ page }) => {
+    // #161: psalmHtml only puts a citation on a tab label when there's more
+    // than one psalm to choose between — for a single partial-range psalm
+    // (no tab), the in-content heading is the only place the range can show,
+    // or the reader has no way to know they aren't seeing the whole psalm.
+    const { date, office } = partialPsalmDay();
+    const citation = officeOf(date, office).psalms[0];
+    const cit = typeof citation === 'object' ? citation.citation : citation;
+    const [, start, end] = /^\d+:(\d+)-?(\d+)?$/.exec(cit);
+    await gotoOffice(page, date, office);
+    const title = page.locator('.psalm-title').first();
+    await expect(title).toBeVisible({ timeout: CONTENT_TIMEOUT });
+    await expect(title).toContainText(`:${start}${end ? `-${end}` : ''}`);
+    // The verse content itself must actually start where the heading claims.
+    await expect(page.locator('.psalm-block sup').first()).toHaveText(start);
   });
 
   test('morning prayer: no loading spinners remain @smoke', async ({ page }) => {
