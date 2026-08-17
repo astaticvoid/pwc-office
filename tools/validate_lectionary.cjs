@@ -94,14 +94,15 @@ function loadBook(file) {
   return book;
 }
 
-/** Returns [{raw, num}, ...] for each " or "-separated alternative in a
- * psalm citation that parses to a numeric psalm reference. */
+/** Returns [{raw, num, start, end}, ...] for each " or "-separated
+ * alternative in a psalm citation that parses to a numeric psalm reference.
+ * `start`/`end` are null for a bare whole-psalm citation. */
 function psalmNumbersIn(cit, parsePsalmCitation) {
   return cit.split(/\s+or\s+/).map(part => {
     const trimmed = part.trim().replace(/\s*\([^)]*\)\s*/g, ' ').trim();
     if (!trimmed) return null;
-    const { num } = parsePsalmCitation(trimmed);
-    return isNaN(num) ? null : { raw: trimmed, num };
+    const { num, start, end } = parsePsalmCitation(trimmed);
+    return isNaN(num) ? null : { raw: trimmed, num, start, end };
   }).filter(Boolean);
 }
 
@@ -116,6 +117,46 @@ function resolvesToVerses(citation, { parseCitation, parseRanges, extractVersesW
   const ranges = parseRanges(parsed.rest);
   if (!ranges.length) return false;
   return ranges.some(r => extractVersesWithChapter(book, r).length > 0);
+}
+
+/** The verse numbers data/psalter.json actually has for one psalm. */
+function psalmVerseNums(psalter, num) {
+  const text = psalter[String(num)]?.text || '';
+  return new Set([...text.matchAll(/^(\d+)\s/gm)].map(m => parseInt(m[1], 10)));
+}
+
+/** True if a psalm citation's own verse range (if it has one) is internally
+ * coherent (start <= end) and resolves to at least one real verse — the
+ * check `psalmNumbersIn`'s number-only pass cannot make, and the gap #149's
+ * "(34-30)" typo (start > end, so nothing in the range could ever be a real
+ * verse) fell through. A bare whole-psalm citation has no range to check. */
+function resolvesToPsalmVerses(psalter, num, start, end) {
+  if (start === null) return true;
+  if (start > end) return false;
+  const verses = psalmVerseNums(psalter, num);
+  for (let v = start; v <= end; v++) if (verses.has(v)) return true;
+  return false;
+}
+
+/** Parse+resolve checks for one psalm citation string, against both
+ * data/psalter.json's psalm numbers and its actual verses. Shared by the
+ * `psalms`, `psalm_sets`, and `omit` walks below so the three cannot drift. */
+function checkPsalmCitation(cit, label, date, ot, psalter, parsePsalmCitation, failures) {
+  if (!cit) {
+    failures.push({ date, office: ot, detail: `${label} empty citation` });
+    return;
+  }
+  if (checkCitation(cit)) {
+    failures.push({ date, office: ot, detail: `${label} unparseable: "${cit}"` });
+    return;
+  }
+  for (const { raw, num, start, end } of psalmNumbersIn(cit, parsePsalmCitation)) {
+    if (!psalter[String(num)]) {
+      failures.push({ date, office: ot, detail: `${label} "${raw}" — Psalm ${num} not found in psalter.json` });
+    } else if (!resolvesToPsalmVerses(psalter, num, start, end)) {
+      failures.push({ date, office: ot, detail: `${label} "${raw}" — verse range does not resolve to any real verse in Psalm ${num}` });
+    }
+  }
 }
 
 async function main() {
@@ -209,43 +250,31 @@ async function main() {
         }
 
         // Psalm citations must parse as valid psalm references AND resolve
-        // to a real psalm in data/psalter.json.
+        // to a real psalm and a real verse range in data/psalter.json — an
+        // entry's own citation, and (for a merged span, #78) each of its
+        // `omit` sub-citations.
         const psalms = od.psalms || [];
         for (let i = 0; i < psalms.length; i++) {
-          const cit = typeof psalms[i] === 'object' ? psalms[i].citation : psalms[i];
-          if (!cit) {
-            failures.push({ date, office: ot, detail: `psalm[${i}] empty citation` });
-            continue;
-          }
-          if (checkCitation(cit)) {
-            failures.push({ date, office: ot, detail: `psalm[${i}] unparseable: "${cit}"` });
-            continue;
-          }
-          for (const { raw, num } of psalmNumbersIn(cit, parsePsalmCitation)) {
-            if (!psalter[String(num)]) {
-              failures.push({ date, office: ot, detail: `psalm[${i}] "${raw}" — Psalm ${num} not found in psalter.json` });
-            }
+          const p = psalms[i];
+          const cit = typeof p === 'object' ? p.citation : p;
+          checkPsalmCitation(cit, `psalm[${i}]`, date, ot, psalter, parsePsalmCitation, failures);
+          if (typeof p === 'object' && Array.isArray(p.omit)) {
+            p.omit.forEach((o, oi) => checkPsalmCitation(
+              o?.citation, `psalm[${i}].omit[${oi}]`, date, ot, psalter, parsePsalmCitation, failures));
           }
         }
 
-        // Psalm sets: each entry must parse and resolve
+        // Psalm sets: each entry must parse and resolve the same way.
         if (od.psalm_sets) {
           for (let gi = 0; gi < od.psalm_sets.length; gi++) {
             const group = od.psalm_sets[gi];
             for (let pi = 0; pi < group.length; pi++) {
-              const cit = typeof group[pi] === 'object' ? group[pi].citation : group[pi];
-              if (!cit) {
-                failures.push({ date, office: ot, detail: `psalm_set[${gi}][${pi}] empty` });
-                continue;
-              }
-              if (checkCitation(cit)) {
-                failures.push({ date, office: ot, detail: `psalm_set[${gi}][${pi}] unparseable: "${cit}"` });
-                continue;
-              }
-              for (const { raw, num } of psalmNumbersIn(cit, parsePsalmCitation)) {
-                if (!psalter[String(num)]) {
-                  failures.push({ date, office: ot, detail: `psalm_set[${gi}][${pi}] "${raw}" — Psalm ${num} not found in psalter.json` });
-                }
+              const p = group[pi];
+              const cit = typeof p === 'object' ? p.citation : p;
+              checkPsalmCitation(cit, `psalm_set[${gi}][${pi}]`, date, ot, psalter, parsePsalmCitation, failures);
+              if (typeof p === 'object' && Array.isArray(p.omit)) {
+                p.omit.forEach((o, oi) => checkPsalmCitation(
+                  o?.citation, `psalm_set[${gi}][${pi}].omit[${oi}]`, date, ot, psalter, parsePsalmCitation, failures));
               }
             }
           }

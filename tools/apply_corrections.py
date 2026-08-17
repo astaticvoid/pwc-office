@@ -292,6 +292,25 @@ def main():
         describe=lambda c: f"{c['date']}/{c['office']}",
     )
 
+    # Lectionary psalm corrections — one indexed psalms[] entry within a day's
+    # office, whole-entry replace (a bare citation, or the {citation, omit}
+    # shape a merged span produces — see #78/#149's Ps 69 span typo).
+    def _mutate_psalm(day, c):
+        office = day.get(c["office"], {})
+        psalms = office.get("psalms", [])
+        idx = c.get("index", 0)
+        if idx >= len(psalms):
+            return False
+        if psalms[idx] != c.get("old"):
+            return False
+        psalms[idx] = c["new"]
+        return True
+
+    _apply_by_date(
+        corrections.get("lectionary_psalms", []), _mutate_psalm,
+        describe=lambda c: f"{c['date']}/{c['office']}",
+    )
+
     # Lectionary lesson-list corrections — whole lessons list for a day's office
     # (CSV row-level errors: missing separators, merged optional markers, etc.).
     def _mutate_lessons(day, c):

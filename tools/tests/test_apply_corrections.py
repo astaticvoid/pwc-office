@@ -45,7 +45,7 @@ def _load(monkeypatch, root: pathlib.Path):
 OFFICES = {"advent-mp": {"title": "T", "litany": [{"type": "leader", "text": "hello"}]}}
 PSALTER = {"1": {"text": "Blessed is the one"}}
 FATS = {"Alban": {"bio": "a martyr"}}
-LECTIONARY = {"2026-01": {"2026-01-01": {"morning": {"lessons": ["Gen 1"]}}}}
+LECTIONARY = {"2026-01": {"2026-01-01": {"morning": {"lessons": ["Gen 1"], "psalms": ["100"]}}}}
 
 
 @pytest.fixture
@@ -64,8 +64,9 @@ def tree(tmp_path):
 
 ALL_EMPTY = {
     "version": 1, "office_text": [], "psalter": [], "fats": [],
-    "lectionary_citations": [], "lectionary_lessons": [], "lectionary_names": [],
-    "lectionary_ranks": [], "lectionary_colours": [], "lectionary_notes": [],
+    "lectionary_citations": [], "lectionary_psalms": [], "lectionary_lessons": [],
+    "lectionary_names": [], "lectionary_ranks": [], "lectionary_colours": [],
+    "lectionary_notes": [],
 }
 
 
@@ -172,3 +173,20 @@ def test_a_real_correction_still_applies(tree, monkeypatch):
     mod.main()
     assert json.loads((tree / "data" / "psalter.json").read_text())["1"]["text"] \
         == "Happy is the one"
+
+
+def test_a_lectionary_psalm_correction_replaces_the_indexed_entry(tree, monkeypatch):
+    """#149: a bad psalm[] entry (a CSV typo surviving into a merged citation's
+    `omit` span) is replaced whole, by date/office/index, like the other
+    lectionary correction categories."""
+    (tree / "data" / "corrections.json").write_text(json.dumps({
+        **ALL_EMPTY,
+        "lectionary_psalms": [{
+            "id": "ps1", "date": "2026-01-01", "office": "morning", "index": 0,
+            "old": "100", "new": {"citation": "100:1-5", "omit": [{"citation": "100:3-5"}]},
+        }],
+    }))
+    mod = _load(monkeypatch, tree)
+    mod.main()
+    day = json.loads((tree / "data" / "lectionary" / "2026-01.json").read_text())["2026-01-01"]
+    assert day["morning"]["psalms"] == [{"citation": "100:1-5", "omit": [{"citation": "100:3-5"}]}]

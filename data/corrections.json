@@ -680,6 +680,32 @@
     }
   ],
   "lectionary_citations": [],
+  "lectionary_psalms": [
+    {
+      "id": "psalm-2026-07-31-morning",
+      "source": "acc-csv-error",
+      "date": "2026-07-31",
+      "office": "morning",
+      "index": 0,
+      "old": {
+        "citation": "69:1-38",
+        "omit": [
+          {
+            "citation": "69:34-30"
+          }
+        ]
+      },
+      "new": {
+        "citation": "69:1-38",
+        "omit": [
+          {
+            "citation": "69:24-30"
+          }
+        ]
+      },
+      "reason": "CSV has \"Ps 69:1-23, (34-30), 31-38\" — every other occurrence of this recurring feria's psalm reads \"(24-30)\"; \"34-30\" is not a coherent span (34 > 30) and matches no other week (#149)."
+    }
+  ],
   "lectionary_lessons": [
     {
       "id": "lesson-2025-12-19-morning",

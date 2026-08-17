@@ -196,6 +196,28 @@ def validate_lectionary_notes(corrections: list) -> list[str]:
     return errors
 
 
+def validate_lectionary_psalms(corrections: list) -> list[str]:
+    """One indexed psalms[] entry within a day's office, whole-entry replace."""
+    errors = []
+    lectionary = load_lectionary()
+    for c in corrections:
+        cid = c["id"]
+        day = lectionary.get(c["date"])
+        if day is None:
+            errors.append(f"{cid}: date {c['date']} not found")
+            continue
+        office = day.get(c["office"], {})
+        psalms = office.get("psalms", [])
+        idx = c.get("index", 0)
+        if idx >= len(psalms):
+            errors.append(f"{cid}: psalm index {idx} out of range")
+            continue
+        actual = psalms[idx]
+        if actual != c.get("old"):
+            errors.append(f"{cid}: psalm[{idx}] mismatch for {c['date']}/{c['office']}: {actual!r} != {c['old']!r}")
+    return errors
+
+
 def validate_lectionary_lessons(corrections: list) -> list[str]:
     """Whole-lessons-list replace for one date+office, keyed by (date, office)."""
     errors = []
@@ -271,6 +293,9 @@ def main():
 
     if corrections.get("lectionary_citations"):
         errors.extend(validate_lectionary_citation(corrections["lectionary_citations"]))
+
+    if corrections.get("lectionary_psalms"):
+        errors.extend(validate_lectionary_psalms(corrections["lectionary_psalms"]))
 
     if corrections.get("lectionary_lessons"):
         errors.extend(validate_lectionary_lessons(corrections["lectionary_lessons"]))
