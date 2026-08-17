@@ -747,21 +747,23 @@ def _verse_citation(num: str, start: int, end: int) -> str:
 
 
 def _merge_psalm_run(run: list) -> list:
-    """A run of tokens that all resolved to the same psalm number becomes one
-    merged citation with an `omit` list of the parenthesised spans within it —
-    "101, 109:1-4, (5-19), 20-30" is one choice (101 or 109) with an omission
-    inside 109, not four peers (#78; ADR 0019 item 8). A single-token run, or
-    one whose verse bounds did not parse cleanly, is left exactly as the old
-    per-token parser produced it.
+    """A run of tokens sharing a psalm number merges into one citation with an
+    `omit` list of the parenthesised spans within it — "101, 109:1-4, (5-19),
+    20-30" is one choice (101 or 109) with an omission inside 109, not four
+    peers (#78; ADR 0019 item 8). Only when the run actually contains an
+    omission: "92:1-2, 11-14" (no parens anywhere — two deliberately separate
+    spans of the same psalm, nothing marked optional between them) must stay
+    two entries, not silently widen into "92:1-14" and read verses 3-10 that
+    were never appointed. A single-token run, or one whose verse bounds did
+    not parse cleanly, is left exactly as the old per-token parser produced.
     """
     starts = [t["start"] for t in run]
     ends = [t["end"] for t in run]
-    if len(run) == 1 or any(v is None for v in starts + ends):
+    has_omission = any(t["optional"] for t in run)
+    if len(run) == 1 or not has_omission or any(v is None for v in starts + ends):
         return [t["raw"] for t in run]
     citation = _verse_citation(run[0]["num"], min(starts), max(ends))
     omit = [_verse_citation(run[0]["num"], t["start"], t["end"]) for t in run if t["optional"]]
-    if not omit:
-        return [citation]
     return [{"citation": citation, "omit": [{"citation": o} for o in omit]}]
 
 
@@ -789,6 +791,7 @@ def _psalm_group(s: str) -> list:
         c = p["citation"] if is_optional else p
         num = None
         start = end = None
+        raw = p
         if ":" in c:
             # Normal "139:1-17" style — record psalm number for continuations.
             num, body = c.split(":", 1)
@@ -797,12 +800,24 @@ def _psalm_group(s: str) -> list:
         elif last_psalm_num and ("-" in c or is_optional):
             # A bare range like "18-23", or a parenthesised single verse like
             # "(12)", following "139:1-17" — either continues the same psalm,
-            # not a new one. A bare *non-optional* single number ("147" after
-            # "146") is never a continuation — that is two whole psalms.
+            # not a new one. A bare, non-optional, dash-less single number
+            # ("147" after "146") is left as its own entry rather than
+            # guessed at: nothing in the text alone says whether it means
+            # "and also Psalm 147" or "and verse 147 of the psalm just
+            # cited" — telling them apart needs knowing whether that psalm
+            # even has that many verses, which is a resolution question
+            # (tools/validate_lectionary.cjs), not a parsing one. Neither
+            # shape has occurred in two years of published data (#78/#149).
             start, end = _parse_verse_bounds(c)
             if start is not None:
                 num = last_psalm_num
-        tokens.append({"num": num, "start": start, "end": end, "optional": is_optional, "raw": p})
+                # Re-prefix even when this run turns out not to merge (no
+                # omission in it, #78/#149's "92:1-2, 11-14" case): the token
+                # is still a continuation and must carry the psalm number it
+                # continues, not the bare span it was written as.
+                prefixed = _verse_citation(num, start, end)
+                raw = {"citation": prefixed, "optional": True} if is_optional else prefixed
+        tokens.append({"num": num, "start": start, "end": end, "optional": is_optional, "raw": raw})
 
     # Second pass: merge consecutive tokens that resolved to the same psalm
     # number.

@@ -1,5 +1,5 @@
 {
-  "extracted_at": "2026-08-17T14:24:10Z",
+  "extracted_at": "2026-08-17T15:15:31Z",
   "tool_versions": {
     "fitz": [
       "1.28.2",
@@ -14,8 +14,8 @@
     "tools/extract_psalter.py": "6d697ded980ebd3d24afc90c1c9ec588be15fb38cb13c9c683e5a91ea98712f5",
     "tools/extract_collects.py": "8dae34411e9e522390832492a34716c1e458fd489f1d7f5f3a7b34c111a29a18",
     "tools/extract_fats.py": "4be8d66eda97592996196a648de3b67ffecaa0de285dd31020266103a593fe2b",
-    "tools/convert_lectionary.py": "c34f88a9ae4b2e8bc9c6a64b9aceac3c2d41f4f14e2af8e1f6513ce4f9ea046b",
-    "tools/apply_corrections.py": "6e3fafcd98b00ed39675877e828e0f7515109dffe309b6980ddc59fcff33c44b",
+    "tools/convert_lectionary.py": "c606321059c1a75acbcac3bfed5ab7c506368b0476aee6a8979ac14e9e2a1c3a",
+    "tools/apply_corrections.py": "fea4322b76b639833c39dbf6880ede6228acb049a4320451c84cb70600de51b6",
     "tools/corrections_lib.py": "aeb8e2cd6319225421c845fc921a435829d3bf4da0ff802d77ed14fb59cb20c8",
     "tools/extract_lib.py": "2d77e3c60dad78a693e88557fd84115815a62128355c04d78bd0c6f42014d72e",
     "data/corrections.json": "e16d82543f81363b831fd1a8a2a778ca503b818e6d76a42378914b387b1202d0",

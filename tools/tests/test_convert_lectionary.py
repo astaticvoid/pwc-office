@@ -133,6 +133,22 @@ class TestParsePsalmField:
         result = parse_psalm_field("Ps 146, 147")
         assert result["psalms"] == ["146", "147"]
 
+    def test_non_contiguous_spans_with_no_omission_stay_two_entries(self):
+        # "92:1-2, 11-14" — two deliberately separate spans of the same psalm,
+        # nothing parenthesised between them. Merging into "92:1-14" would
+        # silently include verses 3-10, which were never appointed — each
+        # fragment must keep its own bounds, and its own psalm-number prefix.
+        result = parse_psalm_field("Ps 92:1-2, 11-14")
+        assert result["psalms"] == ["92:1-2", "92:11-14"]
+
+    def test_bare_single_verse_continuation_is_left_unprefixed(self):
+        # "31:1-7, 16" — a bare, non-optional, dash-less number after a verse
+        # range. Genuinely ambiguous (see the comment in _psalm_group), so it
+        # is left exactly as the CSV wrote it rather than guessed at either
+        # way; this pins the known limitation rather than silently drifting.
+        result = parse_psalm_field("Ps 31:1-7, 16")
+        assert result["psalms"] == ["31:1-7", "16"]
+
     def test_unresolvable_bare_token_does_not_merge_or_crash(self):
         # "95 (Invitatory)" has no colon and isn't a clean verse range, so it
         # must be left exactly as before rather than merged or int()-crashed.
