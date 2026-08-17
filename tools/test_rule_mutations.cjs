@@ -12,14 +12,16 @@
  * fixed as #72) — and #71, where a thrown dynamic render was swallowed with
  * no failure and no exit code (fixed).
  *
- * Coverage: all 10 static (qa_dates-independent) rules assert a rule fires,
- * plus 3 of the 10 dynamic rules (intercessions-nonempty,
- * canticle-has-verse-content, evening-has-light). The other 7 dynamic rules
- * have no entry here at all — not asserted and not documented as a gap,
- * same as any rule added after this file. main() prints which rules that is
- * on every run rather than hand-counting it in this comment, so the number
- * can't quietly drift out of date. KNOWN_GAPS documents rules found to be
- * unfalsifiable by construction — empty today, but kept as a mechanism.
+ * Coverage: every rule in validate_office.cjs has a case that makes it fire
+ * (#142). Three sources a rule reads arrive through cfg from the lectionary
+ * day rather than from offices.json, so collect-resolvable cuts them at the
+ * renderer with a renderPatch; every other case moves the data the rule's
+ * field is computed from, because a rule that fires only when its own output
+ * is edited has not been shown to fire. main() prints any rule with neither a
+ * CASE nor a KNOWN_GAPS entry on every run rather than hand-counting it here,
+ * so a rule added later cannot arrive unasserted and unnoticed. KNOWN_GAPS
+ * documents rules found to be unfalsifiable by construction — empty, and kept
+ * as a mechanism.
  *
  * Usage: node tools/test_rule_mutations.cjs
  */
@@ -325,6 +327,138 @@ const CASES = [
     // including through _shared — must make it fire (#70, #72).
     run: () => runValidator({ officesMutator: emptyAllResponsesInCorpus }),
     check: result => result.failures.some(f => f.rule === 'non-empty-responses'),
+  },
+  {
+    name: 'collect-resolvable fires when no collect of any kind is on offer',
+    rule: 'collect-resolvable',
+    run: () => runValidator({
+      // The rule accepts four sources and three of them arrive through cfg
+      // from the lectionary day, which officesMutator cannot reach — every
+      // published day names a collect. Cutting them at the renderer is what
+      // makes the condition the rule names occur at all.
+      renderPatch: src => src.replace(
+        'fatsEntry, collects, collectRef, collectInline } = cfg;',
+        'collects } = cfg;\n  const fatsEntry = null, collectRef = null, collectInline = null;',
+      ),
+      // The fourth source is the form's own, and this empties it: the field
+      // stays populated but flattens to nothing.
+      officesMutator: offices => {
+        for (const [fk, form] of Object.entries(offices)) {
+          if (fk.startsWith('_') || !Array.isArray(form.seasonal_collects)) continue;
+          form.seasonal_collects = [{ type: 'leader', text: '' }];
+        }
+      },
+    }),
+    check: result => result.failures.some(f => f.rule === 'collect-resolvable'),
+  },
+  // ── The seven rules that had no case (#142) ──────────────────────────────
+  // Each names the condition it exists to detect and makes that condition
+  // true. Where a rule reads a dynamic field, the mutation moves the data the
+  // field is computed from, not the field — a rule that fires only when its
+  // own output is edited has not been shown to fire.
+  {
+    name: 'psalter-gloria-present fires when the shared doxology is gone',
+    rule: 'psalter-gloria-present',
+    run: () => runValidator({
+      officesMutator: offices => {
+        // Its 44 references have to go with it: a shared ref left pointing at
+        // a deleted block throws in walkSegments, which is a broken mutation
+        // rather than a rule firing.
+        const dropRefs = node => {
+          if (Array.isArray(node)) {
+            for (let i = node.length - 1; i >= 0; i--) {
+              if (node[i] && node[i].type === 'shared' && node[i].key === 'doxology') node.splice(i, 1);
+              else dropRefs(node[i]);
+            }
+            return;
+          }
+          if (node && typeof node === 'object') for (const v of Object.values(node)) dropRefs(v);
+        };
+        dropRefs(offices);
+        delete offices._shared.doxology;
+      },
+    }),
+    check: result => result.failures.some(f => f.rule === 'psalter-gloria-present'),
+  },
+  {
+    name: 'reading-response-present fires when a form carries no reading response',
+    rule: 'reading-response-present',
+    run: () => runValidator({
+      officesMutator: offices => {
+        for (const [fk, form] of Object.entries(offices)) {
+          if (!fk.startsWith('_')) delete form.reading_response;
+        }
+      },
+    }),
+    check: result => result.failures.some(f => f.rule === 'reading-response-present'),
+  },
+  {
+    name: 'canticle-has-verse-breaks fires when canticle verse is joined into prose',
+    rule: 'canticle-has-verse-breaks',
+    run: () => runValidator({
+      officesMutator: offices => {
+        const joinLeaders = node => {
+          if (Array.isArray(node)) { node.forEach(joinLeaders); return; }
+          if (!node || typeof node !== 'object') return;
+          if (node.type === 'leader' && typeof node.text === 'string') {
+            node.text = node.text.replace(/\n+/g, ' ');
+          }
+          for (const v of Object.values(node)) joinLeaders(v);
+        };
+        for (const [fk, form] of Object.entries(offices)) {
+          if (!fk.startsWith('_')) joinLeaders(form.canticle);
+        }
+        joinLeaders(offices._shared || {});
+      },
+    }),
+    check: result => result.failures.some(f => f.rule === 'canticle-has-verse-breaks'),
+  },
+  {
+    name: 'collect-and-dismissal-no-orphan-breaks fires on a break left mid-clause',
+    rule: 'collect-and-dismissal-no-orphan-breaks',
+    run: () => runValidator({
+      officesMutator: offices => {
+        // A break after a line ending in no terminal punctuation is the column
+        // wrap this rule looks for.
+        for (const [fk, form] of Object.entries(offices)) {
+          if (fk.startsWith('_') || !Array.isArray(form.dismissal)) continue;
+          const seg = form.dismissal.find(x => x.type === 'leader' || x.type === 'response');
+          if (seg) seg.text = 'Go in peace to love and serve the\nLord.';
+        }
+      },
+    }),
+    check: result => result.failures.some(f => f.rule === 'collect-and-dismissal-no-orphan-breaks'),
+  },
+  {
+    name: 'seasonal-canticle-coherence fires on a canticle outside the season set',
+    rule: 'seasonal-canticle-coherence',
+    run: () => runValidator({
+      officesMutator: offices => {
+        for (const [fk, form] of Object.entries(offices)) {
+          if (fk.startsWith('_') || !Array.isArray(form.canticle)) continue;
+          const alt = form.canticle.find(x => x.type === 'alternatives');
+          if (alt && alt.groups && alt.groups[0]) alt.groups[0].label = 'A Song Of No Season';
+        }
+      },
+    }),
+    check: result => result.failures.some(f => f.rule === 'seasonal-canticle-coherence'),
+  },
+  {
+    name: 'collect-week-in-range fires when no period matches the week',
+    rule: 'collect-week-in-range',
+    run: () => runValidator({
+      officesMutator: offices => {
+        // The field stays non-empty, so the rule's own guard does not excuse
+        // it, but flattenSegs drops a whitespace-only segment before the rule
+        // sees it — so no week resolves to a collect. The same gap between a
+        // populated field and an empty flattened list that #70 was about.
+        for (const [fk, form] of Object.entries(offices)) {
+          if (fk.startsWith('_') || !Array.isArray(form.seasonal_collects)) continue;
+          form.seasonal_collects = [{ type: 'leader', text: '' }];
+        }
+      },
+    }),
+    check: result => result.failures.some(f => f.rule === 'collect-week-in-range'),
   },
 ];
 
