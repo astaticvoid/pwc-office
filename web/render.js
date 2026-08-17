@@ -661,6 +661,7 @@ export function lessonHtml(lesson, shared, form) {
 // selector over them (ADR 0014/#63) and this rubric is the fixed
 // head-of-section text announcing the choice. Load-bearing, not book-only —
 // the reader must know a choice exists. Returns '' when there is none.
+// ADR 0019 item 7 withdraws that selector; #77 is where it goes.
 export function lessonsPickText(pick, total) {
   if (!pick || pick >= total) return '';
   return LITURGICAL_TEXT_REGISTER.readingsPick.text;
