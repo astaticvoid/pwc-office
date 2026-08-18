@@ -817,18 +817,21 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 .day-note--info strong { font-weight: 500; color: var(--color-text); }
 
 /* Source notes: the compiler's apparatus, closed by default (#127). Quieter
-   than .fats-bio — that disclosure holds a life worth reading, this one holds
-   the provenance of a citation. */
+   than .fats-bio — that card holds a saint's biography, this holds the
+   provenance of a citation. */
 .day-note-details {
   /* Clears the office controls above it (the header's own padding carries the
      space below); the note is apparatus, not a sibling of the controls. */
   margin: var(--sp-4) 0 0;
-  border-left: 2px solid var(--color-border);
+  /* The same accent rule and accent toggle as .fats-bio, so both disclosures
+     read as one family; the note keeps no enclosing box — just the rule —
+     and a muted body. */
+  border-left: 2px solid var(--color-accent);
 }
 .day-note-details-toggle {
   padding: 0.15rem 0 0.15rem 0.7rem;
   font-family: var(--font-ui); font-size: 0.8rem;
-  color: var(--color-muted); cursor: pointer;
+  color: var(--color-accent); cursor: pointer;
   list-style: none;
 }
 .day-note-details-toggle::-webkit-details-marker { display: none; }
