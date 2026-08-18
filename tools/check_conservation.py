@@ -94,12 +94,16 @@ with contextlib.redirect_stdout(sys.stderr):
     from extract_offices import (
         _CONTINUE,
         _CONTROL_CHARS,
+        _PEN_SUBHEAD_RE,
         _RESPONSE_HDRS,
         OFFICES,
+        PENITENTIAL_BOUNDS,
         _alt_label,
         _heading_to_key,
         _is_noise,
         _normalize_whitespace,
+        _pen_clean,
+        _pen_span_lines,
     )
 
     # The psalter extractor's own line classification and source reader, for
@@ -333,6 +337,8 @@ PAGE_RULES: list[tuple[str, str]] = [
     ("label",         "became an alternatives group label via _alt_label (article and citation stripped)"),
     ("lectionary",    "psalm/reading page content, supplied per day from the lectionary"),
     ("corrected",     "extracted intact, then changed by an audited data/corrections.json entry"),
+    ("structure",     "a Penitential-Office subhead or bullet, consumed as a season/time key or list marker"),
+    ("variant",       "the ordinary Penitential printing's absolution A, which omits 'your/' (#165)"),
 ]
 
 DATA_RULES: list[tuple[str, str]] = [
@@ -537,6 +543,175 @@ def check_form(form_key: str, source: list[SourceLine], shipped: ShippedForm,
     return page_counts, data_counts, findings
 
 
+# ── The Penitential Office walk (#165) ────────────────────────────────────────
+# The Penitential Office is not a form, so it cannot reuse the form walk. The
+# extractor reads its pages span-by-span (_pen_span_lines) rather than through
+# extract_office_typed_lines — the sentence citations are red on the same line
+# as the black text, and the absolution's "Amen." is bold on the leader line, so
+# a line's dominant type would swallow both. This walk mirrors that reading.
+# Source units are per span, the most naive split available: a span boundary is
+# PyMuPDF's own segmentation, not a parse decision, so a wrong split in the
+# extractor's sentence/confession grouping cannot be replicated here (the
+# fats-chain lesson, #113).
+
+# The ordinary printing's absolution A reads "from our sins," where the
+# seasonal printing — and the shipped block — reads "from your/our sins,". The
+# book disagrees with itself; a named rule vouches for the exact line rather
+# than licensing the whole section.
+_PEN_VARIANT = "from our sins,"
+
+
+def check_penitential(doc, pen: dict) -> tuple[Counter, Counter, list[Finding]]:
+    page_counts: Counter = Counter()
+    data_counts: Counter = Counter()
+    findings: list[Finding] = []
+
+    # ── shipped side: every text-bearing string in _penitential ─────────────
+    shipped_lines: set[str] = set()
+    shipped_blocks: list[str] = []
+
+    def add(text) -> None:
+        if not isinstance(text, str):
+            return
+        for ln in text.split("\n"):
+            key = squash(ln)
+            if key:
+                shipped_lines.add(key)
+                shipped_blocks.append(key)
+
+    add(pen.get("title"))
+    add(pen.get("opening_rubric"))
+    for group in pen.get("sentences", {}).get("seasonal", {}).values():
+        for items in group.values():
+            for item in items:
+                add(item.get("text"))
+                add(item.get("citation"))
+    for items in pen.get("sentences", {}).get("ordinary", {}).values():
+        for item in items:
+            add(item.get("text"))
+            add(item.get("citation"))
+    for block in (pen.get("confession"), pen.get("absolution")):
+        if not isinstance(block, dict):
+            continue
+        add(block.get("invitation"))
+        add(block.get("call"))
+        add(block.get("silence"))
+        for alt in block.get("alternatives", []):
+            for seg in alt:
+                add(seg.get("text"))
+    add(pen.get("deacon_rubric"))
+    add(pen.get("transition_rubric"))
+
+    def has(text: str) -> bool:
+        return squash(text) in shipped_lines
+
+    def find(text: str) -> bool:
+        needle = squash(text)
+        return bool(needle and any(needle in b for b in shipped_blocks))
+
+    # ── source side: per-span units, tagged with section and rule ───────────
+    source: list[SourceLine] = []
+    phase = "opening"  # title → opening → sentences → confession → absolution → rubrics → transition
+    for key, start, end in PENITENTIAL_BOUNDS:
+        for page_lines in _pen_span_lines(doc, start, end):
+            for entries in page_lines:
+                for typ, raw in entries:
+                    text = _CONTROL_CHARS.sub("", raw).strip()
+                    if not text:
+                        continue
+                    line = SourceLine(typ, text)
+                    sq = squash(text)
+                    low = sq.lower()
+                    if typ == "heading":
+                        line.section, line.consumed_as = "title", "header"
+                        phase = "opening"
+                    elif phase == "opening":
+                        if _PEN_SUBHEAD_RE.match(sq):
+                            line.section, line.consumed_as = "sentences", "structure"
+                            phase = "sentences"
+                        else:
+                            line.section = "opening_rubric"
+                    elif phase == "sentences":
+                        line.section = "sentences"
+                        if typ == "rubric" and _PEN_SUBHEAD_RE.match(sq):
+                            line.consumed_as = "structure"
+                        elif sq == "\u2022":
+                            line.consumed_as = "structure"
+                        elif low == "the presider then says,":
+                            line.section, line.consumed_as = "confession", "rubric"
+                            phase = "confession"
+                    elif phase == "confession":
+                        line.section = "confession"
+                        if low in ("or", "or."):
+                            line.consumed_as = "separator"
+                        elif low == "the presider says,":
+                            line.section, line.consumed_as = "absolution", "rubric"
+                            phase = "absolution"
+                    elif phase == "absolution":
+                        line.section = "absolution"
+                        if low in ("or", "or."):
+                            line.consumed_as = "separator"
+                        elif low.startswith("a deacon or lay person"):
+                            line.section, line.consumed_as = "deacon_rubric", "rubric"
+                            phase = "rubrics"
+                        elif sq == _PEN_VARIANT:
+                            line.consumed_as = "variant"
+                    elif phase == "rubrics":
+                        if low.startswith("when this penitential office"):
+                            line.section, line.consumed_as = "transition_rubric", "rubric"
+                            phase = "transition"
+                        else:
+                            line.section, line.consumed_as = "deacon_rubric", "rubric"
+                    else:  # transition — everything after the hand-off is its rubric
+                        line.section, line.consumed_as = "transition_rubric", "rubric"
+                    source.append(line)
+
+    # ── PAGE → DATA ─────────────────────────────────────────────────────────
+    # Structure/separator/variant first: the ordinary printing's subheads
+    # "Morning"/"Evening" are substrings of shipped sentence text, so the text
+    # rules would misread a consumed line as shipped content.
+    for line in source:
+        text = line.text
+        if not squash(text):
+            continue
+        if line.consumed_as == "structure":
+            page_counts["structure"] += 1
+        elif line.consumed_as == "variant":
+            page_counts["variant"] += 1
+        elif line.consumed_as == "separator" or _BARE_SEPARATOR.match(squash(text)):
+            page_counts["separator"] += 1
+        elif has(text):
+            page_counts["verbatim"] += 1
+        elif find(text):
+            page_counts["reflowed"] += 1
+        elif has(_pen_clean(text)) or find(_pen_clean(text)):
+            page_counts["whitespace"] += 1
+        else:
+            page_counts["UNACCOUNTED"] += 1
+            findings.append(Finding("penitential", line.section,
+                                    line.consumed_as or line.type, text, "page"))
+
+    # ── DATA → PAGE ─────────────────────────────────────────────────────────
+    # The whitespace rule uses the extractor's own _pen_clean (which folds a
+    # span-separated " ." and NBSP), not _fix_whitespace, which mirrors only
+    # _normalize_whitespace for the form texts.
+    printed = {squash(line.text) for line in source}
+    page_stream = " ".join(squash(line.text) for line in source)
+    fixed_stream = squash(_pen_clean(page_stream))
+    for key in sorted(shipped_lines):
+        if key in printed:
+            data_counts["printed"] += 1
+        elif key in page_stream:
+            data_counts["printed-joined"] += 1
+        elif key in fixed_stream:
+            data_counts["whitespace"] += 1
+        else:
+            data_counts["UNACCOUNTED"] += 1
+            findings.append(Finding("penitential", "—", "text", key, "data"))
+
+    return page_counts, data_counts, findings
+
+
 def load_baseline() -> list[dict]:
     if not BASELINE.exists():
         return []
@@ -656,10 +831,13 @@ def run_offices(args) -> int:
     pre_shared = pre_data.get("_shared", {})
     corrections = load_corrections()
 
-    offices = [(k, s, e) for k, s, e in OFFICES if not args.form or k == args.form]
-    if not offices:
-        print(f"ERROR: unknown form {args.form!r}", file=sys.stderr)
-        return 1
+    if args.form == "penitential":
+        offices: list[tuple[str, int, int]] = []
+    else:
+        offices = [(k, s, e) for k, s, e in OFFICES if not args.form or k == args.form]
+        if not offices:
+            print(f"ERROR: unknown form {args.form!r}", file=sys.stderr)
+            return 1
 
     doc = fitz.open(PDF)
     metrics = document_metrics(doc, sorted({p for _, s, e in OFFICES
@@ -691,6 +869,22 @@ def run_offices(args) -> int:
         for f in found:
             sections_seen[f.direction][f.section] += 1
 
+    # The Penitential Office is not a form: its own walk accounts the two
+    # printings' pages against the shipped `_penitential` block (#165).
+    if args.form in (None, "penitential"):
+        pen = data.get("_penitential")
+        if pen is None:
+            print(f"ERROR: _penitential missing from {SHIPPED}", file=sys.stderr)
+            return 1
+        page, dat, found = check_penitential(doc, pen)
+        page_total.update(page)
+        data_total.update(dat)
+        page_by_form["penitential"] = page
+        data_by_form["penitential"] = dat
+        findings.extend(found)
+        for f in found:
+            sections_seen[f.direction][f.section] += 1
+
     doc.close()
 
     # A baseline entry counts lines across the whole corpus, so a single-form
@@ -701,9 +895,12 @@ def run_offices(args) -> int:
     # claimed.
     known, errors = reconcile(findings, load_baseline(), by_count=not args.form)
 
+    # The Penitential Office is one more unit of the offices chain when it ran.
+    n_units = len(offices) + (1 if args.form in (None, "penitential") else 0)
+
     if args.json:
         print(json.dumps({
-            "forms": len(offices),
+            "forms": n_units,
             "page_to_data": dict(page_total),
             "data_to_page": dict(data_total),
             "known": [{"id": k["id"], "issue": k["issue"], "lines": k["found"]}
@@ -717,9 +914,13 @@ def run_offices(args) -> int:
         }, indent=2))
         return 1 if errors else 0
 
+    if args.form == "penitential":
+        pop_desc = "the Penitential Office"
+    else:
+        pop_desc = f"{len(offices)} forms" + ("" if args.form else " + the Penitential Office")
     print(f"Conservation check — {PDF.name} ↔ {SHIPPED.relative_to(ROOT)}")
     print(f"Population: {sum(page_total.values()):,} typed source lines across "
-          f"{len(offices)} forms, after the noise filter.")
+          f"{pop_desc}, after the noise filter.")
 
     for want, heading, rules, totals, by_form in (
         ("page", "PAGE → DATA   is anything printed missing?",
