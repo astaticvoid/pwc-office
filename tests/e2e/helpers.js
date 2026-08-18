@@ -33,7 +33,8 @@ export async function gotoOffice(page, date, office) {
  * there is no breakpoint-dependent fallback through the picker sheet.
  */
 export async function ensureOffice(page, office) {
-  const label = office === 'ep' ? 'Evening Prayer' : 'Morning Prayer';
+  const label = office === 'ep' ? 'Evening Prayer'
+    : office === 'midday' ? 'Mid-day Prayer' : 'Morning Prayer';
   const btn = page.locator(`.day-ctrl-group--office .day-ctrl-btn:text-is("${label}")`);
   if ((await btn.getAttribute('aria-pressed')) !== 'true') {
     await btn.click();
