@@ -22,6 +22,8 @@ from check_conservation import (
     FatsShipped,
     FatsSourceLine,
     Finding,
+    MiddayShipped,
+    MiddaySourceLine,
     PsalterShipped,
     PsalterSourceLine,
     ShippedForm,
@@ -29,6 +31,7 @@ from check_conservation import (
     _fix_whitespace,
     check_fats,
     check_form,
+    check_midday,
     check_psalter,
     line_id,
     read_psalter_source,
@@ -644,5 +647,154 @@ class TestFatsCheck:
             [{"saint_key": SAINT, "field": "bio",
               "old": "printed", "new": "shipped"}])
         page, data, *_ = check_fats(fsl(("printed wording", "bio")), sh)
+        assert page["corrected"] == 1 and page["UNACCOUNTED"] == 0
+        assert data["corrected"] == 1 and data["UNACCOUNTED"] == 0
+
+
+# ── Mid-day chain (#166) ──────────────────────────────────────────────────────
+#
+# The mid-day conservation check (--chain midday) shares the two-direction
+# methodology over the `_midday` form's fields. Its load-bearing claims are the
+# same as psalter's and fats': it FAILS when a line is dropped, invented, or
+# misplaced into another field, and the `corrected` rule only ever excuses a
+# divergence an office_text entry addressed to `_midday` actually reconstructs.
+
+
+def midday_form(fields):
+    """A synthetic `_midday` form from the given fields (no forced title)."""
+    return dict(fields)
+
+
+def midday_shipped(pre_fields, shipped_fields, corrections):
+    """A MiddayShipped from pre/shipped field dicts."""
+    return MiddayShipped(midday_form(shipped_fields), midday_form(pre_fields),
+                         corrections)
+
+
+def msl(*items):
+    """Midday source lines as (text, field) or (text, field, consumed_as)."""
+    out = []
+    for item in items:
+        if len(item) == 3:
+            out.append(MiddaySourceLine(item[0], item[1], consumed_as=item[2]))
+        else:
+            out.append(MiddaySourceLine(item[0], item[1]))
+    return out
+
+
+class TestMiddayCheck:
+    def test_title_ships_as_the_title_field(self):
+        """The office title is a plain-string field, not a segment; the walk
+        emits it as a line tagged 'title' (read_midday_source prepends it from
+        the extractor's own _TITLE constant)."""
+        sh = midday_shipped({"title": "Prayers at Mid-day"},
+                            {"title": "Prayers at Mid-day"}, [])
+        page, data, *_ = check_midday(msl(("Prayers at Mid-day", "title")), sh)
+        assert page["verbatim"] == 1 and page["UNACCOUNTED"] == 0
+        assert data["printed"] == 1 and data["UNACCOUNTED"] == 0
+
+    def test_verbatim_line_accounted_both_ways(self):
+        sh = midday_shipped(
+            {"opening": [{"type": "leader", "text": "O God, make speed to save us."}]},
+            {"opening": [{"type": "leader", "text": "O God, make speed to save us."}]}, [])
+        page, data, *_ = check_midday(
+            msl(("O God, make speed to save us.", "opening")), sh)
+        assert page["verbatim"] == 1 and page["UNACCOUNTED"] == 0
+        assert data["printed"] == 1 and data["UNACCOUNTED"] == 0
+
+    def test_dropped_line_is_reported(self):
+        sh = midday_shipped({"opening": [{"type": "leader", "text": "kept line"}]},
+                            {"opening": [{"type": "leader", "text": "kept line"}]}, [])
+        page, _, _, _, findings = check_midday(
+            msl(("kept line", "opening"), ("dropped line", "opening")), sh)
+        assert page["UNACCOUNTED"] == 1
+        assert findings[0].text == "dropped line"
+
+    def test_invented_line_is_reported(self):
+        sh = midday_shipped(
+            {"opening": [{"type": "leader", "text": "kept line"}]},
+            {"opening": [{"type": "leader", "text": "kept line\ninvented line"}]}, [])
+        _, data, _, _, findings = check_midday(msl(("kept line", "opening")), sh)
+        assert data["UNACCOUNTED"] == 1
+        assert findings[0].direction == "data"
+        assert findings[0].text == "invented line"
+
+    def test_misplaced_line_is_reported(self):
+        """PAGE→DATA is field-scoped: a line that ships in the wrong field is
+        caught even though its text exists somewhere in `_midday`."""
+        sh = midday_shipped(
+            {"opening": [{"type": "leader", "text": "kept line"}]},
+            {"psalm": [{"type": "leader", "text": "kept line"}]}, [])
+        page, _, _, _, findings = check_midday(msl(("kept line", "opening")), sh)
+        assert page["UNACCOUNTED"] == 1
+        assert findings[0].text == "kept line"
+
+    def test_heading_and_separator_are_consumed_structure(self):
+        sh = midday_shipped({"opening": [{"type": "leader", "text": "kept"}]},
+                            {"opening": [{"type": "leader", "text": "kept"}]}, [])
+        page, _, _, _, findings = check_midday(msl(
+            ("Psalm Prayer", "psalm_prayer", "heading"),
+            ("Or the following:", "reading", "separator"),
+            ("kept", "opening")), sh)
+        assert page["heading"] == 1 and page["separator"] == 1
+        assert page["UNACCOUNTED"] == 0 and not findings
+
+    def test_roman_alternative_labels_are_structural(self):
+        alt = [{"type": "alternatives", "groups": [
+            {"label": "I", "segments": [{"type": "leader", "text": "first"}]},
+            {"label": "II", "segments": [{"type": "leader", "text": "second"}]}]}]
+        sh = midday_shipped({"reading": alt}, {"reading": alt}, [])
+        _, data, _, _, findings = check_midday(
+            msl(("first", "reading"), ("second", "reading")), sh)
+        assert data["structural"] == 2 and data["UNACCOUNTED"] == 0
+        assert not findings
+
+    def test_a_manifest_entry_accounts_for_the_change_both_ways(self):
+        sh = midday_shipped(
+            {"opening": [{"type": "leader", "text": "He was a man of prayr."}]},
+            {"opening": [{"type": "leader", "text": "He was a man of prayer."}]},
+            [{"office": "_midday", "field": "opening",
+              "old": "prayr", "new": "prayer"}])
+        page, data, *_ = check_midday(
+            msl(("He was a man of prayr.", "opening")), sh)
+        assert page["corrected"] == 1 and page["UNACCOUNTED"] == 0
+        assert data["corrected"] == 1 and data["UNACCOUNTED"] == 0
+
+    def test_a_correction_that_does_not_reconstruct_excuses_nothing(self):
+        sh = midday_shipped(
+            {"opening": [{"type": "leader", "text": "A B"}]},
+            {"opening": [{"type": "leader", "text": "A C"}]},
+            [{"office": "_midday", "field": "opening", "old": "B", "new": "X"}])
+        page, _, _, _, findings = check_midday(msl(("A B", "opening")), sh)
+        assert page["UNACCOUNTED"] == 1
+        assert findings[0].text == "A B"
+
+    def test_a_correction_on_another_office_does_not_excuse_it(self):
+        """The reconstruction honours the applier's office scoping: only
+        corrections addressed to `_midday` can excuse a divergence."""
+        sh = midday_shipped(
+            {"opening": [{"type": "leader", "text": "printed wording"}]},
+            {"opening": [{"type": "leader", "text": "shipped wording"}]},
+            [{"office": "advent-mp", "field": "opening",
+              "old": "printed", "new": "shipped"}])
+        page, _, _, _, findings = check_midday(
+            msl(("printed wording", "opening")), sh)
+        assert page["UNACCOUNTED"] == 1
+
+    def test_a_correction_may_not_vouch_for_extractor_invention(self):
+        sh = midday_shipped(
+            {"opening": [{"type": "leader", "text": "printed line\ninvented line"}]},
+            {"opening": [{"type": "leader", "text": "printed line\ninvented line"}]},
+            [{"office": "_midday", "field": "opening",
+              "old": "printed", "new": "changed"}])
+        _, data, *_ = check_midday(msl(("printed line", "opening")), sh)
+        assert data["UNACCOUNTED"] == 1
+
+    def test_correction_replaces_first_occurrence_only_like_the_applier(self):
+        sh = midday_shipped(
+            {"opening": [{"type": "leader", "text": "word one word two"}]},
+            {"opening": [{"type": "leader", "text": "w1 one word two"}]},
+            [{"office": "_midday", "field": "opening", "old": "word", "new": "w1"}])
+        page, data, *_ = check_midday(msl(("word one word two", "opening")), sh)
         assert page["corrected"] == 1 and page["UNACCOUNTED"] == 0
         assert data["corrected"] == 1 and data["UNACCOUNTED"] == 0
