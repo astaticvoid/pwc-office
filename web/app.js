@@ -8,7 +8,7 @@ import {
   collectSecondaryPage, collectCommemorations, assembleSections, formatLiturgicalText, invitatorySegments, phosHilaronSegments,
   splitPsalmRubrics, splitReadingRubrics,
   parseRanges, extractVersesWithChapter, parsePsalmCitation,
-  collectPageNum, lookupCollect, lookupFatsEntry,
+  collectPageNum, lookupCollect, lookupFatsEntry, penitentialSegments,
 } from './render.js';
 
 // ── Data path ─────────────────────────────────────────────────────────────────
@@ -109,6 +109,7 @@ const state = {
   date:        todayStr(),
   office:      defaultOffice(),
   observance:  'primary',
+  opening:     'ordinary',
   translation: storageGet('pwc-translation') || 'nrsvue',
 };
 
@@ -1173,6 +1174,8 @@ async function render(dateStr, officeType, translation) {
   // Section visibility decisions shared with validators (ADR 0008).
   const asm = form ? assembleSections({
     form, shared, officeData: activeOfficeData, officeType, season, weekIdx,
+    officeFormSeason: fSeason, opening: state.opening || 'ordinary',
+    penitential: offices._penitential,
     fatsEntry, collects, collectRef: activeOfficeData.collect,
     collectInline: day.collect_inline,
   }) : { sections: [] };
@@ -1200,6 +1203,11 @@ async function render(dateStr, officeType, translation) {
   // ── Gathering ──────────────────────────────────────────────────────────────
   if (asm.sections.some(s => s.name === 'Gathering')) {
     html += `<h2 class="office-section-title">The Gathering of the Community</h2>`;
+    // The Penitential Office, when chosen, stands where the standard opening
+    // sentences do; the office then continues with the Introductory Responses
+    // (#165).
+    if (state.opening === 'penitential' && offices._penitential)
+      html += renderSubsection('A Penitential Office', penitentialSegments(offices._penitential, fSeason, officeType), shared);
     let openingResponses = form.opening_responses;
     if (openingResponses?.type === 'shared' && shared)
       openingResponses = shared[openingResponses.key];

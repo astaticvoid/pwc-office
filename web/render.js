@@ -1092,6 +1092,66 @@ function flattenSegs(segs, shared) {
   return items;
 }
 
+// The book's sentence groups on pp. 10–13/130–131 (#165), keyed by the
+// office-form season vocabulary. "Advent, Christmas, and Epiphany" is one
+// group — three seasons, one sentence set — and seasons outside all six
+// groups use the ordinary Morning/Evening sentences.
+const PEN_SEASON_GROUP = {
+  Advent: 'Advent, Christmas, and Epiphany',
+  Christmas: 'Advent, Christmas, and Epiphany',
+  Epiphany: 'Advent, Christmas, and Epiphany',
+  Lent: 'Lent',
+  Passiontide: 'Passiontide',
+  Easter: 'Easter',
+  Pentecost: 'Pentecost',
+  AllSaints: 'All Saints',
+};
+
+/**
+ * Segments for the Penitential Office opening (#165). Rendered in place of the
+ * standard opening sentences when the reader chooses the penitential opening;
+ * the service then continues with the Introductory Responses (the book's own
+ * hand-off: "…continues with the Introductory Responses.").
+ *
+ * The sentence groups on pp. 10–13/130–131 are keyed by the office-form season
+ * (officeFormSeason), whose vocabulary maps onto them directly — the book
+ * prints "Advent, Christmas, and Epiphany" as one sentence set. Any season
+ * outside the six groups uses the ordinary Morning/Evening sentences.
+ * @param {Object} penitential - offices.json `_penitential`
+ * @param {string} officeFormSeason - e.g. 'Lent' | 'OrdinaryTime' | …
+ * @param {string} officeType - 'mp' | 'ep'
+ * @returns {import('./office-types.d.ts').Segment[]}
+ */
+export function penitentialSegments(penitential, officeFormSeason, officeType) {
+  if (!penitential || !penitential.sentences) return [];
+  const timeOfDay = officeType === 'ep' ? 'evening' : 'morning';
+  const group = PEN_SEASON_GROUP[officeFormSeason];
+  const seasonal = group && penitential.sentences.seasonal && penitential.sentences.seasonal[group];
+  const items = (seasonal && seasonal[timeOfDay]) || (penitential.sentences.ordinary || {})[timeOfDay] || [];
+  const segs = [];
+  const push = (type, text) => { if (text) segs.push({ type, text }); };
+  push('rubric', penitential.opening_rubric);
+  for (const item of items) {
+    push('leader', item.text);
+    push('rubric', item.citation);
+  }
+  for (const block of [penitential.confession, penitential.absolution]) {
+    if (!block) continue;
+    push('rubric', block.invitation);
+    if (block.call) push('leader', block.call);
+    if (block.silence) push('rubric', block.silence);
+    // The book prints the alternatives one after the other with "Or" between
+    // them; both render, exactly as printed (ADR 0016).
+    (block.alternatives || []).forEach((alt, i) => {
+      if (i > 0) push('rubric', 'Or');
+      alt.forEach(seg => push(seg.type, seg.text));
+    });
+  }
+  push('rubric', penitential.deacon_rubric);
+  push('rubric', penitential.transition_rubric);
+  return segs;
+}
+
 /**
  * Assemble section structure for a complete office.
  * Shared by renderOfficeJSON (validators) and app.js render() (browser HTML).
@@ -1102,7 +1162,8 @@ function flattenSegs(segs, shared) {
  */
 export function assembleSections(cfg) {
   const { form, shared, officeData, officeType, season, weekIdx,
-          fatsEntry, collects, collectRef, collectInline } = cfg;
+          fatsEntry, collects, collectRef, collectInline,
+          opening, officeFormSeason, penitential } = cfg;
 
   // Shared refs used across sections
   const doxology = shared && shared.doxology;
@@ -1120,6 +1181,20 @@ export function assembleSections(cfg) {
 
   if (hasGathering) {
     const g = { name: 'Gathering', visible: true, subsections: [], dynamic: {} };
+
+    // The Penitential Office fronts the Gathering when chosen (#165): its
+    // sentences, confession and absolution stand where the standard opening
+    // sentences do, and the service continues with the Introductory Responses
+    // below (the book's own hand-off rubric). The sentence selection is keyed
+    // by officeFormSeason — the display season diverges from it between the
+    // Presentation and Ash Wednesday and between Ascension and Pentecost.
+    if (opening === 'penitential' && penitential) {
+      const penSegs = penitentialSegments(penitential, officeFormSeason || season || 'OrdinaryTime', officeType);
+      if (penSegs.length) {
+        g.subsections.push({ label: 'A Penitential Office', segments: penSegs });
+        g.dynamic.penitentialOpening = true;
+      }
+    }
 
     const openingResolved = resolveSharedRef(form.opening_responses, shared);
     if (Array.isArray(openingResolved) && openingResolved.length) {
@@ -1307,6 +1382,7 @@ export function assembleSections(cfg) {
     meta: {
       officeType: officeType,
       season: season,
+      opening: opening || 'ordinary',
       formKey: form._key || '',
       weekIdx: weekIdx || 0,
       hasAlternateObservance: !!(officeData.alternate),

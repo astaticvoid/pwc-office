@@ -337,8 +337,8 @@ const CASES = [
       // published day names a collect. Cutting them at the renderer is what
       // makes the condition the rule names occur at all.
       renderPatch: src => src.replace(
-        'fatsEntry, collects, collectRef, collectInline } = cfg;',
-        'collects } = cfg;\n  const fatsEntry = null, collectRef = null, collectInline = null;',
+        'fatsEntry, collects, collectRef, collectInline,\n          opening, officeFormSeason, penitential } = cfg;',
+        'collects } = cfg;\n  const fatsEntry = null, collectRef = null, collectInline = null,\n    opening = null, officeFormSeason = null, penitential = null;',
       ),
       // The fourth source is the form's own, and this empties it: the field
       // stays populated but flattens to nothing.

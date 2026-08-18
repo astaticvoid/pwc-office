@@ -7,7 +7,7 @@ import {
   LITURGICAL_TEXT_REGISTER, SKIP_RUBRICS, assembleSections, esc,
   formatLiturgicalText, formatProseText, splitPsalmRubrics, splitReadingRubrics,
   parseCitation, expandCitationForDisplay, SINGLE_CHAPTER_BOOKS,
-  collectCommemorations, lookupFatsEntry, fatsCandidates,
+  collectCommemorations, lookupFatsEntry, fatsCandidates, penitentialSegments,
 } from '../../web/render.js';
 
 const DATA_DIR = join(import.meta.dirname, '../../data');
@@ -187,6 +187,64 @@ describe('all forms: shared-ref fields render non-empty HTML', () => {
     expect(third?.label, `${name} reading_response third alternative`).toBe('III');
     expect(third?.segments?.[0]?.text,
       `${name} reading_response third leader`).toBe('Holy Word, Holy Wisdom.');
+  });
+});
+
+// ── Penitential Office opening (#165) ────────────────────────────────────────
+
+describe.skipIf(!HAS_DATA)('penitential opening', () => {
+  const pen = offices._penitential;
+  const cfg = (extra = {}) => ({
+    form: forms[0][1], shared, officeType: 'mp', season: 'Lent',
+    officeFormSeason: 'Lent', weekIdx: 0, officeData: {}, ...extra,
+  });
+  const penSub = sections => sections.find(s => s.name === 'Gathering')
+    .subsections.find(s => s.label === 'A Penitential Office');
+
+  test('default assembly carries no penitential subsection', () => {
+    const { sections, meta } = assembleSections(cfg());
+    expect(sections.find(s => s.name === 'Gathering').subsections.map(s => s.label))
+      .toEqual(['Introductory Responses']);
+    expect(meta.opening).toBe('ordinary');
+  });
+
+  test('penitential opening fronts the Gathering before the Introductory Responses', () => {
+    const { sections, meta } = assembleSections(cfg({ opening: 'penitential', penitential: pen }));
+    const g = sections.find(s => s.name === 'Gathering');
+    expect(g.subsections.map(s => s.label))
+      .toEqual(['A Penitential Office', 'Introductory Responses']);
+    expect(g.dynamic.penitentialOpening).toBe(true);
+    expect(meta.opening).toBe('penitential');
+  });
+
+  test('sentence set follows the office-form season group', () => {
+    const at = (extra) => penSub(assembleSections(cfg({ opening: 'penitential', penitential: pen, ...extra })).sections).segments;
+    expect(at({})[1]).toEqual({ type: 'leader', text: pen.sentences.seasonal.Lent.morning[0].text });
+    expect(at({ season: 'Epiphany', officeFormSeason: 'Epiphany' })[1].text)
+      .toBe(pen.sentences.seasonal['Advent, Christmas, and Epiphany'].morning[0].text);
+    expect(at({ season: 'OrdinaryTime', officeFormSeason: 'OrdinaryTime' })[1].text)
+      .toBe(pen.sentences.ordinary.morning[0].text);
+    expect(at({ officeType: 'ep' })[1].text).toBe(pen.sentences.seasonal.Lent.evening[0].text);
+  });
+
+  test('both alternatives render, with Or between them, and the rubrics bookend', () => {
+    const segs = penitentialSegments(pen, 'Lent', 'mp');
+    const texts = segs.map(s => s.text);
+    expect(segs[0]).toEqual({ type: 'rubric', text: pen.opening_rubric });
+    expect(texts.filter(t => t === 'Or')).toHaveLength(2);
+    expect(texts).toContain(pen.confession.alternatives[0][0].text);
+    expect(texts).toContain(pen.confession.alternatives[1][0].text);
+    expect(texts).toContain(pen.confession.call);
+    expect(texts).toContain(pen.confession.silence);
+    expect(texts).toContain(pen.absolution.alternatives[0][0].text);
+    expect(texts).toContain(pen.absolution.alternatives[1][0].text);
+    expect(texts[texts.length - 2]).toBe(pen.deacon_rubric);
+    expect(texts[texts.length - 1]).toBe(pen.transition_rubric);
+  });
+
+  test('empty input yields no segments', () => {
+    expect(penitentialSegments(null, 'Lent', 'mp')).toEqual([]);
+    expect(penitentialSegments({}, 'Lent', 'mp')).toEqual([]);
   });
 });
 
