@@ -10,11 +10,11 @@ import { expect } from '@playwright/test';
 
 /**
  * #day-date-picker lives inside the date/office picker sheet (#day-picker-sheet,
- * aria-hidden by default) — open it via the date button or the day title before
+ * aria-hidden by default) — open it via the nav bar's calendar button before
  * interacting with the input.
  */
 export async function openDatePicker(page) {
-  await page.locator('#day-date-btn').click();
+  await page.locator('#nav-cal-btn').click();
   await expect(page.locator('#day-date-picker')).toBeVisible();
 }
 

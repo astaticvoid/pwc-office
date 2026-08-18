@@ -1545,11 +1545,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const dayPickerEpBtn = document.getElementById('day-picker-ep');
   const todayBtn = document.getElementById('today-btn');
 
-  // The date opens the picker; the title does not. A heading that silently
-  // swallows taps is not discoverable, and office switching has its own
-  // visible control in the day header.
-  document.getElementById('day-date-nav').addEventListener('click', openDayPicker);
-
   // Tapping the native date input only reliably opens its calendar UI when
   // the tap lands on the small calendar glyph itself (esp. mobile Chrome) —
   // call showPicker() explicitly so the whole row/label opens it.

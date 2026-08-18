@@ -375,23 +375,13 @@ body {
   margin-bottom: var(--sp-2);
 }
 
-#day-date-nav {
-  display: flex; justify-content: flex-start; align-items: flex-start;
-  margin-bottom: 0.5rem;
-  /* The click handler is on the row, not the button, so this padding is the
-     tappable band rather than spacing — off the 4px grid deliberately. */
-  cursor: pointer; padding: 0.3rem 0;
-}
-#day-date-btn {
-  position: relative; background: none; border: none; cursor: pointer;
+/* The civil date. Plain text — the nav bar's calendar button owns the date
+   picker (#163). */
+#day-date-label {
+  display: block; margin-bottom: 0.5rem;
   font-family: var(--font-liturgy); font-size: 1.15rem; font-style: italic;
-  color: var(--color-text); padding: 0.15rem 0.4rem; border-radius: var(--radius-sm);
-  /* Cancel the left half of the hover ground, so the date keeps its pad and
-     still starts on the header's one left axis (#122). */
-  margin-left: -0.4rem;
-  transition: background 0.1s;
+  color: var(--color-text);
 }
-#day-date-btn:hover { background: var(--color-surface); }
 
 #day-meta {
   display: flex; justify-content: flex-start; align-items: flex-start;
@@ -996,9 +986,7 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
   .alt-tabs { display: none; }
   .alt-source { margin-top: 0; }
   .eval-banner, #theme-toggle { display: none; }
-  /* Controls print as dead buttons. The date row stays: #day-date-btn is
-     already borderless text, and the sheet has to say which day it is.
-     (The nav icons need no rule — #nav above takes the whole bar.) */
+  /* Controls print as dead buttons; the date label is already plain text,
+     and the sheet has to say which day it is. */
   #day-office-controls { display: none; }
-  #day-date-btn { padding: 0; margin-left: 0; }
 }
