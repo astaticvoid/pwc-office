@@ -211,9 +211,9 @@ describe('the audit fails when it should', () => {
     expect(keysOf(failures)).toEqual(['-/-/.invented@0.5/?']);
   });
 
-  test('restoring .meta-lbl\'s opacity fails — 0.8 on muted is 3.64:1 (issue #85)', () => {
-    const { failures } = auditContrast(css.replace('.meta-lbl { color: var(--color-muted); }', '.meta-lbl { opacity: 0.8; }'));
-    expect(keysOf(failures)).toEqual(['-/-/.meta-lbl@0.8/?']);
+  test('restoring the day-meta dim via opacity fails — 0.8 on muted is 3.64:1 (issue #85)', () => {
+    const { failures } = auditContrast(css.replace('.meta-item { display: flex; align-items: center; gap: 0.35rem; color: var(--color-muted); white-space: nowrap; }', '.meta-item { opacity: 0.8; }'));
+    expect(keysOf(failures)).toEqual(['-/-/.meta-item@0.8/?']);
   });
 
   test('a declared opacity rule is measured, not merely allowed', () => {

@@ -398,25 +398,27 @@ body {
   gap: var(--sp-1) var(--sp-2);
   flex-wrap: wrap; font-size: var(--fs-ui);
 }
-/* One rule owns the separator, so every pair reads the same however many items
-   the day has. It trails its own item rather than leading the next: the row
-   wraps on a phone, and a leading separator would orphan onto the new line and
-   push that item off the header's left axis (#124). */
-.meta-item:not(:last-child)::after {
+/* A bar token trails its · only when another bar token follows it — never
+   after a marker, which wraps to its own full-width line beneath, and never
+   orphaned onto a wrapped line, because the token that carries the · is the
+   one that wrapped (#124). */
+.meta-item:not(.meta-item--marker):has(+ .meta-item:not(.meta-item--marker))::after {
   content: '·'; color: var(--color-border); margin-left: var(--sp-1);
 }
 
 /* Meta: season item */
+/* No opacity here. It dimmed --color-muted to 3.64:1 on the page ground, which
+   is the #85 defect by a second route — and with the token now properly quiet,
+   the muted ink already reads quieter than .meta-val's weight and colour. */
 .meta-item { display: flex; align-items: center; gap: 0.35rem; color: var(--color-muted); white-space: nowrap; }
 .meta-item--season { font-weight: 500; color: var(--color-text); }
 /* Markers are sentences, not tokens — "Day of discipline and self-denial" is
    wider than a phone's measure, so this is the one meta item that wraps
-   inside itself rather than pushing the row (#128). */
-.meta-item--marker { white-space: normal; text-wrap: pretty; }
-/* No opacity here. It dimmed --color-muted to 3.64:1 on the page ground, which
-   is the #85 defect by a second route — and with the token now properly quiet,
-   the label is already distinguished from .meta-val's weight and ink. */
-.meta-lbl { color: var(--color-muted); }
+   inside itself rather than pushing the row (#128). They sit as their own
+   full-width line beneath the bar: a marker's margin doubles the gap to mark
+   the boundary, and a second marker just follows the first (#152). */
+.meta-item--marker { flex-basis: 100%; margin-top: var(--sp-1); white-space: normal; text-wrap: pretty; }
+.meta-item--marker + .meta-item--marker { margin-top: 0; }
 .meta-val {
   font-family: var(--font-ui); font-size: var(--fs-ui);
   color: var(--color-text); font-weight: 500;
@@ -512,8 +514,7 @@ body.book-mode .alt-panel + .alt-panel::before {
 }
 .label-micro,
 .observance-label,
-.day-ctrl-cap,
-.meta-lbl {
+.day-ctrl-cap {
   font-family: var(--font-ui);
   font-size: var(--fs-micro);
   font-weight: 600;
