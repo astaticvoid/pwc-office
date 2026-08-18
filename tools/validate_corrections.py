@@ -46,10 +46,31 @@ PERMITTED_SOURCES = {
 VOUCHING_PREFIX = "pwc-errata-"
 
 
+def adr_numbers() -> set[str]:
+    """The ADR numbers that exist as files in docs/adr/ (e.g. "0019").
+
+    Excludes 0000-template.md: the template is not an ADR, so citing it must
+    not resolve.
+    """
+    adr_dir = ROOT / "docs" / "adr"
+    if not adr_dir.is_dir():
+        return set()
+    return {p.name[:4] for p in adr_dir.glob("[0-9][0-9][0-9][0-9]-*.md")
+            if p.name[:4] != "0000"}
+
+
 def validate_provenance(corrections: dict) -> list[str]:
-    """Every correction carries a known `source` and a unique `id`."""
+    """Every correction carries a known `source`, a unique `id`, and a warrant.
+
+    ADR 0022: the manifest is the only authorized divergence from the source
+    text, so every entry must name what authorizes it — a `reason` always, and
+    an `adr` when an ADR settled it (`upstream-review`, the source whose whole
+    point is a review ruling, is required to). An `adr` that cannot be
+    followed to a real ADR file is not a citation.
+    """
     errors = []
     seen: dict = {}
+    known_adrs = adr_numbers()
     for category, entries in corrections.items():
         if not isinstance(entries, list):
             continue          # "version" and any future scalar metadata
@@ -72,6 +93,23 @@ def validate_provenance(corrections: dict) -> list[str]:
                     f"validate_corrections.py if it is genuinely new — note that "
                     f"a source starting with {VOUCHING_PREFIX!r} may vouch for a "
                     f"deliberate line break (ADR 0012).")
+
+            reason = entry.get("reason")
+            if not reason or not str(reason).strip():
+                errors.append(
+                    f"{where} ({cid or 'no id'}): no 'reason' — every entry "
+                    f"names the warrant for its divergence (ADR 0022)")
+
+            adr = entry.get("adr")
+            adr_tokens = str(adr or "").split()
+            if source == "upstream-review" and not adr_tokens:
+                errors.append(
+                    f"{where} ({cid or 'no id'}): 'upstream-review' entries "
+                    f"must name the ADR that settled them ('adr') (ADR 0022)")
+            if adr_tokens and adr_tokens[0] not in known_adrs:
+                errors.append(
+                    f"{where} ({cid or 'no id'}): adr {adr!r} does not name a "
+                    f"real ADR in docs/adr/ (ADR 0022)")
     return errors
 
 

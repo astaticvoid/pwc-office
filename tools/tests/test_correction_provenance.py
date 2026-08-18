@@ -20,7 +20,9 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 def entry(**kw):
-    return {"id": "some-id", "source": "editorial", **kw}
+    # ADR 0022: every entry names the warrant for its divergence, so the
+    # helper's baseline shape carries a reason (and an adr when it settles one).
+    return {"id": "some-id", "source": "editorial", "reason": "a test warrant", **kw}
 
 
 class TestSource:
@@ -33,7 +35,7 @@ class TestSource:
         assert "unknown source 'made-up'" in errors[0]
 
     def test_a_missing_source_is_an_error(self):
-        errors = validate_provenance({"psalter": [{"id": "x"}]})
+        errors = validate_provenance({"psalter": [{"id": "x", "reason": "w"}]})
         assert len(errors) == 1
         assert "unknown source None" in errors[0]
 
@@ -55,7 +57,7 @@ class TestSource:
 
 class TestId:
     def test_a_missing_id_is_an_error(self):
-        errors = validate_provenance({"psalter": [{"source": "editorial"}]})
+        errors = validate_provenance({"psalter": [{"source": "editorial", "reason": "w"}]})
         assert errors == ["psalter[0]: no 'id'"]
 
     def test_duplicate_ids_are_an_error_across_categories(self):
@@ -73,6 +75,69 @@ class TestId:
             "psalter": [entry(id="one")],
             "fats": [entry(id="two")],
         }) == []
+
+
+class TestWarrant:
+    """ADR 0022: every entry names the warrant for its divergence — a reason
+    always, an adr when an ADR settled it (required for upstream-review)."""
+
+    def test_a_missing_reason_is_an_error(self):
+        errors = validate_provenance({"psalter": [{"id": "x", "source": "editorial"}]})
+        assert len(errors) == 1
+        assert "no 'reason'" in errors[0]
+
+    def test_an_empty_reason_is_an_error(self):
+        errors = validate_provenance({"psalter": [entry(reason="  ")]})
+        assert len(errors) == 1
+        assert "no 'reason'" in errors[0]
+
+    def test_a_reason_passes(self):
+        assert validate_provenance({"psalter": [entry(reason="why")]}) == []
+
+    def test_upstream_review_requires_an_adr(self):
+        errors = validate_provenance({"psalter": [entry(source="upstream-review")]})
+        assert len(errors) == 1
+        assert "must name the ADR" in errors[0]
+
+    def test_an_upstream_review_whitespace_adr_is_treated_as_missing(self):
+        # A whitespace-only adr is no adr: the 'must name the ADR' diagnostic
+        # must fire rather than crash on the empty token list.
+        errors = validate_provenance({"psalter": [entry(source="upstream-review", adr="   ")]})
+        assert len(errors) == 1
+        assert "must name the ADR" in errors[0]
+
+    def test_upstream_review_with_an_adr_passes(self):
+        assert validate_provenance({
+            "psalter": [entry(source="upstream-review", adr="0019 item 3")],
+        }) == []
+
+    def test_an_adr_that_names_no_real_adr_is_an_error(self):
+        errors = validate_provenance({"psalter": [entry(adr="0099 item 3")]})
+        assert len(errors) == 1
+        assert "does not name a real ADR" in errors[0]
+
+    def test_the_template_is_not_a_real_adr(self):
+        # 0000-template.md lives in docs/adr/ but is not an ADR, so a citation
+        # to it must not resolve.
+        errors = validate_provenance({"psalter": [entry(adr="0000")]})
+        assert len(errors) == 1
+        assert "does not name a real ADR" in errors[0]
+
+    def test_an_adr_on_a_non_upstream_source_is_still_checked(self):
+        # `adr` is checked wherever it appears, not only on upstream-review:
+        # a citation that cannot be followed is not a citation, whatever the
+        # source claims about itself.
+        errors = validate_provenance({"psalter": [entry(adr="9999")]})
+        assert len(errors) == 1
+        assert "does not name a real ADR" in errors[0]
+
+    def test_the_real_upstream_review_adrs_resolve(self):
+        # The committed manifest's four adr0019-* entries cite ADRs that exist;
+        # TestTheRealManifest.test_the_committed_manifest_is_clean covers them,
+        # this pins the resolution rule itself against the ADR directory.
+        from validate_corrections import adr_numbers
+        assert "0019" in adr_numbers()
+        assert all(a in adr_numbers() for a in ("0013", "0015", "0021"))
 
 
 class TestTheRealManifest:
