@@ -40,6 +40,17 @@ premise was that no source existed.
 The Context and Decision below are left as written — they record what was known
 and decided at the time.
 
+Superseded in part (ADR 0021, #86): the Notes section below states "The errata
+documents are published here with their letter headers pruned... Keep it that
+way — review is a working conversation, and this repo is public." That review
+conversation is over — the errata is fully applied and recorded in
+`docs/errata/README.md`'s declarations table — and AGENTS.md's distribution
+posture draws the line at copyrighted text, not at whether a letter header has
+been pruned from around it. `docs/errata/ordinary-time.md` and `seasonal.md`
+are now a gitignored local input, like `sources/pray-without-ceasing.pdf`.
+Nothing else here is affected: `upstream-review` as a manifest source, the
+app-authored-text register, and the four corrected rubrics all stand.
+
 Corrected (#91): the Status note above records that "the reading response is
 synthesized rather than extracted, so the fix belongs in the extractor." The
 reading responses are printed on the page and extraction now recovers them into

@@ -1,12 +1,20 @@
 # PWC errata
 
 Editorial errata for *Pray Without Ceasing*, received for this project and
-imported verbatim:
+imported verbatim into two local documents:
 
 | Document | Items |
 |---|---|
-| [ordinary-time.md](ordinary-time.md) | 33 |
-| [seasonal.md](seasonal.md) | 41 |
+| ordinary-time.md | 33 |
+| seasonal.md | 41 |
+
+**Gitignored, not in this repository (ADR 0021).** They reproduce the
+corrected liturgical text in full, the same class of copyrighted artifact as
+`sources/pray-without-ceasing.pdf` — held locally, reproducible by anyone with
+their own copy of the errata, never committed. This file is the durable
+record of what they said and decided: everything below quotes only the word
+or two actually in dispute, never a reproduced block. `make audit-errata`
+reports `SKIPPED` by name when a checkout does not have them.
 
 The personal letter header of each document has been pruned to the context
 that matters — scope and form. Everything from the first form heading onward
