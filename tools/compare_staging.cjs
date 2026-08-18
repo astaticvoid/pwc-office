@@ -16,10 +16,16 @@ const office   = process.argv[3] || 'mp';
 
 const AUTH = { username: 'office', password: 'daily' };
 
+// The app has no URL-based routing (#161): a fresh load lands on today's
+// default date/office, derived from the system clock. Set the clock before
+// navigating to reach a specific date/office instead.
 async function renderOffice(browser, url) {
-  const context = await browser.newContext({ httpCredentials: AUTH });
+  const context = await browser.newContext({ httpCredentials: AUTH, timezoneId: 'UTC' });
   const page = await context.newPage();
-  await page.goto(`${url}/#${dateStr}/${office}`, { timeout: 20000 });
+  const hour = office === 'ep' ? 16 : 10; // defaultOffice(): ep at hour >= 15
+  await page.clock.setFixedTime(new Date(`${dateStr}T${String(hour).padStart(2, '0')}:00:00Z`));
+  await page.goto(url, { timeout: 20000 });
+  await page.locator('#day-title').waitFor({ timeout: 20000 });
   await page.waitForTimeout(4000);
 
   // Extract office content as structured text
