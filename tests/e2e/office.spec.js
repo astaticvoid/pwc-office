@@ -1135,6 +1135,29 @@ test.describe('Day markers (#128)', () => {
     await expect(page.locator('#day-meta')).toContainText('Day of discipline and self-denial');
   });
 
+  test('the bar\'s · trails a token only when another token follows', async ({ page }) => {
+    // The separator is ::after, which text matching cannot see — read the
+    // computed pseudo-content. A bar token trails its · only when another bar
+    // token follows it; the last bar token and every marker carry none (#164).
+    await gotoOffice(page, EVE_DATE, 'mp');
+    const items = await page.locator('#day-meta .meta-item').evaluateAll(els =>
+      els.map(el => ({
+        marker: el.classList.contains('meta-item--marker'),
+        after: getComputedStyle(el, '::after').content,
+      })));
+    expect(items.filter(i => i.marker).length).toBeGreaterThan(0);
+    const lastBarIdx = items.map(i => i.marker).lastIndexOf(false);
+    items.forEach((item, idx) => {
+      if (item.marker) {
+        expect(item.after, `marker ${idx} must not carry a ·`).toBe('none');
+      } else if (idx === lastBarIdx) {
+        expect(item.after, `last bar token ${idx} must not trail a ·`).toBe('none');
+      } else {
+        expect(item.after, `bar token ${idx} trails its ·`).toBe('"·"');
+      }
+    });
+  });
+
   test('each office names the other\'s day', async ({ page }) => {
     // The eve is a fact about the calendar day, so the morning says so; the
     // evening, having taken the eve as its title, names the commemoration.
