@@ -87,11 +87,14 @@
 
 /* Seasonal accent colours */
 [data-season="Advent"]       { --color-accent: #4B3F8C; }
-[data-season="Christmas"]    { --color-accent: #B0863A; }
+/* Darkened from #B0863A (same hue, H39), which failed AA as text on both
+   light grounds — 2.87 on --color-bg, 3.08 on --color-surface. 4.59 / 4.93.
+   See #106. */
+[data-season="Christmas"]    { --color-accent: #86662C; }
 [data-season="Epiphany"]     { --color-accent: #2C7370; }
 [data-season="Lent"]         { --color-accent: #6B4C8A; }
 [data-season="Passiontide"]  { --color-accent: #7E2420; }
-[data-season="Easter"]       { --color-accent: #B0863A; }
+[data-season="Easter"]       { --color-accent: #86662C; }
 [data-season="Pentecost"]    { --color-accent: #A43328; }
 [data-season="AllSaints"]    { --color-accent: #4A6080; }
 [data-season="OrdinaryTime"] { --color-accent: #3B6B4E; }
@@ -117,14 +120,18 @@
 /* Dark-mode seasonal accents — lighten for visibility on dark background.
    Every season gets an explicit value here, even where the light value
    already clears AA on dark ground (Christmas, Easter), so none of them
-   depend on inheriting an accent chosen against the other ground. See #106. */
-[data-theme="dark"][data-season="Advent"]       { --color-accent: #7B6FBC; }
+   depend on inheriting an accent chosen against the other ground. See #106.
+   Advent, Lent, Passiontide and Pentecost are lightened further still (same
+   hue in each case) — the first pass cleared --color-bg but not the lighter
+   --color-surface: Advent 4.25/3.93, Lent 4.51/4.17, Passiontide 4.11/3.80,
+   Pentecost 4.81/4.44. Now 5.06/4.68, 4.90/4.53, 5.00/4.62, 4.97/4.60. */
+[data-theme="dark"][data-season="Advent"]       { --color-accent: #887DC2; }
 [data-theme="dark"][data-season="Christmas"]    { --color-accent: #B0863A; }
 [data-theme="dark"][data-season="Epiphany"]     { --color-accent: #38928F; }
-[data-theme="dark"][data-season="Lent"]         { --color-accent: #9070B0; }
-[data-theme="dark"][data-season="Passiontide"]  { --color-accent: #C85040; }
+[data-theme="dark"][data-season="Lent"]         { --color-accent: #9577B4; }
+[data-theme="dark"][data-season="Passiontide"]  { --color-accent: #CF6658; }
 [data-theme="dark"][data-season="Easter"]       { --color-accent: #B0863A; }
-[data-theme="dark"][data-season="Pentecost"]    { --color-accent: #D06050; }
+[data-theme="dark"][data-season="Pentecost"]    { --color-accent: #D16454; }
 [data-theme="dark"][data-season="AllSaints"]    { --color-accent: #6E87AB; }
 [data-theme="dark"][data-season="OrdinaryTime"] { --color-accent: #51926B; }
 

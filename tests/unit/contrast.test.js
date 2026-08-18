@@ -19,6 +19,19 @@ const css = readFileSync(CSS_PATH, 'utf8');
 
 const keysOf = list => list.map(f => f.key);
 
+// KNOWN_CONTRAST is empty now that every real pair clears AA (#106), so the
+// stale-licence tests below inject a temporary entry to exercise the
+// detection logic and remove it immediately after — never left for another
+// test in this file to see.
+function withLicence(key, issue, fn) {
+  KNOWN_CONTRAST[key] = issue;
+  try {
+    return fn();
+  } finally {
+    delete KNOWN_CONTRAST[key];
+  }
+}
+
 describe('contrast maths', () => {
   test('the WCAG extremes', () => {
     expect(contrastRatio('#000000', '#FFFFFF')).toBeCloseTo(21, 5);
@@ -78,7 +91,7 @@ describe('palette parsing', () => {
   });
 
   test('a season with no dark accent keeps its light one, as the cascade does', () => {
-    expect(palette.dark.Advent['--color-accent']).toBe('#7B6FBC'); // overridden
+    expect(palette.dark.Advent['--color-accent']).toBe('#887DC2'); // overridden
     const p = readPalette(css + '\n[data-season="Ascension"] { --color-accent: #101010; }\n');
     expect(p.dark.Ascension['--color-accent']).toBe('#101010'); // no dark rule: the light value carries
   });
@@ -134,6 +147,8 @@ describe('the audit over the shipped stylesheet', () => {
   });
 
   test('every licence names an open issue', () => {
+    // Vacuously true while KNOWN_CONTRAST is empty (#106 cleared the last
+    // ones) — starts checking again the moment a new licence is added.
     for (const [key, issue] of Object.entries(KNOWN_CONTRAST)) {
       expect(key.split('/')).toHaveLength(4);
       expect(Number.isInteger(issue)).toBe(true);
@@ -157,9 +172,12 @@ describe('the audit fails when it should', () => {
   });
 
   test('a licensed pair that starts passing is reported as a stale licence', () => {
-    const { stale } = auditContrast(css.replace('--color-accent: #7B6FBC', '--color-accent: #9C91D8'));
-    expect(keysOf(stale)).toContain('dark/Advent/--color-accent/--color-bg');
-    expect(stale[0].issue).toBe(106);
+    const key = 'dark/Advent/--color-accent/--color-bg';
+    withLicence(key, 999, () => {
+      const { stale } = auditContrast(css);
+      expect(keysOf(stale)).toContain(key);
+      expect(stale.find(f => f.key === key).issue).toBe(999);
+    });
   });
 
   test('a newly painted token with no declared ground fails', () => {
@@ -246,9 +264,12 @@ describe('the audit fails when it should', () => {
   });
 
   test('a licence for a pair nothing measures any more is stale too', () => {
-    // The season renamed out from under `dark/Passiontide/...`.
-    const { stale } = auditContrast(css.replace(/data-season="Passiontide"/g, 'data-season="Ascension"'));
-    expect(keysOf(stale)).toContain('dark/Passiontide/--color-accent/--color-bg');
+    // No season named "Ascension" exists, so this key is never measured.
+    const key = 'dark/Ascension/--color-accent/--color-bg';
+    withLicence(key, 999, () => {
+      const { stale } = auditContrast(css);
+      expect(keysOf(stale)).toContain(key);
+    });
   });
 
   test('border-color and background-color are not read as foregrounds', () => {
