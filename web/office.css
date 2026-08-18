@@ -347,6 +347,9 @@ body {
   box-shadow: 0 1px 2px rgba(0,0,0,0.15);
 }
 
+/* The Opening toggle is the same seg shape as the office toggle — the shared
+   .day-ctrl-seg/.day-ctrl-btn rules cover it; nothing opening-specific needed. */
+
 /* ── Main content ───────────────────────────────────────────────────────────── */
 
 #nav-spacer { display: block; }
@@ -365,7 +368,10 @@ body {
    below it, so the eye never resets between them. */
 #day-header {
   text-align: left;
-  padding: var(--sp-2) 0 var(--sp-6);
+  /* The office controls now close the header, so the header→first-section
+     gap tightens from the standalone --sp-6 to a control-level --sp-4; the
+     section head's own rule and margin still carry the breathing room. */
+  padding: var(--sp-2) 0 var(--sp-4);
 }
 
 #day-title {
@@ -460,6 +466,12 @@ body.book-mode .alt-panel + .alt-panel::before {
   padding-top: var(--sp-3);
   border-top: 1px solid var(--color-accent);
 }
+
+/* When the office content opens straight onto the section head — no FATS
+   biography between header and liturgy — the header's own padding already
+   separates them, and the full --sp-5 would read as dead space (#165). A day
+   with a biography keeps the full margin: the biography absorbs the band. */
+#office-content > h2.office-section-title:first-child { margin-top: var(--sp-2); }
 
 /* Subcomponent: same face as the section head, no small caps. The reading face
    rather than the SC family — nothing here asks for the smcp table. */
@@ -808,7 +820,9 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
    than .fats-bio — that disclosure holds a life worth reading, this one holds
    the provenance of a citation. */
 .day-note-details {
-  margin: var(--sp-2) 0;
+  /* Clears the office controls above it (the header's own padding carries the
+     space below); the note is apparatus, not a sibling of the controls. */
+  margin: var(--sp-4) 0 0;
   border-left: 2px solid var(--color-border);
 }
 .day-note-details-toggle {
@@ -842,11 +856,6 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 
 #day-office-controls { margin-top: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-4); }
 #day-office-controls[style*="display: none"] { margin-top: 0; }
-/* The captions exist to tell the two groups apart. With only the office group
-   on the page there is nothing to tell it apart from, and the caption states
-   what its buttons already say — the group keeps its accessible name from
-   .day-ctrl-seg's aria-label either way (#123). */
-#day-office-controls.has-one-group .day-ctrl-cap { display: none; }
 
 .day-ctrl-group {
   display: flex; flex-direction: column; gap: var(--sp-2);

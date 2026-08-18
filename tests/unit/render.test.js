@@ -219,25 +219,41 @@ describe.skipIf(!HAS_DATA)('penitential opening', () => {
 
   test('sentence set follows the office-form season group', () => {
     const at = (extra) => penSub(assembleSections(cfg({ opening: 'penitential', penitential: pen, ...extra })).sections).segments;
-    expect(at({})[1]).toEqual({ type: 'leader', text: pen.sentences.seasonal.Lent.morning[0].text });
-    expect(at({ season: 'Epiphany', officeFormSeason: 'Epiphany' })[1].text)
-      .toBe(pen.sentences.seasonal['Advent, Christmas, and Epiphany'].morning[0].text);
-    expect(at({ season: 'OrdinaryTime', officeFormSeason: 'OrdinaryTime' })[1].text)
-      .toBe(pen.sentences.ordinary.morning[0].text);
-    expect(at({ officeType: 'ep' })[1].text).toBe(pen.sentences.seasonal.Lent.evening[0].text);
+    // Each sentence renders citation-first: the reference leads the text
+    // (rubric above leader), the app's scripture-reading convention.
+    const s = pen.sentences.seasonal.Lent.morning[0];
+    expect(at({})[1]).toEqual({ type: 'rubric', text: s.citation });
+    expect(at({})[2]).toEqual({ type: 'leader', text: s.text });
+    const ace = pen.sentences.seasonal['Advent, Christmas, and Epiphany'].morning[0];
+    expect(at({ season: 'Epiphany', officeFormSeason: 'Epiphany' })[1].text).toBe(ace.citation);
+    expect(at({ season: 'Epiphany', officeFormSeason: 'Epiphany' })[2].text).toBe(ace.text);
+    const ord = pen.sentences.ordinary.morning[0];
+    expect(at({ season: 'OrdinaryTime', officeFormSeason: 'OrdinaryTime' })[1].text).toBe(ord.citation);
+    expect(at({ season: 'OrdinaryTime', officeFormSeason: 'OrdinaryTime' })[2].text).toBe(ord.text);
+    const eve = pen.sentences.seasonal.Lent.evening[0];
+    expect(at({ officeType: 'ep' })[1].text).toBe(eve.citation);
+    expect(at({ officeType: 'ep' })[2].text).toBe(eve.text);
   });
 
-  test('both alternatives render, with Or between them, and the rubrics bookend', () => {
+  test('confession and absolution present as I/II alternatives with the rubrics bookending', () => {
     const segs = penitentialSegments(pen, 'Lent', 'mp');
-    const texts = segs.map(s => s.text);
     expect(segs[0]).toEqual({ type: 'rubric', text: pen.opening_rubric });
-    expect(texts.filter(t => t === 'Or')).toHaveLength(2);
-    expect(texts).toContain(pen.confession.alternatives[0][0].text);
-    expect(texts).toContain(pen.confession.alternatives[1][0].text);
-    expect(texts).toContain(pen.confession.call);
-    expect(texts).toContain(pen.confession.silence);
-    expect(texts).toContain(pen.absolution.alternatives[0][0].text);
-    expect(texts).toContain(pen.absolution.alternatives[1][0].text);
+    const alts = segs.filter(s => s.type === 'alternatives');
+    // confession + absolution, each carrying both alternatives as I/II pills
+    // (the same shape the reading responses use)
+    expect(alts).toHaveLength(2);
+    for (const alt of alts) {
+      expect(alt.groups.map(g => g.label)).toEqual(['I', 'II']);
+      expect(alt.groups[0].segments.length).toBeGreaterThan(0);
+      expect(alt.groups[1].segments.length).toBeGreaterThan(0);
+    }
+    expect(alts[0].groups[0].segments[0].text).toBe(pen.confession.alternatives[0][0].text);
+    expect(alts[0].groups[1].segments[0].text).toBe(pen.confession.alternatives[1][0].text);
+    expect(alts[1].groups[0].segments[0].text).toBe(pen.absolution.alternatives[0][0].text);
+    expect(alts[1].groups[1].segments[0].text).toBe(pen.absolution.alternatives[1][0].text);
+    expect(segs).toContainEqual({ type: 'leader', text: pen.confession.call });
+    expect(segs).toContainEqual({ type: 'rubric', text: pen.confession.silence });
+    const texts = segs.filter(s => s.text).map(s => s.text);
     expect(texts[texts.length - 2]).toBe(pen.deacon_rubric);
     expect(texts[texts.length - 1]).toBe(pen.transition_rubric);
   });

@@ -1107,6 +1107,11 @@ const PEN_SEASON_GROUP = {
   AllSaints: 'All Saints',
 };
 
+// The confession and absolution alternatives carry no names in the book, so
+// they take the roman labels every other unlabelled alternatives block uses
+// (reading responses, opening responses) — one mechanism, no new shape.
+const PEN_ALT_LABELS = ['I', 'II', 'III', 'IV', 'V'];
+
 /**
  * Segments for the Penitential Office opening (#165). Rendered in place of the
  * standard opening sentences when the reader chooses the penitential opening;
@@ -1132,20 +1137,31 @@ export function penitentialSegments(penitential, officeFormSeason, officeType) {
   const push = (type, text) => { if (text) segs.push({ type, text }); };
   push('rubric', penitential.opening_rubric);
   for (const item of items) {
-    push('leader', item.text);
+    // Citation leads the sentence, as every other scripture reading in the
+    // app does; the book prints it trailing on the same line, but the
+    // citation's position is presentation (ADR 0016).
     push('rubric', item.citation);
+    push('leader', item.text);
   }
   for (const block of [penitential.confession, penitential.absolution]) {
     if (!block) continue;
     push('rubric', block.invitation);
     if (block.call) push('leader', block.call);
     if (block.silence) push('rubric', block.silence);
-    // The book prints the alternatives one after the other with "Or" between
-    // them; both render, exactly as printed (ADR 0016).
-    (block.alternatives || []).forEach((alt, i) => {
-      if (i > 0) push('rubric', 'Or');
-      alt.forEach(seg => push(seg.type, seg.text));
-    });
+    // The alternatives render as the app's own choice presentation — the I/II
+    // tab pills every other alternatives block uses (reading responses,
+    // canticles) — not as a flat stack with "Or" (#165). The book prints both
+    // with "Or" between them; the pills present the same choice, unlabelled
+    // groups taking the standard roman labels.
+    if (block.alternatives && block.alternatives.length) {
+      segs.push({
+        type: 'alternatives',
+        groups: block.alternatives.map((alt, i) => ({
+          label: PEN_ALT_LABELS[i] || String(i + 1),
+          segments: alt,
+        })),
+      });
+    }
   }
   push('rubric', penitential.deacon_rubric);
   push('rubric', penitential.transition_rubric);

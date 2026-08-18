@@ -235,6 +235,41 @@ test.describe('Navigation', () => {
       .toHaveText('Evening Prayer');
   });
 
+  // The Opening control lives with the other header controls: which opening the
+  // office uses is decided at the time of prayer, not behind a sheet (#165).
+  // The Penitential Office fronts the Gathering and the service still continues
+  // with the Introductory Responses; the choice survives an office switch and
+  // flips back to Standard just as cleanly.
+  test('the Opening selector swaps in the Penitential Office', async ({ page }) => {
+    await gotoOffice(page, DATE, 'mp');
+    const content = page.locator('#office-content');
+    await expect(content).not.toContainText('Let us confess our sins');
+
+    const opening = page.locator('.day-ctrl-group--opening');
+    await expect(opening).toBeVisible();
+    await expect(opening.locator('.day-ctrl-btn.is-active')).toHaveText('Standard');
+
+    await opening.locator('.day-ctrl-btn:text-is("Penitential")').click();
+    await expect(content).toContainText('A Penitential Office');
+    await expect(content).toContainText('Let us confess our sins against God and our neighbour.');
+    await expect(content).toContainText('May the God of love and power');
+    await expect(content).toContainText('continues with the Introductory Responses');
+    // the confession/absolution choices use the app's own I/II pill tabs —
+    // the first two tab pills belong to the confession
+    await expect(content.locator('.alt-tab').nth(0)).toHaveText('I');
+    await expect(content.locator('.alt-tab').nth(1)).toHaveText('II');
+    // the standard service still follows the penitential opening
+    await expect(content).toContainText('O Lord, open our lips');
+
+    // the choice survives an office switch (it is state, not a date property)
+    await page.locator('.day-ctrl-group--office .day-ctrl-btn:text-is("Evening Prayer")').click();
+    await expect(opening.locator('.day-ctrl-btn.is-active')).toHaveText('Penitential');
+    await expect(content).toContainText('May the God of love and power');
+
+    await opening.locator('.day-ctrl-btn:text-is("Standard")').click();
+    await expect(content).not.toContainText('Let us confess our sins');
+  });
+
   // A heading that silently swallows taps is not discoverable, so the title
   // neither opens the picker nor claims to be a button; the date does.
   test('the day title is a heading, not a control', async ({ page }) => {

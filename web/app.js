@@ -109,6 +109,8 @@ const state = {
   date:        todayStr(),
   office:      defaultOffice(),
   observance:  'primary',
+  // Deliberately not persisted: the standard opening is the book's default, so
+  // a reader who makes no choice gets the ordinary service on every load.
   opening:     'ordinary',
   translation: storageGet('pwc-translation') || 'nrsvue',
 };
@@ -1014,20 +1016,32 @@ async function render(dateStr, officeType, translation) {
 
   document.querySelectorAll('.day-note, .day-note-details').forEach(el => el.remove());
 
-  // ── Office + Observance controls in day header ────────────────────────────
+  // ── Office, Opening + Observance controls in day header ───────────────────
   const ctrlEl = document.getElementById('day-office-controls');
   if (ctrlEl) {
     let ctrlHtml = '';
     // Office toggle. Always present: switching between Morning and Evening is
     // the app's most-used action and should not be hidden behind a sheet.
-    // Same shape as the observance control below, so the two read as one family.
+    // Same shape as the observance control below, so the three read as one
+    // family; the buttons name themselves, so no caption is needed.
     ctrlHtml += `<div class="day-ctrl-group day-ctrl-group--office">
-      <div class="day-ctrl-cap">Office</div>
       <div class="day-ctrl-seg" role="group" aria-label="Office">
         <button type="button" data-navigate="${esc(dateStr)}|mp|${esc(activeObs)}" aria-pressed="${officeType === 'mp'}" class="day-ctrl-btn${officeType === 'mp' ? ' is-active' : ''}">
           Morning Prayer</button>
         <button type="button" data-navigate="${esc(dateStr)}|ep|${esc(activeObs)}" aria-pressed="${officeType === 'ep'}" class="day-ctrl-btn${officeType === 'ep' ? ' is-active' : ''}">
           Evening Prayer</button>
+      </div></div>`;
+    // Opening toggle. Always present: which opening the office uses is decided
+    // at the time of prayer, so it lives with the other header controls rather
+    // than behind a sheet (#165). Same seg shape as the office toggle; the
+    // active button is set at build time because the controls are rebuilt on
+    // every render.
+    ctrlHtml += `<div class="day-ctrl-group day-ctrl-group--opening">
+      <div class="day-ctrl-seg" role="group" aria-label="Opening">
+        <button type="button" data-opening="ordinary" aria-pressed="${state.opening !== 'penitential'}" class="day-ctrl-btn${state.opening !== 'penitential' ? ' is-active' : ''}">
+          Standard</button>
+        <button type="button" data-opening="penitential" aria-pressed="${state.opening === 'penitential'}" class="day-ctrl-btn${state.opening === 'penitential' ? ' is-active' : ''}">
+          Penitential</button>
       </div></div>`;
     if (officeData.alternate) {
       const altLabel = officeData.alternate.label || 'Alternate';
@@ -1046,9 +1060,8 @@ async function render(dateStr, officeType, translation) {
         </div></div>`;
     }
     ctrlEl.innerHTML = ctrlHtml;
-    // The observance group only exists on a day with an alternate; the sheet
-    // drops both captions when it is absent (#123).
-    ctrlEl.classList.toggle('has-one-group', !officeData.alternate);
+    // The opening group is always present, so the controls are never a bare
+    // single group and the captions always have something to tell apart.
     ctrlEl.style.display = ctrlHtml ? '' : 'none';
   }
   const SUPPRESS_NOTE_TYPES = new Set(['ember_crossref', 'rogation_crossref', 'precedence_rule', 'reconciliation_propers']);
@@ -1621,6 +1634,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     e.preventDefault();
     const parts = btn.dataset.navigate.split('|');
     navigateTo(parts[0], parts[1], parts[2]);
+  });
+
+  // Opening toggle — delegated like the navigation buttons: the header
+  // controls are rebuilt on every render, so a direct listener would be lost.
+  // The opening is a devotional choice, not a property of the date: it lives in
+  // state and survives navigation.
+  document.addEventListener('click', e => {
+    const btn = e.target instanceof Element ? /** @type {HTMLElement|null} */ (e.target.closest('[data-opening]')) : null;
+    if (!btn) return;
+    const next = btn.dataset.opening === 'penitential' ? 'penitential' : 'ordinary';
+    if (state.opening !== next) {
+      state.opening = next;
+      render(state.date, state.office, state.translation);
+    }
   });
 
   // Strip old hash routes — redirect bookmarked #/DATE/OFFICE to root
