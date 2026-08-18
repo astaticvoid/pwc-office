@@ -3,6 +3,12 @@
 ## Status
 Accepted (2026-08-14)
 
+Amended (2026-08-17): the product scope widens from "MP/EP office rendering"
+to "the Daily Office — Morning and Evening Prayer, with the Penitential Office
+as an optional opening and Prayers at Mid-day as a third office" (#146, split
+into #165 and #166). The FATS-propers decision below is unchanged; only the
+scope sentence in the Decision is broadened.
+
 ## Context
 
 For All The Saints (FATS) is the book of commemorations whose data `web/app.js`
@@ -21,8 +27,17 @@ reader-facing demand.
 
 ## Decision
 
-**The product is MP/EP office rendering plus saint biographies. The remaining
-FATS fields stay extraction-only.**
+**The product is the Daily Office — Morning and Evening Prayer, the Penitential
+Office as an optional opening to them, and Prayers at Mid-day as a third
+office — plus saint biographies. The remaining FATS fields stay
+extraction-only.**
+
+The two new offices are not the same shape: the Penitential Office is an
+optional prefix to an existing MP/EP office (page 13: *"When this Penitential
+Office is used, Morning Prayer or Evening Prayer continues with the
+Introductory Responses."*), while Prayers at Mid-day is a standalone office
+reached the way MP and EP are. This ADR records the scope; the extraction and
+selector design for each office live in #165 and #166.
 
 1. `sentence`, `sentence_ref`, `psalm`, `refrain` and `readings` remain
    data-only: extracted, unrendered.
