@@ -10,6 +10,12 @@ __pycache__/
 sources/*
 !sources/bas_short_*.csv
 
+# Errata source documents — reproduce the corrected liturgical text in full,
+# same class of copyrighted artifact as sources/*.pdf (ADR 0021, #86).
+# docs/errata/README.md (our own writing: rulings, word-level quotes) stays.
+docs/errata/ordinary-time.md
+docs/errata/seasonal.md
+
 # All data/ content is copyrighted or derived from copyrighted sources — not for distribution.
 # Exception: KJV translation is public domain and committed.
 # Exception: corrections.json is the single versioned correction manifest (ADR 0005) —
