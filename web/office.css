@@ -578,6 +578,19 @@ body.book-mode .alt-panel + .alt-panel::before {
    red line sits on the last line of the prayer it follows (#120). */
 .seg-leader   + .seg-rubric,
 .seg-response + .seg-rubric   { margin-top: var(--sp-4); }
+/* A response that continues the same said text past a closed alt-block
+   (Ordinary Time's "Alleluia." after the doxology's "Amen.") needs the
+   widget's own bottom margin gone, not a margin-top:0 on the response —
+   margins collapse to the larger side, so only the earlier element's
+   margin-bottom can actually close the gap (same reasoning as
+   collectTextHtml's comment in app.js, #156/#160). Scoped to .seg-response —
+   every alt-block followed by a .seg-leader today (e.g. Thanksgiving for
+   Light) starts a new prayer, not a continuation, and should keep the gap.
+   Keyed on adjacency, not on what the response actually continues, so a
+   future alt-block placed directly before an unrelated response would
+   silently inherit this too — check against its own page before assuming
+   it's covered, same caveat as the leader/response rule above. */
+.alt-block:has(+ .seg-response) { margin-bottom: 0; }
 
 .seg-rubric {
   font-family: var(--font-liturgy);
