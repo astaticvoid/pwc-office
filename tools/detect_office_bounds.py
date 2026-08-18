@@ -71,6 +71,14 @@ OFFICE_SECTION_END = 230  # page after last office form (Psalter begins ~231)
 EXPECTED_SEASONAL = len(SEASONAL_PATTERNS)   # 16
 EXPECTED_ORDINARY = len(ORDINARY_FORM_KEYS)  # 14
 
+# ── Penitential Office — two printings, one title ────────────────────────────
+# "A Penitential Office" is printed twice: a seasonal sentence set (pp. 10–13)
+# and a Morning/Evening set (pp. 130–131). Both carry the same title, so the
+# two occurrences are distinguished by reading order, not title text.
+PENITENTIAL_TITLE = re.compile(r"^A Penitential Office\b")
+PENITENTIAL_KEYS = ["penitential-seasonal", "penitential-ordinary"]
+EXPECTED_PENITENTIAL = len(PENITENTIAL_KEYS)  # 2
+
 
 def detect(pdf_path: Path) -> dict[str, tuple[int, int]]:
     with fitz.open(pdf_path) as pdf:
@@ -151,8 +159,28 @@ def detect(pdf_path: Path) -> dict[str, tuple[int, int]]:
             print(f"Missing ordinary: {missing}", file=sys.stderr)
         sys.exit(1)
 
+    # ── Phase 3: detect the two Penitential Office printings ────────────────
+    # Both printings open with the same title, so reading order distinguishes
+    # them: the first sits before advent-mp, the second between the last
+    # seasonal form and the Ordinary Time block. The front matter (TOC, divider)
+    # ends at page 9, so scan from page 10.
+    penitential: list[tuple[str, int]] = []
+    for page_idx, page_text in enumerate(pages):
+        book_page = page_idx + 1
+        if book_page < 10 or book_page > 240:
+            continue
+        for line in page_text.split('\n')[:8]:
+            if PENITENTIAL_TITLE.match(line.strip()):
+                penitential.append((PENITENTIAL_KEYS[len(penitential)], book_page))
+                break
+
+    if len(penitential) != EXPECTED_PENITENTIAL:
+        print(f"ERROR: found {len(penitential)} Penitential Office printings, "
+              f"expected {EXPECTED_PENITENTIAL}", file=sys.stderr)
+        sys.exit(1)
+
     # ── Assemble all forms in reading order ─────────────────────────────────
-    all_forms = sorted(seasonal + ordinary, key=lambda x: x[1])
+    all_forms = sorted(seasonal + ordinary + penitential, key=lambda x: x[1])
 
     bounds: dict[str, tuple[int, int]] = {}
     seasonal_keys = {k for k, _ in SEASONAL_PATTERNS}

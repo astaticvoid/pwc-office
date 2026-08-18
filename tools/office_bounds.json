@@ -1,4 +1,8 @@
 {
+  "penitential-seasonal": {
+    "start": 10,
+    "end": 13
+  },
   "advent-mp": {
     "start": 14,
     "end": 21
@@ -62,6 +66,10 @@
   "allsaints-ep": {
     "start": 121,
     "end": 128
+  },
+  "penitential-ordinary": {
+    "start": 130,
+    "end": 131
   },
   "ordinary-sunday-mp": {
     "start": 132,

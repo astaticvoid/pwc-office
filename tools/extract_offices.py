@@ -51,9 +51,13 @@ def _load_offices():
     if not bounds_path.exists():
         sys.exit(f"Bounds file not found: {bounds_path}\nRun: python3 tools/detect_office_bounds.py --write")
     bounds = json.loads(bounds_path.read_text())
-    return [(k, v["start"], v["end"]) for k, v in bounds.items()]
+    offices = [(k, v["start"], v["end"]) for k, v in bounds.items()
+               if not k.startswith("penitential-")]
+    penitential = [(k, v["start"], v["end"]) for k, v in bounds.items()
+                   if k.startswith("penitential-")]
+    return offices, penitential
 
-OFFICES = _load_offices()
+OFFICES, PENITENTIAL_BOUNDS = _load_offices()
 
 # ── Section key mapping ───────────────────────────────────────────────────────
 
@@ -1431,6 +1435,253 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
     return result
 
 
+# ── Penitential Office (#165) ─────────────────────────────────────────────────
+# Not a form: an optional opening that replaces the start of MP/EP and hands
+# back with "…continues with the Introductory Responses." Printed twice — a
+# seasonal sentence set and a Morning/Evening set — with the confession and
+# absolution shared between the printings (except one line: the ordinary
+# printing's absolution A reads "from our sins," where the seasonal printing
+# reads "from your/our sins,"; the extractor ships the seasonal form). Its
+# shape (season-keyed sentences + shared confession/absolution) does not fit
+# SECTION_ORDER, so it is extracted as `_penitential`, a sibling of `_shared`,
+# rather than a 31st office key.
+
+_PEN_SUBHEAD_RE = re.compile(
+    r"^(?:(.+?)\s+in the\s+(Morning|Evening)|(Morning|Evening))$", re.IGNORECASE)
+_PEN_BARE_NUM_RE = re.compile(r"^\d{1,3}$")
+
+
+def _pen_span_lines(doc, start, end):
+    """Penitential pages as lines of (type, text) spans, one entry per span.
+
+    PyMuPDF's native line grouping is used rather than spans_to_typed_lines,
+    which collapses a line's spans to their dominant type: the sentence
+    citations are red (rubric) on the same line as the black text, and the
+    absolution's "Amen." is bold (response) on the same line as the leader
+    text, so both would be flattened away.
+    """
+    from extract_office_styles import span_type
+    pages = []
+    for i in range(start - 1, end):
+        page = doc[i]
+        d = page.get_text("dict", flags=fitz.TEXTFLAGS_DICT)
+        lines = []
+        for block in d["blocks"]:
+            if "lines" not in block:
+                continue
+            for line in block["lines"]:
+                entries = []
+                for span in line["spans"]:
+                    text = span["text"].strip()
+                    if not text:
+                        continue
+                    typ = span_type(span)
+                    if typ == "footer":
+                        continue
+                    entries.append((typ, span["text"]))
+                if not entries:
+                    continue
+                joined = " ".join(t.strip() for _, t in entries).strip()
+                if _PEN_BARE_NUM_RE.match(joined):
+                    continue
+                lines.append(entries)
+        pages.append(lines)
+    return pages
+
+
+def _pen_clean(text):
+    text = re.sub(r"\s+([,.!?])", r"\1", text)
+    text = text.replace("\u00a0", " ")
+    return text.strip()
+
+
+def _pen_line_text(line):
+    return _pen_clean(" ".join(t.strip() for _, t in line))
+
+
+def _pen_line_is(line, needle):
+    return _pen_line_text(line).strip().lower() == needle.lower()
+
+
+def _pen_seg(typ, text):
+    return {"type": typ, "text": _pen_clean(text)}
+
+
+def _pen_parse_sentences(lines):
+    """Sentence region -> {group: {morning/evening: [items]}} (seasonal) or
+    {morning/evening: [items]} (ordinary). Each item is {text, citation}."""
+    out = {}
+    cur_group = None
+    cur_time = None
+    cur_item = None
+    items = None
+
+    def close_item():
+        nonlocal cur_item
+        if cur_item is not None and cur_item["text"] and items is not None:
+            items.append({"text": cur_item["text"], "citation": cur_item["citation"]})
+        cur_item = None
+
+    for ln in lines:
+        rubrics = [tx.strip() for t, tx in ln if t == "rubric"]
+        leaders = [tx.strip() for t, tx in ln if t == "leader" and tx.strip() != "\u2022"]
+        has_bullet = any(t == "leader" and tx.strip() == "\u2022" for t, tx in ln)
+        subhead = None
+        if rubrics and not leaders:
+            m = _PEN_SUBHEAD_RE.match(" ".join(rubrics).strip())
+            if m:
+                subhead = ((None, m.group(3).lower()) if m.group(3)
+                           else (m.group(1).strip(), m.group(2).lower()))
+        if subhead:
+            close_item()
+            cur_group, cur_time = subhead
+            if cur_group is None:
+                items = out.setdefault(cur_time, [])
+            else:
+                items = out.setdefault(cur_group, {}).setdefault(cur_time, [])
+            continue
+        if has_bullet:
+            close_item()
+            cur_item = {"text": "", "citation": ""}
+        if leaders:
+            if cur_item is None:
+                cur_item = {"text": "", "citation": ""}
+            cur_item["text"] = (cur_item["text"] + " " + " ".join(leaders)).strip()
+        if rubrics:
+            if cur_item is None:
+                cur_item = {"text": "", "citation": ""}
+            cur_item["citation"] = " ".join(rubrics).strip()
+    close_item()
+    return out
+
+
+def extract_penitential(doc, bounds):
+    """Extract `_penitential` from the two detected printings (#165).
+
+    The confession and absolution are extracted from the seasonal printing and
+    shared by both; the ordinary printing's copies are identical except that
+    its absolution A reads "from our sins," where the seasonal printing reads
+    "from your/our sins," — the seasonal form ships.
+    """
+    by_key = {k: (s, e) for k, s, e in bounds}
+    sea_start, sea_end = by_key["penitential-seasonal"]
+    ord_start, ord_end = by_key["penitential-ordinary"]
+    sea = _pen_span_lines(doc, sea_start, sea_end)
+    ord_ = _pen_span_lines(doc, ord_start, ord_end)
+    sea_flat = [ln for pg in sea for ln in pg]
+    ord_flat = [ln for pg in ord_ for ln in pg]
+
+    title = _pen_line_text(sea_flat[0])
+    i = 1
+    opening_parts = []
+    while i < len(sea_flat):
+        if ({t for t, _ in sea_flat[i]} == {"rubric"}
+                and _PEN_SUBHEAD_RE.match(_pen_line_text(sea_flat[i]))):
+            break
+        opening_parts.append(_pen_line_text(sea_flat[i]))
+        i += 1
+    opening_rubric = " ".join(opening_parts).strip()
+
+    sea_sent = []
+    while i < len(sea_flat) and not _pen_line_is(sea_flat[i], "The presider then says,"):
+        sea_sent.append(sea_flat[i])
+        i += 1
+    sentences_seasonal = _pen_parse_sentences(sea_sent)
+
+    j = 1
+    while j < len(ord_flat):
+        if ({t for t, _ in ord_flat[j]} == {"rubric"}
+                and _PEN_SUBHEAD_RE.match(_pen_line_text(ord_flat[j]))):
+            break
+        j += 1
+    ord_sent = []
+    while j < len(ord_flat) and not _pen_line_is(ord_flat[j], "The presider then says,"):
+        ord_sent.append(ord_flat[j])
+        j += 1
+    sentences_ordinary = _pen_parse_sentences(ord_sent)
+
+    confession_invitation = _pen_line_text(sea_flat[i])
+    i += 1
+    call_parts = []
+    while (i < len(sea_flat)
+           and not _pen_line_is(sea_flat[i], "Silence is kept. Then either of the following is said.")):
+        call_parts.append(_pen_line_text(sea_flat[i]))
+        i += 1
+    call = " ".join(call_parts).strip()
+    silence = _pen_line_text(sea_flat[i])
+    i += 1
+
+    def parse_alternatives(stop_pred):
+        alts = [[]]
+        nonlocal i
+        while i < len(sea_flat) and not stop_pred(sea_flat[i]):
+            ln = sea_flat[i]
+            txt = _pen_line_text(ln)
+            if txt.strip().lower() in ("or", "or."):
+                alts.append([])
+                i += 1
+                continue
+            types = {t for t, _ in ln}
+            if "leader" in types and "response" in types:
+                lead = " ".join(tx.strip() for t, tx in ln if t == "leader").strip()
+                resp = " ".join(tx.strip() for t, tx in ln if t == "response").strip()
+                if lead:
+                    alts[-1].append(_pen_seg("leader", lead))
+                if resp:
+                    alts[-1].append(_pen_seg("response", resp))
+            elif "response" in types:
+                alts[-1].append(_pen_seg("response", txt))
+            else:
+                alts[-1].append(_pen_seg("leader", txt))
+            i += 1
+        return alts
+
+    def norm_confession_body(alt):
+        # The confession is the people's words throughout. The book prints the
+        # second half of confession B non-bold on p.13 but bold on p.131, so
+        # normalize every line after the first to response.
+        return [s if s["type"] != "leader" or idx == 0
+                else {"type": "response", "text": s["text"]}
+                for idx, s in enumerate(alt)]
+
+    confession_alts = [norm_confession_body(a)
+                       for a in parse_alternatives(
+                           lambda ln: _pen_line_is(ln, "The presider says,"))]
+
+    absolution_invitation = _pen_line_text(sea_flat[i])
+    i += 1
+    absolution_alts = parse_alternatives(
+        lambda ln: _pen_line_text(ln).startswith("A deacon or lay person"))
+
+    deacon_parts = []
+    while (i < len(sea_flat)
+           and not _pen_line_text(sea_flat[i]).startswith("When this Penitential Office")):
+        deacon_parts.append(_pen_line_text(sea_flat[i]))
+        i += 1
+    deacon_rubric = " ".join(deacon_parts).strip()
+
+    transition_parts = []
+    while i < len(sea_flat):
+        transition_parts.append(_pen_line_text(sea_flat[i]))
+        i += 1
+    transition_rubric = " ".join(transition_parts).strip()
+
+    return {
+        "title": title,
+        "opening_rubric": opening_rubric,
+        "sentences": {"seasonal": sentences_seasonal, "ordinary": sentences_ordinary},
+        "confession": {
+            "invitation": confession_invitation,
+            "call": call,
+            "silence": silence,
+            "alternatives": confession_alts,
+        },
+        "absolution": {"invitation": absolution_invitation, "alternatives": absolution_alts},
+        "deacon_rubric": deacon_rubric,
+        "transition_rubric": transition_rubric,
+    }
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def run():
@@ -1477,6 +1728,7 @@ def run():
                 if seg.get('type') == 'alternatives':
                     glabels = [g['label'] for g in seg.get('groups', [])]
                     _dbg(f"  RESULT {sk}: alternatives {glabels}", office=key)
+    offices["_penitential"] = extract_penitential(doc, PENITENTIAL_BOUNDS)
     doc.close()
 
     offices = _dedup_shared(offices)
@@ -1487,7 +1739,8 @@ def run():
 
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(offices, f, ensure_ascii=False, indent=2)
-    print(f"Wrote {len(offices) - (1 if '_shared' in offices else 0)} offices + {n_shared} shared → {out_path}")
+    n_offices = sum(1 for k in offices if not k.startswith("_"))
+    print(f"Wrote {n_offices} offices + {n_shared} shared → {out_path}")
 
     shared_blocks = offices.get('_shared', {})
 
