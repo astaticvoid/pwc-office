@@ -95,7 +95,7 @@ function initNativeFeatures() {
 
   // External links — open in device browser
   document.addEventListener('click', e => {
-    const link = e.target.closest('a');
+    const link = e.target instanceof Element ? e.target.closest('a') : null;
     if (link && link.href && !link.href.startsWith(window.location.origin) && link.href.startsWith('http')) {
       e.preventDefault();
       window.__pwcPlugins.Browser.open({ url: link.href }).catch(() => {});
@@ -203,7 +203,7 @@ const _cache = {
 async function fetchOnce(key, url) {
   if (!_cache[key]) {
     _cache[key] = fetch(url)
-      .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
       .catch(err => { _cache[key] = null; throw err; });
   }
   return _cache[key];
@@ -582,7 +582,7 @@ function gloriaHtml(shared, cue) {
  * branch) over the appointed psalms, restored per ADR 0014. Each psalm's own
  * "Psalm N — Title" heading (from renderPsalm) introduces it individually.
  * Handles both psalm_sets (alternative groups) and plain psalms.
- * @param {object} officeData - morning|evening office object from lectionary JSON
+ * @param {import('./office-types.d.ts').LectionaryOffice} officeData - morning|evening office object from lectionary JSON
  * @param {object} shared - offices._shared
  * @returns {string} HTML string
  */
@@ -648,7 +648,7 @@ function rubricRunHtml(segs, shared, heading) {
  * when the office is used, or both. The two are set differently because they
  * are different things — the name is a caption on this block, the rubric is
  * the book speaking to whoever is praying (#132).
- * @param {object} officeData - an office object, primary or alternate
+ * @param {import('./office-types.d.ts').LectionaryOffice} officeData - an office object, primary or alternate
  * @returns {string} HTML string
  */
 function obsHeadingHtml(officeData) {
@@ -927,7 +927,7 @@ async function render(dateStr, officeType, translation) {
   const shared = offices._shared || {};
 
   // Sync date picker sheet. Min = 12 months ago (rolling window matches lectionary coverage).
-  const picker = document.getElementById('day-date-picker');
+  const picker = /** @type {HTMLInputElement} */ (document.getElementById('day-date-picker'));
   if (picker) {
     const today = new Date();
     const twelveMonthsAgo = new Date(today.getFullYear() - 1, today.getMonth(), 1);
@@ -954,7 +954,7 @@ async function render(dateStr, officeType, translation) {
   document.documentElement.setAttribute('data-season', season);
 
   const officeData = officeType === 'mp' ? (day.morning || {}) : (day.evening || {});
-  document.getElementById('nav-translation').value = translation;
+  /** @type {HTMLSelectElement} */ (document.getElementById('nav-translation')).value = translation;
 
   // Header
   const officeName = officeType === 'mp' ? 'Morning Prayer' : 'Evening Prayer';
@@ -1433,7 +1433,7 @@ function activateTab(tab, idx) {
   document.querySelectorAll(`#office-content .alt-tab[data-key="${CSS.escape(stateKey)}"]`).forEach(t => {
     const b = t.closest('.alt-block');
     if (!b) return;
-    const isActive = parseInt(t.dataset.idx) === idx;
+    const isActive = parseInt(/** @type {HTMLElement} */ (t).dataset.idx) === idx;
     t.classList.toggle('alt-tab-active', isActive);
     t.setAttribute('aria-selected', String(isActive));
     if (!seen.has(b)) {
@@ -1535,12 +1535,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
   document.getElementById('font-size-toggle').addEventListener('click', cycleFontSize);
 
-  const sel = document.getElementById('nav-translation');
+  const sel = /** @type {HTMLSelectElement} */ (document.getElementById('nav-translation'));
   sel.value = state.translation;
   sel.addEventListener('change', () => { switchTranslation(sel.value); });
 
   // Date/office picker
-  const dayDatePicker = document.getElementById('day-date-picker');
+  const dayDatePicker = /** @type {HTMLInputElement} */ (document.getElementById('day-date-picker'));
   const dayPickerMpBtn = document.getElementById('day-picker-mp');
   const dayPickerEpBtn = document.getElementById('day-picker-ep');
   const todayBtn = document.getElementById('today-btn');
@@ -1550,7 +1550,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // call showPicker() explicitly so the whole row/label opens it.
   dayDatePicker.addEventListener('click', () => { try { dayDatePicker.showPicker(); } catch (_) {} });
   dayDatePicker.addEventListener('change', e => {
-    if (e.target.value) navigateTo(e.target.value, state.office);
+    const target = /** @type {HTMLInputElement} */ (e.target);
+    if (target.value) navigateTo(target.value, state.office);
     closeDayPicker();
   });
 
@@ -1565,7 +1566,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   dayPickerEpBtn.addEventListener('click', () => { if (state.office !== 'ep') navigateTo(state.date, 'ep'); });
 
   document.getElementById('day-meta').addEventListener('click', e => {
-    const chip = e.target.closest('.colour-chip-toggle');
+    const chip = e.target instanceof Element ? /** @type {HTMLElement} */ (e.target.closest('.colour-chip-toggle')) : null;
     if (!chip) return;
     const hexes = JSON.parse(chip.dataset.hexes);
     const idx = (parseInt(chip.dataset.idx) + 1) % hexes.length;
@@ -1574,21 +1575,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.getElementById('office-content').addEventListener('click', e => {
-    const tab = e.target.closest('.alt-tab');
+    const tab = e.target instanceof Element ? /** @type {HTMLElement} */ (e.target.closest('.alt-tab')) : null;
     if (!tab) return;
     activateTab(tab, parseInt(tab.dataset.idx));
   });
 
   // Arrow key navigation within a tablist (ARIA keyboard pattern).
   document.getElementById('office-content').addEventListener('keydown', e => {
-    const tab = e.target.closest('.alt-tab');
+    const tab = e.target instanceof Element ? /** @type {HTMLElement} */ (e.target.closest('.alt-tab')) : null;
     if (!tab) return;
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
     e.preventDefault();
     e.stopPropagation();
-    const tablist = tab.closest('.alt-tabs');
+    const tablist = /** @type {HTMLElement} */ (tab.closest('.alt-tabs'));
     if (!tablist) return;
-    const tabs = Array.from(tablist.querySelectorAll('.alt-tab'));
+    const tabs = /** @type {HTMLElement[]} */ (Array.from(tablist.querySelectorAll('.alt-tab')));
     const cur = tabs.indexOf(tab);
     const next = e.key === 'ArrowRight'
       ? (cur + 1) % tabs.length
@@ -1607,7 +1608,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Global navigation delegation — buttons with data-navigate="date|office|observance"
   document.addEventListener('click', e => {
-    const btn = e.target.closest('[data-navigate]');
+    const btn = e.target instanceof Element ? /** @type {HTMLElement} */ (e.target.closest('[data-navigate]')) : null;
     if (!btn) return;
     e.preventDefault();
     const parts = btn.dataset.navigate.split('|');

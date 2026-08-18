@@ -1,6 +1,15 @@
 /**
  * Shared rendering functions — browser (app.js) and Node (cli/office.js).
  * All functions are pure (data in → HTML/value out, no DOM or network calls).
+ *
+ * The segment shapes walked here are declared once in office-types.d.ts and
+ * referenced from both renderers (#147): a shape confusion fails at the call
+ * site instead of surfacing as a runtime `undefined`.
+ * @typedef {import('./office-types.d.ts').Segment} Segment
+ * @typedef {import('./office-types.d.ts').TextSegment} TextSegment
+ * @typedef {import('./office-types.d.ts').AltGroup} AltGroup
+ * @typedef {import('./office-types.d.ts').AlternativesSegment} AlternativesSegment
+ * @typedef {import('./office-types.d.ts').SectionValue} SectionValue
  */
 
 // localStorage polyfill for Node environment
@@ -303,8 +312,8 @@ export function seasonWeekIndex(dateStr, season, bounds) {
     Pentecost:   bounds.ascension   || bounds.pentecost,
   };
   const start = parseDate(starts[season] || null);
-  if (!start) return 0;
-  return Math.floor((d - start) / (7 * 24 * 3600 * 1000));
+  if (!start || !d) return 0;
+  return Math.floor((d.getTime() - start.getTime()) / (7 * 24 * 3600 * 1000));
 }
 
 // Filter seasonal_collects to the period matching weekIdx.
@@ -516,13 +525,21 @@ export function lookupCollect(collects, ref) {
 // tab sync and localStorage persistence are unchanged.
 let _altUid = 0;
 
+/**
+ * Render an alternatives block (a choice between groups) as tabs + panels.
+ * @param {AlternativesSegment} seg
+ * @param {Object} shared - _shared reference map
+ * @param {string} [contextKey] - section key for alt-tab state sharing
+ * @param {boolean} [verse=false] - render leaders as verse
+ * @returns {string} HTML string
+ */
 export function renderAlternatives(seg, shared, contextKey, verse = false) {
   if (!seg.groups || !seg.groups.length) return '';
   const stateKey = contextKey
     ? 'pwc-alt-' + contextKey
     : 'pwc-alt-' + seg.groups.map(g => {
         const first = g.segments && g.segments[0];
-        const word  = first ? first.text.trim().split(/\s+/)[0] : '';
+        const word  = first && 'text' in first ? first.text.trim().split(/\s+/)[0] : '';
         return g.label + (word ? ':' + word : '');
       }).join('\x1f');
   const savedIdx  = parseInt(_ls.getItem(stateKey) || '0');
@@ -549,6 +566,13 @@ export function renderAlternatives(seg, shared, contextKey, verse = false) {
   return `<div class="alt-block"><div class="alt-tabs" role="tablist">${tabsHtml}</div>${panelsHtml}</div>`;
 }
 
+/**
+ * Render segments to HTML. Resolves shared refs and alternatives inline.
+ * @param {Segment[]} segs
+ * @param {Object} shared - _shared reference map
+ * @param {boolean} [verse=false] - render leaders as verse
+ * @returns {string} HTML string
+ */
 export function renderSegments(segs, shared, verse = false) {
   if (!segs || !segs.length) return '';
   return segs.map(seg => {
@@ -556,7 +580,10 @@ export function renderSegments(segs, shared, verse = false) {
     if (seg.type === 'shared' && shared) { contextKey = seg.key; seg = shared[seg.key] || seg; }
     if (seg.type === 'alternatives') return renderAlternatives(seg, shared, contextKey, verse);
     if (seg.type === 'rubric' && isSkippedRubric(seg.text)) return '';
-    const text = seg.text || '';
+    // An unresolved shared ref can reach here (missing key / no shared map);
+    // it carries no `text` property, so this yields '' — the same fallback
+    // the old `|| ''` applied to a text-bearing segment.
+    const text = 'text' in seg ? (seg.text || '') : '';
     if (seg.type === 'rubric') {
       return `<p class="seg-rubric">${esc(text)}</p>`;
     }
@@ -573,21 +600,36 @@ export function renderSegments(segs, shared, verse = false) {
   }).join('');
 }
 
+/**
+ * Render a labelled subsection (h3 + liturgy block).
+ * @param {string} label
+ * @param {Segment[]} segs
+ * @param {Object} shared - _shared reference map
+ * @param {boolean} [verse=false]
+ * @returns {string} HTML string
+ */
 export function renderSubsection(label, segs, shared, verse = false) {
   if (!segs || !segs.length) return '';
   return `<h3 class="office-subsection-title">${esc(label)}</h3><div class="liturgy">${renderSegments(segs, shared, verse)}</div>`;
 }
 
-// Like renderSubsection, but for the two subsections whose book heading is
-// itself "label: citation" on one line (Invitatory Psalm, Evening Hymn) —
-// folds the citation into the heading instead of printing it a second time as
-// its own seg-label paragraph below (#158). invitatorySegments/
-// phosHilaronSegments already strip the segment's own "Invitatory Psalm:"/
-// "Evening Hymn:" prefix down to the bare citation; this reassembles the
-// single printed line from that citation plus the subsection's own title.
+/**
+ * Like renderSubsection, but for the two subsections whose book heading is
+ * itself "label: citation" on one line (Invitatory Psalm, Evening Hymn) —
+ * folds the citation into the heading instead of printing it a second time as
+ * its own seg-label paragraph below (#158). invitatorySegments/
+ * phosHilaronSegments already strip the segment's own "Invitatory Psalm:"/
+ * "Evening Hymn:" prefix down to the bare citation; this reassembles the
+ * single printed line from that citation plus the subsection's own title.
+ * @param {string} label
+ * @param {Segment[]} segs
+ * @param {Object} shared - _shared reference map
+ * @param {boolean} [verse=false]
+ * @returns {string} HTML string
+ */
 export function renderSubsectionWithCitation(label, segs, shared, verse = false) {
   if (!segs || !segs.length) return '';
-  const labelSeg = segs.find(s => s.type === 'label');
+  const labelSeg = segs.find(/** @type {(s: Segment) => s is TextSegment} */ (s => s.type === 'label'));
   const heading = labelSeg ? `${label}: ${labelSeg.text}` : label;
   const rest = labelSeg ? segs.filter(s => s !== labelSeg) : segs;
   return `<h3 class="office-subsection-title">${esc(heading)}</h3><div class="liturgy">${renderSegments(rest, shared, verse)}</div>`;
@@ -743,10 +785,10 @@ export function lessonsPickRubricHtml(pick, total) {
  * alternatives. Yields leaf-level display items.
  *
  * @generator
- * @param {Array} segs
- * @param {Object} shared
- * @yields {Object} {type:'segment', seg} | {type:'enter_alt', groups} | {type:'exit_alt'}
- *                | {type:'enter_group', group} | {type:'exit_group'}
+ * @param {Segment[]} segs
+ * @param {Object} shared - _shared reference map
+ * @yields {{type:'segment', seg: Segment} | {type:'enter_alt', groups: AltGroup[]} | {type:'exit_alt'}
+ *                | {type:'enter_group', group: AltGroup} | {type:'exit_group'}}
  */
 export function* walkSegments(segs, shared) {
   if (!segs) return;
@@ -772,8 +814,8 @@ export function* walkSegments(segs, shared) {
 
 /**
  * Render segments as structured text blocks.
- * @param {Array} segs
- * @param {Object} shared
+ * @param {Segment[]} segs
+ * @param {Object} shared - _shared reference map
  * @param {Object} [opts]
  * @param {boolean} [opts.showLabel=false] Include canticle citations as headers
  * @param {boolean} [opts.skipShortLabels=false] Inline Roman-numeral labels

@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: lint-css check-conservation venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata intake-year serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa lint lint-js lint-py test-mutations hooks
+.PHONY: lint-css check-conservation venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata intake-year serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa lint lint-js lint-ts lint-py test-mutations hooks
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -72,12 +72,16 @@ NODE_OPTIONS = --localstorage-file=/tmp/pwc-ls.json
 test-unit:
 	npm test
 
-# Lint — JS via ESLint (eslint.config.js), Python via Ruff (ruff.toml).
-# Fast (~1–2s) and part of `make test`, so a formatting or dead-code slip
-# cannot land. Configs are curated low-noise: advice is to ADD a rule only
-# when it catches a real class of mistake and the existing code passes it.
+# Lint — JS via ESLint (eslint.config.js), type-check via tsc --checkJs over
+# web/ (tsconfig.web.json, #147), Python via Ruff (ruff.toml).
+# Fast and part of `make test`, so a formatting or dead-code slip cannot land.
+# Configs are curated low-noise: advice is to ADD a rule only when it catches
+# a real class of mistake and the existing code passes it.
 lint-js:
 	npx eslint .
+
+lint-ts:
+	npx tsc -p tsconfig.web.json
 
 lint-py:
 	$(RUFF) check tools/
@@ -85,7 +89,7 @@ lint-py:
 lint-css:
 	npx stylelint "web/*.css"
 
-lint: lint-js lint-py lint-css
+lint: lint-js lint-ts lint-py lint-css
 
 # check-integrity runs first and fails fast: it catches data/ that no longer
 # matches the manifest, which is the state left by editing an extractor and

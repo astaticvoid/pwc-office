@@ -10,13 +10,15 @@
     "globals": "^15.15.0",
     "stylelint": "^17.14.1",
     "stylelint-config-standard": "^40.0.0",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.10"
   },
   "scripts": {
     "test": "vitest run",
     "test:web": "playwright test",
     "test:web:local": "BASE_URL=http://localhost:8081 playwright test",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.web.json"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.0",
