@@ -1,5 +1,5 @@
 {
-  "extracted_at": "2026-08-18T14:05:55Z",
+  "extracted_at": "2026-08-18T21:25:08Z",
   "tool_versions": {
     "fitz": [
       "1.28.2",
@@ -14,8 +14,9 @@
     "tools/extract_psalter.py": "6d697ded980ebd3d24afc90c1c9ec588be15fb38cb13c9c683e5a91ea98712f5",
     "tools/extract_collects.py": "8dae34411e9e522390832492a34716c1e458fd489f1d7f5f3a7b34c111a29a18",
     "tools/extract_fats.py": "4be8d66eda97592996196a648de3b67ffecaa0de285dd31020266103a593fe2b",
+    "tools/extract_midday.py": "5a2df49b4b1c51003d0b8edfed71c3f882f11955be39d8d51c1b4b0903e02ed4",
     "tools/convert_lectionary.py": "c606321059c1a75acbcac3bfed5ab7c506368b0476aee6a8979ac14e9e2a1c3a",
-    "tools/apply_corrections.py": "fea4322b76b639833c39dbf6880ede6228acb049a4320451c84cb70600de51b6",
+    "tools/apply_corrections.py": "5f657143a0b095f3dc0a8b274a0e1ddd80ff6113d59ae8afca9a99740693bdac",
     "tools/corrections_lib.py": "aeb8e2cd6319225421c845fc921a435829d3bf4da0ff802d77ed14fb59cb20c8",
     "tools/extract_lib.py": "2d77e3c60dad78a693e88557fd84115815a62128355c04d78bd0c6f42014d72e",
     "data/corrections.json": "7443179a68560c951e3e6a3e52daea3ffcf60412f6f2771163da315b094d8da8",
@@ -23,8 +24,8 @@
   },
   "files": {
     "data/offices.json": {
-      "sha256": "3a10984886ecc0f6e79df21d6f6c851e2a42e51aa03a0d78e430cdbede6da536",
-      "entries": 32
+      "sha256": "2701ad40e0e220121180df3b965843cb80a2d8b3e708791f609922263e3cd1a6",
+      "entries": 33
     },
     "data/collects.json": {
       "sha256": "c3680c6d9a694a2d8581fce958566798baf7e8f0e9b57bd43d2aa56b8f72c0ce",

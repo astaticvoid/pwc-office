@@ -42,6 +42,7 @@ extract:
 	$(PYTHON) tools/extract_psalter.py
 	$(PYTHON) tools/extract_collects.py
 	$(PYTHON) tools/extract_fats.py
+	$(PYTHON) tools/extract_midday.py
 	$(PYTHON) tools/convert_lectionary.py --window 12
 # Corrections run after the extractors because they consume the .build/ stage-1
 # artifacts, which is a data dependency rather than a rule anyone has to hold in
