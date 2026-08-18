@@ -21,6 +21,12 @@ Each is cleared by a row in the declarations table of docs/errata/README.md,
 and a declaration matching no finding is itself reported — a stale exemption is
 how one outlives its reason.
 
+The errata documents themselves are a gitignored local input (like
+sources/*.pdf), not repository content (#86) — a fresh checkout has README.md
+only. Without this check that reads as zero findings, "Errata fully applied":
+the glob below matches nothing to check, not nothing wrong. Report SKIPPED by
+name instead, so silence is never mistaken for a pass.
+
 Reports; does not gate. Run it whenever the errata or the corrections change.
 """
 import json
@@ -31,6 +37,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 ERRATA_DIR = ROOT / "docs" / "errata"
+
+# What we expect to find, kept separately from audit()'s glob over what's
+# actually there — a name that's supposed to exist but doesn't can only be
+# named by listing it, never by discovering it. Update this by hand if a
+# third errata document is ever added (#86); nothing else keeps it in sync.
+EXPECTED_DOCS = ("ordinary-time.md", "seasonal.md")
+
+
+def doc_label(doc_name: str) -> str:
+    return "Ordinary" if "ordinary" in doc_name else "Seasonal"
 
 SEASONS = {"Advent": "advent", "Christmas": "christmas", "Epiphany": "epiphany",
            "Lent": "lent", "Passiontide": "passiontide", "Easter": "easter",
@@ -188,7 +204,7 @@ def audit():
     for doc in sorted(ERRATA_DIR.glob("*.md")):
         if doc.name == "README.md":
             continue
-        label = "Ordinary" if "ordinary" in doc.name else "Seasonal"
+        label = doc_label(doc.name)
         for heading, page, note, block in parse_blocks(doc):
             form = heading_to_form(heading or "")
             declared_na = next((d for d in declarations
@@ -246,11 +262,25 @@ def audit():
                     findings.append((label, page, "WORDING",
                                      f"{form}: ours {ours!r} vs errata {theirs!r}"))
 
-    stale = [d for d in declarations if id(d) not in used]
+    # A declaration for a document that was never on disk is unverifiable, not
+    # stale — it just never had a chance to be matched. Absent-but-real
+    # staleness (#86's partial-checkout case) would otherwise misreport as a
+    # wall of STALE-DECL findings, which invites deleting a real exemption.
+    missing_labels = {doc_label(name) for name in EXPECTED_DOCS
+                       if not (ERRATA_DIR / name).exists()}
+    stale = [d for d in declarations
+             if id(d) not in used and d["document"] not in missing_labels]
     return findings, stale
 
 
 def main():
+    missing = [name for name in EXPECTED_DOCS if not (ERRATA_DIR / name).exists()]
+    for name in missing:
+        print(f"[SKIPPED       ] docs/errata/{name} not found locally — "
+              f"a gitignored input, see docs/errata/README.md")
+    if len(missing) == len(EXPECTED_DOCS):
+        print("\nErrata audit SKIPPED: nothing to check without the source documents.")
+        return
     findings, stale = audit()
     for label, page, kind, detail in findings:
         print(f"[{kind:14}] {label} {page or '?'}\n                 {detail}")
@@ -258,7 +288,13 @@ def main():
         print(f"[{'STALE-DECL':14}] {d['document']} {d['page']}\n"
               f"                 declaration matches no finding: {d['errata_reads']!r}")
     total = len(findings) + len(stale)
-    print(f"\n{total} finding(s)." if total else "\nErrata fully applied.")
+    if total:
+        print(f"\n{total} finding(s).")
+    elif missing:
+        print(f"\nErrata fully applied for what's present ({len(EXPECTED_DOCS) - len(missing)} "
+              f"of {len(EXPECTED_DOCS)} documents; see SKIPPED above).")
+    else:
+        print("\nErrata fully applied.")
 
 
 if __name__ == "__main__":
