@@ -8,6 +8,7 @@ import {
   formatLiturgicalText, formatProseText, splitPsalmRubrics, splitReadingRubrics,
   parseCitation, expandCitationForDisplay, SINGLE_CHAPTER_BOOKS,
   collectCommemorations, lookupFatsEntry, fatsCandidates, penitentialSegments,
+  middayBlocks,
 } from '../../web/render.js';
 
 const DATA_DIR = join(import.meta.dirname, '../../data');
@@ -261,6 +262,60 @@ describe.skipIf(!HAS_DATA)('penitential opening', () => {
   test('empty input yields no segments', () => {
     expect(penitentialSegments(null, 'Lent', 'mp')).toEqual([]);
     expect(penitentialSegments({}, 'Lent', 'mp')).toEqual([]);
+  });
+});
+
+// ── Mid-day Prayer (#166) ─────────────────────────────────────────────────
+
+describe.skipIf(!HAS_DATA)('mid-day blocks', () => {
+  const midday = offices._midday;
+
+  test('book order: continuous flow with only the two printed headings', () => {
+    const blocks = middayBlocks(midday);
+    expect(blocks.map(b => b.heading))
+      .toEqual([null, null, 'Psalm Prayer', null, null, null, "The Lord's Prayer", null]);
+    expect(blocks.map(b => b.verse)).toEqual([false, true, false, false, false, false, false, false]);
+  });
+
+  test('the psalm block carries the printed label as its own seg-label', () => {
+    const psalm = middayBlocks(midday)[1];
+    expect(psalm.segments.map(s => s.type)).toEqual(['rubric', 'label', 'leader']);
+    expect(psalm.segments[1].text).toBe('Psalm 19:1–6');
+  });
+
+  test('readings and collects present as I/II/III alternatives', () => {
+    const altBlocks = middayBlocks(midday).filter(b => b.segments.some(s => s.type === 'alternatives'));
+    expect(altBlocks.map(b => b.heading))
+      .toEqual([null, null, "The Lord's Prayer"]);
+    for (const block of altBlocks.slice(0, 2)) {
+      const alt = block.segments.find(s => s.type === 'alternatives');
+      expect(alt.groups.map(g => g.label)).toEqual(['I', 'II', 'III']);
+    }
+    const lpAlt = altBlocks[2].segments.find(s => s.type === 'alternatives');
+    expect(lpAlt.groups.map(g => g.label)).toEqual(['I', 'II']);
+    // Reading and collects are structurally identical I/II/III blocks, so the
+    // shape assertions alone cannot tell a swap apart; pin one content marker
+    // on each — the reading carries its citations, the collects their Amens.
+    // Both live inside the alternatives groups' segments, so flatten those too.
+    const flatten = block => block.segments.flatMap(s =>
+      s.type === 'alternatives' ? s.groups.flatMap(g => g.segments) : [s]);
+    const readingText = flatten(altBlocks[0]).map(s => s.text || '').join('\n');
+    const collectsText = flatten(altBlocks[1]).map(s => s.text || '').join('\n');
+    expect(readingText).toContain('Galatians');
+    expect(collectsText).toContain('Amen.');
+  });
+
+  test('the psalm block renders liturgically (midpoint groups) when verse is set', () => {
+    const psalm = middayBlocks(midday)[1];
+    expect(psalm.verse).toBe(true);
+    const html = renderSegments(psalm.segments, shared, true);
+    expect(html).toContain('midpoint-group');
+    expect(html).toContain('seg-label');
+  });
+
+  test('empty input yields no blocks', () => {
+    expect(middayBlocks(null)).toEqual([]);
+    expect(middayBlocks({})).toEqual([]);
   });
 });
 

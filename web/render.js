@@ -1169,6 +1169,38 @@ export function penitentialSegments(penitential, officeFormSeason, officeType) {
 }
 
 /**
+ * Mid-day Prayer (BAS pp.56-59) — a fixed office the book prints as one
+ * continuous flow. No section headings: only "Psalm Prayer" and "The Lord's
+ * Prayer" carry headings of their own, and both were consumed as structure
+ * by the extractor, so they are re-emitted here as the blocks' headings.
+ * The psalm's own printed label ("Psalm 19:1–6") is a `label` segment and
+ * renders as its own seg-label; the reading/collect/Lord's-Prayer
+ * alternatives render as the standard I/II/III tab pills.
+ *
+ * @param {Object} midday - offices.json `_midday`
+ * @returns {Array<{heading: string|null, segments: import('./office-types.d.ts').Segment[], verse: boolean}>}
+ *   The office's blocks in book order. `verse` selects liturgical (psalm)
+ *   vs prose (prayer) line formatting for the block's segments.
+ */
+export function middayBlocks(midday) {
+  if (!midday) return [];
+  const blocks = [];
+  const push = (heading, field, verse = false) => {
+    const segs = midday[field];
+    if (Array.isArray(segs) && segs.length) blocks.push({ heading, segments: segs, verse });
+  };
+  push(null, 'opening');
+  push(null, 'psalm', true);
+  push('Psalm Prayer', 'psalm_prayer');
+  push(null, 'reading');
+  push(null, 'prayers');
+  push(null, 'collects');
+  push("The Lord's Prayer", 'lords_prayer');
+  push(null, 'dismissal');
+  return blocks;
+}
+
+/**
  * Assemble section structure for a complete office.
  * Shared by renderOfficeJSON (validators) and app.js render() (browser HTML).
  * Returns the same structure regardless of consumer.
