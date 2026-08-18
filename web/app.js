@@ -1014,10 +1014,27 @@ async function render(dateStr, officeType, translation) {
     + dayMarkers(day, activeName, activeRank === 'eve').map(m =>
         `<span class="meta-item meta-item--marker">${esc(m)}</span>`).join('');
 
-  document.querySelectorAll('.day-note, .day-note-details').forEach(el => el.remove());
+  document.querySelectorAll('.day-note, .day-note-details, .fats-bio').forEach(el => el.remove());
+
+  // ── FATS biographical notice ───────────────────────────────────────────────
+  // The day's saints are day context, so the biography sits with the day
+  // identity above the office controls; the office content then opens
+  // directly on the liturgy. One disclosure per person the day commemorates.
+  // A second commemoration is a second life, extracted and shipped like the
+  // first, and keying the lookup to the day's name alone left it unreachable
+  // (#129).
+  const ctrlEl = document.getElementById('day-office-controls');
+  if (ctrlEl) {
+    for (const person of commemoratedNames(day)) {
+      const entry = person === day.name ? fatsEntry : lookupFatsEntry(fats, person);
+      if (!entry || !entry.bio) continue;
+      const bioParas = entry.bio.split(/\n\n+/).map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
+      ctrlEl.insertAdjacentHTML('beforebegin',
+        `<details class="fats-bio">\n      <summary class="fats-bio-toggle">About ${esc(person)}</summary>\n      <div class="fats-bio-body">${bioParas}</div>\n    </details>`);
+    }
+  }
 
   // ── Office, Opening + Observance controls in day header ───────────────────
-  const ctrlEl = document.getElementById('day-office-controls');
   if (ctrlEl) {
     let ctrlHtml = '';
     // Office toggle. Always present: switching between Morning and Evening is
@@ -1194,20 +1211,6 @@ async function render(dateStr, officeType, translation) {
   }) : { sections: [] };
 
   let html = '';
-
-  // ── FATS biographical notice ───────────────────────────────────────────────
-  // One disclosure per person the day commemorates. A second commemoration is
-  // a second life, extracted and shipped like the first, and keying the
-  // lookup to the day's name alone left it unreachable (#129).
-  for (const person of commemoratedNames(day)) {
-    const entry = person === day.name ? fatsEntry : lookupFatsEntry(fats, person);
-    if (!entry || !entry.bio) continue;
-    const bioParas = entry.bio.split(/\n\n+/).map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
-    html += `<details class="fats-bio">
-      <summary class="fats-bio-toggle">About ${esc(person)}</summary>
-      <div class="fats-bio-body">${bioParas}</div>
-    </details>`;
-  }
 
   // Neither form.title nor form.subtitle is rendered here: the day header
   // already names the day, the date and the office. cli/book.js is the mode
