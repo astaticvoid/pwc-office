@@ -1177,26 +1177,56 @@ export function penitentialSegments(penitential, officeFormSeason, officeType) {
  * renders as its own seg-label; the reading/collect/Lord's-Prayer
  * alternatives render as the standard I/II/III tab pills.
  *
+ * The opening's "Except in Lent, add," rubric is addressed to the officiant
+ * and is never shown — the app knows the season and applies the rule itself:
+ * outside Lent/Passiontide the "Alleluia!" response that follows it renders,
+ * in Lent neither does. The reading citations (Galatians 5.22, 23a, 25 …)
+ * lead their alternatives as grey labels, the same presentation every other
+ * scripture reading in the app gets (the book prints them trailing; the
+ * position is presentation, ADR 0016).
+ *
  * @param {Object} midday - offices.json `_midday`
+ * @param {string} [season] - the display season ('Lent' | 'Passiontide' | …)
  * @returns {Array<{heading: string|null, segments: import('./office-types.d.ts').Segment[], verse: boolean}>}
  *   The office's blocks in book order. `verse` selects liturgical (psalm)
  *   vs prose (prayer) line formatting for the block's segments.
  */
-export function middayBlocks(midday) {
+export function middayBlocks(midday, season) {
   if (!midday) return [];
   const blocks = [];
-  const push = (heading, field, verse = false) => {
-    const segs = midday[field];
-    if (Array.isArray(segs) && segs.length) blocks.push({ heading, segments: segs, verse });
+  const push = (heading, segments, verse = false) => {
+    if (segments && segments.length) blocks.push({ heading, segments, verse });
   };
-  push(null, 'opening');
-  push(null, 'psalm', true);
-  push('Psalm Prayer', 'psalm_prayer');
-  push(null, 'reading');
-  push(null, 'prayers');
-  push(null, 'collects');
-  push("The Lord's Prayer", 'lords_prayer');
-  push(null, 'dismissal');
+  const inLent = season === 'Lent' || season === 'Passiontide';
+  push(null, (midday.opening || []).filter(seg => {
+    if (seg.type === 'rubric' && seg.text.startsWith('Except in Lent')) return false;
+    if (inLent && seg.type === 'response' && seg.text === 'Alleluia!') return false;
+    return true;
+  }));
+  push(null, midday.psalm, true);
+  push('Psalm Prayer', midday.psalm_prayer);
+  push(null, (midday.reading || []).map(seg => {
+    if (seg.type !== 'alternatives') return seg;
+    return {
+      ...seg,
+      groups: seg.groups.map(g => {
+        const segments = [...g.segments];
+        // The only rubric inside a reading group is the book's trailing
+        // citation (Galatians 5.22, 23a, 25 …); the "One of the following"
+        // rubric sits top-level, outside the alternatives, so no other
+        // rubric can be retyped here. Keyed on type, not content, because
+        // the citation text is whatever the book prints.
+        const ci = segments.findIndex(s => s.type === 'rubric');
+        if (ci < 0) return g;
+        const [citation] = segments.splice(ci, 1);
+        return { ...g, segments: [{ type: 'label', text: citation.text }, ...segments] };
+      }),
+    };
+  }));
+  push(null, midday.prayers);
+  push(null, midday.collects);
+  push("The Lord's Prayer", midday.lords_prayer);
+  push(null, midday.dismissal);
   return blocks;
 }
 

@@ -1226,7 +1226,7 @@ async function render(dateStr, officeType, translation) {
     // blocks' h3s. The psalm and readings are printed in full by the book
     // and ship in the data — nothing is fetched, and no scripture
     // attribution line is printed (#166).
-    const blocks = middayBlocks(form);
+    const blocks = middayBlocks(form, season);
     if (!blocks.length) {
       contentEl.innerHTML = `<div class="out-of-range-msg">
         <p class="out-of-range-title">Office form not available</p>
@@ -1234,11 +1234,18 @@ async function render(dateStr, officeType, translation) {
       </div>`;
       return;
     }
+    // The book prints the office as one continuous flow with no section
+    // headings, so the green rule the section titles carry elsewhere is
+    // supplied by the office block's own top border (midday-office in
+    // office.css) — it separates the day header from the liturgy like the
+    // first section title does on the other offices (#167).
+    html += '<div class="midday-office">';
     for (const block of blocks) {
       html += block.heading
         ? renderSubsection(block.heading, block.segments, shared, block.verse)
         : `<div class="liturgy">${renderSegments(block.segments, shared, block.verse)}</div>`;
     }
+    html += '</div>';
   } else {
   const seasonalSegs = form ? filterSeasonalCollects(form.seasonal_collects || [], weekIdx) : [];
 

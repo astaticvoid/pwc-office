@@ -305,6 +305,37 @@ describe.skipIf(!HAS_DATA)('mid-day blocks', () => {
     expect(collectsText).toContain('Amen.');
   });
 
+  test('reading citations lead each group as a grey label', () => {
+    const reading = middayBlocks(midday)[3];
+    const alt = reading.segments.find(s => s.type === 'alternatives');
+    for (const g of alt.groups) {
+      expect(g.segments[0].type).toBe('label');
+      expect(g.segments[0].text).toMatch(/^\d?\s?[A-Za-z]+ \d/);
+    }
+    expect(alt.groups[0].segments[0].text).toBe('Galatians 5.22, 23a, 25');
+    expect(alt.groups[1].segments[0].text).toBe('2 Corinthians 5.17–18');
+    expect(alt.groups[2].segments[0].text).toBe('Malachi 1.11');
+  });
+
+  test('the Except-in-Lent rubric never renders; the Alleluia is seasonal', () => {
+    const openText = blocks => blocks[0].segments.map(s => s.text).join(' | ');
+    // Default (no season): the rubric is gone, the Alleluia stays.
+    const ordinary = middayBlocks(midday);
+    expect(ordinary[0].segments.some(s => s.text.startsWith('Except in Lent'))).toBe(false);
+    expect(ordinary[0].segments.some(s => s.text === 'Alleluia!')).toBe(true);
+    // Lent and Passiontide: neither the rubric nor the Alleluia.
+    for (const season of ['Lent', 'Passiontide']) {
+      const lent = middayBlocks(midday, season);
+      expect(lent[0].segments.some(s => s.text.startsWith('Except in Lent'))).toBe(false);
+      expect(lent[0].segments.some(s => s.text === 'Alleluia!'), season).toBe(false);
+      expect(lent[0].segments.map(s => s.type)).toEqual(['leader', 'response', 'rubric']);
+    }
+    // Easter: Alleluia returns.
+    const easter = middayBlocks(midday, 'Easter');
+    expect(easter[0].segments.some(s => s.text === 'Alleluia!')).toBe(true);
+    expect(openText(easter)).not.toContain('Except in Lent');
+  });
+
   test('the psalm block renders liturgically (midpoint groups) when verse is set', () => {
     const psalm = middayBlocks(midday)[1];
     expect(psalm.verse).toBe(true);

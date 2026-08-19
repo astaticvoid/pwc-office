@@ -201,14 +201,55 @@ test.describe('Mid-day Prayer', () => {
     await expect(page.getByText('The fruit of the Spirit is love, joy, peace')).toBeVisible();
     await expect(page.locator('.scripture-placeholder')).toHaveCount(0);
     await expect(page.locator('.psalm-loading')).toHaveCount(0);
+    // The green separator the section titles carry elsewhere is supplied by
+    // the office block's own top border — the page opens on the liturgy with
+    // the same rule MP/EP get from their first section title (#167).
+    const middayOffice = page.locator('.midday-office');
+    await expect(middayOffice).toBeVisible();
+    await expect(middayOffice).toHaveCSS('border-top-style', 'solid');
+    // The green rule is the season's accent — the same var the section
+    // titles use, whatever season the reference day falls in (#167). Probe
+    // the var through a real element so the comparison is rgb vs rgb.
+    const accent = await page.evaluate(() => {
+      const probe = document.createElement('span');
+      probe.style.color = 'var(--color-accent)';
+      document.body.appendChild(probe);
+      const c = getComputedStyle(probe).color;
+      probe.remove();
+      return c;
+    });
+    await expect(middayOffice).toHaveCSS('border-top-color', accent);
+    // The book prints "Except in Lent, add," — a rubric addressed to the
+    // officiant. The app knows the season and applies the rule itself, so the
+    // line never renders and the Alleluia is added (or withheld) by season
+    // (#167).
+    await expect(page.locator('#office-content')).not.toContainText('Except in Lent');
   });
 
   test('readings and collects offer their I/II/III choices', async ({ page }) => {
     await gotoOffice(page, DATE, 'midday');
     // Reading alternatives: Galatians / 2 Corinthians / Malachi, in the
-    // first alt-block; the default shows group I.
+    // first alt-block; the default shows group I. The book prints the
+    // citation trailing the reading; the app leads with it as a grey label,
+    // the same treatment the psalm's own label gets (#167).
     const reading = page.locator('.alt-block').nth(0);
     await expect(reading.locator('.alt-tab')).toHaveText(['I', 'II', 'III']);
+    // The visible panel's own label (hidden panels' labels are in the DOM too).
+    await expect(reading.locator('.alt-panel:not(.alt-panel-hidden) .seg-label'))
+      .toHaveText('Galatians 5.22, 23a, 25');
+    // Grey like the psalm's label: the muted ink, whatever the theme. Probe
+    // the var through a real element so the comparison is rgb vs rgb (a
+    // hardcoded light-theme rgb would break under a dark color scheme).
+    const muted = await page.evaluate(() => {
+      const probe = document.createElement('span');
+      probe.style.color = 'var(--color-muted)';
+      document.body.appendChild(probe);
+      const c = getComputedStyle(probe).color;
+      probe.remove();
+      return c;
+    });
+    await expect(reading.locator('.alt-panel:not(.alt-panel-hidden) .seg-label'))
+      .toHaveCSS('color', muted);
     await expect(reading).toContainText('The fruit of the Spirit');
     // Collects: three alternatives in the second alt-block.
     const collects = page.locator('.alt-block').nth(1);
