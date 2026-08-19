@@ -69,6 +69,33 @@ _FIELD_BOUNDARY_PREFIXES = ("A period of silence may follow.", "Then may be said
 
 _ROMAN = ("I", "II", "III", "IV")
 
+# A column wrap that split a word across the line end: rejoin without the
+# hyphen by default (a wrap-split single word like "doctrine" would print as
+# "doc-"/"trine" — no such split occurs in the current PDF, but the rule
+# generalizes), but keep it when the continuation is capitalized
+# ("mid-"/"Victorian") or the pair is a genuine compound — "self-"/"control"
+# is "self-control" in this office, not "selfcontrol". Same rule as
+# extract_fats.py's _dehyphenate; found by reviewing every wrap pair in the
+# current PDF.
+_HYPHEN_KEEP = {("self", "control")}
+
+
+def _dehyphenate(prev: str, next_: str) -> str:
+    """Rejoin a hyphenated wrap, keeping the hyphen where it belongs.
+
+    `prev` is the accumulated item text (it may already span several lines),
+    so the word pair is the trailing hyphenated word of `prev` and the
+    leading word of `next_`. A genuine compound keeps its hyphen
+    ("self-control"); a wrap-split single word drops it ("doctrine").
+    """
+    a = re.search(r"([A-Za-z]+)-$", prev)
+    b = re.match(r"([A-Za-z]+)", next_)
+    if a and b:
+        keep = b.group(1)[0].isupper() or (a.group(1), b.group(1)) in _HYPHEN_KEEP
+        sep = "-" if keep else ""
+        return prev[:-1] + sep + next_
+    return prev[:-1] + next_
+
 
 def _span_type(span: dict) -> str:
     """Classify one BAS span into the extractor's vocabulary."""
@@ -125,13 +152,16 @@ def detect_pages(doc) -> tuple[int, int]:
     return start, end
 
 
-def _coalesce_line(line) -> list[tuple[str, str]]:
-    """One PDF line -> [(type, text), ...], same-type spans joined with a space.
+def _coalesce_line(line) -> tuple[list[tuple[str, str]], float]:
+    """One PDF line -> ([(type, text), ...], x1), same-type spans joined with a space.
 
     The running header (page number + "Mid-day Prayer") sits in the footer
-    band and is dropped here; the office body starts around y=33.
+    band and is dropped here; the office body starts around y=33. `x1` is the
+    line's right edge, used by _merge_lines to tell a column wrap from a
+    deliberate break.
     """
     entries: list[tuple[str, str]] = []
+    x1 = 0.0
     for span in line["spans"]:
         text = span["text"].strip()
         if not text:
@@ -141,29 +171,30 @@ def _coalesce_line(line) -> list[tuple[str, str]]:
         typ = _span_type(span)
         if typ == "rubric" and text in _SPEAKERS:
             continue  # speaker label — structural, not spoken text
+        x1 = max(x1, span["bbox"][2])
         if entries and entries[-1][0] == typ:
             entries[-1] = (typ, entries[-1][1] + " " + text)
         else:
             entries.append((typ, text))
-    return entries
+    return entries, x1
 
 
-def _page_lines(doc, start: int, end: int) -> list[list[tuple[str, str]]]:
-    """Every body line of the office, one coalesced entry list per line."""
-    out: list[list[tuple[str, str]]] = []
+def _page_lines(doc, start: int, end: int) -> list[tuple[list[tuple[str, str]], float]]:
+    """Every body line of the office: (coalesced entries, x1) per line."""
+    out: list[tuple[list[tuple[str, str]], float]] = []
     for i in range(start - 1, end):
         d = doc[i].get_text("dict", flags=fitz.TEXTFLAGS_DICT)
         for block in d["blocks"]:
             if "lines" not in block:
                 continue
             for line in block["lines"]:
-                entries = _coalesce_line(line)
+                entries, x1 = _coalesce_line(line)
                 if not entries:
                     continue
                 if len(entries) == 1 and entries[0][0] in ("leader", "response") \
                         and _BARE_NUM_RE.match(entries[0][1].strip()):
                     continue  # stray page number outside the footer band
-                out.append(entries)
+                out.append((entries, x1))
     return out
 
 
@@ -178,16 +209,43 @@ def _starts_field(typ: str, text: str) -> bool:
     ) or text.startswith(_FIELD_BOUNDARY_PREFIXES)
 
 
-def _merge_lines(lines: list[list[tuple[str, str]]]) -> list[tuple[str, str]]:
+def _merge_lines(lines: list[tuple[list[tuple[str, str]], float]]) -> list[tuple[str, str]]:
     """Flatten the office's lines into merged (type, text) items.
 
-    Consecutive same-type entries merge with a newline, matching the PWC
-    extraction's own line join, except that a field-opening rubric never
-    merges with the rubric before it. The "Psalm 19" heading folds its "1-6"
-    verse range into a single `label` citation.
+    Consecutive same-type entries merge; the join is decided from the page,
+    the way extract_offices.py's own line join is (#39): a line that ran out
+    of horizontal room is a column wrap and joins its follower with a space,
+    a line that ended deliberately keeps a newline. A wrap that split a word
+    across lines ("self-"/"control") is dehyphenated on the join. A
+    field-opening rubric never merges with the rubric before it. The "Psalm
+    19" heading folds its "1-6" verse range into a single `label` citation.
     """
+    # The right text margin, measured from the office's own lines: the widest
+    # body line ends there. A prose line that ends within ~53.7pt of it ran
+    # out of room and is a column wrap — the follower continues the sentence
+    # and joins with a space. A line that ends well short ended deliberately
+    # (verse, paragraph end) and keeps a newline. Measured over all four
+    # pages: the tightest wrap ("here. It is all God's work. It was God who",
+    # reading II) ends 52.7pt short; the tightest deliberate break (the psalm
+    # line "it comes forth like a bridegroom out of his chamber;") ends
+    # 54.8pt short. 53.7 sits 1.0-1.1pt off each side — the PWC extractor's
+    # own break threshold sits 0.5pt off a false positive (#39), so this is
+    # the safer of the two. Re-check if the book is ever re-cut.
+    #
+    # Responses are exempt: the Gloria, the Lord's Prayer and the Kyrie are
+    # verse in this office, so they keep their line breaks even when one runs
+    # close to the margin — "as we forgive those who trespass against us."
+    # ends 39.4pt short, which geometry alone would read as a wrap. (Some
+    # response breaks are geometric wraps by the 53.7pt measure — the Gloria's
+    # first two lines end 31.2/26.9pt short — but keeping them is the
+    # presentation the book chose, so responses never join.) Only rubric and
+    # leader prose are judged by geometry.
+    margin = max((x1 for _, x1 in lines), default=0.0)
+    wrap = 53.7
+
     items: list[tuple[str, str]] = []
-    for entries in lines:
+    prev_x1: float | None = None
+    for entries, x1 in lines:
         for typ, text in entries:
             text = text.strip()
             if not text or typ == "title":
@@ -202,9 +260,23 @@ def _merge_lines(lines: list[list[tuple[str, str]]]) -> list[tuple[str, str]]:
                 items[-1] = ("label", f"{items[-1][1]}:{text.replace(' ', '')}")
                 continue
             if items and items[-1][0] == typ and not _starts_field(typ, text):
-                items[-1] = (typ, items[-1][1] + "\n" + text)
+                prev = items[-1][1]
+                if (
+                    typ != "response"
+                    and prev_x1 is not None
+                    and margin - prev_x1 < wrap
+                ):
+                    # Column wrap: the follower continues the sentence.
+                    if prev.endswith("-") and not prev.endswith("--"):
+                        # Word split across the line end ("self-"/"control").
+                        items[-1] = (typ, _dehyphenate(prev, text))
+                    else:
+                        items[-1] = (typ, prev + " " + text)
+                else:
+                    items[-1] = (typ, prev + "\n" + text)
             else:
                 items.append((typ, text))
+        prev_x1 = x1
     return items
 
 
@@ -214,7 +286,7 @@ def _seg(typ: str, text: str) -> dict:
     return {"type": typ, "text": text.strip()}
 
 
-def assemble(lines: list[list[tuple[str, str]]]) -> dict:
+def assemble(lines: list[tuple[list[tuple[str, str]], float]]) -> dict:
     """Assemble the merged span items into the {_midday: {...}} form."""
     midday: dict = {"title": _TITLE}
     fields: list[tuple[str, list]] = []
