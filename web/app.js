@@ -17,6 +17,16 @@ import {
 const DATA = 'data';
 const isNative = !!(window.__pwcPlugins?.Capacitor?.isNativePlatform?.());
 
+// ── Feature gates ─────────────────────────────────────────────────────────────
+// BAS Mid-day Prayer (#166) is extracted and ships in the data, but the office
+// selector is gated off pending review — the app stays MP/EP for now, per the
+// product ruling. The gate is a single switch: off by default, `?midday=1` in
+// the URL re-enables it without a rebuild. Its two arms are hiding the Mid-day
+// surfaces (header toggle, picker sheet) and refusing the office type in
+// render(), so nothing renders a gated office that the buttons could not have
+// reached anyway.
+const MIDDAY_ENABLED = new URLSearchParams(location.search).has('midday');
+
 // ── Storage (localStorage + Capacitor Preferences) ────────────────────────────
 
 function storageGet(key) {
@@ -877,6 +887,10 @@ function fmtFullDate(dateStr) {
  * @param {string} translation - 'kjv' | 'nrsvue'
  */
 async function render(dateStr, officeType, translation) {
+  // Gate (see MIDDAY_ENABLED): coerce a gated office to MP so a stale
+  // navigation can never render Mid-day; the buttons being hidden would
+  // normally prevent the request from arriving at all.
+  officeType = (officeType === 'midday' && !MIDDAY_ENABLED) ? 'mp' : officeType;
   const contentEl = document.getElementById('office-content');
   contentEl.innerHTML = '<p class="loading">Loading…</p>';
 
@@ -1054,10 +1068,14 @@ async function render(dateStr, officeType, translation) {
     ctrlHtml += `<div class="day-ctrl-group day-ctrl-group--office">
       <div class="day-ctrl-seg" role="group" aria-label="Office">
         <button type="button" data-navigate="${esc(dateStr)}|mp|${esc(state.observance || 'primary')}" aria-pressed="${officeType === 'mp'}" class="day-ctrl-btn${officeType === 'mp' ? ' is-active' : ''}">
-          Morning Prayer</button>
-        <button type="button" data-navigate="${esc(dateStr)}|midday|${esc(state.observance || 'primary')}" aria-pressed="${officeType === 'midday'}" class="day-ctrl-btn${officeType === 'midday' ? ' is-active' : ''}">
-          Mid-day Prayer</button>
-        <button type="button" data-navigate="${esc(dateStr)}|ep|${esc(state.observance || 'primary')}" aria-pressed="${officeType === 'ep'}" class="day-ctrl-btn${officeType === 'ep' ? ' is-active' : ''}">
+          Morning Prayer</button>`;
+    // The Mid-day button exists only when the gate is on; when it is off the
+    // header control is a plain MP/EP seg and nothing renders a gated office.
+    if (MIDDAY_ENABLED) {
+      ctrlHtml += `<button type="button" data-navigate="${esc(dateStr)}|midday|${esc(state.observance || 'primary')}" aria-pressed="${officeType === 'midday'}" class="day-ctrl-btn${officeType === 'midday' ? ' is-active' : ''}">
+          Mid-day Prayer</button>`;
+    }
+    ctrlHtml += `<button type="button" data-navigate="${esc(dateStr)}|ep|${esc(state.observance || 'primary')}" aria-pressed="${officeType === 'ep'}" class="day-ctrl-btn${officeType === 'ep' ? ' is-active' : ''}">
           Evening Prayer</button>
       </div></div>`;
     // Opening toggle. Always present for MP/EP: which opening the office uses
@@ -1521,6 +1539,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   initFontSize();
   initScrollBehaviour();
   initNativeFeatures();
+
+  // Gate (see MIDDAY_ENABLED): when off, the picker sheet offers only Morning
+  // and Evening — the static #day-picker-midday button is dropped rather than
+  // hidden so it cannot be reached by keyboard or assistive tech. The per-
+  // button guards below already tolerate the button's absence.
+  if (!MIDDAY_ENABLED) {
+    document.getElementById('day-picker-midday')?.remove();
+  }
 
   document.getElementById('nav-brand').addEventListener('click', e => {
     e.preventDefault();

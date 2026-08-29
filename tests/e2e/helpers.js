@@ -18,9 +18,13 @@ export async function openDatePicker(page) {
   await expect(page.locator('#day-date-picker')).toBeVisible();
 }
 
-/** Navigate to a fresh load, then drive the UI to the given date/office. */
-export async function gotoOffice(page, date, office) {
-  await page.goto('/');
+/**
+ * Navigate to a fresh load, then drive the UI to the given date/office.
+ * `opts.midday` loads with `?midday=1` to flip the mid-day feature gate on,
+ * which the mid-day office is gated behind by default (see app.js).
+ */
+export async function gotoOffice(page, date, office, { midday = false } = {}) {
+  await page.goto(midday ? '/?midday=1' : '/');
   await page.locator('#day-title').waitFor();
   await openDatePicker(page);
   await page.locator('#day-date-picker').fill(date);

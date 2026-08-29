@@ -183,8 +183,10 @@ test.describe('Office loads', () => {
 // is fetched — there are no .psalm-loading or .scripture-placeholder blocks
 // to wait on.
 test.describe('Mid-day Prayer', () => {
+  // Every case here drives the office the feature gate keeps off by default
+  // (app.js), so each loads with `?midday=1` to flip the gate on.
   test('loads as a third office with its own title and content', async ({ page }) => {
-    await gotoOffice(page, DATE, 'midday');
+    await gotoOffice(page, DATE, 'midday', { midday: true });
     await expect(page).toHaveTitle(/Mid-day Prayer/);
     await expect(page.locator('.day-ctrl-group--office .day-ctrl-btn.is-active'))
       .toHaveText('Mid-day Prayer');
@@ -227,7 +229,7 @@ test.describe('Mid-day Prayer', () => {
   });
 
   test('readings and collects offer their I/II/III choices', async ({ page }) => {
-    await gotoOffice(page, DATE, 'midday');
+    await gotoOffice(page, DATE, 'midday', { midday: true });
     // Reading alternatives: Galatians / 2 Corinthians / Malachi, in the
     // first alt-block; the default shows group I. The book prints the
     // citation trailing the reading; the app leads with it as a grey label,
@@ -263,7 +265,7 @@ test.describe('Mid-day Prayer', () => {
   });
 
   test('has no Opening selector and no observance toggle', async ({ page }) => {
-    await gotoOffice(page, DATE, 'midday');
+    await gotoOffice(page, DATE, 'midday', { midday: true });
     // Mid-day Prayer prints no penitential opening, so the choice does not
     // exist there and the control is not shown (#166).
     await expect(page.locator('.day-ctrl-group--opening')).toHaveCount(0);
@@ -273,7 +275,7 @@ test.describe('Mid-day Prayer', () => {
   });
 
   test('switching office from Mid-day keeps the date and restores the Opening selector', async ({ page }) => {
-    await gotoOffice(page, DATE, 'midday');
+    await gotoOffice(page, DATE, 'midday', { midday: true });
     await page.locator('.day-ctrl-group--office .day-ctrl-btn:text-is("Morning Prayer")').click();
     await expect(page.locator('.day-ctrl-group--opening')).toBeVisible();
     await expect(page.locator('.day-ctrl-group--office .day-ctrl-btn.is-active'))
@@ -282,7 +284,7 @@ test.describe('Mid-day Prayer', () => {
   });
 
   test('the picker sheet offers Mid-day alongside Morning and Evening', async ({ page }) => {
-    await gotoOffice(page, DATE, 'mp');
+    await gotoOffice(page, DATE, 'mp', { midday: true });
     await openDatePicker(page);
     const seg = page.locator('#day-picker-office-seg');
     await expect(seg.locator('button')).toHaveCount(3);
@@ -290,6 +292,18 @@ test.describe('Mid-day Prayer', () => {
     await page.locator('#day-picker-midday').click();
     await expect(page.locator('.day-ctrl-group--office .day-ctrl-btn.is-active'))
       .toHaveText('Mid-day Prayer');
+  });
+
+  test('the gate keeps Mid-day off by default', async ({ page }) => {
+    // No `?midday=1`: the office is gated off, so no Mid-day surface exists —
+    // neither the header toggle button nor the picker-sheet button. MP/EP only.
+    await gotoOffice(page, DATE, 'mp');
+    await expect(page.locator('.day-ctrl-group--office .day-ctrl-btn')).toHaveCount(2);
+    await expect(page.locator('.day-ctrl-group--office .day-ctrl-btn:text-is("Mid-day Prayer")'))
+      .toHaveCount(0);
+    await openDatePicker(page);
+    await expect(page.locator('#day-picker-office-seg button')).toHaveCount(2);
+    await expect(page.locator('#day-picker-midday')).toHaveCount(0);
   });
 });
 
@@ -315,7 +329,7 @@ test.describe('Navigation', () => {
   // The office toggle is a visible segmented control in the day header at every
   // width, so one path serves both projects — no branch on viewport here.
   test('MP/EP/Mid-day toggle switches office', async ({ page }) => {
-    await gotoOffice(page, DATE, 'mp');
+    await gotoOffice(page, DATE, 'mp', { midday: true });
     const seg = page.locator('.day-ctrl-group--office');
     await expect(seg).toBeVisible();
     await expect(seg.locator('.day-ctrl-btn')).toHaveCount(3);
