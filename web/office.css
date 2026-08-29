@@ -909,8 +909,10 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
   background: var(--color-nav-bg); color: var(--color-nav-text);
   box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
-/* Observance seg: brass outline style (distinct category from time-of-day) */
-.day-ctrl-seg--obs { background: transparent; border-color: color-mix(in oklab, var(--color-brass) 40%, var(--color-border)); }
+/* Observance seg: same styling family as the other header toggles — the
+   active button uses the green nav block like Office and Opening, so who is
+   being prayed reads as the same kind of choice as which office or opening. */
+.day-ctrl-seg--obs { background: transparent; border-color: var(--color-border); }
 /* Both slots here are calendar names rather than verbs — "Martyrs of Uganda,
    1886, and Janani Luwum, Archbishop of Uganda, 1977" is a routine one — so the
    segment's max-width sets either of them in as many lines as it takes (#82).
@@ -918,11 +920,6 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
    ragged type. The office toggle names two times of day and never wraps, so it
    keeps the shared centring. */
 .day-ctrl-seg--obs .day-ctrl-btn { justify-content: flex-start; text-align: left; line-height: 1.35; }
-.day-ctrl-seg--obs .day-ctrl-btn.is-active {
-  background: color-mix(in oklab, var(--color-brass) 15%, var(--color-bg));
-  color: var(--color-heading);
-  box-shadow: inset 0 0 0 1.5px var(--color-brass);
-}
 .loading {
   color: var(--color-muted); font-style: italic; font-size: 0.9rem;
   margin: 2rem 0; text-align: left;
