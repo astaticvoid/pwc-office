@@ -1220,6 +1220,24 @@ test.describe('Day markers (#128)', () => {
     await expect(page.locator('#day-meta')).toContainText('Bonhoeffer');
   });
 
+  test('the eve marker is dropped where the observance toggle already offers it', async ({ page }) => {
+    // A day whose evening is both an eve and offers the eve as an alternate
+    // (the June-6 configuration): the office toggle names the eve as a button,
+    // so the meta row must not repeat it as a marker — the two would be
+    // redundant. On the morning, which carries no alternate, the marker stays.
+    const date = findDay(
+      'a day whose evening is an eve and offers an alternate in the evening office',
+      d => (d.observances || []).some(o => /^eve_of:/.test(o)) && !!d.evening?.alternate);
+    // Primary selected (default): the toggle shows the eve, so no marker.
+    await gotoOffice(page, date, 'ep');
+    await expect(page.locator('.day-ctrl-seg--obs .day-ctrl-btn')).toHaveCount(2);
+    await expect(page.locator('#day-meta')).not.toContainText(/Eve of/);
+    // Morning has no alternate: the eve is a marker, not a button.
+    await gotoOffice(page, date, 'mp');
+    await expect(page.locator('.day-ctrl-seg--obs')).toHaveCount(0);
+    await expect(page.locator('#day-meta')).toContainText(/Eve of/);
+  });
+
   test('a day with neither gets no markers', async ({ page }) => {
     const date = plainDay();
     await gotoOffice(page, date, 'mp');
