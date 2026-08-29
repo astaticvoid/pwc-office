@@ -8,6 +8,7 @@ import {
   collectSecondaryPage, collectCommemorations, assembleSections, formatLiturgicalText, invitatorySegments, phosHilaronSegments,
   splitPsalmRubrics, splitReadingRubrics,
   parseRanges, extractVersesWithChapter, parsePsalmCitation,
+  stripDanglingEditorsBrackets,
   collectPageNum, lookupCollect, lookupFatsEntry, penitentialSegments,
 } from './render.js';
 
@@ -1387,7 +1388,8 @@ async function fillScriptureEl(el, translation) {
       return;
     }
 
-    const allVerses = ranges.flatMap(r => extractVersesWithChapter(bookData, r));
+    const allVerses = stripDanglingEditorsBrackets(
+      ranges.flatMap(r => extractVersesWithChapter(bookData, r)));
     const paragraphs = await fetchOnce('paragraphs', `${DATA}/paragraphs.json`).catch(() => null);
     const paraMap = paragraphs ? (paragraphs[parsed.file] || null) : null;
 

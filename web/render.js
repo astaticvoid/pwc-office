@@ -163,6 +163,59 @@ export function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+/**
+ * Remove editorial-marking brackets ([[ and ]]) from a reading whose matching
+ * partner lies outside the reading. The vendored NRSVue text marks passages
+ * absent from the earliest manuscripts (e.g. Jn 7:53–8:11, the Mark 16
+ * longer/short endings) with [[ … ]], and a reading that ends just before one
+ * (Jn 7:52 → “…Galilee.” [[) or starts inside one carries a dangling marker
+ * with no printed meaning. A pair fully inside the reading is kept.
+ * Returns a new array; verse objects are untouched, only text is rewritten.
+ * @param {Array<{ch:number, v:number, text:string}>} verses
+ * @returns {Array<{ch:number, v:number, text:string}>}
+ */
+export function stripDanglingEditorsBrackets(verses) {
+  let combined = '';
+  const sep = '\u0001';
+  for (const v of verses) combined += v.text + sep;
+  const matched = new Set(); // character offsets of bracket-pair markers kept
+  const stack = [];
+  for (let i = 0; i < combined.length - 1; i++) {
+    if (combined[i] === '[' && combined[i + 1] === '[') {
+      stack.push(i);
+      i++;
+    } else if (combined[i] === ']' && combined[i + 1] === ']') {
+      if (stack.length) {
+        const open = stack.pop();
+        matched.add(open);
+        matched.add(i);
+      }
+      i++;
+    }
+  }
+  // `matched` holds the two-character start offsets of every kept [[ and ]].
+  // Any [[ or ]] not in `matched` is dangling and is stripped from its verse.
+  const result = [];
+  let base = 0; // combined offset where the current verse starts
+  for (let vi = 0; vi < verses.length; vi++) {
+    const v = verses[vi];
+    let out = '';
+    for (let j = 0; j < v.text.length; ) {
+      const off = base + j;
+      const two = combined.slice(off, off + 2);
+      if ((two === '[[' || two === ']]') && !matched.has(off)) {
+        j += 2;
+        continue;
+      }
+      out += v.text[j];
+      j++;
+    }
+    result.push({ ch: v.ch, v: v.v, text: out });
+    base += v.text.length + sep.length;
+  }
+  return result;
+}
+
 export function parseDate(s) { return s ? new Date(s + 'T00:00:00Z') : null; }
 
 // Wrap [word * ] in a nowrap group so the asterisk never orphans at a line end.

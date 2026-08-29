@@ -8,7 +8,7 @@ import {
   formatLiturgicalText, formatProseText, splitPsalmRubrics, splitReadingRubrics,
   parseCitation, expandCitationForDisplay, SINGLE_CHAPTER_BOOKS,
   collectCommemorations, lookupFatsEntry, fatsCandidates, penitentialSegments,
-  middayBlocks,
+  middayBlocks, stripDanglingEditorsBrackets,
 } from '../../web/render.js';
 
 const DATA_DIR = join(import.meta.dirname, '../../data');
@@ -40,6 +40,37 @@ describe('formKey', () => {
     ['Easter',       'ep', 6, 'easter-ep'],
   ])('%s %s weekday=%i → %s', (season, type, day, expected) => {
     expect(formKey(season, type, day)).toBe(expected);
+  });
+});
+
+describe('stripDanglingEditorsBrackets', () => {
+  const strip = vs => stripDanglingEditorsBrackets(vs).map(v => v.text);
+  test('a reading ending on the opening marker loses the dangling [[', () => {
+    const out = strip([{ ch: 7, v: 52, text: '…Galilee.” [[' }]);
+    expect(out).toEqual(['…Galilee.” ']);
+  });
+  test('a balanced pair fully inside the reading is kept', () => {
+    const out = strip([{ ch: 7, v: 52, text: 'a [[b]] c' }]);
+    expect(out).toEqual(['a [[b]] c']);
+  });
+  test('a closing marker whose opener precedes the reading is stripped', () => {
+    const out = strip([{ ch: 8, v: 11, text: 'sin again.”]]' }]);
+    expect(out).toEqual(['sin again.”']);
+  });
+  test('a pair spread across two verses of the reading is kept', () => {
+    const out = strip([
+      { ch: 7, v: 52, text: 'x [[' },
+      { ch: 8, v: 11, text: 'y]] z' },
+    ]);
+    expect(out).toEqual(['x [[', 'y]] z']);
+  });
+  test('an internal balanced section survives while a trailing opener is stripped', () => {
+    const out = strip([{ ch: 16, v: 8, text: 'a [[b]] [[c' }]);
+    expect(out).toEqual(['a [[b]] c']);
+  });
+  test('nested brackets are balanced independently', () => {
+    const out = strip([{ ch: 1, v: 1, text: '[[ a [[ b ]] c ]]' }]);
+    expect(out).toEqual(['[[ a [[ b ]] c ]]']);
   });
 });
 
