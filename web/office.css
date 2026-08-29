@@ -528,8 +528,7 @@ body.book-mode .alt-panel + .alt-panel::before {
   text-transform: uppercase;
 }
 .label-micro,
-.observance-label,
-.day-ctrl-cap {
+.observance-label {
   font-family: var(--font-ui);
   font-size: var(--fs-micro);
   font-weight: 600;
@@ -884,8 +883,6 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
      wraps inside its own half of the track. */
   width: 100%; max-width: 100%;
 }
-
-.day-ctrl-obs-mark { color: var(--color-brass); font-size: 0.6em; vertical-align: middle; }
 
 .day-ctrl-seg {
   display: flex; gap: 3px; padding: 3px;

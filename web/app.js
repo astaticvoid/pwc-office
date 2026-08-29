@@ -1071,8 +1071,7 @@ async function render(dateStr, officeType, translation) {
       // phone has no hover to recover anything the label drops (#82).
       const primaryName = observanceName(officeData, day, false);
       ctrlHtml += `<div class="day-ctrl-group day-ctrl-group--obs">
-        <div class="day-ctrl-cap">Observance \u00b7 whose readings <span class="day-ctrl-obs-mark">\u25c6</span></div>
-        <div class="day-ctrl-seg day-ctrl-seg--obs">
+        <div class="day-ctrl-seg day-ctrl-seg--obs" role="group" aria-label="Observance">
           <button data-navigate="${esc(dateStr)}|${esc(officeType)}|primary" class="day-ctrl-btn${activeObs === 'primary' ? ' is-active' : ''}">
             ${esc(primaryName)}</button>
           <button data-navigate="${esc(dateStr)}|${esc(officeType)}|alternate" class="day-ctrl-btn${activeObs === 'alternate' ? ' is-active' : ''}">
