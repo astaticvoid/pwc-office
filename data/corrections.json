@@ -639,6 +639,28 @@
       "reason": "ADR 0019 item 4: the affirmation transition reads '...or the Prayers' in both offices. The 16 seasonal forms print '...or the Litany'; the 14 ordinary forms already print '...or the Prayers' and are untouched. Substring so one entry covers the Morning and Evening wordings."
     },
     {
+      "id": "adr0019-item10-absolution-you",
+      "source": "upstream-review",
+      "adr": "0019 item 10",
+      "office": "_penitential",
+      "field": "absolution",
+      "old": "you/us",
+      "new": "you",
+      "count": 8,
+      "reason": "ADR 0019 item 10: the penitential absolution drops the 'you/us' slash on every line — the officiant-addressed 'you' form ships, and the deacon rubric printed below ('A deacon or lay person using the preceding form substitutes us for you and our for your.') is the mechanism for the deacon/lay officiant. The book prints both pronouns on every line, so this is a divergence from the page, not an error in it, and is recorded here."
+    },
+    {
+      "id": "adr0019-item10-absolution-your",
+      "source": "upstream-review",
+      "adr": "0019 item 10",
+      "office": "_penitential",
+      "field": "absolution",
+      "old": "your/our",
+      "new": "your",
+      "count": 2,
+      "reason": "ADR 0019 item 10: the 'your/our' slash drops to 'your', keeping the officiant-addressed form the deacon rubric then substitutes — the ruling leaves 'your' in place rather than flipping to 'our', which would contradict that rubric."
+    },
+    {
       "id": "shared-affirmation-creed-comma",
       "source": "editorial",
       "office": "_shared",
