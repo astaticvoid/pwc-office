@@ -59,6 +59,7 @@ Usage:
 
 import argparse
 import contextlib
+import copy
 import hashlib
 import json
 import re
@@ -72,6 +73,12 @@ from pathlib import Path
 # this file's stdout is the report and nothing else.
 with contextlib.redirect_stdout(sys.stderr):
     import fitz  # PyMuPDF
+
+    # The manifest's own segment walk, for the penitential `corrected` rule:
+    # replaying the `_penitential` entries over the pre-correction artifact
+    # must use the same walk the validator and applier use, or reconstruction
+    # and application could disagree about what was authorised.
+    from corrections_lib import iter_text_segments, replace_occurrences
 
     # The fats extractor's own page walk and body parsers, for the `--chain
     # fats` walk — same rationale as the psalter: classify with the code under
@@ -577,7 +584,47 @@ def check_form(form_key: str, source: list[SourceLine], shipped: ShippedForm,
 _PEN_VARIANT = "from our sins,"
 
 
-def check_penitential(doc, pen: dict) -> tuple[Counter, Counter, list[Finding]]:
+def pen_manifest(pre_pen: dict | None, corrections: list[dict]) -> list[tuple[str, str, str]]:
+    """The pre-correction `_penitential` segments with its manifest applied.
+
+    Returns (field, before, after) per text segment — the units the shipped
+    walk below accounts — so the `corrected` rule fires only when rewriting
+    what was extracted with the manifest's `_penitential` entries actually
+    produces what ships (ADR 0005, 0022), not merely when an entry sits on the
+    field. The replay uses corrections_lib's own walk and replacer, the same
+    ones the validator and applier call; a reconstruction that disagreed with
+    application would license a divergence nobody applied. Only substring
+    `office_text` entries naming office "_penitential" apply: the "*" wildcard
+    never resolves here (corrections_lib skips `_`-prefixed keys) and the
+    whole-field shape cannot be replayed at segment granularity.
+    """
+    if pre_pen is None:
+        return []
+    relevant = [c for c in corrections
+                if c.get("office") == "_penitential" and isinstance(c.get("old"), str)]
+    if not relevant:
+        return []
+    out: list[tuple[str, str, str]] = []
+    # Walk only the fields an entry names; the walker yields in the same
+    # order for the original and the copy, so the segments pair by index.
+    for field in sorted({c["field"] for c in relevant}):
+        raw = pre_pen.get(field)
+        if raw is None:
+            continue
+        rebuilt = copy.deepcopy(raw)
+        for c in relevant:
+            if c["field"] == field:
+                replace_occurrences(rebuilt, c["old"], c["new"])
+        for before, after in zip((s["text"] for s in iter_text_segments(raw)),
+                                 (s["text"] for s in iter_text_segments(rebuilt))):
+            sb, sa = squash(before), squash(after)
+            if sb != sa:
+                out.append((field, sb, sa))
+    return out
+
+
+def check_penitential(doc, pen: dict, pre_pen: dict | None,
+                      corrections: list[dict]) -> tuple[Counter, Counter, list[Finding]]:
     page_counts: Counter = Counter()
     data_counts: Counter = Counter()
     findings: list[Finding] = []
@@ -624,6 +671,23 @@ def check_penitential(doc, pen: dict) -> tuple[Counter, Counter, list[Finding]]:
     def find(text: str) -> bool:
         needle = squash(text)
         return bool(needle and any(needle in b for b in shipped_blocks))
+
+    # The manifest's `_penitential` entries replayed over the pre-correction
+    # artifact — (field, before, after) per segment, the same units the
+    # shipped walk accounts. A printed line that no longer ships, or a shipped
+    # line the page never printed, is `corrected` only when the replay
+    # reproduces what ships; the source side itself is unchanged (ADR 0022).
+    rebuilt = pen_manifest(pre_pen, corrections)
+
+    def explains_loss(text: str) -> bool:
+        needle = squash(text)
+        return any(needle in before and before != after
+                   and after in shipped_lines
+                   for _field, before, after in rebuilt)
+
+    def explains_gain(key: str) -> bool:
+        return any(key in after and key not in before
+                   for _field, before, after in rebuilt)
 
     # ── source side: per-span units, tagged with section and rule ───────────
     source: list[SourceLine] = []
@@ -702,6 +766,8 @@ def check_penitential(doc, pen: dict) -> tuple[Counter, Counter, list[Finding]]:
             page_counts["reflowed"] += 1
         elif has(_pen_clean(text)) or find(_pen_clean(text)):
             page_counts["whitespace"] += 1
+        elif explains_loss(text):
+            page_counts["corrected"] += 1
         else:
             page_counts["UNACCOUNTED"] += 1
             findings.append(Finding("penitential", line.section,
@@ -721,6 +787,8 @@ def check_penitential(doc, pen: dict) -> tuple[Counter, Counter, list[Finding]]:
             data_counts["printed-joined"] += 1
         elif key in fixed_stream:
             data_counts["whitespace"] += 1
+        elif explains_gain(key):
+            data_counts["corrected"] += 1
         else:
             data_counts["UNACCOUNTED"] += 1
             findings.append(Finding("penitential", "—", "text", key, "data"))
@@ -894,7 +962,8 @@ def run_offices(args) -> int:
         if pen is None:
             print(f"ERROR: _penitential missing from {SHIPPED}", file=sys.stderr)
             return 1
-        page, dat, found = check_penitential(doc, pen)
+        page, dat, found = check_penitential(doc, pen, pre_data.get("_penitential"),
+                                              corrections)
         page_total.update(page)
         data_total.update(dat)
         page_by_form["penitential"] = page

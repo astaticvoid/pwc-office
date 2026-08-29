@@ -45,6 +45,15 @@ def iter_text_segments(node):
         return
     if isinstance(node.get("text"), str):
         yield node
+        return
+    # A named-field block — the `_penitential` confession/absolution dicts,
+    # with string fields beside a plain list-of-lists `alternatives` — is not
+    # itself a segment, so its segments are reached by walking its values.
+    # String leaves inside a block stay unreachable: a plain-string FIELD
+    # takes the narrow route in count_occurrences and the applier, and no
+    # dict block carries a corrected string today.
+    for value in node.values():
+        yield from iter_text_segments(value)
 
 
 def is_shared_reference(field) -> bool:

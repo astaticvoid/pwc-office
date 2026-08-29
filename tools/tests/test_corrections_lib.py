@@ -56,6 +56,28 @@ def test_does_not_follow_shared_references():
     assert [s["text"] for s in iter_text_segments(field)] == ["local text"]
 
 
+def test_descends_into_named_field_block():
+    """`_penitential` confession/absolution are dict blocks — string fields
+    beside a plain list-of-lists `alternatives` — not a list of segments.
+    Their segments must be reachable so a substring correction can reach them,
+    the same way an `alternatives`-shaped field's are, without the walker
+    touching the block's own string fields (the plain-string route)."""
+    block = {
+        "invitation": "The presider says,",
+        "alternatives": [
+            [{"type": "leader", "text": "forgive you/us from your/our sins,"}],
+            [{"type": "response", "text": "Amen."}],
+        ],
+    }
+    texts = [s["text"] for s in iter_text_segments(block)]
+    assert "forgive you/us from your/our sins," in texts
+    assert "Amen." in texts
+    assert "The presider says," not in texts, (
+        "a string leaf inside the block is not a segment")
+    assert replace_occurrences(block, "you/us", "you") == 1
+    assert block["alternatives"][0][0]["text"] == "forgive you from your/our sins,"
+
+
 def test_substring_replace_is_scoped_to_matching_segments():
     field = _field()
     assert replace_occurrences(field, "hid with Christ", "hidden with Christ") == 1
