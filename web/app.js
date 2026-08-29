@@ -356,11 +356,6 @@ function observanceName(slot, day, isAlternate) {
   return day.name;
 }
 
-// Everyone the day commemorates, the day's own name first (#129).
-function commemoratedNames(day) {
-  return [day.name, ...(day.commemorations || []).map(c => c.name)].filter(Boolean);
-}
-
 // The header's name for the day. Where the calendar offers either of two
 // observances of equal standing it has named two days, and choosing one of
 // them for the title would be the app picking a branch on the reader's
@@ -1026,10 +1021,18 @@ async function render(dateStr, officeType, translation) {
   // A second commemoration is a second life, extracted and shipped like the
   // first, and keying the lookup to the day's name alone left it unreachable
   // (#129).
+  //
+  // Which people show follows the observance toggle, not the day alone: the
+  // biography is about whoever the selected observance prays. An alternate
+  // that names no person — the eve/feast alternates in the data — offers no
+  // life, so switching to it clears the day's bio rather than keeping it.
   const ctrlEl = document.getElementById('day-office-controls');
   if (ctrlEl) {
-    for (const person of commemoratedNames(day)) {
-      const entry = person === day.name ? fatsEntry : lookupFatsEntry(fats, person);
+    const obsPeople = activeObs === 'alternate'
+      ? (activeOfficeData.name ? [activeOfficeData.name] : [])
+      : [day.name, ...(day.commemorations || []).map(c => c.name)];
+    for (const person of obsPeople.filter(Boolean)) {
+      const entry = lookupFatsEntry(fats, person);
       if (!entry || !entry.bio) continue;
       const bioParas = entry.bio.split(/\n\n+/).map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
       ctrlEl.insertAdjacentHTML('beforebegin',

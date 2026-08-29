@@ -743,6 +743,24 @@ test.describe('Observance toggle', () => {
     expect(box.pageOverflow).toBeLessThanOrEqual(0);
     expect(box.minHeight).toBeGreaterThanOrEqual(44);
   });
+
+  // An eve/feast alternate names no person, so selecting it must clear the
+  // primary day's biography rather than keeping it — the bio follows who is
+  // being prayed, not the calendar day alone. Found by property: a day whose
+  // own name has a FATS life and whose evening offers an alternate.
+  test("an eve/feast alternate clears the day's biography", async ({ page }) => {
+    const fats = JSON.parse(readFileSync(join(import.meta.dirname, '../..', 'data/fats/saints.json'), 'utf8'));
+    const keys = new Set(Object.keys(fats).map(k => k.toLowerCase()));
+    const date = findDay(
+      'a day whose own name has a biography and whose evening offers an alternate',
+      d => d.evening?.alternate && keys.has((d.name || '').toLowerCase()));
+    await gotoOffice(page, date, 'ep');
+    await expect(page.locator('.fats-bio').first()).toBeVisible();
+    const before = await page.locator('.fats-bio').count();
+    expect(before).toBeGreaterThanOrEqual(1);
+    await page.locator('.day-ctrl-seg--obs .day-ctrl-btn').nth(1).click();
+    await expect(page.locator('.fats-bio')).toHaveCount(0);
+  });
 });
 
 // ── Section shapes the renderer depends on ───────────────────────────────────
