@@ -18,13 +18,9 @@ export async function openDatePicker(page) {
   await expect(page.locator('#day-date-picker')).toBeVisible();
 }
 
-/**
- * Navigate to a fresh load, then drive the UI to the given date/office.
- * `opts.midday` loads with `?midday=1` to flip the mid-day feature gate on,
- * which the mid-day office is gated behind by default (see app.js).
- */
-export async function gotoOffice(page, date, office, { midday = false } = {}) {
-  await page.goto(midday ? '/?midday=1' : '/');
+/** Navigate to a fresh load, then drive the UI to the given date/office. */
+export async function gotoOffice(page, date, office) {
+  await page.goto('/');
   await page.locator('#day-title').waitFor();
   await openDatePicker(page);
   await page.locator('#day-date-picker').fill(date);
@@ -37,8 +33,7 @@ export async function gotoOffice(page, date, office, { midday = false } = {}) {
  * there is no breakpoint-dependent fallback through the picker sheet.
  */
 export async function ensureOffice(page, office) {
-  const label = office === 'ep' ? 'Evening Prayer'
-    : office === 'midday' ? 'Mid-day Prayer' : 'Morning Prayer';
+  const label = office === 'ep' ? 'Evening Prayer' : 'Morning Prayer';
   const btn = page.locator(`.day-ctrl-group--office .day-ctrl-btn:text-is("${label}")`);
   if ((await btn.getAttribute('aria-pressed')) !== 'true') {
     await btn.click();

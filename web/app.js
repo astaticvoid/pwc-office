@@ -8,7 +8,7 @@ import {
   collectSecondaryPage, collectCommemorations, assembleSections, formatLiturgicalText, invitatorySegments, phosHilaronSegments,
   splitPsalmRubrics, splitReadingRubrics,
   parseRanges, extractVersesWithChapter, parsePsalmCitation,
-  collectPageNum, lookupCollect, lookupFatsEntry, penitentialSegments, middayBlocks,
+  collectPageNum, lookupCollect, lookupFatsEntry, penitentialSegments,
 } from './render.js';
 
 // ── Data path ─────────────────────────────────────────────────────────────────
@@ -16,16 +16,6 @@ import {
 // Prod: web/ synced to S3 bucket root, data/ at same root
 const DATA = 'data';
 const isNative = !!(window.__pwcPlugins?.Capacitor?.isNativePlatform?.());
-
-// ── Feature gates ─────────────────────────────────────────────────────────────
-// BAS Mid-day Prayer (#166) is extracted and ships in the data, but the office
-// selector is gated off pending review — the app stays MP/EP for now, per the
-// product ruling. The gate is a single switch: off by default, `?midday=1` in
-// the URL re-enables it without a rebuild. Its two arms are hiding the Mid-day
-// surfaces (header toggle, picker sheet) and refusing the office type in
-// render(), so nothing renders a gated office that the buttons could not have
-// reached anyway.
-const MIDDAY_ENABLED = new URLSearchParams(location.search).has('midday');
 
 // ── Storage (localStorage + Capacitor Preferences) ────────────────────────────
 
@@ -883,14 +873,10 @@ function fmtFullDate(dateStr) {
  * Top-level render: fetch all data, assemble the full office HTML, and inject it into #office-content.
  * Orchestrates fetchOnce, fetchDay, season resolution, form lookup, and all section renderers.
  * @param {string} dateStr - YYYY-MM-DD
- * @param {string} officeType - 'mp' | 'ep' | 'midday'
+ * @param {string} officeType - 'mp' | 'ep'
  * @param {string} translation - 'kjv' | 'nrsvue'
  */
 async function render(dateStr, officeType, translation) {
-  // Gate (see MIDDAY_ENABLED): coerce a gated office to MP so a stale
-  // navigation can never render Mid-day; the buttons being hidden would
-  // normally prevent the request from arriving at all.
-  officeType = (officeType === 'midday' && !MIDDAY_ENABLED) ? 'mp' : officeType;
   const contentEl = document.getElementById('office-content');
   contentEl.innerHTML = '<p class="loading">Loading…</p>';
 
@@ -952,7 +938,6 @@ async function render(dateStr, officeType, translation) {
     picker.min = pickerMin; picker.max = boundsMax; picker.value = dateStr;
   }
   const pickerMpBtn = document.getElementById('day-picker-mp');
-  const pickerMiddayBtn = document.getElementById('day-picker-midday');
   const pickerEpBtn = document.getElementById('day-picker-ep');
   // Per-button guards: a stripped build dropping one button must not take the
   // others' active-state sync down with it.
@@ -962,7 +947,6 @@ async function render(dateStr, officeType, translation) {
     btn.setAttribute('aria-pressed', String(active));
   };
   syncPicker(pickerMpBtn, officeType === 'mp');
-  syncPicker(pickerMiddayBtn, officeType === 'midday');
   syncPicker(pickerEpBtn, officeType === 'ep');
 
   const d = new Date(dateStr + 'T00:00:00Z');
@@ -970,21 +954,16 @@ async function render(dateStr, officeType, translation) {
   const season = seasonOf(dateStr, bounds);
   const fSeason = officeFormSeason(dateStr, bounds);
   const weekIdx = seasonWeekIndex(dateStr, fSeason, bounds);
-  // Mid-day Prayer is one fixed form the book prints without any per-day
-  // appointment: no formKey lookup, no lectionary slot, no alternate. The
-  // day header still names the day — the office is prayed on a day, and the
-  // day's identity, notes and saints belong to it (#166).
-  const isMidday = officeType === 'midday';
-  const key = isMidday ? '' : formKey(fSeason, officeType, weekday);
-  const form = isMidday ? (offices._midday || null) : (offices[key] || null);
+  const key = formKey(fSeason, officeType, weekday);
+  const form = offices[key] || null;
 
   document.documentElement.setAttribute('data-season', season);
 
-  const officeData = isMidday ? {} : (officeType === 'mp' ? (day.morning || {}) : (day.evening || {}));
+  const officeData = officeType === 'mp' ? (day.morning || {}) : (day.evening || {});
   /** @type {HTMLSelectElement} */ (document.getElementById('nav-translation')).value = translation;
 
   // Header
-  const officeName = isMidday ? 'Mid-day Prayer' : (officeType === 'mp' ? 'Morning Prayer' : 'Evening Prayer');
+  const officeName = officeType === 'mp' ? 'Morning Prayer' : 'Evening Prayer';
 
   if (!form) {
     contentEl.innerHTML = `<div class="out-of-range-msg">
@@ -1068,31 +1047,22 @@ async function render(dateStr, officeType, translation) {
     ctrlHtml += `<div class="day-ctrl-group day-ctrl-group--office">
       <div class="day-ctrl-seg" role="group" aria-label="Office">
         <button type="button" data-navigate="${esc(dateStr)}|mp|${esc(state.observance || 'primary')}" aria-pressed="${officeType === 'mp'}" class="day-ctrl-btn${officeType === 'mp' ? ' is-active' : ''}">
-          Morning Prayer</button>`;
-    // The Mid-day button exists only when the gate is on; when it is off the
-    // header control is a plain MP/EP seg and nothing renders a gated office.
-    if (MIDDAY_ENABLED) {
-      ctrlHtml += `<button type="button" data-navigate="${esc(dateStr)}|midday|${esc(state.observance || 'primary')}" aria-pressed="${officeType === 'midday'}" class="day-ctrl-btn${officeType === 'midday' ? ' is-active' : ''}">
-          Mid-day Prayer</button>`;
-    }
-    ctrlHtml += `<button type="button" data-navigate="${esc(dateStr)}|ep|${esc(state.observance || 'primary')}" aria-pressed="${officeType === 'ep'}" class="day-ctrl-btn${officeType === 'ep' ? ' is-active' : ''}">
+          Morning Prayer</button>
+        <button type="button" data-navigate="${esc(dateStr)}|ep|${esc(state.observance || 'primary')}" aria-pressed="${officeType === 'ep'}" class="day-ctrl-btn${officeType === 'ep' ? ' is-active' : ''}">
           Evening Prayer</button>
       </div></div>`;
     // Opening toggle. Always present for MP/EP: which opening the office uses
     // is decided at the time of prayer, so it lives with the other header
     // controls rather than behind a sheet (#165). Same seg shape as the office
     // toggle; the active button is set at build time because the controls are
-    // rebuilt on every render. Mid-day Prayer prints no penitential opening,
-    // so the choice does not exist there and the control is not shown (#166).
-    if (!isMidday) {
-      ctrlHtml += `<div class="day-ctrl-group day-ctrl-group--opening">
+    // rebuilt on every render.
+    ctrlHtml += `<div class="day-ctrl-group day-ctrl-group--opening">
         <div class="day-ctrl-seg" role="group" aria-label="Opening">
           <button type="button" data-opening="ordinary" aria-pressed="${state.opening !== 'penitential'}" class="day-ctrl-btn${state.opening !== 'penitential' ? ' is-active' : ''}">
             Standard</button>
           <button type="button" data-opening="penitential" aria-pressed="${state.opening === 'penitential'}" class="day-ctrl-btn${state.opening === 'penitential' ? ' is-active' : ''}">
             Penitential</button>
         </div></div>`;
-    }
     if (officeData.alternate) {
       const altLabel = officeData.alternate.label || 'Alternate';
       // The primary slot is not always the day: on 2026-01-03 it is the Eve of
@@ -1236,35 +1206,6 @@ async function render(dateStr, officeType, translation) {
 
   let html = '';
 
-  if (isMidday) {
-    // Mid-day Prayer is one fixed office the book prints as a continuous
-    // flow with no section headings; only its own "Psalm Prayer" and "The
-    // Lord's Prayer" headings are printed, and both were consumed as
-    // structure by the extractor, so middayBlocks re-emits them as the
-    // blocks' h3s. The psalm and readings are printed in full by the book
-    // and ship in the data — nothing is fetched, and no scripture
-    // attribution line is printed (#166).
-    const blocks = middayBlocks(form, season);
-    if (!blocks.length) {
-      contentEl.innerHTML = `<div class="out-of-range-msg">
-        <p class="out-of-range-title">Office form not available</p>
-        <p>The Mid-day Prayer form carries no content.</p>
-      </div>`;
-      return;
-    }
-    // The book prints the office as one continuous flow with no section
-    // headings, so the green rule the section titles carry elsewhere is
-    // supplied by the office block's own top border (midday-office in
-    // office.css) — it separates the day header from the liturgy like the
-    // first section title does on the other offices (#167).
-    html += '<div class="midday-office">';
-    for (const block of blocks) {
-      html += block.heading
-        ? renderSubsection(block.heading, block.segments, shared, block.verse)
-        : `<div class="liturgy">${renderSegments(block.segments, shared, block.verse)}</div>`;
-    }
-    html += '</div>';
-  } else {
   const seasonalSegs = form ? filterSeasonalCollects(form.seasonal_collects || [], weekIdx) : [];
 
   // Section visibility decisions shared with validators (ADR 0008).
@@ -1362,7 +1303,6 @@ async function render(dateStr, officeType, translation) {
   }
 
   html += `<p class="scripture-attr" id="scripture-attr">Scripture: ${esc(translation.toUpperCase())}</p>`;
-  }
 
   contentEl.innerHTML = html;
 
@@ -1540,14 +1480,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   initScrollBehaviour();
   initNativeFeatures();
 
-  // Gate (see MIDDAY_ENABLED): when off, the picker sheet offers only Morning
-  // and Evening — the static #day-picker-midday button is dropped rather than
-  // hidden so it cannot be reached by keyboard or assistive tech. The per-
-  // button guards below already tolerate the button's absence.
-  if (!MIDDAY_ENABLED) {
-    document.getElementById('day-picker-midday')?.remove();
-  }
-
   document.getElementById('nav-brand').addEventListener('click', e => {
     e.preventDefault();
     navigateTo(todayStr(), defaultOffice());
@@ -1639,7 +1571,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Date/office picker
   const dayDatePicker = /** @type {HTMLInputElement} */ (document.getElementById('day-date-picker'));
   const dayPickerMpBtn = document.getElementById('day-picker-mp');
-  const dayPickerMiddayBtn = document.getElementById('day-picker-midday');
   const dayPickerEpBtn = document.getElementById('day-picker-ep');
   const todayBtn = document.getElementById('today-btn');
 
@@ -1664,7 +1595,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // static in index.html, but a stripped build must fail on the missing
   // button alone rather than throwing at init.
   if (dayPickerMpBtn) dayPickerMpBtn.addEventListener('click', () => { if (state.office !== 'mp') navigateTo(state.date, 'mp'); });
-  if (dayPickerMiddayBtn) dayPickerMiddayBtn.addEventListener('click', () => { if (state.office !== 'midday') navigateTo(state.date, 'midday'); });
   if (dayPickerEpBtn) dayPickerEpBtn.addEventListener('click', () => { if (state.office !== 'ep') navigateTo(state.date, 'ep'); });
 
   document.getElementById('day-meta').addEventListener('click', e => {

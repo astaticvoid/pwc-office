@@ -175,138 +175,6 @@ test.describe('Office loads', () => {
   });
 });
 
-// ── Mid-day Prayer (#166) ─────────────────────────────────────────────────────
-
-// A fixed office the book prints as one continuous flow: no lectionary slot,
-// no section headings, no alternate, no penitential opening. The psalm and
-// readings are printed in full by the book and ship in the data, so nothing
-// is fetched — there are no .psalm-loading or .scripture-placeholder blocks
-// to wait on.
-test.describe('Mid-day Prayer', () => {
-  // Every case here drives the office the feature gate keeps off by default
-  // (app.js), so each loads with `?midday=1` to flip the gate on.
-  test('loads as a third office with its own title and content', async ({ page }) => {
-    await gotoOffice(page, DATE, 'midday', { midday: true });
-    await expect(page).toHaveTitle(/Mid-day Prayer/);
-    await expect(page.locator('.day-ctrl-group--office .day-ctrl-btn.is-active'))
-      .toHaveText('Mid-day Prayer');
-    // Continuous flow: the two printed headings are h3s, and no office-section
-    // h2s are invented (#166).
-    await expect(page.locator('.office-section-title')).toHaveCount(0);
-    await expect(page.locator('.office-subsection-title', { hasText: 'Psalm Prayer' }))
-      .toBeVisible();
-    await expect(page.locator('.office-subsection-title', { hasText: "The Lord's Prayer" }))
-      .toBeVisible();
-    // The psalm's own label renders as its seg-label.
-    await expect(page.locator('.seg-label', { hasText: 'Psalm 19:1–6' })).toBeVisible();
-    // Inline content, not fetched: the reading text is on the page.
-    await expect(page.getByText('The fruit of the Spirit is love, joy, peace')).toBeVisible();
-    await expect(page.locator('.scripture-placeholder')).toHaveCount(0);
-    await expect(page.locator('.psalm-loading')).toHaveCount(0);
-    // The green separator the section titles carry elsewhere is supplied by
-    // the office block's own top border — the page opens on the liturgy with
-    // the same rule MP/EP get from their first section title (#167).
-    const middayOffice = page.locator('.midday-office');
-    await expect(middayOffice).toBeVisible();
-    await expect(middayOffice).toHaveCSS('border-top-style', 'solid');
-    // The green rule is the season's accent — the same var the section
-    // titles use, whatever season the reference day falls in (#167). Probe
-    // the var through a real element so the comparison is rgb vs rgb.
-    const accent = await page.evaluate(() => {
-      const probe = document.createElement('span');
-      probe.style.color = 'var(--color-accent)';
-      document.body.appendChild(probe);
-      const c = getComputedStyle(probe).color;
-      probe.remove();
-      return c;
-    });
-    await expect(middayOffice).toHaveCSS('border-top-color', accent);
-    // The book prints "Except in Lent, add," — a rubric addressed to the
-    // officiant. The app knows the season and applies the rule itself, so the
-    // line never renders and the Alleluia is added (or withheld) by season
-    // (#167).
-    await expect(page.locator('#office-content')).not.toContainText('Except in Lent');
-  });
-
-  test('readings and collects offer their I/II/III choices', async ({ page }) => {
-    await gotoOffice(page, DATE, 'midday', { midday: true });
-    // Reading alternatives: Galatians / 2 Corinthians / Malachi, in the
-    // first alt-block; the default shows group I. The book prints the
-    // citation trailing the reading; the app leads with it as a grey label,
-    // the same treatment the psalm's own label gets (#167).
-    const reading = page.locator('.alt-block').nth(0);
-    await expect(reading.locator('.alt-tab')).toHaveText(['I', 'II', 'III']);
-    // The visible panel's own label (hidden panels' labels are in the DOM too).
-    await expect(reading.locator('.alt-panel:not(.alt-panel-hidden) .seg-label'))
-      .toHaveText('Galatians 5.22, 23a, 25');
-    // Grey like the psalm's label: the muted ink, whatever the theme. Probe
-    // the var through a real element so the comparison is rgb vs rgb (a
-    // hardcoded light-theme rgb would break under a dark color scheme).
-    const muted = await page.evaluate(() => {
-      const probe = document.createElement('span');
-      probe.style.color = 'var(--color-muted)';
-      document.body.appendChild(probe);
-      const c = getComputedStyle(probe).color;
-      probe.remove();
-      return c;
-    });
-    await expect(reading.locator('.alt-panel:not(.alt-panel-hidden) .seg-label'))
-      .toHaveCSS('color', muted);
-    await expect(reading).toContainText('The fruit of the Spirit');
-    // Collects: three alternatives in the second alt-block.
-    const collects = page.locator('.alt-block').nth(1);
-    await expect(collects.locator('.alt-tab')).toHaveText(['I', 'II', 'III']);
-    // The Lord's Prayer offers the modern (I) and traditional (II) forms.
-    const lordsPrayer = page.locator('.alt-block').nth(2);
-    await expect(lordsPrayer.locator('.alt-tab')).toHaveText(['I', 'II']);
-    await expect(lordsPrayer).toContainText('Our Father in heaven,');
-    await lordsPrayer.locator('.alt-tab:text-is("II")').click();
-    await expect(lordsPrayer).toContainText('Our Father, who art in heaven,');
-  });
-
-  test('has no Opening selector and no observance toggle', async ({ page }) => {
-    await gotoOffice(page, DATE, 'midday', { midday: true });
-    // Mid-day Prayer prints no penitential opening, so the choice does not
-    // exist there and the control is not shown (#166).
-    await expect(page.locator('.day-ctrl-group--opening')).toHaveCount(0);
-    // The office has no alternate observance slot.
-    await expect(page.locator('.day-ctrl-group--obs')).toHaveCount(0);
-    await expect(page.locator('#office-content')).not.toContainText('Penitential');
-  });
-
-  test('switching office from Mid-day keeps the date and restores the Opening selector', async ({ page }) => {
-    await gotoOffice(page, DATE, 'midday', { midday: true });
-    await page.locator('.day-ctrl-group--office .day-ctrl-btn:text-is("Morning Prayer")').click();
-    await expect(page.locator('.day-ctrl-group--opening')).toBeVisible();
-    await expect(page.locator('.day-ctrl-group--office .day-ctrl-btn.is-active'))
-      .toHaveText('Morning Prayer');
-    await expect(page.locator('#day-date-label')).toContainText('2026');
-  });
-
-  test('the picker sheet offers Mid-day alongside Morning and Evening', async ({ page }) => {
-    await gotoOffice(page, DATE, 'mp', { midday: true });
-    await openDatePicker(page);
-    const seg = page.locator('#day-picker-office-seg');
-    await expect(seg.locator('button')).toHaveCount(3);
-    await expect(page.locator('#day-picker-midday')).toHaveAttribute('aria-pressed', 'false');
-    await page.locator('#day-picker-midday').click();
-    await expect(page.locator('.day-ctrl-group--office .day-ctrl-btn.is-active'))
-      .toHaveText('Mid-day Prayer');
-  });
-
-  test('the gate keeps Mid-day off by default', async ({ page }) => {
-    // No `?midday=1`: the office is gated off, so no Mid-day surface exists —
-    // neither the header toggle button nor the picker-sheet button. MP/EP only.
-    await gotoOffice(page, DATE, 'mp');
-    await expect(page.locator('.day-ctrl-group--office .day-ctrl-btn')).toHaveCount(2);
-    await expect(page.locator('.day-ctrl-group--office .day-ctrl-btn:text-is("Mid-day Prayer")'))
-      .toHaveCount(0);
-    await openDatePicker(page);
-    await expect(page.locator('#day-picker-office-seg button')).toHaveCount(2);
-    await expect(page.locator('#day-picker-midday')).toHaveCount(0);
-  });
-});
-
 // ── Navigation ────────────────────────────────────────────────────────────────
 
 // The nav was redesigned: hash-based routing (#/DATE/OFFICE) was removed
@@ -328,11 +196,11 @@ test.describe('Navigation', () => {
 
   // The office toggle is a visible segmented control in the day header at every
   // width, so one path serves both projects — no branch on viewport here.
-  test('MP/EP/Mid-day toggle switches office', async ({ page }) => {
-    await gotoOffice(page, DATE, 'mp', { midday: true });
+  test('MP/EP toggle switches office', async ({ page }) => {
+    await gotoOffice(page, DATE, 'mp');
     const seg = page.locator('.day-ctrl-group--office');
     await expect(seg).toBeVisible();
-    await expect(seg.locator('.day-ctrl-btn')).toHaveCount(3);
+    await expect(seg.locator('.day-ctrl-btn')).toHaveCount(2);
     await expect(seg.locator('.day-ctrl-btn.is-active')).toHaveText('Morning Prayer');
 
     await seg.locator('.day-ctrl-btn:text-is("Evening Prayer")').click();
