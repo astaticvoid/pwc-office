@@ -1,5 +1,5 @@
 {
-  "extracted_at": "2026-08-29T02:25:22Z",
+  "extracted_at": "2026-08-29T04:13:26Z",
   "tool_versions": {
     "fitz": [
       "1.28.2",
@@ -19,7 +19,7 @@
     "tools/apply_corrections.py": "5f657143a0b095f3dc0a8b274a0e1ddd80ff6113d59ae8afca9a99740693bdac",
     "tools/corrections_lib.py": "40119a95696e6a4a4091bcb1495d61277c9709c88cc754defddf83d127f18cb2",
     "tools/extract_lib.py": "2d77e3c60dad78a693e88557fd84115815a62128355c04d78bd0c6f42014d72e",
-    "data/corrections.json": "13f36a0b38c801e61c897b37d64652fcada63ebb736d0f50ff8455cfd1dd5130",
+    "data/corrections.json": "6c9436fd65ec9fe1a5a11b98a0467a7c9f5652219ca2dbc34fb0b247d82bab9a",
     "sources/bas_short_2026.csv": "909616851bf8c627428fbaf50ce894d72fc122a3b702843f1bad7c070850b89e"
   },
   "files": {
@@ -44,7 +44,7 @@
       "entries": 174
     },
     "data/lectionary": {
-      "sha256": "feefdc9064e1229240cdd08475b2c69ef068e2361afd77f0c6ba02c9af5ef167",
+      "sha256": "f8c869f74af1e3409eecf8108838c8147f0ab252ce9a9621324e0dbf107b4c1f",
       "months": 14
     }
   }

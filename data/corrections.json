@@ -806,11 +806,10 @@
         "Acts 10:34-48"
       ],
       "new": [
-        "Job 9:1-15",
-        "Job 9:32-35",
+        "Job 9:1-15, 32-35",
         "Acts 10:34-48"
       ],
-      "reason": "CSV has \"32-35\" without book/chapter prefix — continuation of Job 9."
+      "reason": "CSV has \"32-35\" without book/chapter prefix — continuation of Job 9; the two selections are one reading."
     },
     {
       "id": "lesson-2026-11-21-morning",
