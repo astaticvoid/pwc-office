@@ -19,6 +19,7 @@ from extract_offices import (
     _hoist_office_transition,
     _is_structural_rubric,
     _normalize_whitespace,
+    _reflow_bulletin_rubric,
     _reflow_by_geometry,
     _rehome_reading_handoff,
     extract_office,
@@ -183,6 +184,43 @@ class TestGroupAlternatives:
 
     def test_empty_input(self):
         assert _group_alternatives([]) == []
+
+    def test_intercessions_bulletin_survives_grouping(self):
+        # A reflowed bulletin carries "...one of the following collects may be
+        # said or sung.\nWeek of Easter", which would match _GENERAL_INTRO and
+        # collapse the whole section into one alternatives group. The bulletin
+        # must be kept as plain content instead.
+        segs = [
+            seg("rubric", "Additional intercessions, petitions, and thanksgivings may be "
+                          "offered silently or aloud. Among these concerns it is appropriate "
+                          "to remember\n\u2022 the Church\n\u2022 the nations.\n"
+                          "After a period of silence either the Collect of the Day or one of "
+                          "the following collects may be said or sung.\nWeek of Easter"),
+            seg("leader", "Living God, raise up in us."),
+            seg("response", "Amen."),
+        ]
+        result = _group_alternatives(segs, office="easter-mp", section="seasonal_collects")
+        # Bulletin stays a single plain rubric; nothing is grouped as alternatives.
+        assert result[0]["type"] == "rubric"
+        assert result[0]["text"].startswith("Additional intercessions")
+        assert "Week of Easter" in result[0]["text"]
+        assert not any(s.get("type") == "alternatives" for s in result)
+
+    def test_ordinary_intercessions_bulletin_survives_grouping(self):
+        segs = [
+            seg("rubric", "The community may offer its intercessions, petitions, and "
+                          "thanksgivings silently or aloud. Among these concerns it is "
+                          "appropriate to remember\n\u2022 the Church throughout the world\n"
+                          "\u2022 the leaders of the nations.\n\n"
+                          "The Prayers continue with the Litany."),
+            seg("leader", "Let us pray."),
+            seg("response", "Amen."),
+        ]
+        result = _group_alternatives(segs, office="ordinary-sunday-mp",
+                                    section="intercessions")
+        assert result[0]["type"] == "rubric"
+        assert result[0]["text"].startswith("The community may offer")
+        assert not any(s.get("type") == "alternatives" for s in result)
 
 
 # ── _hoist_office_transition ──────────────────────────────────────────────────
@@ -437,6 +475,80 @@ class TestReflowByGeometry:
         assert segs[0]["groups"][0]["segments"][0]["text"] == (
             "O God of our salvation, guard and direct your Church "
             "in the way of unity, service, and praise.")
+
+
+# ── _reflow_bulletin_rubric ──────────────────────────────────────────────────
+
+
+def _brub(text, slacks):
+    """A merged bulletin rubric with per-break slacks, as _merge attaches."""
+    return {"type": "rubric", "text": text, "break_slacks": slacks}
+
+
+class TestReflowBulletinRubric:
+    """The intercessions bulletin rubric keeps its own lineation while its
+    prose wraps mid-phrase on the page are joined.
+
+    Unlike _reflow_by_geometry, it never introduces a blank line and never
+    joins a break whose slack cannot be measured (the next line is on another
+    page) — a page boundary is a break, not a wrap.
+    """
+
+    def test_joins_the_intro_column_wrap(self):
+        segs = [_brub("thanksgivings may be offered silently or\naloud. Among these", [-18.0])]
+        _reflow_bulletin_rubric(segs)
+        assert segs[0]["text"] == "thanksgivings may be offered silently or aloud. Among these"
+
+    def test_keeps_bullet_lines_on_sub_threshold_slack(self):
+        # Real corpus bullets sit well under _PROSE_STRUCTURAL_SLACK (e.g. -3.5,
+        # -0.5, +18.7 in easter-mp); only the bullet guard keeps them. A test
+        # with high slacks would let a refactor that drops the guard pass.
+        segs = [_brub("it is appropriate to remember\n\u2022 the Church\n\u2022 the nations",
+                      [-4.0, +19.0])]
+        _reflow_bulletin_rubric(segs)
+        assert segs[0]["text"] == (
+            "it is appropriate to remember\n\u2022 the Church\n\u2022 the nations")
+
+    def test_keeps_the_trailing_paragraph_boundary(self):
+        # The ordinary intercessions close the bulletin, then the closing hand-off
+        # stands apart as its own paragraph (a real \n\n). slack is high enough
+        # to keep it, but the test pins that a paragraph boundary survives as
+        # exactly one blank line and is never flattened into the text.
+        segs = [_brub("all who are in any kind of need.\n\nThe Prayers continue with the Litany.",
+                      [172.9])]
+        _reflow_bulletin_rubric(segs)
+        assert segs[0]["text"] == (
+            "all who are in any kind of need.\n\nThe Prayers continue with the Litany.")
+
+    def test_joins_a_wrapped_bullet_continuation(self):
+        # "...the righteous rule\nof Christ" wraps mid-bullet: no bullet marker
+        # on the next line, so it is a wrap, not a new item.
+        segs = [_brub("the righteous rule\nof Christ\n\u2022 all who grieve",
+                      [-22.0, 92.0])]
+        _reflow_bulletin_rubric(segs)
+        assert segs[0]["text"] == (
+            "the righteous rule of Christ\n\u2022 all who grieve")
+
+    def test_keeps_a_page_boundary_break(self):
+        # Slack is unmeasurable across a page break; it must not be joined.
+        segs = [_brub("they may find God\u2019s healing.\nAfter a period", [None])]
+        _reflow_bulletin_rubric(segs)
+        assert "healing.\nAfter a period" in segs[0]["text"]
+
+    def test_leaves_unmeasurable_geometry_alone(self):
+        # Alignment lost — a later pass rewrote the text. Leave the breaks as
+        # they are rather than guess.
+        segs = [_brub("one\ntwo\nthree", [+50.0])]
+        _reflow_bulletin_rubric(segs)
+        assert segs[0]["text"] == "one\ntwo\nthree"
+
+    def test_ignores_leader_and_response_segments(self):
+        segs = [{"type": "leader", "text": "a\nb"},
+                {"type": "response", "text": "c\nd"}]
+        before = [s["text"] for s in segs]
+        _reflow_bulletin_rubric(segs)
+        assert [s["text"] for s in segs] == before
+
 
 
 # ── _dedup_shared reconciliation (#103) ──────────────────────────────────────

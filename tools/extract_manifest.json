@@ -1,5 +1,5 @@
 {
-  "extracted_at": "2026-08-29T04:13:26Z",
+  "extracted_at": "2026-08-29T06:00:09Z",
   "tool_versions": {
     "fitz": [
       "1.28.2",
@@ -8,7 +8,7 @@
     ]
   },
   "source_hashes": {
-    "tools/extract_offices.py": "8f2dbfc5a0c36fcd8e4786467708d3f465cae2f1e3066001d0da76f127931b43",
+    "tools/extract_offices.py": "8cdbab7da9f77603e64f8de61be820026549545a2a51b123aad4b63a6fb1881f",
     "tools/extract_office_styles.py": "6c5861a7b84b5d2c42cab1f1a7f69a1fd4f806c2f3f3b439c9621273e095d492",
     "tools/normalize_offices.py": "9411c1db3e21adc364edaceb0ac9e80d623b64e51398e353eb5c1a02eec932ce",
     "tools/extract_psalter.py": "6d697ded980ebd3d24afc90c1c9ec588be15fb38cb13c9c683e5a91ea98712f5",
@@ -24,7 +24,7 @@
   },
   "files": {
     "data/offices.json": {
-      "sha256": "c76d9e248ccd3ef010d4d41d06daf72754d924dca86b90e569832fcdde2717e7",
+      "sha256": "3161d8f1a2ee1b10c5e4027aab74baad7d6dca8f2fe503dc18e11e477e143e69",
       "entries": 33
     },
     "data/collects.json": {

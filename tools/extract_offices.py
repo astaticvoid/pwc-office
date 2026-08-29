@@ -386,6 +386,48 @@ def _reflow_by_geometry(segs: list, office_key: str = "", section: str = "",
         seg["text"] = re.sub(r"[ \t]+", " ", out).strip()
     return segs
 
+
+def _reflow_bulletin_rubric(segs: list, office_key: str = "", section: str = "") -> list:
+    """Join the column wraps inside the seasonal-collects intercessions rubric
+    while keeping its own lineation.
+
+    The rubric is one book paragraph of prose, so its intro and closing
+    sentences wrap mid-phrase on the page (the same forced wraps #84 removed
+    from the psalm/reading rubrics). But it also carries the typesetter's own
+    lineation: the bullet list, the trailing week label, and the page boundary
+    between the last bullet and the closing sentence. So a break is joined only
+    when it is a true wrap (measured slack below _PROSE_STRUCTURAL_SLACK); a
+    bullet's line, a short unforced line, and a break whose slack cannot be
+    measured (the next line is on another page) all keep their break as an
+    ordinary line. No blank line is ever emitted, so a paragraph boundary the
+    page opens up (the closing hand-off of the ordinary intercessions) is
+    preserved exactly as it arrives rather than guessed from leading.
+    """
+    for seg in segs:
+        if seg.get("type") != "rubric" or not seg.get("text"):
+            continue
+        lines = seg["text"].split("\n")
+        slacks = seg.get("break_slacks", [])
+        if len(slacks) != len(lines) - 1:
+            # Alignment lost — a later pass rewrote the text, so the per-break
+            # geometry no longer lines up. Warn rather than guess at which break
+            # is which: a silent no-op here would ship an unfixed wrap. Printed
+            # on every run, not just under DEBUG, so losing the geometry cannot
+            # pass unnoticed (parity with the unadjudicated litany break).
+            print(f"  WARNING [{office_key}/{section}] bulletin slack misalignment "
+                  f"({len(slacks)} slacks, {len(lines)} lines) — left as extracted",
+                  file=sys.stderr)
+            continue
+        out = lines[0]
+        for i, nxt in enumerate(lines[1:]):
+            slack = slacks[i]
+            join = (slack is not None and slack < _PROSE_STRUCTURAL_SLACK
+                    and not nxt.strip().startswith("\u2022"))
+            out += (" " if join else "\n") + nxt.strip()
+        seg["text"] = re.sub(r"[ \t]+", " ", out).strip()
+    return segs
+
+
 def _merge(segs: list[dict]) -> list[dict]:
     """Merge consecutive segments of the same type into one.
 
@@ -479,7 +521,13 @@ _BLESSED_BE     = re.compile(r'^Blessed be (?:God|the holy)\b', re.IGNORECASE)
 # Handles all line-break variants (“may be\nsaid”, “may\nbe said”, “may be said”).
 _CANTICLE_INTRO = re.compile(r'^[“”].+?said or sung\.\n(.+)', re.DOTALL)
 _GENERAL_INTRO  = re.compile(r'one of the following .+ may be said or sung\.\n(.+)', re.IGNORECASE | re.DOTALL)
-# Matches pure block separator rubrics (no embedded label).
+# The intercessions bulletin rubric (seasonal "Additional…" and ordinary "The
+# community may offer…"), which must never be treated as an alternatives-group
+# introducer — see the INTERCESSIONS-BULLETIN branch in _group_alternatives.
+_INTERCESSIONS_BULLETIN = re.compile(
+    r'^(Additional intercessions, petitions, and thanksgivings|'
+    r'The community may offer its intercessions, petitions, and thanksgivings)',
+    re.IGNORECASE)
 # Canticle doxology intros ("At the end of the Canticle…" / "After the Canticle…") also
 # match this pattern, but are now emitted as plain rubric segments rather than discarded
 # — see the BLOCK-SEP branch in _group_alternatives.
@@ -579,6 +627,17 @@ def _group_alternatives(segs: list[dict], office="", section="") -> list[dict]:
             groups = []
             unnamed_n[0] = 0
             _new_group(_alt_label(last_line))
+            continue
+
+        # The intercessions bulletin is not an alternatives selector: its "one of
+        # the following …" closes the paragraph and its trailing line is the
+        # season week label, not a group name. A completed reflow (the wrap join
+        # that turns "the following\ncollects" into "the following collects")
+        # would otherwise make it match _GENERAL_INTRO and collapse the whole
+        # section into one alternatives group. Keep it as plain content.
+        if typ == 'rubric' and _INTERCESSIONS_BULLETIN.match(text):
+            _dbg(f"    INTERCESSIONS-BULLETIN → push as content: {repr(text[:60])}", office=office, section=section)
+            _push(seg)
             continue
 
         # General intro with embedded first label:
@@ -1359,11 +1418,16 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
             sections[key] = _hoist_office_transition(sections[key], office_key, key)
 
     # Seasonal collect leaders are prose; the PDF's column-width hard
-    # wraps are typographic, not semantic. Join them. Rubric segments (bullet
-    # lists) and response segments keep their lineation.
+    # wraps are typographic, not semantic. Join them. The intercessions
+    # bulletin rubric is prose too — its intro and closing sentences wrap
+    # mid-phrase on the page — but it carries its own lineation (the bullet
+    # list, the week label), so it gets a dedicated, more conservative reflow
+    # rather than the blanket leader one. Response segments keep lineation.
     if "seasonal_collects" in sections:
         _reflow_by_geometry(sections["seasonal_collects"], office_key,
                             "seasonal_collects", prose=True)
+        _reflow_bulletin_rubric(sections["seasonal_collects"], office_key,
+                                "seasonal_collects")
 
     # Litany is mixed verse and prose, so each break is judged on its own
     # geometry rather than section-wide (#39).
@@ -1374,6 +1438,12 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
     for key in ("dismissal", "intercessions"):
         if key in sections:
             _reflow_by_geometry(sections[key], office_key, key, prose=True)
+    # The intercessions rubric carries the same bulletin as the seasonal one,
+    # wraps mid-phrase on the page, and keeps its own lineation — join its
+    # forced wraps exactly as seasonal_collects does.
+    if "intercessions" in sections:
+        _reflow_bulletin_rubric(sections["intercessions"], office_key,
+                                "intercessions")
 
     # The Reading/Psalm rubrics are page prose too — the PDF column-wraps them
     # mid-sentence (#84) — but the whole section survives _flush as label and
