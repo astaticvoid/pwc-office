@@ -878,12 +878,11 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
 .day-ctrl-group {
   display: flex; flex-direction: column; gap: var(--sp-2);
   justify-content: flex-start; align-items: flex-start;
-  /* The seg inside is `max-width: 100%`, and a percentage resolves against this
-     group. At the 820px step the group is itself flex-start rather than
-     stretched, so its width is its content's — which is what the seg is trying
-     to be clamped against. Without this the clamp is circular and a long
-     observance name runs outside the column (#82). */
-  max-width: 100%;
+  /* Full-width tracks: the controls flush with the saints note above them, so
+     the header reads as one aligned block rather than pills of differing
+     lengths (#82). Each seg fills the column; a long observance name still
+     wraps inside its own half of the track. */
+  width: 100%; max-width: 100%;
 }
 
 .day-ctrl-obs-mark { color: var(--color-brass); font-size: 0.6em; vertical-align: middle; }
@@ -892,16 +891,15 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
   display: flex; gap: 3px; padding: 3px;
   background: var(--color-surface); border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  /* sized by its labels, not stretched to a fixed track */
-  width: max-content; max-width: 100%; min-width: 0;
-  align-self: flex-start;
+  width: 100%; max-width: 100%; min-width: 0;
 }
 
 .day-ctrl-btn {
   /* 44px minimum target: these are the primary controls on a phone, and the
      padding alone leaves them at ~35px once the label sits on the UI step.
-     Content-width sizing must not shrink the target. */
-  flex: 0 1 auto; min-height: 44px;
+     Growable so the buttons split its full-width track evenly; the min-height
+     target never shrinks. */
+  flex: 1 1 0%; min-height: 44px;
   display: flex; align-items: center; justify-content: center;
   /* concentric: inner radius = outer − padding */
   text-align: center; padding: 0.5rem 0.9rem; border-radius: var(--radius-sm);
