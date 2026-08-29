@@ -42,7 +42,7 @@ Streamlining is permitted only where it takes nothing away from that.
 
 ## Decision
 
-Nine settled readings. Each records the interpretation, what it forbids, and
+Ten settled readings. Each records the interpretation, what it forbids, and
 where it stands. **"Forbids" is the operative line** — it is what a future change
 has to be checked against.
 
@@ -196,6 +196,25 @@ narrowing it — #77 dropped the reading selector outright, so no selector in
 the app yet has to honour this rule under load. #78's psalm selector is the
 next real test.
 
+### 10. The Penitential Office absolution keeps the "you" form
+
+The absolution prints with a slash that doubles every pronoun — "forgive
+you/us and free you/us from your/our sins," and so on. Review: the "you/our"
+distinction is clunky and is removed; the officiant is presupposed ordained,
+so the "you"/"your" form ships. The deacon rubric printed below the
+absolution — "A deacon or lay person using the preceding form substitutes us
+for you and our for your." — is sufficient for the deacon/lay officiant and
+stays as printed.
+
+*Forbids:* shipping the slash form; and flipping the text to "our" so the
+deacon/lay form reads as primary — that would make the printed deacon rubric
+self-contradictory, since it would then tell a deacon to substitute what is
+already printed.
+
+*Status:* shipped. Applied as `adr0019-item10-absolution-you` and
+`adr0019-item10-absolution-your` in `data/corrections.json` (office
+`_penitential`, field `absolution`), `source: upstream-review`.
+
 ## Consequences
 
 ### Positive
@@ -212,7 +231,7 @@ next real test.
   drift.
 
 ### Negative
-- Nine items is a list to maintain, and a list that goes stale is worse than no
+- Ten items is a list to maintain, and a list that goes stale is worse than no
   list. Each item carries an issue number or an ADR reference so its status can
   be checked rather than assumed.
 - Items 5–8 are stated ahead of implementation, so the ADR describes an app that
