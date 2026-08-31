@@ -47,6 +47,16 @@ Before promoting, review changes:
 node tools/compare_staging.cjs [date] [mp|ep]   # A/B diff staging vs production
 ```
 
+### Mobile (Capacitor)
+
+The same `dist/` build is packaged as iOS and Android apps via Capacitor.
+`make mobile-sync` rebuilds `dist/`, syncs it into both native projects, and
+verifies the copies match — the synced dirs are gitignored, so that check is
+the only signal a change to `web/` hasn't reached the native apps. Shipping a
+TestFlight build is a manual Xcode step: `docs/runbooks/ios-testflight-ship.md`
+covers it end to end, from `make mobile-bump-version` through the archive
+content check and `altool` upload.
+
 ## Testing
 
 ```sh
