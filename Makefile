@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: lint-css check-conservation venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata intake-year serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-ios mobile-android qa lint lint-js lint-ts lint-py test-mutations hooks
+.PHONY: lint-css check-conservation venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata intake-year serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-bump-version mobile-ios mobile-android qa lint lint-js lint-ts lint-py test-mutations hooks
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -290,8 +290,17 @@ check-integrity:
 
 # Mobile — build dist/ then sync web assets into iOS and Android native projects.
 # After mobile-sync, open the native project in Xcode / Android Studio to build and archive.
+# The synced native web dirs are gitignored, so staleness is invisible to git:
+# check_mobile_sync.py is the guard that keeps an archive from bundling an old dist/
+# (runbook: docs/runbooks/ios-testflight-ship.md).
 mobile-sync: check-dist
 	npx cap sync
+	$(PYTHON) tools/check_mobile_sync.py
+
+# Bump the iOS build number (CFBundleVersion). TestFlight rejects a build number
+# already uploaded, so each ship needs a fresh one — committed in the pbxproj.
+mobile-bump-version:
+	$(PYTHON) tools/bump_ios_version.py
 
 # Open iOS project in Xcode (requires Xcode + Apple Developer account for device/archive).
 mobile-ios: mobile-sync
