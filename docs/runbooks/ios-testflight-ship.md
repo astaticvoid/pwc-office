@@ -26,10 +26,15 @@ the same sitting as a green `mobile-sync`.
   ```sh
   ls ~/.appstoreconnect/AuthKey_*.p8       # the key itself — gitignored, perms 600
   cat ~/.appstoreconnect/README.txt        # Key ID, Issuer ID, Team ID
+  mkdir -p ~/.appstoreconnect/private_keys
+  ln -sf ~/.appstoreconnect/AuthKey_*.p8 ~/.appstoreconnect/private_keys/
   ```
 
   The `.p8` is covered by `*.p8` in `.gitignore`. Never commit it, and never
   copy it into `dist/`, `ios/`, or anywhere the build could archive it.
+  `altool` finds the key only under `~/.appstoreconnect/private_keys/` (it does
+  not honour `AUTH_KEY_PATH` and does not search `~/.appstoreconnect/` itself),
+  so the symlink above is required for the CLI upload — `Error -43` otherwise.
 
 ## Ship sequence
 
@@ -100,6 +105,14 @@ the same sitting as a green `mobile-sync`.
 
    `ASC_API_KEY` / `ASC_API_ISSUER` are the Key ID / Issuer ID from
    `~/.appstoreconnect/README.txt` (optionally in `.env`, which is gitignored).
+   The key file must be reachable from `~/.appstoreconnect/private_keys/` (see
+   preflight). Verify Apple accepted it:
+
+   ```sh
+   xcrun altool --build-status --delivery-id <uuid> -t ios \
+     --apiKey "$ASC_API_KEY" --apiIssuer "$ASC_API_ISSUER"
+   # PROCESSINGSTATE: VALID  → processing passed, build available on TestFlight
+   ```
 
 6. **Smoke-test the TestFlight build** — install it, open a few offices, and
    confirm it matches current `main` behaviour.
@@ -108,6 +121,7 @@ the same sitting as a green `mobile-sync`.
 
 | Symptom | Cause | Fix |
 |---|---|---|
+| `altool` fails `-43` looking for the AuthKey | key sits at `~/.appstoreconnect/` but altool only searches `~/.appstoreconnect/private_keys/` | the preflight symlink; `mkdir -p ~/.appstoreconnect/private_keys && ln -sf …` |
 | `altool` refuses: `ITMS-90683 ... already exists` | build number reused | bump again and re-archive |
 | Archive has old content despite a clean `git status` | archived without a fresh sync | run `make mobile-sync`, re-archive in the same sitting |
 | `check_mobile_sync.py` lists diffs | `web/` changed since last sync | it is the guard working — run `make mobile-sync` |
