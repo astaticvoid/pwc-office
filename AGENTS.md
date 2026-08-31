@@ -100,7 +100,8 @@ make check-dist                   # build + tools/check_dist.py validation
 make serve-dist                   # serve dist/ on :8081 (required for E2E pre-deploy)
 
 # Mobile (Capacitor shell)
-make mobile-sync                  # build + npx cap sync
+make mobile-sync                  # build + cap sync, then verify synced assets match dist (staleness guard)
+make mobile-bump-version         # bump iOS CFBundleVersion for the next TestFlight upload
 make mobile-ios                   # mobile-sync + open Xcode
 make mobile-android               # mobile-sync + open Android Studio
 
@@ -385,6 +386,12 @@ CSS syntax at all (#22). |
 ### Mobile shell (`ios/`, `android/`)
 
 Capacitor wraps `dist/` as a native app (`capacitor.config.json`, `webDir: dist`). `make mobile-sync` rebuilds dist + runs `npx cap sync`. The web build is the source of truth — no native-only code paths.
+
+**The stale-build trap is structural** — the synced web dirs (`ios/App/App/public/`, `android/…/assets/public/`) are gitignored and `npx cap sync` deletes each one and re-copies it from `dist/`, so an Xcode archive silently bundles whatever the *last* sync produced: a stale ship behind a clean `git status`. The guard is the last step of `mobile-sync`: `tools/check_mobile_sync.py` fails if any file in either platform's synced dir differs from or lags `dist/`. Archive in the same sitting as a green `mobile-sync`; never `npx cap open ios` bare, and never archive after touching `web/` without re-syncing. The full ship path is `docs/runbooks/ios-testflight-ship.md`.
+
+**TestFlight build numbers must increase per upload.** `CURRENT_PROJECT_VERSION` (CFBundleVersion) and `MARKETING_VERSION` live committed in the pbxproj; `make mobile-bump-version` raises the build number and refuses if Debug/Release disagree.
+
+**Signing.** `DEVELOPMENT_TEAM = VYB6G7NSAS` (Synod of the Diocese of New Westminster) is the committed value — the correct team ID is not a secret, it ships in the binary. A personal-team override must stay uncommitted. The App Store Connect API key (`*.p8`) lives at `~/.appstoreconnect/`, is gitignored, and its Key/Issuer/Team IDs are recorded there, not in the repo.
 
 ---
 

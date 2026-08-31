@@ -164,6 +164,21 @@ passing a profile flag. `make deploy-staging` gates on `check-integrity`
 and `check-dist`; staging deploys are always safe, but `make promote` publishes
 to production, so don't run it without a decision to ship.
 
+### Mobile (Capacitor) — iOS TestFlight
+
+`make mobile-sync` rebuilds `dist/` and re-copies it into `ios/App/App/public/`
+and `android/…/assets/public/` (each sync deletes and replaces the synced dir),
+then verifies the copies match `dist/` — `tools/check_mobile_sync.py` exits 1
+if any file is missing, stale, or leftover. The synced dirs are gitignored, so
+that check is the only signal that a change to `web/` hasn't reached the native
+projects: archive in the same sitting as a green `make mobile-sync`.
+
+Shipping to TestFlight is a manual Xcode + App Store Connect step after the
+sync; the exact sequence (build-number bump via `make mobile-bump-version`,
+archive, content verification, `altool` upload) is in
+`docs/runbooks/ios-testflight-ship.md`. The App Store Connect API key lives at
+`~/.appstoreconnect/` and is gitignored — never commit it.
+
 ---
 
 ## Copyright constraints
