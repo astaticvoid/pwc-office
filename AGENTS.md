@@ -393,6 +393,8 @@ Capacitor wraps `dist/` as a native app (`capacitor.config.json`, `webDir: dist`
 
 **Signing.** `DEVELOPMENT_TEAM = VYB6G7NSAS` (Synod of the Diocese of New Westminster) is the committed value — the correct team ID is not a secret, it ships in the binary. A personal-team override must stay uncommitted. The App Store Connect API key (`*.p8`) lives at `~/.appstoreconnect/`, is gitignored, and its Key/Issuer/Team IDs are recorded there, not in the repo.
 
+**Renaming the app (display name).** The name lives in three committed places: `capacitor.config.json` (`appName`), `ios/App/App/Info.plist` (`CFBundleDisplayName`), and `android/app/src/main/res/values/strings.xml` (`app_name`). `cap sync` propagates `appName` to **neither** native file — Capacitor's `editProjectSettingsIOS` runs only on `npx cap add` — so a rename edits all three by hand. The PWA identity is separate: `web/manifest.json` (`name`/`short_name`).
+
 ---
 
 ## Bug tracking

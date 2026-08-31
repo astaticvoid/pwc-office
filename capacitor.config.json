@@ -1,6 +1,6 @@
 {
   "appId": "ca.pwcoffice.dailyoffice",
-  "appName": "Daily Office",
+  "appName": "Pray Without Ceasing",
   "webDir": "dist",
   "server": {
     "androidScheme": "https"
