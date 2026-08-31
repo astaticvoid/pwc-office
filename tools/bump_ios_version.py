@@ -25,9 +25,10 @@ PBXPROJ = (Path(__file__).parent.parent / "ios" / "App" / "App.xcodeproj"
 PATTERN = re.compile(r"^(\s*CURRENT_PROJECT_VERSION = )(\d+)(;)$", re.MULTILINE)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    args = list(sys.argv[1:] if argv is None else argv)
     try:
-        n = int(sys.argv[1]) if len(sys.argv) > 1 else 1
+        n = int(args[0]) if args else 1
     except ValueError:
         print(f"usage: {Path(__file__).name} [N]  (N = build numbers to add)")
         return 1
