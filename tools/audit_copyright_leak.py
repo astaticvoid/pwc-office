@@ -13,6 +13,7 @@ Usage:
 
 import argparse
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
@@ -44,22 +45,29 @@ def audit_dist(dist_dir: Path) -> list[str]:
     return errors
 
 
-def probe_url(url: str) -> tuple[int, str]:
+def probe_url(url: str, auth: str | None = None) -> tuple[int, str]:
     """Perform HTTP GET request, returning status code and response body/error."""
+    headers = {"User-Agent": "PwcCopyrightAuditor/1.0"}
+    if auth:
+        import base64
+        token = base64.b64encode(auth.encode("utf-8")).decode("ascii")
+        headers["Authorization"] = f"Basic {token}"
     try:
-        req = urllib.request.Request(
-            url,
-            headers={"User-Agent": "PwcCopyrightAuditor/1.0"},
-        )
+        req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req, timeout=10) as response:
             return response.status, response.read().decode("utf-8", errors="replace")
     except urllib.error.HTTPError as e:
-        return e.code, str(e.reason)
+        body = ""
+        try:
+            body = e.read().decode("utf-8", errors="replace")
+        except Exception:
+            pass
+        return e.code, body or str(e.reason)
     except urllib.error.URLError as e:
         return 0, str(e.reason)
 
 
-def audit_live_cdn(base_url: str) -> list[str]:
+def audit_live_cdn(base_url: str, auth: str | None = None) -> list[str]:
     """Run the 5 live security/compliance probes against CDN."""
     errors = []
     base_url = base_url.rstrip("/")
@@ -72,41 +80,41 @@ def audit_live_cdn(base_url: str) -> list[str]:
 
     # Probe 1: Direct book path access
     url = f"{base_url}/data/translations/nrsvue/Genesis.json"
-    status, _ = probe_url(url)
+    status, _ = probe_url(url, auth=auth)
     print(f"  Probe 1: Direct book fetch ({url}) -> Status {status}")
     if status not in (403, 404):
         errors.append(f"Probe 1 failed: Direct book URL returned status {status} (expected 403 or 404)")
 
     # Probe 2: Direct private S3 bypass
     url = f"{base_url}/private/readings/nrsvue/{today_str}.json"
-    status, _ = probe_url(url)
+    status, _ = probe_url(url, auth=auth)
     print(f"  Probe 2: Direct private bypass ({url}) -> Status {status}")
     if status != 403:
         errors.append(f"Probe 2 failed: Direct private bypass returned status {status} (expected 403 Forbidden)")
 
     # Probe 3: Temporal gate boundaries (future & past out-of-window)
     url_future = f"{base_url}/api/readings?date={future_date}&translation=nrsvue"
-    status_f, _ = probe_url(url_future)
+    status_f, _ = probe_url(url_future, auth=auth)
     print(f"  Probe 3a: Out-of-window future (+60d) -> Status {status_f}")
     if status_f != 403:
         errors.append(f"Probe 3a failed: Date +60d returned status {status_f} (expected 403 Forbidden)")
 
     url_past = f"{base_url}/api/readings?date={past_date}&translation=nrsvue"
-    status_p, _ = probe_url(url_past)
+    status_p, _ = probe_url(url_past, auth=auth)
     print(f"  Probe 3b: Out-of-window past (-60d) -> Status {status_p}")
     if status_p != 403:
         errors.append(f"Probe 3b failed: Date -60d returned status {status_p} (expected 403 Forbidden)")
 
     # Probe 4: Path traversal attempt
     url_trav = f"{base_url}/api/readings?date={today_str}&translation=../../secret"
-    status_t, _ = probe_url(url_trav)
+    status_t, _ = probe_url(url_trav, auth=auth)
     print(f"  Probe 4: Path traversal attempt -> Status {status_t}")
     if status_t not in (400, 403):
         errors.append(f"Probe 4 failed: Path traversal returned status {status_t} (expected 400 Bad Request)")
 
     # Probe 5: In-window verification (if live)
     url_valid = f"{base_url}/api/readings?date={today_str}&translation=nrsvue"
-    status_v, body = probe_url(url_valid)
+    status_v, body = probe_url(url_valid, auth=auth)
     print(f"  Probe 5: Valid in-window query -> Status {status_v}")
     if status_v == 200:
         try:
@@ -121,6 +129,8 @@ def audit_live_cdn(base_url: str) -> list[str]:
                     errors.append(f"Probe 5 warning: Abnormally large reading '{cit}' ({len(verses)} verses)")
         except Exception as e:
             errors.append(f"Probe 5 failed: Unable to parse JSON response: {e}")
+    elif status_v == 403 and "<Code>AccessDenied</Code>" in body:
+        print("  Notice: CloudFront Function gate-readings not yet attached to /api/readings* on this distribution.")
     else:
         errors.append(f"Probe 5 failed: Valid in-window query returned status {status_v} (expected 200 OK)")
 
@@ -130,8 +140,8 @@ def audit_live_cdn(base_url: str) -> list[str]:
 def main():
     parser = argparse.ArgumentParser(description="Audit copyright non-leakage for PWC.")
     parser.add_argument("--dist-dir", type=Path, default=ROOT / "dist", help="Path to dist directory")
-    parser.add_argument("--url", type=str, default="", help="Target CDN base URL for live probes")
-
+    parser.add_argument("--url", type=str, default="", help="Live CDN URL to audit (optional)")
+    parser.add_argument("--auth", type=str, default=os.environ.get("HTTP_AUTH", "office:daily"), help="HTTP Basic Auth (user:pass)")
     args = parser.parse_args()
     all_errors = []
 
@@ -148,7 +158,7 @@ def main():
 
     # 2. Live CDN probes (if URL provided)
     if args.url:
-        cdn_errors = audit_live_cdn(args.url)
+        cdn_errors = audit_live_cdn(args.url, auth=args.auth)
         if cdn_errors:
             print("  FAIL: Live CDN probes detected vulnerabilities:")
             for e in cdn_errors:
