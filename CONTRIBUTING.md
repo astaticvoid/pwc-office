@@ -98,6 +98,7 @@ type:
 | Missing or wrong psalm verse text | `psalter` | psalm number + substring |
 | Saint biography | `fats` | saint + field + substring |
 | Wrong citation | `lectionary_citations` | date + office + lesson index |
+| Wrong psalm list | `lectionary_psalms` | date + office (whole list) |
 | Wrong lesson list | `lectionary_lessons` | date + office (whole list) |
 | Name / rank / colour | `lectionary_names`, `_ranks`, `_colours` | date (whole value) |
 | Garbled note | `lectionary_notes` | date (`clear` only) |
@@ -112,8 +113,8 @@ reordering, or retyping segments.
 
 Corrections do not follow `{"type": "shared"}` references. A shared block is
 reachable from many forms, so correct `_shared` directly rather than through one
-form — one correction to `_shared.reading_response_ordinary` fixes all 14
-Ordinary forms at once.
+form — one correction to `_shared.reading_response_ordinary` fixes all Ordinary
+forms at once.
 
 A systemic parsing problem is not a correction: fix it in the extractor
 (`_normalize_whitespace()` and friends in `tools/extract_offices.py`) so every
@@ -131,9 +132,9 @@ instance resolves at once.
 | `make test-mutations` | Mutation tests for the qa rules themselves — asserts each rule still fires on a targeted violation | Included in `make test`; run alone after changing `tools/validate_office.cjs` |
 | `make check-integrity` | `data/` hashes vs `tools/extract_manifest.json` | Included in `make test`; run alone after any pipeline work |
 | `make test-full` | Structural check of every day in the lectionary window | Before a data re-extraction |
-| `make test-smoke` | 4 key dates: structure + reading cross-check | After office rendering changes |
+| `make test-smoke` | Representative dates: structure + reading cross-check | After office rendering changes |
 | `make test-seasonal` | One MP+EP per liturgical season: structure + readings | After seasonal collect / form changes |
-| `make test-web` | Playwright E2E — 142 tests across desktop + mobile projects | After any `web/app.js`, `render.js`, or CSS change |
+| `make test-web` | Playwright E2E across desktop + mobile projects | After any `web/app.js`, `render.js`, or CSS change |
 | `make test-tools` | pytest for `tools/` (pytest comes from `make venv`) | After changing any extraction tool |
 | `make validate` | Validate extracted lectionary against ACC HTML (network) | Before a data re-extraction |
 

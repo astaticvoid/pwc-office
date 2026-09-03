@@ -62,10 +62,10 @@ content check and `altool` upload.
 ```sh
 make test             # the go-to check, no network — data integrity, Vitest,
                       # pytest, and the liturgical QA gate
-make test-web         # Playwright E2E suite (142 tests: desktop + mobile)
+make test-web         # Playwright E2E suite (desktop + mobile)
 make test-full        # structural check of every day × MP+EP in the lectionary year
-make test-smoke       # 4 representative days: structure + reading cross-check
-make test-seasonal    # 26 cases: one MP+EP per liturgical form
+make test-smoke       # representative days: structure + reading cross-check
+make test-seasonal    # one MP+EP per liturgical form
 ```
 
 ### Quality assurance
@@ -77,7 +77,7 @@ includes it, so running a single tool is a way to read one failure in full rathe
 than extra coverage:
 
 ```sh
-node tools/validate_office.cjs   # 20 liturgical rules, 3 tiers, all 30 forms
+node tools/validate_office.cjs   # liturgical rules across structural, textual, and seasonal tiers
 node tools/audit_office.cjs      # cross-form statistical outlier detection
 node tools/review_form.cjs FORM [date]  # line-numbered text renderer for review
 ```
@@ -172,7 +172,7 @@ tools/        Extraction, validation, QA, and testing
   apply_corrections.py      Derives data/ from .build/ + corrections.json
   check_data_integrity.py   SHA-256 integrity guard
   update_extract_manifest.py  Extraction manifest writer
-  validate_office.cjs       Liturgical rule validators (all 30 forms)
+  validate_office.cjs       Liturgical rule validators across all office forms
   validate_render.cjs       Rendered-DOM structure validation
   validate_lectionary.cjs   Citation syntax + resolution, every date × office
   audit_office.cjs          Cross-form statistical outlier detection
@@ -186,7 +186,7 @@ tools/        Extraction, validation, QA, and testing
 .build/       Extraction intermediates — never published, never diffed as final
 
 data/         Generated JSON — gitignored (copyrighted content)
-  offices.json         30 office forms + _shared blocks
+  offices.json         Office forms + _shared blocks
   psalter.json         Full psalter with verse numbers and midpoint markers
   collects.json        Collects indexed by date
   fats/saints.json     Saint biographies
@@ -200,10 +200,10 @@ data/         Generated JSON — gitignored (copyrighted content)
 ## Status
 
 - Lectionary data: 2025–2026 (Year B)
-- All 30 office forms rendering correctly
+- All office forms rendering correctly
 - PyMuPDF extraction pipeline — single PDF dependency
-- Corrections consolidated to a single `corrections.json` — 64 entries across 9
-  categories (41 of them office text)
+- Corrections consolidated to a single `corrections.json` covering office text,
+  psalter, saints, and lectionary entries
 - Liturgical QA tools: rule validators, cross-form audits, a11y, coherence score
 - Liturgical data is permanently gitignored — each user runs the extraction pipeline locally from ACC source files
 
