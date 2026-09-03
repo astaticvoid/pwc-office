@@ -22,8 +22,7 @@ export default defineConfig({
   // Run `make build` first if dist/ is stale.
   // Set reuseExistingServer so `make serve-dist` in another terminal also works.
   webServer: isLocal ? {
-    command: 'python3 -m http.server 8080 --directory web',
-    url: BASE_URL,
+    command: 'python3 tools/local_server.py 8080 --directory web',
     reuseExistingServer: true,
     timeout: 10_000,
   } : undefined,

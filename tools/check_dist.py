@@ -255,6 +255,9 @@ if not found_translations:
 else:
     if "kjv" not in found_translations:
         warnings.append("KJV translation missing — scripture fallback will fail")
+    for t in found_translations:
+        if t != "kjv":
+            errors.append(f"Copyright leak: unauthorized translation '{t}' found in dist/data/translations/. Only public-domain KJV may be bundled in dist/.")
     print(f"translations: {', '.join(sorted(found_translations))}")
 
 # ── Report ─────────────────────────────────────────────────────────────────────

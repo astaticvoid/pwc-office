@@ -542,6 +542,63 @@ export function extractVersesWithChapter(book, range) {
 }
 
 /**
+ * Render a chapter's verses as HTML paragraphs.
+ * @param {Array<{ch?:number, v:number, text:string}>} chVerses - verses in chapter order
+ * @param {number} chNum - chapter number
+ * @param {Array<number>|null} breaks - sorted first-verse of each paragraph
+ * @returns {string} HTML paragraphs
+ */
+export function renderChapterHtml(chVerses, chNum, breaks) {
+  const firstV = chVerses[0].v;
+  const renderVerse = (v) => {
+    const num = (v.v === 1 && firstV === 1) ? '' : `<sup class="verse-num">${v.v}</sup>\u00A0`;
+    return `${num}${esc(v.text)}`;
+  };
+  const chDrop = firstV === 1 ? `<span class="scripture-ch-num">${chNum}</span> ` : '';
+  const blocks = [];
+
+  if (!breaks || breaks.length === 0) {
+    blocks.push(`<p class="scripture-block">${chDrop}${chVerses.map(renderVerse).join(' ')}</p>`);
+    return blocks.join('\n');
+  }
+
+  const sortedBreaks = [...breaks].sort((a, b) => a - b);
+  if (sortedBreaks.length === 0 || sortedBreaks[0] > 1) {
+    sortedBreaks.unshift(1);
+  }
+  for (let i = 0; i < sortedBreaks.length; i++) {
+    const paraStart = sortedBreaks[i];
+    const paraEnd = i + 1 < sortedBreaks.length ? sortedBreaks[i + 1] - 1 : Infinity;
+    const paraVerses = chVerses.filter(v => v.v >= paraStart && v.v <= paraEnd);
+    if (paraVerses.length > 0) {
+      const prefix = i === 0 ? chDrop : '';
+      blocks.push(`<p class="scripture-block">${prefix}${paraVerses.map(renderVerse).join(' ')}</p>`);
+    }
+  }
+  return blocks.join('\n');
+}
+
+/**
+ * Build HTML for verses grouped by paragraph boundaries.
+ * @param {Array<{ch:number, v:number, text:string}>} verses
+ * @param {Object|null} paraMap - book-level map: {chapter: [firstVerseOfEachParagraph]}
+ * @returns {string} HTML
+ */
+export function buildParagraphHtml(verses, paraMap) {
+  const cleanedVerses = stripDanglingEditorsBrackets(verses);
+  const byChapter = {};
+  for (const v of cleanedVerses) {
+    (byChapter[v.ch] || (byChapter[v.ch] = [])).push(v);
+  }
+
+  const blocks = [];
+  for (const [chStr, chVerses] of Object.entries(byChapter)) {
+    blocks.push(renderChapterHtml(chVerses, parseInt(chStr), (paraMap && paraMap[chStr]) || null));
+  }
+  return blocks.join('\n');
+}
+
+/**
  * Parse a psalm citation like "23" or "119:1-24" into a number + optional verse range.
  * @param {string} c
  * @returns {{num: number, start: number|null, end: number|null}}

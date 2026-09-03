@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: lint-css check-conservation venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata intake-year serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-bump-version mobile-ios mobile-android qa lint lint-js lint-ts lint-py test-mutations hooks
+.PHONY: lint-css check-conservation venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata intake-year serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-bump-version mobile-ios mobile-android qa lint lint-js lint-ts lint-py test-mutations hooks slice-readings audit-copyright
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -117,6 +117,7 @@ build:
 	rm -rf dist
 	cp -rL web/. dist/
 	rm -rf dist/data/.git
+	rm -rf dist/data/translations/nrsvue
 	$(PYTHON) tools/generate_version_manifest.py --dist-dir dist
 	@echo "dist/ ready ($$(find dist -type f | wc -l | tr -d ' ') files)"
 
@@ -135,7 +136,7 @@ kill_port = kill $$(lsof -ti tcp:$(1)) 2>/dev/null; true
 
 serve:
 	@$(MAKE) stop --no-print-directory 2>/dev/null; true
-	@nohup $(PYTHON) -m http.server $(PORT) --directory web > /tmp/pwc-server.log 2>&1 & echo $$! > $(PID_FILE)
+	@nohup $(PYTHON) tools/local_server.py $(PORT) --directory web > /tmp/pwc-server.log 2>&1 & echo $$! > $(PID_FILE)
 	@sleep 0.5
 	@if kill -0 $$(cat $(PID_FILE)) 2>/dev/null; then \
 	  echo "Server started: http://localhost:$(PORT) (pid $$(cat $(PID_FILE)))"; \
@@ -162,7 +163,7 @@ restart: stop serve
 serve-fg:
 	@$(call kill_port,$(PORT))
 	@sleep 0.3
-	$(PYTHON) -m http.server $(PORT) --directory web
+	$(PYTHON) tools/local_server.py $(PORT) --directory web
 
 # Build and serve dist/ as it will appear when deployed (http://localhost:$(PORT_DIST)/).
 # Required for E2E tests and pre-deploy checks.
@@ -170,7 +171,7 @@ serve-fg:
 serve-dist: check-dist
 	@$(call kill_port,$(PORT_DIST))
 	@sleep 0.3
-	$(PYTHON) -m http.server $(PORT_DIST) --directory dist
+	$(PYTHON) tools/local_server.py $(PORT_DIST) --directory dist
 
 # Unit tests for Python extraction tools (pytest comes from `make venv`).
 test-tools:
@@ -329,8 +330,17 @@ mobile-android: mobile-sync
 GIT_DIRTY := $(shell git status --porcelain 2>/dev/null | head -1)
 RELEASE = $(shell date -u +%Y-%m-%dT%H%M%SZ)-$(shell git rev-parse --short HEAD)$(if $(GIT_DIRTY),-dirty,)
 
-deploy-staging: check-integrity check-dist
+slice-readings:
+	node tools/slice_lectionary_readings.js
+
+audit-copyright:
+	$(PYTHON) tools/audit_copyright_leak.py --dist-dir dist
+
+deploy-staging: check-integrity check-dist audit-copyright slice-readings
 	aws s3 sync dist/ s3://$(BUCKET)/releases/$(RELEASE)/ --delete
+	# Sync private sliced lectionary readings (protected by CloudFront gate function)
+	aws s3 sync .build/private/readings/ s3://$(BUCKET)/private/readings/ \
+	  --cache-control "max-age=86400"
 	# Everything on staging gets a 1-minute cache. Staging exists to be deployed
 	# to and looked at immediately, so production-shaped TTLs are wrong here: the
 	# data files were cached for an hour and the images for a day, which meant a
@@ -370,6 +380,7 @@ test-staging:
 	@test -f .deploy-latest || (echo "Nothing deployed. Run 'make deploy-staging' first."; exit 1)
 	BASE_URL=https://$(STAGING_DOMAIN) \
 	  npx playwright test --grep "@smoke"
+	$(PYTHON) tools/audit_copyright_leak.py --url https://$(STAGING_DOMAIN)
 	@cp .deploy-latest .staging-tested
 	@echo "Staging verified: $$(cat .staging-tested)"
 
@@ -418,7 +429,7 @@ promote:
 	   exit 1)) && \
 	aws cloudfront get-distribution-config --id $(CF_DISTRIBUTION_ID) \
 	  > /tmp/cf-config.json && \
-	jq '.DistributionConfig.Origins.Items[0].OriginPath = "/releases/'"$$RELEASE"'" | .DistributionConfig' \
+	jq '(.DistributionConfig.Origins.Items[] | select(.Id != "S3-Private")).OriginPath = "/releases/'"$$RELEASE"'" | .DistributionConfig' \
 	  /tmp/cf-config.json > /tmp/cf-new.json && \
 	aws cloudfront update-distribution --id $(CF_DISTRIBUTION_ID) \
 	  --distribution-config file:///tmp/cf-new.json \
@@ -447,7 +458,7 @@ invalidate-production:
 # outcome. See #53.
 rollback:
 	@CURRENT=$$(aws cloudfront get-distribution-config --id $(CF_DISTRIBUTION_ID) \
-	  --query 'DistributionConfig.Origins.Items[0].OriginPath' --output text \
+	  --query 'DistributionConfig.Origins.Items[?Id!=`S3-Private`].OriginPath | [0]' --output text \
 	  | sed 's:^/releases/::') && \
 	echo "Currently live: $$CURRENT" && \
 	PREV=$$(aws s3 ls s3://$(BUCKET)/releases/ | awk '{print $$2}' | sed 's:/$$::' \
@@ -459,7 +470,7 @@ rollback:
 	echo "Rolling back to $$PREV" && \
 	aws cloudfront get-distribution-config --id $(CF_DISTRIBUTION_ID) \
 	  > /tmp/cf-config.json && \
-	jq '.DistributionConfig.Origins.Items[0].OriginPath = "/releases/'"$$PREV"'" | .DistributionConfig' \
+	jq '(.DistributionConfig.Origins.Items[] | select(.Id != "S3-Private")).OriginPath = "/releases/'"$$PREV"'" | .DistributionConfig' \
 	  /tmp/cf-config.json > /tmp/cf-new.json && \
 	aws cloudfront update-distribution --id $(CF_DISTRIBUTION_ID) \
 	  --distribution-config file:///tmp/cf-new.json \

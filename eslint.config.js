@@ -89,7 +89,7 @@ export default [
 
   // Node — cli/ and the no-build test orchestrators, plus repo-root configs.
   {
-    files: ['cli/**/*.js', 'tools/test_*.js', '*.config.js', 'eslint.config.js'],
+    files: ['cli/**/*.js', 'tools/**/*.js', '*.config.js', 'eslint.config.js'],
     languageOptions: { globals: globals.node },
   },
 

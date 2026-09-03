@@ -8,9 +8,10 @@ import {
   collectSecondaryPage, collectCommemorations, assembleSections, formatLiturgicalText, invitatorySegments, phosHilaronSegments,
   splitPsalmRubrics, splitReadingRubrics,
   parseRanges, extractVersesWithChapter, parsePsalmCitation,
-  stripDanglingEditorsBrackets,
   collectPageNum, lookupCollect, lookupFatsEntry, penitentialSegments,
+  buildParagraphHtml,
 } from './render.js';
+import { createDefaultScriptureProvider } from './scripture-provider.js';
 
 // ── Data path ─────────────────────────────────────────────────────────────────
 // Dev: python3 -m http.server 8080 from repo root, open /web/ — web/data symlink
@@ -114,6 +115,7 @@ const state = {
   // a reader who makes no choice gets the ordinary service on every load.
   opening:     'ordinary',
   translation: storageGet('pwc-translation') || 'nrsvue',
+  day:         null,
 };
 
 // Evening Prayer (and eve-of-feast observance) begins mid-afternoon in Anglican
@@ -248,6 +250,20 @@ function fetchDay(dateStr) {
     return day;
   });
 }
+
+// ── Scripture Provider (ADR 0023 / ADR 0024) ──────────────────────────────────
+const scriptureProvider = createDefaultScriptureProvider({
+  apiBase: '/api/readings',
+  primaryTranslation: 'nrsvue',
+  fetchBook,
+  fetchDay,
+  parseCitation,
+  parseRanges,
+  extractVerses: extractVersesWithChapter,
+  buildHtml: buildParagraphHtml,
+  fetchParagraphs: () => fetchOnce('paragraphs', `${DATA}/paragraphs.json`),
+  storage: typeof localStorage !== 'undefined' ? localStorage : null,
+});
 
 // ── Load-error fallback ───────────────────────────────────────────────────────
 
@@ -494,58 +510,6 @@ async function renderPsalm(citStr, omitRanges) {
 // needs the parsers to check that every lectionary reading resolves to real
 // verses (#19).
 
-/**
- * Render a chapter's verses as HTML paragraphs.
- * @param {Array<{v:number, text:string}>} chVerses - verses in chapter order
- * @param {number} chNum - chapter number
- * @param {Array<number>|null} breaks - sorted first-verse of each paragraph
- * @returns {string} HTML paragraphs
- */
-function renderChapterHtml(chVerses, chNum, breaks) {
-  const firstV = chVerses[0].v;
-  const renderVerse = (v) => {
-    const num = (v.v === 1 && firstV === 1) ? '' : `<sup class="verse-num">${v.v}</sup>\u00A0`;
-    return `${num}${esc(v.text)}`;
-  };
-  const chDrop = firstV === 1 ? `<span class="scripture-ch-num">${chNum}</span> ` : '';
-  const blocks = [];
-
-  if (!breaks || breaks.length === 0) {
-    blocks.push(`<p class="scripture-block">${chDrop}${chVerses.map(renderVerse).join(' ')}</p>`);
-    return blocks.join('\n');
-  }
-
-  const sortedBreaks = [...breaks].sort((a, b) => a - b);
-  for (let i = 0; i < sortedBreaks.length; i++) {
-    const paraStart = sortedBreaks[i];
-    const paraEnd = i + 1 < sortedBreaks.length ? sortedBreaks[i + 1] - 1 : Infinity;
-    const paraVerses = chVerses.filter(v => v.v >= paraStart && v.v <= paraEnd);
-    if (paraVerses.length > 0) {
-      const prefix = i === 0 ? chDrop : '';
-      blocks.push(`<p class="scripture-block">${prefix}${paraVerses.map(renderVerse).join(' ')}</p>`);
-    }
-  }
-  return blocks.join('\n');
-}
-
-/**
- * Build HTML for verses grouped by paragraph boundaries.
- * @param {Array<{ch:number, v:number, text:string}>} verses
- * @param {Object} paraMap - book-level map: {chapter: [firstVerseOfEachParagraph]}
- * @returns {string} HTML
- */
-function buildParagraphHtml(verses, paraMap) {
-  const byChapter = {};
-  for (const v of verses) {
-    (byChapter[v.ch] || (byChapter[v.ch] = [])).push(v);
-  }
-
-  const blocks = [];
-  for (const [chStr, chVerses] of Object.entries(byChapter)) {
-    blocks.push(renderChapterHtml(chVerses, parseInt(chStr), paraMap[chStr] || null));
-  }
-  return blocks.join('\n');
-}
 
 // ── Office HTML building ──────────────────────────────────────────────────────
 
@@ -926,6 +890,7 @@ async function render(dateStr, officeType, translation) {
     return;
   }
   const [offices, collects, day] = result;
+  state.day = day;
 
   // FATS data is optional — absent in dev until extract_fats.py has been run.
   const fats = await fetchOnce('fats', `${DATA}/fats/saints.json`).catch(() => null);
@@ -1321,26 +1286,20 @@ async function render(dateStr, officeType, translation) {
   }
 
   fillPsalms(contentEl);
-  fillScripture(contentEl, translation);
+  fillScripture(contentEl, translation, dateStr, day);
   prefetchOtherOffice(day, officeType, translation);
 }
 
 // ── Background prefetch ───────────────────────────────────────────────────────
-// Warm the scripture book cache for the other office so switching MP↔EP is instant.
+// Warm tomorrow's scripture readings within the allowable temporal window.
 
 function prefetchOtherOffice(day, officeType, translation) {
-  const other = officeType === 'mp' ? day.evening : day.morning;
-  if (!other) return;
   const schedule = window.requestIdleCallback
     ? cb => requestIdleCallback(cb, { timeout: 1000 })
     : cb => setTimeout(cb, 100);
   schedule(() => {
-    [other.lesson1, other.lesson2].forEach(lesson => {
-      if (!lesson) return;
-      const citation = typeof lesson === 'object' ? lesson.citation : lesson;
-      const parsed = parseCitation(citation);
-      if (parsed) fetchBook(translation, parsed.file).catch(() => {});
-    });
+    const tomorrow = offsetDate(state.date, 1);
+    scriptureProvider.getReadingsForDate(tomorrow, { translation }).catch(() => {});
   });
 }
 
@@ -1362,63 +1321,54 @@ function fillPsalms(root) {
   root.querySelectorAll('.psalm-loading').forEach(fillPsalmEl);
 }
 
-async function fillScriptureEl(el, translation) {
-  const rawCitation = el.dataset.citation;
+async function fillScripture(root, translation, dateStr, day) {
+  const els = Array.from(root.querySelectorAll('.scripture-placeholder'));
+  if (!els.length) return;
+
+  if (window.__pwcOffline) {
+    // When offline, the cached/fallback provider will resolve cached NRSVue or bundled KJV
+  }
+
   try {
-    const parsed = parseCitation(rawCitation);
-    if (!parsed) { el.innerHTML = `<p class="error-msg">Cannot parse: ${esc(rawCitation)}</p>`; return; }
+    const dayReadings = await scriptureProvider.getReadingsForDate(dateStr, { day, translation });
 
-    let bookData, usedTranslation = translation;
-    if (window.__pwcOffline) {
-      el.innerHTML = '<p class="scripture-offline">Unable to load Scripture (offline)</p>';
-      return;
-    }
-    try {
-      bookData = await fetchBook(translation, parsed.file);
-    } catch (_) {
-      if (translation !== 'kjv') {
-        try { bookData = await fetchBook('kjv', parsed.file); usedTranslation = 'kjv'; }
-        catch (_2) { /* unavailable */ }
+    for (const el of els) {
+      const rawCitation = el.dataset.citation;
+      let reading = dayReadings?.readings?.[rawCitation];
+
+      // Handle internal choices if not pre-keyed (e.g. Rom 5:12-21 or Gal 4:1-7)
+      if (!reading && rawCitation && rawCitation.includes(' or ')) {
+        const parts = rawCitation.split(' or ').map(s => s.trim());
+        const subReadings = parts.map(p => dayReadings?.readings?.[p]).filter(Boolean);
+        if (subReadings.length > 0) {
+          reading = {
+            citation: rawCitation,
+            book: subReadings[0].book,
+            verses: subReadings.flatMap(r => r.verses),
+            html: subReadings.map(r => `<div class="scripture-option"><p class="scripture-choice-rubric"><strong>${r.citation}</strong></p>${r.html}</div>`).join('<p class="seg-rubric">or</p>'),
+            translation: subReadings[0].translation,
+            isFallback: subReadings.some(r => r.isFallback),
+          };
+        }
       }
-    }
 
-    const ranges = parseRanges(parsed.rest);
-    if (!bookData || !ranges.length) {
-      el.innerHTML = `<p class="error-msg">Text unavailable: ${esc(rawCitation)}</p>`;
-      return;
-    }
-
-    const allVerses = stripDanglingEditorsBrackets(
-      ranges.flatMap(r => extractVersesWithChapter(bookData, r)));
-    const paragraphs = await fetchOnce('paragraphs', `${DATA}/paragraphs.json`).catch(() => null);
-    const paraMap = paragraphs ? (paragraphs[parsed.file] || null) : null;
-
-    let html;
-    if (paraMap) {
-      html = buildParagraphHtml(allVerses, paraMap);
-    } else {
-      const byChapter = {};
-      for (const v of allVerses) {
-        (byChapter[v.ch] || (byChapter[v.ch] = [])).push(v);
+      if (reading && reading.html) {
+        el.innerHTML = reading.html;
+        if (reading.isFallback && translation !== 'kjv') {
+          el.innerHTML += `<p class="scripture-fallback-note">[KJV shown — NRSVUE unavailable for this reading]</p>`;
+        }
+      } else {
+        el.innerHTML = `<p class="error-msg">Text unavailable: ${esc(rawCitation)}</p>`;
       }
-      const blocks = [];
-      for (const [chStr, chVerses] of Object.entries(byChapter)) {
-        blocks.push(renderChapterHtml(chVerses, parseInt(chStr), null));
-      }
-      html = blocks.join('\n');
-    }
-    el.innerHTML = html;
-
-    if (usedTranslation !== translation) {
-      el.innerHTML += `<p class="scripture-fallback-note">[${usedTranslation.toUpperCase()} shown — ${translation.toUpperCase()} unavailable for this reading]</p>`;
     }
   } catch (e) {
-    showLoadError(el, e, () => { el.innerHTML = '<p class="loading">Loading…</p>'; fillScriptureEl(el, translation); });
+    for (const el of els) {
+      showLoadError(el, e, () => {
+        el.innerHTML = '<p class="loading">Loading…</p>';
+        fillScripture(root, translation, dateStr, day);
+      });
+    }
   }
-}
-
-function fillScripture(root, translation) {
-  root.querySelectorAll('.scripture-placeholder').forEach(el => fillScriptureEl(el, translation));
 }
 
 // ── Translation switch (no full re-render) ────────────────────────────────────
@@ -1433,7 +1383,7 @@ function switchTranslation(newTranslation) {
   });
   const attr = document.getElementById('scripture-attr');
   if (attr) attr.textContent = `Scripture: ${newTranslation.toUpperCase()}`;
-  fillScripture(root, newTranslation);
+  fillScripture(root, newTranslation, state.date, state.day);
 }
 
 // ── Evaluation banner ─────────────────────────────────────────────────────────

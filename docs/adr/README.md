@@ -24,6 +24,8 @@
 | [0020](./0020-the-office-and-the-saints-fats-propers-are-extraction-only.md) | The product renders the office and the saints; FATS propers are extraction-only | Accepted |
 | [0021](./0021-errata-source-documents-are-a-gitignored-input.md) | Errata source documents are a gitignored input, not repository content | Accepted |
 | [0022](./0022-the-manifest-is-the-only-authorized-divergence.md) | The manifest is the only authorized divergence from the source text | Proposed |
+| [0023](./0023-scripture-provider-abstraction-and-temporal-caching.md) | ScriptureProvider abstraction, date-grained lectionary delivery, and temporal cache purging | Accepted |
+| [0024](./0024-cloudfront-edge-gating-and-s3-private-distribution.md) | CloudFront edge temporal gating and private S3 distribution for copyrighted scripture | Accepted |
 
 ## Status values
 - **Proposed** — decision documented, awaiting review/adoption
