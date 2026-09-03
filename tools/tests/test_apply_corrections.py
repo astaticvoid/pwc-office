@@ -43,7 +43,6 @@ def _load(monkeypatch, root: pathlib.Path):
 
 
 OFFICES = {"advent-mp": {"title": "T", "litany": [{"type": "leader", "text": "hello"}]}}
-MIDDAY = {"_midday": {"title": "Prayers at Mid-day", "opening": [{"type": "leader", "text": "O God, make speed"}]}}
 PSALTER = {"1": {"text": "Blessed is the one"}}
 FATS = {"Alban": {"bio": "a martyr"}}
 LECTIONARY = {"2026-01": {"2026-01-01": {"morning": {"lessons": ["Gen 1"], "psalms": ["100"]}}}}
@@ -56,7 +55,6 @@ def tree(tmp_path):
     (build / "lectionary").mkdir(parents=True)
     data.mkdir()
     (build / "offices.2-normalized.json").write_text(json.dumps(OFFICES))
-    (build / "midday.1-extract.json").write_text(json.dumps(MIDDAY))
     (build / "psalter.1-extract.json").write_text(json.dumps(PSALTER))
     (build / "fats-saints.1-extract.json").write_text(json.dumps(FATS))
     for month, days in LECTIONARY.items():
@@ -73,7 +71,7 @@ ALL_EMPTY = {
 
 
 @pytest.mark.parametrize("published,expected", [
-    ("data/offices.json", {**OFFICES, **MIDDAY}),
+    ("data/offices.json", OFFICES),
     ("data/psalter.json", PSALTER),
     ("data/fats/saints.json", FATS),
     ("data/lectionary/2026-01.json", LECTIONARY["2026-01"]),
@@ -103,7 +101,6 @@ def test_derived_when_the_manifest_is_absent_entirely(tree, monkeypatch, publish
 
 @pytest.mark.parametrize("artifact", [
     "offices.2-normalized.json",
-    "midday.1-extract.json",
     "psalter.1-extract.json",
     "fats-saints.1-extract.json",
     "lectionary",

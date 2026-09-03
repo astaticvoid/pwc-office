@@ -171,7 +171,6 @@ def main():
     # honoured.
     for stage_input in (
         BUILD / "offices.2-normalized.json",
-        BUILD / "midday.1-extract.json",
         BUILD / "psalter.1-extract.json",
         BUILD / "fats-saints.1-extract.json",
         BUILD / "lectionary",
@@ -194,11 +193,6 @@ def main():
     # the manifest was rehashed from the same stale file.
     out_path = DATA / "offices.json"
     data = json.loads(_stage_input(BUILD / "offices.2-normalized.json").read_text())
-    # The Mid-day office is a separate BAS stage whose single form merges into
-    # the same published tree (#166). `_midday` is opaque to the 30-form
-    # pipeline: resolve_offices reaches it only by name, never via the "*"
-    # wildcard, which skips `_`-prefixed keys.
-    data.update(json.loads(_stage_input(BUILD / "midday.1-extract.json").read_text()))
     applied = 0
     for c in corrections.get("office_text", []):
         targets = [(k, o) for k, o in resolve_offices(data, c) if c["field"] in o]

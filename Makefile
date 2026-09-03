@@ -42,7 +42,6 @@ extract:
 	$(PYTHON) tools/extract_psalter.py
 	$(PYTHON) tools/extract_collects.py
 	$(PYTHON) tools/extract_fats.py
-	$(PYTHON) tools/extract_midday.py
 	$(PYTHON) tools/convert_lectionary.py --window 12
 # Corrections run after the extractors because they consume the .build/ stage-1
 # artifacts, which is a data dependency rather than a rule anyone has to hold in
@@ -208,7 +207,6 @@ check-conservation:
 	$(PYTHON) tools/check_conservation.py --chain offices
 	$(PYTHON) tools/check_conservation.py --chain psalter
 	$(PYTHON) tools/check_conservation.py --chain fats
-	$(PYTHON) tools/check_conservation.py --chain midday
 
 # Liturgical quality gate — runs validators and coherence scorer.
 # Used by 'make test' so every PR checks liturgical coherence.
@@ -219,8 +217,6 @@ qa:
 	@$(PYTHON) tools/check_conservation.py --chain psalter
 	@echo "=== Source conservation (fats) ==="
 	@$(PYTHON) tools/check_conservation.py --chain fats
-	@echo "=== Source conservation (midday) ==="
-	@$(PYTHON) tools/check_conservation.py --chain midday
 	@echo "=== Liturgical validation ==="
 	@node tools/validate_office.cjs --json > /tmp/pwc-validate.json
 	@node tools/audit_office.cjs --json > /tmp/pwc-audit.json

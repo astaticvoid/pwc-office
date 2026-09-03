@@ -59,7 +59,6 @@ EXTRACTION_SOURCES = (
     "tools/extract_psalter.py",
     "tools/extract_collects.py",
     "tools/extract_fats.py",
-    "tools/extract_midday.py",
     "tools/convert_lectionary.py",
     "tools/apply_corrections.py",
     "tools/corrections_lib.py",

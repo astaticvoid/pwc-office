@@ -327,10 +327,6 @@ def main():
         # it must never see corrected output — which naming its own input
         # guarantees whenever this runs, rather than an order to remember (#48).
         offices = json.loads((BUILD / "offices.2-normalized.json").read_text())
-        # Merge the Mid-day form so office_text corrections addressed to
-        # `_midday` validate against the same pre-correction tree the applier
-        # builds (#166).
-        offices.update(json.loads((BUILD / "midday.1-extract.json").read_text()))
         errors.extend(validate_office_text(corrections["office_text"], offices))
 
     if corrections.get("lectionary_citations"):

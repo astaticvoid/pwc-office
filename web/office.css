@@ -473,18 +473,6 @@ body.book-mode .alt-panel + .alt-panel::before {
    with a biography keeps the full margin: the biography absorbs the band. */
 #office-content > h2.office-section-title:first-child { margin-top: var(--sp-2); }
 
-/* Mid-day Prayer is one continuous flow with no section headings, so it has
-   no h2 to carry the green rule the section titles carry elsewhere; the
-   office block's own top border supplies it, separating the day header from
-   the liturgy exactly as the first section title does (#167). The values
-   mirror #office-content > h2.office-section-title:first-child — both are
-   token-based, so they scale together at the wide breakpoint; keep them in
-   step when either changes. */
-#office-content > .midday-office:first-child {
-  border-top: 1px solid var(--color-accent);
-  padding-top: var(--sp-3);
-  margin-top: var(--sp-2);
-}
 
 /* Subcomponent: same face as the section head, no small caps. The reading face
    rather than the SC family — nothing here asks for the smcp table. */
