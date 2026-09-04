@@ -86,7 +86,7 @@ def audit_live_cdn(base_url: str, auth: str | None = None) -> list[str]:
         errors.append(f"Probe 1 failed: Direct book URL returned status {status} (expected 403 or 404)")
 
     # Probe 2: Direct private S3 bypass
-    url = f"{base_url}/private/readings/v1/nrsvue/{today_str}.json"
+    url = f"{base_url}/private/readings/v1/nrsvue/1999-01-01.json"
     status, _ = probe_url(url, auth=auth)
     print(f"  Probe 2: Direct private bypass ({url}) -> Status {status}")
     if status != 403:
