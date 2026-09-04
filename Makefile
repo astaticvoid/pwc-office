@@ -129,6 +129,16 @@ build:
 		sed -i.bak "s|__API_ORIGIN__|$$API_ORIGIN|g" dist/scripture-provider.js && \
 		rm dist/scripture-provider.js.bak; \
 	fi
+	@# Cache-bust: append ?v=<short-hash> to .js and .css references in
+	@# dist/index.html so browsers fetch fresh assets after each deploy.
+	@# Source web/index.html stays clean; Capacitor resolves the query string
+	@# to the same local file, so native builds are unaffected.
+	@HASH=$$(git rev-parse --short HEAD) && \
+	  sed -i.bak \
+	    -e "s/\\.js\"/\\.js?v=$$HASH\"/g" \
+	    -e "s/\\.css\"/\\.css?v=$$HASH\"/g" \
+	    dist/index.html && \
+	  rm dist/index.html.bak
 	$(PYTHON) tools/generate_version_manifest.py --dist-dir dist
 	@echo "dist/ ready ($$(find dist -type f | wc -l | tr -d ' ') files)"
 
@@ -350,6 +360,13 @@ audit-copyright:
 
 deploy-staging: check-integrity check-dist audit-copyright slice-readings deploy-functions-staging
 	aws s3 sync dist/ s3://$(BUCKET)/releases/$(RELEASE)/ --delete
+	# index.html must always revalidate so browsers pick up new ?v= hashes
+	# on JS/CSS assets after a promote. The sync above writes it with no
+	# cache-control (CloudFront default), which lets the browser heuristic-
+	# cache it for hours. This overwrite adds no-cache so the browser stores
+	# it but always checks with the server before serving.
+	aws s3 cp dist/index.html s3://$(BUCKET)/releases/$(RELEASE)/index.html \
+	  --cache-control "no-cache"
 	# Sync private sliced calendar and lectionary readings (protected by CloudFront gate function)
 	aws s3 sync .build/private/ s3://$(BUCKET)/private/ \
 	  --cache-control "max-age=86400"
@@ -373,7 +390,7 @@ deploy-staging: check-integrity check-dist audit-copyright slice-readings deploy
 	  --include "*.html" --include "*.js" --include "*.css" \
 	  --include "*.json" --include "*.png" --include "*.svg" --include "*.ico" \
 	  --include "*.woff2" \
-	  --exclude "sw.js" \
+	  --exclude "sw.js" --exclude "index.html" \
 	  --cache-control "max-age=60"
 	# sw.js: never cache — kill-switch must always be fresh. The exclude above
 	# must come after --include "*.js", since s3 filters apply in order and the
@@ -382,6 +399,9 @@ deploy-staging: check-integrity check-dist audit-copyright slice-readings deploy
 	aws s3 sync dist/ s3://$(BUCKET)/staging/ \
 	  --exclude "*" --include "sw.js" \
 	  --cache-control "max-age=0, no-store"
+	# index.html: always revalidate so ?v= cache-busted asset URLs take effect.
+	aws s3 cp dist/index.html s3://$(BUCKET)/staging/index.html \
+	  --cache-control "no-cache"
 	@echo "Staging deployed: $(RELEASE)"
 	@echo "$(RELEASE)" > .deploy-latest
 
