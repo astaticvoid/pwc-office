@@ -11,5 +11,10 @@
   },
   "android": {
     "backgroundColor": "#F4EEDF"
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
   }
 }
