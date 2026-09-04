@@ -23,6 +23,7 @@ export default defineConfig({
   // Set reuseExistingServer so `make serve-dist` in another terminal also works.
   webServer: isLocal ? {
     command: 'python3 tools/local_server.py 8080 --directory web',
+    port: 8080,
     reuseExistingServer: true,
     timeout: 10_000,
   } : undefined,
@@ -30,5 +31,6 @@ export default defineConfig({
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     { name: 'mobile',   use: { ...devices['Pixel 7'] } },
+    { name: 'ios',      use: { ...devices['iPhone 13'] } },
   ],
 });
