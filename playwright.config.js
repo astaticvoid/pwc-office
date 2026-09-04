@@ -4,6 +4,9 @@ import { defineConfig, devices } from '@playwright/test';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:8080';
 const isLocal  = BASE_URL.startsWith('http://localhost');
 
+const AUTH_USER = process.env.AUTH_USER || process.env.BASIC_AUTH_USER;
+const AUTH_PASSWORD = process.env.AUTH_PASSWORD || process.env.BASIC_AUTH_PASSWORD;
+
 export default defineConfig({
   testDir: './tests/e2e',
   timeout: 30_000,
@@ -14,8 +17,8 @@ export default defineConfig({
     baseURL: BASE_URL,
     // Store browser state (cookies, localStorage) per test, not shared.
     storageState: undefined,
-    // Basic auth for staging/production (ignored on localhost)
-    ...(!isLocal && { httpCredentials: { username: 'office', password: 'daily' } }),
+    // Basic auth for staging/production if configured in environment (ignored on localhost)
+    ...(!isLocal && AUTH_USER && AUTH_PASSWORD && { httpCredentials: { username: AUTH_USER, password: AUTH_PASSWORD } }),
   },
 
   // When testing locally, start the pre-built dist/ server automatically.

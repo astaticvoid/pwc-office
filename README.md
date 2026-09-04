@@ -38,8 +38,9 @@ make promote           # CloudFront origin-path swap to production
 make rollback          # revert to previous release
 ```
 
-Requires the AWS CLI plus `BUCKET` and `CF_DISTRIBUTION_ID` in `.env`, and
-`STAGING_DOMAIN` for `make test-staging` (see `.env.example`).
+Requires the AWS CLI plus `BUCKET`, `CF_DISTRIBUTION_ID`, and `CF_DOMAIN` in `.env`, and
+`STAGING_DOMAIN` for `make test-staging` (see `.env.example`). Remote staging
+access uses `AUTH_USER` and `AUTH_PASSWORD`.
 
 Before promoting, review changes:
 

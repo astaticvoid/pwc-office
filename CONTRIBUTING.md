@@ -16,7 +16,7 @@ npx playwright install
 make venv
 
 # .env — no API keys needed; deploy targets read BUCKET, CF_DISTRIBUTION_ID,
-# STAGING_DOMAIN, AWS_PROFILE from it
+# CF_DOMAIN, STAGING_DOMAIN, AUTH_*, AWS_PROFILE from it
 cp .env.example .env   # edit as needed
 ```
 

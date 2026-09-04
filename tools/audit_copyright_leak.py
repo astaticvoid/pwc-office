@@ -147,8 +147,14 @@ def audit_live_cdn(base_url: str, auth: str | None = None) -> list[str]:
 def main():
     parser = argparse.ArgumentParser(description="Audit copyright non-leakage for PWC.")
     parser.add_argument("--dist-dir", type=Path, default=ROOT / "dist", help="Path to dist directory")
-    parser.add_argument("--url", type=str, default="", help="Live CDN URL to audit (optional)")
-    parser.add_argument("--auth", type=str, default=os.environ.get("HTTP_AUTH", "office:daily"), help="HTTP Basic Auth (user:pass)")
+    default_auth = os.environ.get("HTTP_AUTH")
+    if not default_auth:
+        user = os.environ.get("AUTH_USER") or os.environ.get("BASIC_AUTH_USER")
+        pw = os.environ.get("AUTH_PASSWORD") or os.environ.get("BASIC_AUTH_PASSWORD")
+        if user and pw:
+            default_auth = f"{user}:{pw}"
+
+    parser.add_argument("--auth", type=str, default=default_auth, help="HTTP Basic Auth (user:pass)")
     args = parser.parse_args()
     all_errors = []
 

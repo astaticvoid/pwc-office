@@ -232,10 +232,12 @@ async function defaultFetch(url, init = {}) {
 
   let targetUrl = url;
   const originPlaceholder = '__API_ORIGIN__';
-  if (originPlaceholder.startsWith('http') && targetUrl.startsWith('/api/')) {
+  const isNative = typeof window !== 'undefined' && (
+    (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ||
+    window.location?.protocol === 'capacitor:'
+  );
+  if (isNative && originPlaceholder.startsWith('http') && targetUrl.startsWith('/api/')) {
     targetUrl = originPlaceholder + targetUrl;
-  } else if (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && targetUrl.startsWith('/api/')) {
-    targetUrl = 'https://office.k-sprawl.net' + targetUrl;
   }
 
   return fetch(targetUrl, newInit);

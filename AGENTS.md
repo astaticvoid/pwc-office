@@ -26,8 +26,10 @@ make venv                           # .venv with pymupdf + pytest + ruff
 Every Python target runs through `$(PYTHON)`, resolving to `.venv/bin/python3` when the venv exists and falling back to ambient `python3` otherwise (CI). Do not install into Homebrew's python3 directly (PEP 668).
 
 Environment variables in `.env` (gitignored, loaded automatically via `Makefile` `-include .env`):
-- `BUCKET`, `CF_DISTRIBUTION_ID`: Required for `make deploy-staging`, `promote`, `rollback`.
+- `BUCKET`, `CF_DISTRIBUTION_ID`, `CF_DOMAIN`: Required for `make deploy-staging`, `promote`, `rollback`. `CF_DOMAIN` also defaults `API_ORIGIN` for mobile builds.
 - `STAGING_DOMAIN`: Required for `make test-staging`.
+- `AUTH_USER`, `AUTH_PASSWORD`: HTTP basic auth credentials for remote staging verification and comparison tools.
+- `API_ORIGIN`: Remote API origin injected into Capacitor native builds (defaults to `https://$(CF_DOMAIN)`).
 - `AWS_PROFILE`: Set so AWS CLI credentials resolve automatically.
 - Scripture: Bundled KJV works offline in `data/translations/kjv/`. Local NRSVUE in `data/translations/nrsvue/` is used automatically when present.
 

@@ -6,6 +6,9 @@ export
 PORT      ?= 8080
 PORT_DIST ?= 8081
 
+# Default API_ORIGIN to CF_DOMAIN if set, so Capacitor builds target the deployed API
+API_ORIGIN ?= $(if $(CF_DOMAIN),https://$(CF_DOMAIN),)
+
 # Python interpreter. Prefer the project venv (`make venv`) when present, so no
 # shell activation is needed; fall back to the ambient python3 (CI, which gets a
 # clean setup-python interpreter). Homebrew's python3 is externally managed

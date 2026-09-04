@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 /**
- * tools/compare_staging.js — A/B diff of staging vs production rendered DOM.
+ * tools/compare_staging.cjs — A/B diff of staging vs production rendered DOM.
  *
- * Usage: node tools/compare_staging.js [YYYY-MM-DD] [mp|ep]
- *
- * Renders both staging and production for the given date/office, extracts
- * the office content as plain text, and produces a unified diff.
+ * Usage: node tools/compare_staging.cjs [YYYY-MM-DD] [mp|ep] [prod_url] [stag_url]
+ *   Or configure PRODUCTION_DOMAIN (or CF_DOMAIN) and STAGING_DOMAIN in .env.
+ *   Set AUTH_USER and AUTH_PASSWORD in .env if HTTP basic auth is enabled.
  *
  * Exit 0 always (informational). Exits non-zero if either URL fails to load.
  */
@@ -13,14 +12,18 @@ const { chromium } = require('playwright');
 
 const dateStr = process.argv[2] || new Date().toISOString().slice(0, 10);
 const office   = process.argv[3] || 'mp';
-
-const AUTH = { username: 'office', password: 'daily' };
+const authUser = process.env.AUTH_USER || process.env.BASIC_AUTH_USER;
+const authPass = process.env.AUTH_PASSWORD || process.env.BASIC_AUTH_PASSWORD;
+const AUTH = (authUser && authPass) ? { username: authUser, password: authPass } : undefined;
 
 // The app has no URL-based routing (#161): a fresh load lands on today's
 // default date/office, derived from the system clock. Set the clock before
 // navigating to reach a specific date/office instead.
 async function renderOffice(browser, url) {
-  const context = await browser.newContext({ httpCredentials: AUTH, timezoneId: 'UTC' });
+  const context = await browser.newContext({
+    ...(AUTH && { httpCredentials: AUTH }),
+    timezoneId: 'UTC',
+  });
   const page = await context.newPage();
   const hour = office === 'ep' ? 16 : 10; // defaultOffice(): ep at hour >= 15
   await page.clock.setFixedTime(new Date(`${dateStr}T${String(hour).padStart(2, '0')}:00:00Z`));
@@ -99,8 +102,20 @@ async function main() {
 
   console.log(`=== A/B Diff: ${dateStr} ${office.toUpperCase()} ===\n`);
 
-  const prod = await renderOffice(browser, 'https://office.k-sprawl.net');
-  const stag = await renderOffice(browser, 'https://office-staging.k-sprawl.net');
+  const prodHost = process.argv[4] || process.env.PRODUCTION_DOMAIN || process.env.CF_DOMAIN;
+  const stagHost = process.argv[5] || process.env.STAGING_DOMAIN;
+
+  if (!prodHost || !stagHost) {
+    console.error('Error: PRODUCTION_DOMAIN (or CF_DOMAIN) and STAGING_DOMAIN must be set in environment or passed as arguments:');
+    console.error('  node tools/compare_staging.cjs [YYYY-MM-DD] [mp|ep] [prod_domain_or_url] [staging_domain_or_url]');
+    process.exit(1);
+  }
+
+  const prodUrl = prodHost.startsWith('http') ? prodHost : `https://${prodHost}`;
+  const stagUrl = stagHost.startsWith('http') ? stagHost : `https://${stagHost}`;
+
+  const prod = await renderOffice(browser, prodUrl);
+  const stag = await renderOffice(browser, stagUrl);
 
   await browser.close();
 
