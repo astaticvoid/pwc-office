@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 tools/local_server.py
-Local development server for PWC with /api/readings support and /private/* blocking,
+Local development server for PWC with /api/v1/readings support and /private/* blocking,
 matching CloudFront edge gate-readings.js behavior (ADR 0024).
 
 Usage:
@@ -42,8 +42,30 @@ class PwcDevHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps({"error": "Forbidden"}).encode("utf-8"))
             return
 
-        # 2. Handle /api/readings endpoint (mirrors gate-readings.js behavior)
-        if parsed.path == "/api/readings":
+        # 2. Handle /api/[version/]readings endpoint (mirrors gate-readings.js behavior)
+        if parsed.path.startswith("/api/"):
+            path_parts = parsed.path.strip("/").split("/")
+            if len(path_parts) == 2 and path_parts[1] == "readings":
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Missing API version in path. Expected /api/v1/readings"}).encode("utf-8"))
+                return
+            elif len(path_parts) == 3 and path_parts[0] == "api" and path_parts[2] == "readings":
+                version = path_parts[1]
+                if version != "v1":
+                    self.send_response(404)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": f"Unsupported API version: {version}"}).encode("utf-8"))
+                    return
+            else:
+                self.send_response(404)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Invalid endpoint path."}).encode("utf-8"))
+                return
+
             qs = urllib.parse.parse_qs(parsed.query)
             date_list = qs.get("date", [])
             trans_list = qs.get("translation", ["nrsvue"])
@@ -52,7 +74,7 @@ class PwcDevHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": "Missing or invalid date parameter"}).encode("utf-8"))
+                self.wfile.write(json.dumps({"error": "Missing or invalid date parameter (YYYY-MM-DD)"}).encode("utf-8"))
                 return
 
             date_str = date_list[0]
@@ -63,7 +85,7 @@ class PwcDevHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": "Unsupported translation"}).encode("utf-8"))
+                self.wfile.write(json.dumps({"error": "Unsupported translation. Only nrsvue is served via this endpoint."}).encode("utf-8"))
                 return
 
             # Temporal gate check (±31 days in UTC)
@@ -91,8 +113,8 @@ class PwcDevHandler(http.server.SimpleHTTPRequestHandler):
                 }).encode("utf-8"))
                 return
 
-            # Fetch from .build/private/readings/
-            sliced_path = ROOT / ".build" / "private" / "readings" / translation / f"{date_str}.json"
+            # Fetch from .build/private/readings/v1/
+            sliced_path = ROOT / ".build" / "private" / "readings" / version / translation / f"{date_str}.json"
             if not sliced_path.exists():
                 self.send_response(404)
                 self.send_header("Content-Type", "application/json")

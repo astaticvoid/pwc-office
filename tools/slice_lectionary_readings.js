@@ -12,10 +12,10 @@
  *   - data/paragraphs.json
  *
  * Output:
- *   - .build/private/readings/nrsvue/YYYY-MM-DD.json
+ *   - .build/private/readings/v1/nrsvue/YYYY-MM-DD.json
  *
  * Usage:
- *   node tools/slice_lectionary_readings.js [--out-dir <path>]
+ *   node tools/slice_lectionary_readings.js [--version <v1>] [--out-dir <path>]
  */
 
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
@@ -32,8 +32,15 @@ import { collectDayCitations } from '../web/scripture-provider.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
 
+const versionArgIdx = process.argv.indexOf('--version');
+const API_VERSION = (versionArgIdx !== -1 && process.argv[versionArgIdx + 1])
+  ? process.argv[versionArgIdx + 1]
+  : 'v1';
+
 const outDirArgIdx = process.argv.indexOf('--out-dir');
-const OUT_DIR = outDirArgIdx !== -1 ? process.argv[outDirArgIdx + 1] : join(root, '.build/private/readings/nrsvue');
+const OUT_DIR = (outDirArgIdx !== -1 && process.argv[outDirArgIdx + 1])
+  ? process.argv[outDirArgIdx + 1]
+  : join(root, `.build/private/readings/${API_VERSION}/nrsvue`);
 
 // Cache loaded book JSONs
 const _bookCache = new Map();

@@ -221,13 +221,13 @@ export class LocalStorageScriptureCache {
 export class RemoteScriptureProvider {
   /**
    * @param {object} [options]
-   * @param {string} [options.apiBase='/api/readings']
+   * @param {string} [options.apiBase='/api/v1/readings']
    * @param {string} [options.translation='nrsvue']
    * @param {typeof fetch} [options.fetchFn]
    * @param {number} [options.windowGraceDays=35]
    */
   constructor({
-    apiBase = '/api/readings',
+    apiBase = '/api/v1/readings',
     translation = 'nrsvue',
     fetchFn = (typeof fetch !== 'undefined' ? fetch : null),
     windowGraceDays = 35,
@@ -539,7 +539,7 @@ export class BundledKjvProvider {
  * @returns {IScriptureProvider}
  */
 export function createDefaultScriptureProvider({
-  apiBase = '/api/readings',
+  apiBase = '/api/v1/readings',
   primaryTranslation = 'nrsvue',
   fetchBook,
   fetchDay,

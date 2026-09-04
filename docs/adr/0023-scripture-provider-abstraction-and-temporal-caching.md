@@ -76,6 +76,72 @@ Public-domain KJV remains permanently bundled with the application:
    `[KJV shown — NRSVUE unavailable for this reading]`.
 3. If the reader explicitly selects KJV in the translation dropdown, `FallbackScriptureProvider` routes directly to `BundledKjvProvider` without requesting or returning fallback notices.
 
+### 5. API Contract, Payload Schema, and Versioning Strategy (`v1`)
+
+As client applications evolve across web and native mobile wrappers (Capacitor), client and backend deployments decouple. To maintain long-term interoperability without breaking installed mobile clients or cached web apps, the edge lectionary API uses path-based versioning and enforces an immutable API contract.
+
+#### Endpoint Specification
+- **URL Path**: `/api/v1/readings`
+- **Method**: `GET` (with `OPTIONS` for CORS preflight)
+- **Query Parameters**:
+  - `date`: `YYYY-MM-DD` (required, calendar date within $\pm 31$ days)
+  - `translation`: Bible translation code (default: `nrsvue`)
+
+#### Payload Schema (`v1`)
+The response payload is a JSON object fulfilling `DayReadingsResult`:
+
+```typescript
+export interface ScriptureReadingV1 {
+  citation: string;
+  book: string;
+  verses: Array<{
+    ch: number;
+    v: number;
+    text: string;
+  }>;
+  html: string;
+  translation: string;
+  isFallback?: boolean;
+}
+
+export interface DayReadingsPayloadV1 {
+  date: string; // YYYY-MM-DD
+  translation: string; // e.g. "nrsvue"
+  source: 'remote';
+  readings: Record<string, ScriptureReadingV1>; // Keyed by raw lectionary citation
+  fetchedAt: number; // UTC timestamp ms
+  expiresAt: number; // UTC timestamp ms (fetchedAt + 30 days)
+}
+```
+
+Example JSON response (`/api/v1/readings?date=2026-09-02&translation=nrsvue`):
+```json
+{
+  "date": "2026-09-02",
+  "translation": "nrsvue",
+  "source": "remote",
+  "readings": {
+    "Jn 8:47-59": {
+      "citation": "Jn 8:47-59",
+      "book": "John",
+      "verses": [
+        { "ch": 8, "v": 47, "text": "Whoever is from God hears the words of God..." }
+      ],
+      "html": "<p class=\"scripture-block\"><sup class=\"verse-num\">47</sup> Whoever is from God...</p>",
+      "translation": "nrsvue"
+    }
+  },
+  "fetchedAt": 1788467489812,
+  "expiresAt": 1791059489812
+}
+```
+
+#### Backward Compatibility: The "Additive Changes Only" Rule
+For a given major API version (such as `v1`):
+1. **Additive Changes Only**: New optional properties may be added to top-level objects, `readings`, or `verses` without bumping the API version. Clients must ignore unrecognized fields.
+2. **Immutable Existing Fields**: Existing fields (`date`, `translation`, `source`, `readings`, `fetchedAt`, `expiresAt`, `citation`, `book`, `verses`, `html`) must not be deleted, renamed, or altered in type or semantics.
+3. **Breaking Changes Require a Version Bump**: Any non-additive change (e.g. altering the shape of `verses`, removing `html`, or changing key serialization) constitutes a breaking change and requires introducing a new versioned endpoint (e.g. `/api/v2/readings`) backed by `.build/private/readings/v2/`. Prior versions (e.g. `v1`) must remain hosted and operational to support existing client installations.
+
 ## Consequences
 
 ### Positive

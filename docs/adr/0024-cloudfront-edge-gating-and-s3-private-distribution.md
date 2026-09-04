@@ -19,14 +19,14 @@ However, implementing this inside CloudFront requires solving three operational 
 ## Decision
 Implement the scripture service using a **CloudFront Function** viewer-request gate backed by **pre-sliced daily lectionary JSON files** served from a dedicated private S3 origin.
 
-### 1. Build Pipeline Pre-Slicing (`tools/slice_lectionary_readings.py`)
+### 1. Build Pipeline Pre-Slicing (`tools/slice_lectionary_readings.js`)
 Rather than running a heavy Bible parsing engine dynamically at edge runtime, the pipeline pre-slices the readings during `make extract` / build:
 - Iterates over all dates in `data/lectionary/*.json`.
 - Traverses both `morning` and `evening` offices, including all `alternate` offices (31 dates across the year).
 - Handles multi-lesson days (`lessons_pick: 2`) and internal alternative choices (`" or "` citations), extracting all potential readings so choices remain choices (ADR 0016).
 - Formats verses into structured JSON with paragraph break markup (from `data/paragraphs.json`).
-- Writes `.build/private/readings/nrsvue/YYYY-MM-DD.json`.
-- Slices are uploaded to `s3://${BUCKET}/private/readings/nrsvue/`.
+- Writes `.build/private/readings/v1/nrsvue/YYYY-MM-DD.json`.
+- Slices are uploaded to `s3://${BUCKET}/private/readings/v1/nrsvue/`.
 
 ### 2. S3 & Distribution Packaging Safeguards
 To prevent accidental distribution of full copyrighted Bible texts:
@@ -41,7 +41,7 @@ To avoid the `OriginPath` collision with ADR 0006's versioned releases, the Clou
   - Target of default cache behavior (`*`).
 - **`S3-Private` Origin**:
   - `OriginPath`: `""` (fixed root path).
-  - Target of cache behavior `/api/readings*`.
+  - Target of cache behavior `/api/*` (routing to Viewer Request gate).
   - Accessible only via Origin Access Control (OAC).
 
 `Makefile` targets (`promote`, `rollback`) are updated to modify `Origins.Items` specifically where `Id == "S3-Releases"`, ensuring the private origin configuration is untouched during releases.
@@ -49,10 +49,10 @@ To avoid the `OriginPath` collision with ADR 0006's versioned releases, the Clou
 ### 4. Direct `/private/*` Access Prohibition
 A dedicated CloudFront Cache Behavior is created for path pattern `/private/*`:
 - Immediately returns HTTP `403 Forbidden`.
-- Directly accessing `/private/readings/nrsvue/YYYY-MM-DD.json` via CloudFront is unconditionally blocked. The only entry point is `/api/readings`.
+- Directly accessing `/private/readings/v1/nrsvue/YYYY-MM-DD.json` via CloudFront is unconditionally blocked. The only entry point is `/api/v1/readings`.
 
-### 5. CloudFront Function: Viewer Request Gate (`cloudfront/gate-readings.js`)
-Associated with the `/api/readings*` behavior on Viewer Request:
+### 5. CloudFront Function: Viewer Request Gate (`infra/cloudfront-functions/gate-readings.js`)
+Associated with the `/api/*` behavior on Viewer Request:
 
 ```javascript
 function handler(event) {
@@ -106,7 +106,7 @@ function handler(event) {
   }
 
   // 4. Rewrite URI to fetch the private pre-sliced S3 object
-  request.uri = '/private/readings/' + translation + '/' + dateStr + '.json';
+  request.uri = '/private/readings/v1/' + translation + '/' + dateStr + '.json';
   request.querystring = {};
   return request;
 }
@@ -122,14 +122,14 @@ function handler(event) {
 ### Positive
 - **Zero Additional Hosting Cost**: CloudFront Functions provides 2,000,000 invocations/month permanently free; S3 storage for pre-sliced readings is $< 50\text{ MB}$ ($< \$0.01/\text{month}$).
 - **Single Provider & Single Pipeline**: All assets, functions, and data stay within AWS and are managed via PWC's existing `Makefile`.
-- **No CORS Overhead**: The API is served on the same origin (`https://pwc.app/api/readings`), eliminating preflight OPTIONS requests and webview CORS restrictions.
+- **No CORS Overhead**: The API is served on the same origin (`https://pwc.app/api/v1/readings`), eliminating preflight OPTIONS requests and webview CORS restrictions.
 - **Ultra-Low Latency**: CloudFront Function executes in $< 1\text{ms}$ with zero cold starts, followed by CDN edge cache delivery.
 - **Bulletproof Isolation**: Dedicated S3-Private origin avoids `OriginPath` collisions; `/private/*` public requests are blocked; `dist/` is audited against containing whole copyrighted books.
 
 ### Negative
 - **Requires Pre-Extraction**: When the lectionary year is intake-processed or updated, sliced readings must be regenerated alongside `data/lectionary/*.json`.
-- **CloudFront Dual Origin Setup**: The distribution configuration must declare the second origin (`S3-Private`) and associate the `/api/readings*` and `/private/*` cache behaviors.
+- **CloudFront Dual Origin Setup**: The distribution configuration must declare the second origin (`S3-Private`) and associate the `/api/*` and `/private/*` cache behaviors.
 
 ### Neutral / Notes
 - Reconciles with ADR 0006: promotion scripts selectively update `S3-Releases` origin path while leaving `S3-Private` origin path fixed.
-- The client-side `RemoteScriptureProvider` simply targets `/api/readings?date=YYYY-MM-DD`.
+- The client-side `RemoteScriptureProvider` targets `/api/v1/readings?date=YYYY-MM-DD`.

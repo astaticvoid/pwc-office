@@ -86,53 +86,60 @@ def audit_live_cdn(base_url: str, auth: str | None = None) -> list[str]:
         errors.append(f"Probe 1 failed: Direct book URL returned status {status} (expected 403 or 404)")
 
     # Probe 2: Direct private S3 bypass
-    url = f"{base_url}/private/readings/nrsvue/{today_str}.json"
+    url = f"{base_url}/private/readings/v1/nrsvue/{today_str}.json"
     status, _ = probe_url(url, auth=auth)
     print(f"  Probe 2: Direct private bypass ({url}) -> Status {status}")
     if status != 403:
         errors.append(f"Probe 2 failed: Direct private bypass returned status {status} (expected 403 Forbidden)")
 
     # Probe 3: Temporal gate boundaries (future & past out-of-window)
-    url_future = f"{base_url}/api/readings?date={future_date}&translation=nrsvue"
+    url_future = f"{base_url}/api/v1/readings?date={future_date}&translation=nrsvue"
     status_f, _ = probe_url(url_future, auth=auth)
     print(f"  Probe 3a: Out-of-window future (+60d) -> Status {status_f}")
     if status_f != 403:
         errors.append(f"Probe 3a failed: Date +60d returned status {status_f} (expected 403 Forbidden)")
 
-    url_past = f"{base_url}/api/readings?date={past_date}&translation=nrsvue"
+    url_past = f"{base_url}/api/v1/readings?date={past_date}&translation=nrsvue"
     status_p, _ = probe_url(url_past, auth=auth)
     print(f"  Probe 3b: Out-of-window past (-60d) -> Status {status_p}")
     if status_p != 403:
         errors.append(f"Probe 3b failed: Date -60d returned status {status_p} (expected 403 Forbidden)")
 
     # Probe 4: Path traversal attempt
-    url_trav = f"{base_url}/api/readings?date={today_str}&translation=../../secret"
+    url_trav = f"{base_url}/api/v1/readings?date={today_str}&translation=../../secret"
     status_t, _ = probe_url(url_trav, auth=auth)
     print(f"  Probe 4: Path traversal attempt -> Status {status_t}")
     if status_t not in (400, 403):
         errors.append(f"Probe 4 failed: Path traversal returned status {status_t} (expected 400 Bad Request)")
 
-    # Probe 5: In-window verification (if live)
-    url_valid = f"{base_url}/api/readings?date={today_str}&translation=nrsvue"
+    # Probe 5: Unversioned path check (expected 400)
+    url_unversioned = f"{base_url}/api/readings?date={today_str}&translation=nrsvue"
+    status_u, _ = probe_url(url_unversioned, auth=auth)
+    print(f"  Probe 5: Unversioned path check -> Status {status_u}")
+    if status_u not in (400, 403):
+        errors.append(f"Probe 5 failed: Unversioned path returned status {status_u} (expected 400 Bad Request)")
+
+    # Probe 6: In-window verification (if live)
+    url_valid = f"{base_url}/api/v1/readings?date={today_str}&translation=nrsvue"
     status_v, body = probe_url(url_valid, auth=auth)
-    print(f"  Probe 5: Valid in-window query -> Status {status_v}")
+    print(f"  Probe 6: Valid in-window query -> Status {status_v}")
     if status_v == 200:
         try:
             data = json.loads(body)
             # Verify data is strictly date-grained lectionary readings
             if "readings" not in data or not isinstance(data["readings"], dict):
-                errors.append("Probe 5 failed: 200 response missing 'readings' dictionary")
+                errors.append("Probe 6 failed: 200 response missing 'readings' dictionary")
             # Verify no full-book payloads
             for cit, reading in data.get("readings", {}).items():
                 verses = reading.get("verses", [])
                 if len(verses) > 150:  # Daily office readings rarely exceed 100 verses
-                    errors.append(f"Probe 5 warning: Abnormally large reading '{cit}' ({len(verses)} verses)")
+                    errors.append(f"Probe 6 warning: Abnormally large reading '{cit}' ({len(verses)} verses)")
         except Exception as e:
-            errors.append(f"Probe 5 failed: Unable to parse JSON response: {e}")
+            errors.append(f"Probe 6 failed: Unable to parse JSON response: {e}")
     elif status_v == 403 and "<Code>AccessDenied</Code>" in body:
-        print("  Notice: CloudFront Function gate-readings not yet attached to /api/readings* on this distribution.")
+        print("  Notice: CloudFront Function gate-readings not yet attached to /api/v1/readings* on this distribution.")
     else:
-        errors.append(f"Probe 5 failed: Valid in-window query returned status {status_v} (expected 200 OK)")
+        errors.append(f"Probe 6 failed: Valid in-window query returned status {status_v} (expected 200 OK)")
 
     return errors
 

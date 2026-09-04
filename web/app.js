@@ -253,7 +253,7 @@ function fetchDay(dateStr) {
 
 // ── Scripture Provider (ADR 0023 / ADR 0024) ──────────────────────────────────
 const scriptureProvider = createDefaultScriptureProvider({
-  apiBase: '/api/readings',
+  apiBase: '/api/v1/readings',
   primaryTranslation: 'nrsvue',
   fetchBook,
   fetchDay,

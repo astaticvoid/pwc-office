@@ -140,17 +140,29 @@ describe('RemoteScriptureProvider', () => {
     });
 
     const provider = new RemoteScriptureProvider({
-      apiBase: '/api/readings',
+      apiBase: '/api/v1/readings',
       translation: 'nrsvue',
       fetchFn,
       windowGraceDays: 35,
     });
 
     const res = await provider.getReadingsForDate('2026-09-02');
-    expect(fetchFn).toHaveBeenCalledWith('/api/readings?date=2026-09-02&translation=nrsvue');
+    expect(fetchFn).toHaveBeenCalledWith('/api/v1/readings?date=2026-09-02&translation=nrsvue');
     expect(res).not.toBeNull();
     expect(res?.readings['Job 12:1'].citation).toBe('Job 12:1');
     expect(res?.source).toBe('remote');
+  });
+
+  it('defaults apiBase to /api/v1/readings', async () => {
+    const fetchFn = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ date: '2026-09-02', readings: {} }),
+    });
+    const provider = new RemoteScriptureProvider({ fetchFn });
+    expect(provider.apiBase).toBe('/api/v1/readings');
+    await provider.getReadingsForDate('2026-09-02');
+    expect(fetchFn).toHaveBeenCalledWith('/api/v1/readings?date=2026-09-02&translation=nrsvue');
   });
 
   it('handles 403 Forbidden by returning null to trigger fallback', async () => {

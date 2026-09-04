@@ -1,5 +1,5 @@
-// CloudFront Function: Viewer Request handler for /api/readings (ADR 0024).
-// Enforces date validation, translation allowlisting, and ±31-day temporal gating.
+// CloudFront Function: Viewer Request handler for /api/v1/readings (ADR 0023, 0024).
+// Enforces date validation, translation allowlisting, API versioning, and ±31-day temporal gating.
 
 function handler(event) {
     var request = event.request;
@@ -33,9 +33,50 @@ function handler(event) {
         };
     }
 
-    var params = request.querystring;
+    // 3. Validate path and extract API version
+    var uri = request.uri || "";
+    var match = uri.match(/^\/api\/(?:([^/]+)\/)?readings\/?$/);
+    if (!match) {
+        return {
+            statusCode: 404,
+            statusDescription: "Not Found",
+            headers: {
+                "content-type": { value: "application/json" },
+                "access-control-allow-origin": { value: "*" }
+            },
+            body: JSON.stringify({ error: "Invalid endpoint path." })
+        };
+    }
 
-    // 3. Validate date parameter
+    var version = match[1];
+    if (!version) {
+        return {
+            statusCode: 400,
+            statusDescription: "Bad Request",
+            headers: {
+                "content-type": { value: "application/json" },
+                "access-control-allow-origin": { value: "*" }
+            },
+            body: JSON.stringify({ error: "Missing API version in path. Expected /api/v1/readings" })
+        };
+    }
+
+    var supportedVersions = ["v1"];
+    if (supportedVersions.indexOf(version) === -1) {
+        return {
+            statusCode: 404,
+            statusDescription: "Not Found",
+            headers: {
+                "content-type": { value: "application/json" },
+                "access-control-allow-origin": { value: "*" }
+            },
+            body: JSON.stringify({ error: "Unsupported API version: " + version })
+        };
+    }
+
+    var params = request.querystring || {};
+
+    // 4. Validate date parameter
     if (!params.date || !params.date.value || !/^\d{4}-\d{2}-\d{2}$/.test(params.date.value)) {
         return {
             statusCode: 400,
@@ -48,7 +89,7 @@ function handler(event) {
         };
     }
 
-    // 4. Strict translation parameter allowlist (prevents path traversal)
+    // 5. Strict translation parameter allowlist (prevents path traversal)
     var translation = (params.translation && params.translation.value) || "nrsvue";
     if (translation !== "nrsvue") {
         return {
@@ -62,7 +103,7 @@ function handler(event) {
         };
     }
 
-    // 5. Temporal Gating with 31-day timezone grace buffer
+    // 6. Temporal Gating with 31-day timezone grace buffer
     var dateStr = params.date.value;
     var now = new Date();
     var todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
@@ -88,8 +129,8 @@ function handler(event) {
         };
     }
 
-    // 6. Rewrite URI to fetch the private pre-sliced S3 object
-    request.uri = "/private/readings/" + translation + "/" + dateStr + ".json";
+    // 7. Rewrite URI to fetch the private pre-sliced S3 object
+    request.uri = "/private/readings/" + version + "/" + translation + "/" + dateStr + ".json";
     request.querystring = {};
     return request;
 }
