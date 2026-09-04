@@ -1,7 +1,7 @@
 # CloudFront Functions
 
-Source of truth for the two CloudFront Functions attached to both the
-production (`E75O4QVPI7OH0`) and staging (`E3UNB7ER9KWV8U`) distributions'
+Source of truth for the CloudFront Functions attached to the
+production (`E75O4QVPI7OH0`) and staging (`E3UNB7ER9KWV8U`) distributions
 `DefaultCacheBehavior`. Before 2026-07-24 these existed only as
 console-edited state in AWS with no copy in version control — that's how a
 broken cookie check shipped silently for two months.
@@ -12,7 +12,7 @@ broken cookie check shipped silently for two months.
 | `pwc-set-auth-cookie.js` | `viewer-response` | After `pwc-basic-auth` passes a request authenticated via the `Authorization` header (not yet via cookie), sets `Set-Cookie: pwc-auth=1` (30 days) so subsequent requests/refreshes don't re-prompt. |
 
 CloudFront Functions have no build step — these files are deployed as-is.
-There's no Makefile target for this yet (functions change far less often
+They are automatically deployed by `make deploy-staging` and `make promote` (functions change far less often
 than the app itself); to push a change:
 
 ```bash

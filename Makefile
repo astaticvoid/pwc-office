@@ -348,7 +348,7 @@ slice-readings:
 audit-copyright:
 	$(PYTHON) tools/audit_copyright_leak.py --dist-dir dist
 
-deploy-staging: check-integrity check-dist audit-copyright slice-readings
+deploy-staging: check-integrity check-dist audit-copyright slice-readings deploy-functions-staging
 	aws s3 sync dist/ s3://$(BUCKET)/releases/$(RELEASE)/ --delete
 	# Sync private sliced calendar and lectionary readings (protected by CloudFront gate function)
 	aws s3 sync .build/private/ s3://$(BUCKET)/private/ \
@@ -408,7 +408,7 @@ test-staging-full:
 #   - test-staging passed for that exact release
 #   - coherence is at threshold
 # The S3 existence check below is not a policy gate and always runs.
-promote:
+promote: deploy-functions-prod
 	@test -f .deploy-latest || (echo "Run deploy-staging first"; exit 1)
 	@if [ -z "$$PROMOTE_FORCE" ]; then \
 	  RELEASE=$$(cat .deploy-latest); HEAD_SHA=$$(git rev-parse --short HEAD); \
@@ -500,3 +500,31 @@ deploy: check-integrity check-dist
 	  --cache-control "no-cache, no-store" \
 	  --content-type "application/javascript"
 	aws cloudfront create-invalidation --distribution-id $(CF_DISTRIBUTION_ID) --paths "/*"
+
+deploy-functions-staging:
+	@echo "Deploying Staging CloudFront functions..."
+	@for func in pwc-basic-auth pwc-set-auth-cookie pwc-gate-readings; do \
+		ETAG=$$(aws cloudfront describe-function --name $$func-staging --query ETag --output text 2>/dev/null || echo ""); \
+		if [ -z "$$ETAG" ]; then \
+			aws cloudfront create-function --name $$func-staging --function-config Comment="Staging $$func",Runtime=cloudfront-js-2.0 --function-code fileb://infra/cloudfront-functions/$$func.js >/dev/null; \
+		else \
+			aws cloudfront update-function --name $$func-staging --if-match $$ETAG --function-config Comment="Staging $$func",Runtime=cloudfront-js-2.0 --function-code fileb://infra/cloudfront-functions/$$func.js >/dev/null; \
+		fi; \
+		NEWETAG=$$(aws cloudfront describe-function --name $$func-staging --query ETag --output text); \
+		aws cloudfront publish-function --name $$func-staging --if-match $$NEWETAG >/dev/null; \
+	done
+	@echo "Staging CloudFront functions deployed."
+
+deploy-functions-prod:
+	@echo "Deploying Prod CloudFront functions..."
+	@for func in pwc-basic-auth pwc-set-auth-cookie pwc-gate-readings; do \
+		ETAG=$$(aws cloudfront describe-function --name $$func-prod --query ETag --output text 2>/dev/null || echo ""); \
+		if [ -z "$$ETAG" ]; then \
+			aws cloudfront create-function --name $$func-prod --function-config Comment="Prod $$func",Runtime=cloudfront-js-2.0 --function-code fileb://infra/cloudfront-functions/$$func.js >/dev/null; \
+		else \
+			aws cloudfront update-function --name $$func-prod --if-match $$ETAG --function-config Comment="Prod $$func",Runtime=cloudfront-js-2.0 --function-code fileb://infra/cloudfront-functions/$$func.js >/dev/null; \
+		fi; \
+		NEWETAG=$$(aws cloudfront describe-function --name $$func-prod --query ETag --output text); \
+		aws cloudfront publish-function --name $$func-prod --if-match $$NEWETAG >/dev/null; \
+	done
+	@echo "Prod CloudFront functions deployed."
