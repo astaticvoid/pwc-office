@@ -119,6 +119,16 @@ build:
 	rm -rf dist/data/.git
 	rm -rf dist/data/translations
 	rm -rf dist/data/lectionary
+	@if [ -n "$$EVAL_AUTH_TOKEN" ]; then \
+		echo "Injecting EVAL_AUTH_TOKEN into scripture-provider.js"; \
+		sed -i.bak "s|__EVAL_AUTH_TOKEN__|$$EVAL_AUTH_TOKEN|g" dist/scripture-provider.js && \
+		rm dist/scripture-provider.js.bak; \
+	fi
+	@if [ -n "$$API_ORIGIN" ]; then \
+		echo "Injecting API_ORIGIN into scripture-provider.js"; \
+		sed -i.bak "s|__API_ORIGIN__|$$API_ORIGIN|g" dist/scripture-provider.js && \
+		rm dist/scripture-provider.js.bak; \
+	fi
 	$(PYTHON) tools/generate_version_manifest.py --dist-dir dist
 	@echo "dist/ ready ($$(find dist -type f | wc -l | tr -d ' ') files)"
 

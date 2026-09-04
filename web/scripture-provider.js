@@ -218,6 +218,27 @@ export class LocalStorageScriptureCache {
  * Remote scripture provider making date-grained requests to the edge service.
  * @implements {IScriptureProvider}
  */
+
+/**
+ * Wraps global fetch to optionally inject auth tokens and absolute origins at build time.
+ */
+async function defaultFetch(url, init = {}) {
+  /** @type {RequestInit} */ const newInit = { ...init };
+  const authPlaceholder = '__EVAL_AUTH_TOKEN__';
+  if (authPlaceholder.startsWith('Basic ')) {
+    newInit.headers = new Headers(newInit.headers);
+    newInit.headers.set('Authorization', authPlaceholder);
+  }
+
+  let targetUrl = url;
+  const originPlaceholder = '__API_ORIGIN__';
+  if (originPlaceholder.startsWith('http') && targetUrl.startsWith('/api/')) {
+    targetUrl = originPlaceholder + targetUrl;
+  }
+
+  return fetch(targetUrl, newInit);
+}
+
 export class RemoteScriptureProvider {
   /**
    * @param {object} [options]
@@ -229,7 +250,7 @@ export class RemoteScriptureProvider {
   constructor({
     apiBase = '/api/v1/readings',
     translation = 'nrsvue',
-    fetchFn = (typeof fetch !== 'undefined' ? fetch : null),
+    fetchFn = null,
     windowGraceDays = 35,
   } = {}) {
     this.apiBase = apiBase;
@@ -553,6 +574,7 @@ export function createDefaultScriptureProvider({
   const remote = new RemoteScriptureProvider({
     apiBase,
     translation: primaryTranslation,
+    fetchFn: defaultFetch,
   });
 
   const cache = new LocalStorageScriptureCache({ storage });
@@ -824,7 +846,9 @@ export function createDefaultDayCacheManager(options = {}) {
     storage = null,
     fetchFn = null,
   } = options;
-  return new DayCacheManager({ apiBase, storage, fetchFn });
+
+  return new DayCacheManager({ apiBase, storage, fetchFn: fetchFn || defaultFetch });
+
 }
 
 
