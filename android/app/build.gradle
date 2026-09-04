@@ -16,10 +16,37 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    def keystorePropertiesFile = rootProject.file("key.properties")
+    if (!keystorePropertiesFile.canRead()) {
+        keystorePropertiesFile = rootProject.file("local.properties")
+    }
+    def keystoreProperties = new Properties()
+    if (keystorePropertiesFile.canRead()) {
+        keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+    }
+    def storeFilePath = keystoreProperties['RELEASE_STORE_FILE'] ?: System.getenv('RELEASE_STORE_FILE') ?: 'release-key.jks'
+    def storeFileTarget = file(storeFilePath)
+    if (!storeFileTarget.exists()) {
+        storeFileTarget = rootProject.file(storeFilePath)
+    }
+
+    signingConfigs {
+        release {
+            if (storeFileTarget.exists()) {
+                storeFile storeFileTarget
+                storePassword keystoreProperties['RELEASE_STORE_PASSWORD'] ?: System.getenv('RELEASE_STORE_PASSWORD') ?: ''
+                keyAlias keystoreProperties['RELEASE_KEY_ALIAS'] ?: System.getenv('RELEASE_KEY_ALIAS') ?: ''
+                keyPassword keystoreProperties['RELEASE_KEY_PASSWORD'] ?: System.getenv('RELEASE_KEY_PASSWORD') ?: ''
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (storeFileTarget.exists()) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }

@@ -32,6 +32,14 @@ boneyard/data/
 # Local secrets — never commit
 .env
 *.p8
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pepk
+local.properties
+key.properties
+keystore.properties
 
 # Python virtualenv — created by `make venv`
 .venv/
