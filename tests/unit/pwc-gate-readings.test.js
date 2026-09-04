@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 import vm from 'vm';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const code = readFileSync(join(__dirname, '../../infra/cloudfront-functions/gate-readings.js'), 'utf8');
+const code = readFileSync(join(__dirname, '../../infra/cloudfront-functions/pwc-gate-readings.js'), 'utf8');
 
 function executeGateHandler(event) {
   const context = {
