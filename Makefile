@@ -117,7 +117,8 @@ build:
 	rm -rf dist
 	cp -rL web/. dist/
 	rm -rf dist/data/.git
-	rm -rf dist/data/translations/nrsvue
+	rm -rf dist/data/translations
+	rm -rf dist/data/lectionary
 	$(PYTHON) tools/generate_version_manifest.py --dist-dir dist
 	@echo "dist/ ready ($$(find dist -type f | wc -l | tr -d ' ') files)"
 
@@ -332,14 +333,15 @@ RELEASE = $(shell date -u +%Y-%m-%dT%H%M%SZ)-$(shell git rev-parse --short HEAD)
 
 slice-readings:
 	node tools/slice_lectionary_readings.js
+	node tools/slice_daily_payload.js
 
 audit-copyright:
 	$(PYTHON) tools/audit_copyright_leak.py --dist-dir dist
 
 deploy-staging: check-integrity check-dist audit-copyright slice-readings
 	aws s3 sync dist/ s3://$(BUCKET)/releases/$(RELEASE)/ --delete
-	# Sync private sliced lectionary readings (protected by CloudFront gate function)
-	aws s3 sync .build/private/readings/ s3://$(BUCKET)/private/readings/ \
+	# Sync private sliced calendar and lectionary readings (protected by CloudFront gate function)
+	aws s3 sync .build/private/ s3://$(BUCKET)/private/ \
 	  --cache-control "max-age=86400"
 	# Everything on staging gets a 1-minute cache. Staging exists to be deployed
 	# to and looked at immediately, so production-shaped TTLs are wrong here: the

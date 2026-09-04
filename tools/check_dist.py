@@ -115,14 +115,10 @@ for licence in required_licences:
 for f in ("data/offices.json", "data/collects.json", "data/season_bounds.json", "data/psalter.json"):
     require(dist / f)
 
-lect_dir = dist / "data" / "lectionary"
-
-if not lect_dir.is_dir():
-    errors.append("missing: data/lectionary/")
+if (dist / "data" / "lectionary").exists():
+    errors.append("ADR 0025: data/lectionary/ must not be bundled in dist/ (calendar is served via /api/v2/calendar)")
 else:
-    monthly_files = list(lect_dir.glob("????-??.json"))
-    if not monthly_files:
-        errors.append("data/lectionary/: no monthly files (expected YYYY-MM.json)")
+    print("lectionary:  not bundled in dist/ (ADR 0025 dynamic BFF API)")
 
 # ── Load core data ─────────────────────────────────────────────────────────────
 
@@ -136,8 +132,9 @@ psalter  = json.loads(psalter_path.read_text())  if psalter_path.exists()  else 
 
 # ── Lectionary cross-references ────────────────────────────────────────────────
 
-# Monthly files only (YYYY-MM.json); individual day files are no longer used.
-lect_month_files = sorted(lect_dir.glob("????-??.json")) if lect_dir.is_dir() else []
+# Validate cross-references against source lectionary data.
+source_lect_dir = Path(__file__).parent.parent / "data" / "lectionary"
+lect_month_files = sorted(source_lect_dir.glob("????-??.json")) if source_lect_dir.is_dir() else []
 
 # Flatten all day entries for cross-reference checks.
 lect_entries: list[dict] = []
@@ -146,7 +143,7 @@ for mf in lect_month_files:
     lect_entries.extend(month_data.values())
 
 if not lect_entries:
-    errors.append("data/lectionary/ is empty")
+    errors.append("source data/lectionary/ is empty")
 
 SEASON_ORDER = [
     "christmas_ii", "advent_ii", "all_saints", "pentecost",
@@ -243,22 +240,13 @@ if lect_entries:
     print(f"lectionary:  {len(lect_entries)} entries checked"
           f" ({psalm_errors} psalm errors, {collect_errors} collect errors, {form_errors} form errors)")
 
-# ── Translations ───────────────────────────────────────────────────────────────
+# ── Translations (ADR 0025) ───────────────────────────────────────────────────
 
 trans_dir = dist / "data" / "translations"
-found_translations = []
-if trans_dir.is_dir():
-    found_translations = [t.name for t in trans_dir.iterdir() if t.is_dir()]
-
-if not found_translations:
-    errors.append("data/translations/: no translations found (need at least KJV)")
+if trans_dir.exists():
+    errors.append("ADR 0025: data/translations/ must not be bundled in dist/ (scripture is served via /api/v2/calendar)")
 else:
-    if "kjv" not in found_translations:
-        warnings.append("KJV translation missing — scripture fallback will fail")
-    for t in found_translations:
-        if t != "kjv":
-            errors.append(f"Copyright leak: unauthorized translation '{t}' found in dist/data/translations/. Only public-domain KJV may be bundled in dist/.")
-    print(f"translations: {', '.join(sorted(found_translations))}")
+    print("translations: not bundled in dist/ (ADR 0025 dynamic BFF API)")
 
 # ── Report ─────────────────────────────────────────────────────────────────────
 

@@ -573,3 +573,258 @@ export function createDefaultScriptureProvider({
     fallback,
   });
 }
+
+/**
+ * Calculate date offset by n calendar days.
+ * @param {string} dateStr - 'YYYY-MM-DD'
+ * @param {number} n - Number of days to offset
+ * @returns {string} - 'YYYY-MM-DD'
+ */
+export function offsetDate(dateStr, n) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + n));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Offline & rolling window Day Cache Manager (ADR 0025).
+ * Pre-fetches and caches unified calendar + scripture payloads,
+ * actively purges payloads older than 30 days to enforce licensing limits,
+ * and detects offline cache misses.
+ */
+export class DayCacheManager {
+  /**
+   * @param {object} [options]
+   * @param {string} [options.apiBase]
+   * @param {Storage|null} [options.storage]
+   * @param {typeof fetch} [options.fetchFn]
+   */
+  constructor({
+    apiBase = '/api/v2/calendar',
+    storage = null,
+    fetchFn = null,
+  } = {}) {
+    this.apiBase = apiBase;
+    this.storage = storage || (typeof localStorage !== 'undefined' ? localStorage : null);
+    this.fetchFn = fetchFn || (typeof fetch !== 'undefined' ? (url, init) => fetch(url, init) : null);
+    /** @type {Map<string, object>} */
+    this.memoryFallback = new Map();
+  }
+
+  _key(dateStr, translation = 'nrsvue') {
+    return `pwc-day:${translation || 'nrsvue'}:${dateStr}`;
+  }
+
+  async get(dateStr, translation = 'nrsvue') {
+    const t = translation || 'nrsvue';
+    const key = this._key(dateStr, t);
+    let item = null;
+
+    if (this.storage) {
+      try {
+        const raw = this.storage.getItem(key) || (t === 'nrsvue' ? this.storage.getItem(`pwc-day:${dateStr}`) : null);
+        if (raw) {
+          item = JSON.parse(raw);
+        }
+      } catch (e) {
+        // Fallback to memory
+      }
+    }
+
+    if (!item) {
+      item = this.memoryFallback.get(key) || (t === 'nrsvue' ? this.memoryFallback.get(`pwc-day:${dateStr}`) : null);
+    }
+
+    if (!item) return null;
+
+    if (item.expiresAt && Date.now() > item.expiresAt) {
+      await this.delete(dateStr, t);
+      return null;
+    }
+
+    return item;
+  }
+
+  async set(dateStr, data, translation = 'nrsvue') {
+    const t = translation || data.translation || 'nrsvue';
+    const key = this._key(dateStr, t);
+    const entry = {
+      ...data,
+      fetchedAt: data.fetchedAt || Date.now(),
+      expiresAt: data.expiresAt || (Date.now() + 30 * 86400000),
+    };
+
+    let storedInStorage = false;
+    if (this.storage) {
+      try {
+        this.storage.setItem(key, JSON.stringify(entry));
+        storedInStorage = true;
+      } catch (e) {
+        // Handle QuotaExceeded by purging and using memory fallback
+        await this.purge(todayUtcString(), 30);
+        try {
+          this.storage.setItem(key, JSON.stringify(entry));
+          storedInStorage = true;
+        } catch (e2) {
+          // Fall through to memory fallback
+        }
+      }
+    }
+
+    if (!storedInStorage) {
+      this.memoryFallback.set(key, entry);
+    }
+  }
+
+  async delete(dateStr, translation = 'nrsvue') {
+    const t = translation || 'nrsvue';
+    const key = this._key(dateStr, t);
+    if (this.storage) {
+      try {
+        this.storage.removeItem(key);
+        this.storage.removeItem(`pwc-day:${dateStr}`);
+      } catch (e) {}
+    }
+    this.memoryFallback.delete(key);
+    this.memoryFallback.delete(`pwc-day:${dateStr}`);
+  }
+
+  async purge(currentDate = todayUtcString(), maxAgeDays = 30) {
+    const now = Date.now();
+    const isExpired = (item, key) => {
+      if (!item) return false;
+      const targetDate = item.date || key.split(':').pop();
+      const diffDays = Math.abs(dayDifference(targetDate, currentDate));
+      const ageDays = (now - (item.fetchedAt || now)) / 86400000;
+      return diffDays > maxAgeDays || ageDays > maxAgeDays || (item.expiresAt && now > item.expiresAt);
+    };
+
+    const purgedKeys = new Set();
+
+    if (this.storage) {
+      try {
+        const keysToPurge = [];
+        for (let i = 0; i < this.storage.length; i++) {
+          const key = this.storage.key(i);
+          if (key && key.startsWith('pwc-day:')) {
+            try {
+              const raw = this.storage.getItem(key);
+              const item = raw ? JSON.parse(raw) : null;
+              if (isExpired(item, key)) {
+                keysToPurge.push(key);
+              }
+            } catch (e) {
+              keysToPurge.push(key);
+            }
+          }
+        }
+        for (const k of keysToPurge) {
+          this.storage.removeItem(k);
+          purgedKeys.add(k);
+        }
+      } catch (e) {}
+    }
+
+    for (const [key, item] of this.memoryFallback.entries()) {
+      if (key.startsWith('pwc-day:') && isExpired(item, key)) {
+        this.memoryFallback.delete(key);
+        purgedKeys.add(key);
+      }
+    }
+
+    return purgedKeys.size;
+  }
+
+  async getDay(dateStr, options = {}) {
+    const translation = options.translation || 'nrsvue';
+
+    // 1. Check local cache
+    const cached = await this.get(dateStr, translation);
+    if (cached) {
+      return cached;
+    }
+
+    // 2. Check offline status
+    const isOffline = (typeof window !== 'undefined' && window.__pwcOffline) ||
+      (typeof navigator !== 'undefined' && navigator.onLine === false);
+
+    if (isOffline) {
+      const err = /** @type {Error & { isOfflineMiss?: boolean }} */ (new Error('Network connection required'));
+      err.isOfflineMiss = true;
+      throw err;
+    }
+
+    // 3. Fetch from API
+    if (!this.fetchFn) {
+      const err = /** @type {Error & { isOfflineMiss?: boolean }} */ (new Error('Network connection required'));
+      err.isOfflineMiss = true;
+      throw err;
+    }
+
+    const url = `${this.apiBase}?date=${dateStr}&translation=${encodeURIComponent(translation)}`;
+    let res;
+    try {
+      res = await this.fetchFn(url);
+    } catch (netErr) {
+      const err = /** @type {Error & { isOfflineMiss?: boolean, cause?: unknown }} */ (new Error('Network connection required'));
+      err.isOfflineMiss = true;
+      err.cause = netErr;
+      throw err;
+    }
+
+    if (!res.ok) {
+      throw new Error(`Failed to fetch day: ${res.status}`);
+    }
+
+    const dayData = await res.json();
+    await this.set(dateStr, dayData, translation);
+    return dayData;
+  }
+
+  async prefetchBatch(startStr, endStr, translation = 'nrsvue') {
+    const isOffline = (typeof window !== 'undefined' && window.__pwcOffline) ||
+      (typeof navigator !== 'undefined' && navigator.onLine === false);
+    if (isOffline || !this.fetchFn) return null;
+
+    const url = `${this.apiBase}?start=${startStr}&end=${endStr}&translation=${encodeURIComponent(translation)}`;
+    let res;
+    try {
+      res = await this.fetchFn(url);
+    } catch (e) {
+      return null;
+    }
+
+    if (!res || !res.ok) return null;
+    const batchData = await res.json();
+    if (batchData && batchData.days) {
+      for (const [dateKey, dayObj] of Object.entries(batchData.days)) {
+        await this.set(dateKey, dayObj, translation);
+      }
+    }
+    return batchData;
+  }
+
+  async prefetchRollingWindow(todayStr = todayUtcString(), daysCount = 14, translation = 'nrsvue') {
+    const endStr = offsetDate(todayStr, daysCount - 1);
+    return this.prefetchBatch(todayStr, endStr, translation);
+  }
+}
+
+/**
+ * Factory to create DayCacheManager
+ * @param {object} [options]
+ * @param {string} [options.apiBase]
+ * @param {Storage|null} [options.storage]
+ * @param {typeof fetch} [options.fetchFn]
+ * @returns {DayCacheManager}
+ */
+export function createDefaultDayCacheManager(options = {}) {
+  const {
+    apiBase = '/api/v2/calendar',
+    storage = null,
+    fetchFn = null,
+  } = options;
+  return new DayCacheManager({ apiBase, storage, fetchFn });
+}
+
+

@@ -11,7 +11,12 @@ import {
   collectPageNum, lookupCollect, lookupFatsEntry, penitentialSegments,
   buildParagraphHtml,
 } from './render.js';
-import { createDefaultScriptureProvider } from './scripture-provider.js';
+import {
+  createDefaultScriptureProvider,
+  createDefaultDayCacheManager,
+  isWithinTemporalWindow,
+  todayUtcString,
+} from './scripture-provider.js';
 
 // ── Data path ─────────────────────────────────────────────────────────────────
 // Dev: python3 -m http.server 8080 from repo root, open /web/ — web/data symlink
@@ -235,20 +240,33 @@ function fetchBook(translation, filename) {
   return _cache.books[k];
 }
 
-/** Fetch the lectionary entry for `dateStr` (YYYY-MM-DD) from the monthly JSON file. */
-function fetchDay(dateStr) {
-  const monthKey = dateStr.slice(0, 7);
-  const cacheKey = `bas:${monthKey}`;
-  if (!_cache.months[cacheKey]) {
-    _cache.months[cacheKey] = fetch(`${DATA}/lectionary/${monthKey}.json`)
-      .then(r => { if (!r.ok) throw new Error(`${monthKey}: ${r.status}`); return r.json(); })
-      .catch(err => { delete _cache.months[cacheKey]; throw err; });
+export const dayCacheManager = createDefaultDayCacheManager({
+  apiBase: '/api/v2/calendar',
+  storage: typeof localStorage !== 'undefined' ? localStorage : null,
+});
+
+/** Fetch the unified day entry for `dateStr` (YYYY-MM-DD) via DayCacheManager (ADR 0025).
+ *  Falls back to legacy monthly lectionary JSON if running against old static assets. */
+async function fetchDay(dateStr) {
+  try {
+    return await dayCacheManager.getDay(dateStr);
+  } catch (err) {
+    if (err && err.isOfflineMiss) {
+      throw err;
+    }
+    const monthKey = dateStr.slice(0, 7);
+    const cacheKey = `bas:${monthKey}`;
+    if (!_cache.months[cacheKey]) {
+      _cache.months[cacheKey] = fetch(`${DATA}/lectionary/${monthKey}.json`)
+        .then(r => { if (!r.ok) throw new Error(`${monthKey}: ${r.status}`); return r.json(); })
+        .catch(fetchErr => { delete _cache.months[cacheKey]; throw fetchErr; });
+    }
+    return _cache.months[cacheKey].then(month => {
+      const day = month[dateStr];
+      if (!day) throw new Error(`${dateStr}: not found in ${monthKey}.json`);
+      return day;
+    });
   }
-  return _cache.months[cacheKey].then(month => {
-    const day = month[dateStr];
-    if (!day) throw new Error(`${dateStr}: not found in ${monthKey}.json`);
-    return day;
-  });
 }
 
 // ── Scripture Provider (ADR 0023 / ADR 0024) ──────────────────────────────────
@@ -269,12 +287,15 @@ const scriptureProvider = createDefaultScriptureProvider({
 
 /** Map a fetch failure to a short, non-technical message — never surface raw error text. */
 function friendlyLoadError(err) {
+  if (err && (err.isOfflineMiss || err.message === 'Network connection required' || (err.message && err.message.includes('Network connection required')))) {
+    return 'Network connection required to view readings for this date while offline.';
+  }
   if (window.__pwcOffline || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
-    return 'You appear to be offline. Check your connection and try again.';
+    return 'Network connection required. You appear to be offline.';
   }
   // Browsers reject fetch() with a TypeError for network failures (DNS, CORS, connection drop).
   if (err instanceof TypeError) {
-    return 'Unable to load — check your internet connection and try again.';
+    return 'Network connection required. Unable to load — check your internet connection and try again.';
   }
   // fetchOnce/fetchBook/fetchDay throw `new Error(status)` on a non-OK HTTP response.
   if (/^\d{3}$/.test(String(err && err.message))) {
@@ -985,7 +1006,10 @@ async function render(dateStr, officeType, translation) {
     + dayMarkers(day, activeName, activeRank === 'eve', !!officeData.alternate).map(m =>
         `<span class="meta-item meta-item--marker">${esc(m)}</span>`).join('');
 
-  document.querySelectorAll('.day-note, .day-note-details, .fats-bio').forEach(el => el.remove());
+  document.querySelectorAll('.day-note, .day-note-details, .fats-bio, .temporal-notice').forEach(el => el.remove());
+
+  const isOutsideWindow = !isWithinTemporalWindow(dateStr, todayUtcString(), 30);
+  const isShowingKjv = isOutsideWindow || day.isFallback || (day.translation === 'kjv' && translation !== 'kjv');
 
   // ── FATS biographical notice ───────────────────────────────────────────────
   // The day's saints are day context, so the biography sits with the day
@@ -1001,6 +1025,13 @@ async function render(dateStr, officeType, translation) {
   // life, so switching to it clears the day's bio rather than keeping it.
   const ctrlEl = document.getElementById('day-office-controls');
   if (ctrlEl) {
+    if (isShowingKjv && translation !== 'kjv') {
+      ctrlEl.insertAdjacentHTML('beforebegin',
+        `<div class="eval-banner temporal-notice" role="status">` +
+        `<span>Showing KJV — NRSVue scripture readings are only available within ±30 days of today.</span>` +
+        `</div>`);
+    }
+
     const obsPeople = activeObs === 'alternate'
       ? (activeOfficeData.name ? [activeOfficeData.name] : [])
       : [day.name, ...(day.commemorations || []).map(c => c.name)];
@@ -1277,7 +1308,11 @@ async function render(dateStr, officeType, translation) {
     html += `<div class="liturgy">${renderSegments(form.dismissal, shared, true)}</div>`;
   }
 
-  html += `<p class="scripture-attr" id="scripture-attr">Scripture: ${esc(translation.toUpperCase())}</p>`;
+  const isKjvOutsideWindow = (isShowingKjv && translation !== 'kjv');
+  const displayAttrTrans = isKjvOutsideWindow
+    ? 'KJV (Showing KJV outside ±30-day window)'
+    : translation.toUpperCase();
+  html += `<p class="scripture-attr" id="scripture-attr">Scripture: ${esc(displayAttrTrans)}</p>`;
 
   contentEl.innerHTML = html;
 
@@ -1325,12 +1360,17 @@ async function fillScripture(root, translation, dateStr, day) {
   const els = Array.from(root.querySelectorAll('.scripture-placeholder'));
   if (!els.length) return;
 
-  if (window.__pwcOffline) {
-    // When offline, the cached/fallback provider will resolve cached NRSVue or bundled KJV
-  }
-
   try {
-    const dayReadings = await scriptureProvider.getReadingsForDate(dateStr, { day, translation });
+    let dayReadings = day;
+    if (!dayReadings || !dayReadings.readings || (translation && dayReadings.translation !== translation && !dayReadings.isFallback)) {
+      try {
+        dayReadings = await dayCacheManager.getDay(dateStr, { translation });
+      } catch (e) {
+        dayReadings = await scriptureProvider.getReadingsForDate(dateStr, { day, translation });
+      }
+    }
+
+    const isKjvOutside = ((dayReadings?.isFallback || dayReadings?.translation === 'kjv') && translation !== 'kjv');
 
     for (const el of els) {
       const rawCitation = el.dataset.citation;
@@ -1354,8 +1394,8 @@ async function fillScripture(root, translation, dateStr, day) {
 
       if (reading && reading.html) {
         el.innerHTML = reading.html;
-        if (reading.isFallback && translation !== 'kjv') {
-          el.innerHTML += `<p class="scripture-fallback-note">[KJV shown — NRSVUE unavailable for this reading]</p>`;
+        if ((reading.isFallback || reading.translation === 'kjv' || isKjvOutside) && translation !== 'kjv') {
+          el.innerHTML += `<p class="scripture-fallback-note">[Showing KJV — outside ±30-day window]</p>`;
         }
       } else {
         el.innerHTML = `<p class="error-msg">Text unavailable: ${esc(rawCitation)}</p>`;
@@ -1592,6 +1632,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   initEvalBanner();
+  dayCacheManager.purge().catch(() => {});
+  dayCacheManager.prefetchRollingWindow().catch(() => {});
   // Warm up static fetches.
   fetchOnce('offices',  `${DATA}/offices.json`);
   fetchOnce('collects', `${DATA}/collects.json`);

@@ -136,4 +136,117 @@ describe('gate-readings CloudFront Function', () => {
     expect(result.uri).toBe(`/private/readings/v1/nrsvue/${today}.json`);
     expect(result.querystring).toEqual({});
   });
+
+  describe('/api/v2/calendar endpoint', () => {
+    it('rewrites in-window date requests to private NRSVue calendar path', () => {
+      const today = getTodayString(0);
+      const event = createEvent({
+        uri: '/api/v2/calendar',
+        querystring: { date: { value: today } },
+      });
+      const result = executeGateHandler(event);
+      expect(result.uri).toBe(`/private/calendar/v2/nrsvue/${today}.json`);
+      expect(result.querystring).toEqual({});
+    });
+
+    it('gracefully falls back out-of-window requests beyond ±31 days to KJV calendar path', () => {
+      const futureDate = getTodayString(45);
+      const event = createEvent({
+        uri: '/api/v2/calendar',
+        querystring: { date: { value: futureDate } },
+      });
+      const result = executeGateHandler(event);
+      expect(result.uri).toBe(`/private/calendar/v2/kjv/${futureDate}.json`);
+      expect(result.querystring).toEqual({});
+    });
+
+    it('honours explicit translation=kjv request even within window', () => {
+      const today = getTodayString(0);
+      const event = createEvent({
+        uri: '/api/v2/calendar',
+        querystring: {
+          date: { value: today },
+          translation: { value: 'kjv' },
+        },
+      });
+      const result = executeGateHandler(event);
+      expect(result.uri).toBe(`/private/calendar/v2/kjv/${today}.json`);
+    });
+
+    it('rewrites in-window batch requests to NRSVue batch path', () => {
+      const start = getTodayString(0);
+      const end = getTodayString(13);
+      const event = createEvent({
+        uri: '/api/v2/calendar',
+        querystring: {
+          start: { value: start },
+          end: { value: end },
+        },
+      });
+      const result = executeGateHandler(event);
+      expect(result.uri).toBe(`/private/calendar/v2/nrsvue/batch/${start}_${end}.json`);
+      expect(result.querystring).toEqual({});
+    });
+
+    it('falls back out-of-window batch requests to KJV batch path', () => {
+      const start = getTodayString(40);
+      const end = getTodayString(50);
+      const event = createEvent({
+        uri: '/api/v2/calendar',
+        querystring: {
+          start: { value: start },
+          end: { value: end },
+        },
+      });
+      const result = executeGateHandler(event);
+      expect(result.uri).toBe(`/private/calendar/v2/kjv/batch/${start}_${end}.json`);
+    });
+
+    it('rejects batch queries where start > end with 400 Bad Request', () => {
+      const event = createEvent({
+        uri: '/api/v2/calendar',
+        querystring: {
+          start: { value: getTodayString(5) },
+          end: { value: getTodayString(1) },
+        },
+      });
+      const response = executeGateHandler(event);
+      expect(response.statusCode).toBe(400);
+      expect(JSON.parse(response.body).error).toContain('start date must be <= end date');
+    });
+
+    it('rejects missing or partial batch parameters with 400 Bad Request', () => {
+      const event = createEvent({
+        uri: '/api/v2/calendar',
+        querystring: {
+          start: { value: getTodayString(0) },
+        },
+      });
+      const response = executeGateHandler(event);
+      expect(response.statusCode).toBe(400);
+    });
+
+    it('rejects unsupported translations with 400 Bad Request', () => {
+      const event = createEvent({
+        uri: '/api/v2/calendar',
+        querystring: {
+          date: { value: getTodayString(0) },
+          translation: { value: 'esv' },
+        },
+      });
+      const response = executeGateHandler(event);
+      expect(response.statusCode).toBe(400);
+      expect(JSON.parse(response.body).error).toContain('Unsupported translation');
+    });
+
+    it('rejects unsupported version /api/v1/calendar with 404', () => {
+      const event = createEvent({
+        uri: '/api/v1/calendar',
+        querystring: { date: { value: getTodayString(0) } },
+      });
+      const response = executeGateHandler(event);
+      expect(response.statusCode).toBe(404);
+    });
+  });
 });
+

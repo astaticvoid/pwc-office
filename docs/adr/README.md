@@ -26,6 +26,7 @@
 | [0022](./0022-the-manifest-is-the-only-authorized-divergence.md) | The manifest is the only authorized divergence from the source text | Proposed |
 | [0023](./0023-scripture-provider-abstraction-and-temporal-caching.md) | ScriptureProvider abstraction, date-grained lectionary delivery, and temporal cache purging | Accepted |
 | [0024](./0024-cloudfront-edge-gating-and-s3-private-distribution.md) | CloudFront edge temporal gating and private S3 distribution for copyrighted scripture | Accepted |
+| [0025](./0025-bff-lectionary-api-and-licensing-constraints.md) | Backend-For-Frontend (BFF) Lectionary API and Licensing Constraints | Accepted |
 
 ## Status values
 - **Proposed** — decision documented, awaiting review/adoption

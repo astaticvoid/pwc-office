@@ -42,22 +42,37 @@ class PwcDevHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps({"error": "Forbidden"}).encode("utf-8"))
             return
 
-        # 2. Handle /api/[version/]readings endpoint (mirrors gate-readings.js behavior)
+        # 2. Handle /api endpoints (mirrors gate-readings.js behavior)
         if parsed.path.startswith("/api/"):
             path_parts = parsed.path.strip("/").split("/")
-            if len(path_parts) == 2 and path_parts[1] == "readings":
+            if len(path_parts) == 2:
+                resource = path_parts[1]
+                expected_ver = "v1" if resource == "readings" else "v2"
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": "Missing API version in path. Expected /api/v1/readings"}).encode("utf-8"))
+                self.wfile.write(json.dumps({"error": f"Missing API version in path. Expected /api/{expected_ver}/{resource}"}).encode("utf-8"))
                 return
-            elif len(path_parts) == 3 and path_parts[0] == "api" and path_parts[2] == "readings":
+            elif len(path_parts) == 3 and path_parts[0] == "api":
                 version = path_parts[1]
-                if version != "v1":
+                resource = path_parts[2]
+                if resource == "readings" and version != "v1":
                     self.send_response(404)
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()
                     self.wfile.write(json.dumps({"error": f"Unsupported API version: {version}"}).encode("utf-8"))
+                    return
+                elif resource == "calendar" and version != "v2":
+                    self.send_response(404)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": f"Unsupported API version: {version}"}).encode("utf-8"))
+                    return
+                elif resource not in ("readings", "calendar"):
+                    self.send_response(404)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Invalid endpoint path."}).encode("utf-8"))
                     return
             else:
                 self.send_response(404)
@@ -67,67 +82,177 @@ class PwcDevHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
             qs = urllib.parse.parse_qs(parsed.query)
-            date_list = qs.get("date", [])
-            trans_list = qs.get("translation", ["nrsvue"])
 
-            if not date_list or not date_list[0]:
-                self.send_response(400)
+            if resource == "readings":
+                date_list = qs.get("date", [])
+                trans_list = qs.get("translation", ["nrsvue"])
+
+                if not date_list or not date_list[0]:
+                    self.send_response(400)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Missing or invalid date parameter (YYYY-MM-DD)"}).encode("utf-8"))
+                    return
+
+                date_str = date_list[0]
+                translation = trans_list[0]
+
+                if translation != "nrsvue":
+                    self.send_response(400)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Unsupported translation. Only nrsvue is served via this endpoint."}).encode("utf-8"))
+                    return
+
+                try:
+                    target_dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                except ValueError:
+                    self.send_response(400)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Invalid date format (YYYY-MM-DD)"}).encode("utf-8"))
+                    return
+
+                now_utc = datetime.now(timezone.utc)
+                diff_days = abs((target_dt.date() - now_utc.date()).days)
+
+                if diff_days > 31:
+                    self.send_response(403)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Cache-Control", "no-store")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({
+                        "error": "Temporal restriction: Readings only available within ±30 days of current date.",
+                        "requestedDate": date_str,
+                        "daysDifference": diff_days
+                    }).encode("utf-8"))
+                    return
+
+                sliced_path = ROOT / ".build" / "private" / "readings" / version / translation / f"{date_str}.json"
+                if not sliced_path.exists():
+                    self.send_response(404)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": f"No readings found for {date_str}"}).encode("utf-8"))
+                    return
+
+                data = sliced_path.read_bytes()
+                self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": "Missing or invalid date parameter (YYYY-MM-DD)"}).encode("utf-8"))
+                self.wfile.write(data)
                 return
 
-            date_str = date_list[0]
-            translation = trans_list[0]
+            if resource == "calendar":
+                trans_list = qs.get("translation", ["nrsvue"])
+                req_trans = trans_list[0] if trans_list else "nrsvue"
+                if req_trans not in ("nrsvue", "kjv"):
+                    self.send_response(400)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Unsupported translation. Supported: nrsvue, kjv"}).encode("utf-8"))
+                    return
 
-            # Path traversal & translation allowlist check
-            if translation != "nrsvue":
-                self.send_response(400)
+                now_utc = datetime.now(timezone.utc)
+
+                def get_diff(d_str):
+                    t_dt = datetime.strptime(d_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                    return abs((t_dt.date() - now_utc.date()).days)
+
+                # Batch query
+                start_list = qs.get("start", [])
+                end_list = qs.get("end", [])
+                if start_list or end_list:
+                    if not (start_list and end_list and start_list[0] and end_list[0]):
+                        self.send_response(400)
+                        self.send_header("Content-Type", "application/json")
+                        self.end_headers()
+                        self.wfile.write(json.dumps({"error": "Both start and end date parameters (YYYY-MM-DD) are required for batch queries."}).encode("utf-8"))
+                        return
+
+                    start_str = start_list[0]
+                    end_str = end_list[0]
+                    if start_str > end_str:
+                        self.send_response(400)
+                        self.send_header("Content-Type", "application/json")
+                        self.end_headers()
+                        self.wfile.write(json.dumps({"error": "Invalid date range: start date must be <= end date."}).encode("utf-8"))
+                        return
+
+                    try:
+                        s_diff = get_diff(start_str)
+                        e_diff = get_diff(end_str)
+                    except ValueError:
+                        self.send_response(400)
+                        self.send_header("Content-Type", "application/json")
+                        self.end_headers()
+                        self.wfile.write(json.dumps({"error": "Invalid date format (YYYY-MM-DD)"}).encode("utf-8"))
+                        return
+
+                    use_trans = req_trans
+                    if use_trans == "nrsvue" and (s_diff > 31 or e_diff > 31):
+                        use_trans = "kjv"
+
+                    batch_path = ROOT / ".build" / "private" / "calendar" / "v2" / use_trans / "batch" / f"{start_str}_{end_str}.json"
+                    if batch_path.exists():
+                        data = batch_path.read_bytes()
+                    else:
+                        # Fallback: assemble dynamically from day files
+                        cur_dt = datetime.strptime(start_str, "%Y-%m-%d")
+                        stop_dt = datetime.strptime(end_str, "%Y-%m-%d")
+                        days_dict = {}
+                        from datetime import timedelta
+                        while cur_dt <= stop_dt:
+                            cur_str = cur_dt.strftime("%Y-%m-%d")
+                            day_p = ROOT / ".build" / "private" / "calendar" / "v2" / use_trans / f"{cur_str}.json"
+                            if day_p.exists():
+                                days_dict[cur_str] = json.loads(day_p.read_text(encoding="utf-8"))
+                            cur_dt += timedelta(days=1)
+                        data = json.dumps({"start": start_str, "end": end_str, "days": days_dict}).encode("utf-8")
+
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(data)
+                    return
+
+                # Single date query
+                date_list = qs.get("date", [])
+                if not date_list or not date_list[0]:
+                    self.send_response(400)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Missing or invalid date parameter (YYYY-MM-DD) or date range (start & end)."}).encode("utf-8"))
+                    return
+
+                date_str = date_list[0]
+                try:
+                    diff_days = get_diff(date_str)
+                except ValueError:
+                    self.send_response(400)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Invalid date format (YYYY-MM-DD)"}).encode("utf-8"))
+                    return
+
+                use_trans = req_trans
+                if use_trans == "nrsvue" and diff_days > 31:
+                    use_trans = "kjv"
+
+                day_path = ROOT / ".build" / "private" / "calendar" / "v2" / use_trans / f"{date_str}.json"
+                if not day_path.exists():
+                    self.send_response(404)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": f"No calendar entry found for {date_str}"}).encode("utf-8"))
+                    return
+
+                data = day_path.read_bytes()
+                self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": "Unsupported translation. Only nrsvue is served via this endpoint."}).encode("utf-8"))
+                self.wfile.write(data)
                 return
-
-            # Temporal gate check (±31 days in UTC)
-            try:
-                target_dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-            except ValueError:
-                self.send_response(400)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Invalid date format (YYYY-MM-DD)"}).encode("utf-8"))
-                return
-
-            now_utc = datetime.now(timezone.utc)
-            diff_days = abs((target_dt.date() - now_utc.date()).days)
-
-            if diff_days > 31:
-                self.send_response(403)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Cache-Control", "no-store")
-                self.end_headers()
-                self.wfile.write(json.dumps({
-                    "error": "Temporal restriction: Readings only available within ±30 days of current date.",
-                    "requestedDate": date_str,
-                    "daysDifference": diff_days
-                }).encode("utf-8"))
-                return
-
-            # Fetch from .build/private/readings/v1/
-            sliced_path = ROOT / ".build" / "private" / "readings" / version / translation / f"{date_str}.json"
-            if not sliced_path.exists():
-                self.send_response(404)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": f"No readings found for {date_str}"}).encode("utf-8"))
-                return
-
-            data = sliced_path.read_bytes()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(data)
-            return
 
         # 3. Fall back to standard static file serving
         super().do_GET()
