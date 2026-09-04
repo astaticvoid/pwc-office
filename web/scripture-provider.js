@@ -234,6 +234,8 @@ async function defaultFetch(url, init = {}) {
   const originPlaceholder = '__API_ORIGIN__';
   if (originPlaceholder.startsWith('http') && targetUrl.startsWith('/api/')) {
     targetUrl = originPlaceholder + targetUrl;
+  } else if (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && targetUrl.startsWith('/api/')) {
+    targetUrl = 'https://office.k-sprawl.net' + targetUrl;
   }
 
   return fetch(targetUrl, newInit);
