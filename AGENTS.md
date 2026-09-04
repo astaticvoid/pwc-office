@@ -173,3 +173,4 @@ Systemic extraction errors must be resolved in extractors, not patched in `corre
 - **Subagent code review:** Every substantial change must be reviewed by an adversarial subagent before commit to identify regressions or edge cases.
 - **Production deploys require approval:** Never run `make promote` unprompted. Staging deploys are safe to run.
 - **Comments describe what is, not what was.** Do not include bug histories or previous implementations in comments. Use bare issue references (`#110`) for historical context. All tasks and bugs are tracked in GitHub Issues.
+- **Scratch files go in `scratch/`.** Any one-off helper scripts (patch scripts, split scripts, etc.) must be written to the gitignored `scratch/` directory at the repo root — never to the project root or `tools/`. This keeps `git status` clean.

@@ -45,6 +45,13 @@ boneyard/data/
 # Claude Code — machine-local settings only; shared settings (.claude/settings.json etc.) are tracked
 .claude/settings.local.json
 
+# Agent scratch space — one-off scripts generated during AI-assisted sessions
+scratch/
+patch_*.py
+patch_*.cjs
+patch_*.js
+split_*.py
+
 # pi — local tool config and prompts
 .pi/
 
