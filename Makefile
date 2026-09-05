@@ -123,14 +123,14 @@ build:
 	rm -rf dist/data/translations
 	rm -rf dist/data/lectionary
 	@if [ -n "$$EVAL_AUTH_TOKEN" ]; then \
-		echo "Injecting EVAL_AUTH_TOKEN into scripture-provider.js"; \
-		sed -i.bak "s|__EVAL_AUTH_TOKEN__|$$EVAL_AUTH_TOKEN|g" dist/scripture-provider.js && \
-		rm dist/scripture-provider.js.bak; \
+		echo "Injecting EVAL_AUTH_TOKEN into data-provider.js"; \
+		sed -i.bak "s|__EVAL_AUTH_TOKEN__|$$EVAL_AUTH_TOKEN|g" dist/data-provider.js && \
+		rm dist/data-provider.js.bak; \
 	fi
 	@if [ -n "$$API_ORIGIN" ]; then \
-		echo "Injecting API_ORIGIN into scripture-provider.js"; \
-		sed -i.bak "s|__API_ORIGIN__|$$API_ORIGIN|g" dist/scripture-provider.js && \
-		rm dist/scripture-provider.js.bak; \
+		echo "Injecting API_ORIGIN into data-provider.js"; \
+		sed -i.bak "s|__API_ORIGIN__|$$API_ORIGIN|g" dist/data-provider.js && \
+		rm dist/data-provider.js.bak; \
 	fi
 	@# Cache-bust: append ?v=<short-hash> to .js and .css references in
 	@# dist/index.html so browsers fetch fresh assets after each deploy.

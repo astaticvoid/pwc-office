@@ -25,7 +25,7 @@ import {
   extractVersesWithChapter,
   buildParagraphHtml,
 } from '../web/render.js';
-import { collectDayCitations } from '../web/scripture-provider.js';
+import { collectDayCitations } from '../web/data-provider.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');

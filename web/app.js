@@ -3,20 +3,18 @@
 import {
   esc, seasonOf, officeFormSeason, seasonWeekIndex, formKey,
   filterSeasonalCollects, renderAlternatives, renderSegments, renderSubsection, renderSubsectionWithCitation,
-  lessonHtml, lessonsPickRubricHtml, parseCitation,
+  lessonHtml, lessonsPickRubricHtml,
   SC_HEADER, SC_FOOTER,
   collectSecondaryPage, collectCommemorations, assembleSections, formatLiturgicalText, invitatorySegments, phosHilaronSegments,
   splitPsalmRubrics, splitReadingRubrics,
-  parseRanges, extractVersesWithChapter, parsePsalmCitation,
+  parsePsalmCitation,
   collectPageNum, lookupCollect, lookupFatsEntry, penitentialSegments,
-  buildParagraphHtml,
-} from './render.js';
+  } from './render.js';
 import {
-  createDefaultScriptureProvider,
   createDefaultDayCacheManager,
   isWithinTemporalWindow,
   todayUtcString,
-} from './scripture-provider.js';
+} from './data-provider.js';
 
 // ── Data path ─────────────────────────────────────────────────────────────────
 // Dev: python3 -m http.server 8080 from repo root, open /web/ — web/data symlink
@@ -229,16 +227,6 @@ function fetchPsalm(num) {
     });
 }
 
-/** Load a Bible book JSON file; keyed by translation + filename so each file is only fetched once. */
-function fetchBook(translation, filename) {
-  const k = `${translation}/${filename}`;
-  if (!_cache.books[k]) {
-    _cache.books[k] = fetch(`${DATA}/translations/${translation}/${filename}.json`)
-      .then(r => { if (!r.ok) throw new Error(`${filename}: ${r.status}`); return r.json(); })
-      .catch(err => { delete _cache.books[k]; throw err; });
-  }
-  return _cache.books[k];
-}
 
 export const dayCacheManager = createDefaultDayCacheManager({
   apiBase: '/api/v2/calendar',
@@ -248,40 +236,9 @@ export const dayCacheManager = createDefaultDayCacheManager({
 /** Fetch the unified day entry for `dateStr` (YYYY-MM-DD) via DayCacheManager (ADR 0025).
  *  Falls back to legacy monthly lectionary JSON if running against old static assets. */
 async function fetchDay(dateStr) {
-  try {
-    return await dayCacheManager.getDay(dateStr);
-  } catch (err) {
-    if (err && err.isOfflineMiss) {
-      throw err;
-    }
-    const monthKey = dateStr.slice(0, 7);
-    const cacheKey = `bas:${monthKey}`;
-    if (!_cache.months[cacheKey]) {
-      _cache.months[cacheKey] = fetch(`${DATA}/lectionary/${monthKey}.json`)
-        .then(r => { if (!r.ok) throw new Error(`${monthKey}: ${r.status}`); return r.json(); })
-        .catch(fetchErr => { delete _cache.months[cacheKey]; throw fetchErr; });
-    }
-    return _cache.months[cacheKey].then(month => {
-      const day = month[dateStr];
-      if (!day) throw new Error(`${dateStr}: not found in ${monthKey}.json`);
-      return day;
-    });
-  }
+  return await dayCacheManager.getDay(dateStr);
 }
 
-// ── Scripture Provider (ADR 0023 / ADR 0024) ──────────────────────────────────
-const scriptureProvider = createDefaultScriptureProvider({
-  apiBase: '/api/v1/readings',
-  primaryTranslation: 'nrsvue',
-  fetchBook,
-  fetchDay,
-  parseCitation,
-  parseRanges,
-  extractVerses: extractVersesWithChapter,
-  buildHtml: buildParagraphHtml,
-  fetchParagraphs: () => fetchOnce('paragraphs', `${DATA}/paragraphs.json`),
-  storage: typeof localStorage !== 'undefined' ? localStorage : null,
-});
 
 // ── Load-error fallback ───────────────────────────────────────────────────────
 
@@ -1334,7 +1291,7 @@ function prefetchOtherOffice(day, officeType, translation) {
     : cb => setTimeout(cb, 100);
   schedule(() => {
     const tomorrow = offsetDate(state.date, 1);
-    scriptureProvider.getReadingsForDate(tomorrow, { translation }).catch(() => {});
+    dayCacheManager.getDay(tomorrow, { translation }).catch(() => {});
   });
 }
 
@@ -1363,11 +1320,7 @@ async function fillScripture(root, translation, dateStr, day) {
   try {
     let dayReadings = day;
     if (!dayReadings || !dayReadings.readings || (translation && dayReadings.translation !== translation && !dayReadings.isFallback)) {
-      try {
-        dayReadings = await dayCacheManager.getDay(dateStr, { translation });
-      } catch (e) {
-        dayReadings = await scriptureProvider.getReadingsForDate(dateStr, { day, translation });
-      }
+      dayReadings = await dayCacheManager.getDay(dateStr, { translation });
     }
 
     const isKjvOutside = ((dayReadings?.isFallback || dayReadings?.translation === 'kjv') && translation !== 'kjv');

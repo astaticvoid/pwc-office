@@ -110,8 +110,8 @@ def main() -> int:
               " (docs/runbooks/ios-testflight-ship.md)")
         return 1
 
-    scripture_provider = DIST / "scripture-provider.js"
-    if scripture_provider.is_file() and "__API_ORIGIN__" in scripture_provider.read_text():
+    data_provider = DIST / "data-provider.js"
+    if data_provider.is_file() and "__API_ORIGIN__" in data_provider.read_text():
         print("warning: API_ORIGIN (or CF_DOMAIN) is not set in .env; native app will lack remote API origin")
 
     print(f"mobile web assets match dist/ for: {', '.join(checked)}")
