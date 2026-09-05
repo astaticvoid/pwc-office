@@ -1461,11 +1461,85 @@ document.addEventListener('DOMContentLoaded', async () => {
   const settingsClose = document.getElementById('settings-close-btn');
   const settingsBackdrop = document.getElementById('settings-backdrop');
 
-  const openSettings = () => openSheet(settingsSheet, settingsBtn);
+  function getCachedDaysCount() {
+    let count = 0;
+    if (typeof localStorage !== 'undefined') {
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('pwc-day:')) count++;
+        }
+      } catch (_) {}
+    }
+    return count;
+  }
+
+  function updateCacheStatusLabel() {
+    const label = document.getElementById('cache-status-label');
+    if (label) {
+      const count = getCachedDaysCount();
+      label.textContent = `${count} cached day${count === 1 ? '' : 's'}`;
+    }
+  }
+
+  const openSettings = () => {
+    updateCacheStatusLabel();
+    openSheet(settingsSheet, settingsBtn);
+  };
   const closeSettings = () => closeSheet(settingsSheet, settingsBtn);
   settingsBtn.addEventListener('click', openSettings);
   settingsClose.addEventListener('click', closeSettings);
   settingsBackdrop.addEventListener('click', closeSettings);
+
+  const clearCacheBtn = document.getElementById('clear-cache-btn');
+  if (clearCacheBtn) {
+    clearCacheBtn.addEventListener('click', async () => {
+      clearCacheBtn.textContent = 'Clearing…';
+      await dayCacheManager.clearAll();
+      updateCacheStatusLabel();
+      clearCacheBtn.textContent = 'Cleared!';
+      setTimeout(() => { clearCacheBtn.textContent = 'Clear Cache'; }, 1500);
+      // Re-fetch and re-render current office
+      render(state.date, state.office, state.translation);
+    });
+  }
+
+  const copyDiagBtn = document.getElementById('copy-diag-btn');
+  if (copyDiagBtn) {
+    copyDiagBtn.addEventListener('click', async () => {
+      const isNativeApp = !!(window.__pwcPlugins?.Capacitor?.isNativePlatform?.());
+      let platform = isNativeApp ? (window.__pwcPlugins?.Capacitor?.getPlatform?.() || 'native') : 'web';
+      const diagData = {
+        app: 'Pray Without Ceasing',
+        version: '__CLIENT_VERSION__',
+        platform,
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+        selectedDate: state.date,
+        selectedOffice: state.office,
+        translation: state.translation,
+        cachedDays: getCachedDaysCount(),
+        localStorageKeys: typeof localStorage !== 'undefined' ? localStorage.length : 0,
+        timestamp: new Date().toISOString(),
+      };
+      const text = JSON.stringify(diagData, null, 2);
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          ta.remove();
+        }
+        copyDiagBtn.textContent = 'Copied!';
+      } catch (err) {
+        copyDiagBtn.textContent = 'Failed';
+      }
+      setTimeout(() => { copyDiagBtn.textContent = 'Copy Info'; }, 1500);
+    });
+  }
 
   // Date/office picker sheet
   const dayPickerSheet = document.getElementById('day-picker-sheet');

@@ -26,19 +26,25 @@ test.describe('the page shows what the data carries', () => {
   test('a day offering a choice of readings announces it', async ({ page }) => {
     // The rubric is the fixed form from LITURGICAL_TEXT_REGISTER (ADR 0019
     // item 7/#77), not a per-count computed sentence — same text regardless
-    // of pick/total.
+    // of pick/total. On a day offering a choice, both the section intro and the
+    // pick rubric render this text (count is 2).
     const date = findDay('a day offering a choice of readings', d => d.morning?.lessons_pick);
     await gotoOffice(page, date, 'mp');
-    await expect(page.locator('.seg-rubric', { hasText: 'One or two readings are read.' }))
+    await expect(page.locator('.seg-rubric', { hasText: 'One or two readings are read.' }).first())
       .toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.seg-rubric', { hasText: 'One or two readings are read.' }))
+      .toHaveCount(2);
   });
 
   test('a day offering no choice announces none', async ({ page }) => {
+    // On a day with no choice, only the section reading intro rubric renders (count is 1),
+    // and no dynamic pick rubric is appended.
     const date = findDay('a day offering no choice of readings',
       d => d.morning && !d.morning.lessons_pick && (d.morning.lessons || []).length);
     await gotoOffice(page, date, 'mp');
     await expect(page.locator('.office-section-title').first()).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText('One or two readings are read.')).toHaveCount(0);
+    await expect(page.locator('.seg-rubric', { hasText: 'One or two readings are read.' }))
+      .toHaveCount(1);
   });
 
   test('the litany divine title reaches the page with its capital (#4)', async ({ page }) => {

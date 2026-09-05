@@ -45,4 +45,32 @@ test.describe('Offline mode (ADR 0025)', () => {
     // It should gracefully surface the offline load error instead of crashing
     await expect(page.locator('.error-msg').first()).toContainText('Network connection required');
   });
+
+  test('settings sheet provides cache purge and copy diagnostics utilities', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#day-title', { state: 'visible' });
+
+    // Open Settings sheet
+    await page.locator('#nav-settings-btn').click();
+    await expect(page.locator('#settings-sheet')).toHaveAttribute('aria-hidden', 'false');
+
+    // Verify cache status label and buttons are present
+    const cacheLabel = page.locator('#cache-status-label');
+    await expect(cacheLabel).toBeVisible();
+
+    const clearBtn = page.locator('#clear-cache-btn');
+    await expect(clearBtn).toBeVisible();
+
+    const copyBtn = page.locator('#copy-diag-btn');
+    await expect(copyBtn).toBeVisible();
+
+    // Click clear cache button
+    await clearBtn.click();
+    await expect(clearBtn).toContainText(/Cleared!|Clear Cache/);
+    await expect(cacheLabel).toHaveText('0 cached days');
+
+    // Click copy diagnostics button
+    await copyBtn.click();
+    await expect(copyBtn).toContainText(/Copied!|Copy Info/);
+  });
 });

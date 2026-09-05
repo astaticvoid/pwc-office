@@ -9,7 +9,7 @@
 
 /** The plugin surface app.js actually calls. */
 interface PwcPlugins {
-  Capacitor: { isNativePlatform?: () => boolean };
+  Capacitor: { isNativePlatform?: () => boolean; getPlatform?: () => string };
   StatusBar: {
     setStyle(opts: unknown): Promise<void>;
     setBackgroundColor(opts: unknown): Promise<void>;

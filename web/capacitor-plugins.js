@@ -10,7 +10,7 @@
     // isNative which returns false when Capacitor isn't present.
     var noop = function () { return Promise.resolve(); };
     window.__pwcPlugins = {
-      Capacitor: { isNativePlatform: function () { return false; } },
+      Capacitor: { isNativePlatform: function () { return false; }, getPlatform: function () { return 'web'; } },
       StatusBar: { setStyle: noop, setBackgroundColor: noop, hide: noop, show: noop },
       Style: { Dark: 'DARK', Light: 'LIGHT', Default: 'DEFAULT' },
       SplashScreen: { hide: noop, show: noop },
