@@ -63,11 +63,7 @@ async function defaultFetch(url, init = {}) {
 
   let targetUrl = url;
   const originPlaceholder = '__API_ORIGIN__';
-  const isNative = typeof window !== 'undefined' && (
-    (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ||
-    window.location?.protocol === 'capacitor:'
-  );
-  if (isNative && originPlaceholder.startsWith('http') && targetUrl.startsWith('/api/')) {
+  if (originPlaceholder.startsWith('http') && targetUrl.startsWith('/api/')) {
     targetUrl = originPlaceholder + targetUrl;
   }
 
