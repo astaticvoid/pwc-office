@@ -83,6 +83,8 @@ make serve-dist                   # serve dist/ on :8081 (for pre-deploy verific
 make mobile-sync                  # build dist/ + cap sync + verify native asset parity
 make mobile-bump-version          # increment iOS CFBundleVersion in project.pbxproj
 make mobile-ios                   # mobile-sync + open Xcode
+make mobile-ios-build             # mobile-sync + headless iOS release build
+make mobile-ios-archive           # mobile-sync + headless iOS archive + parity check
 make mobile-android               # mobile-sync + open Android Studio
 
 # Deploy

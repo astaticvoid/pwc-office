@@ -71,3 +71,62 @@ jobs:
             echo "ERROR: APK not found"
             exit 1
           fi
+
+  ios-build:
+    runs-on: macos-14
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          npm install
+          python3 -m pip install pymupdf ruff
+
+      - name: Fetch sources
+        run: make fetch-sources
+
+      - name: Extract data
+        run: make extract
+
+      - name: Run full test suite
+        run: make test
+
+      - name: Build and sync iOS
+        run: make mobile-sync
+
+      - name: Build iOS Archive (unsigned CI archive verification)
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            archive
+
+      - name: Verify Archive freshness and parity
+        run: |
+          ARCHIVE="$RUNNER_TEMP/App.xcarchive"
+          APP="$ARCHIVE/Products/Applications/App.app"
+          if [ ! -d "$APP" ]; then
+            echo "ERROR: App.app not found in archive"
+            exit 1
+          fi
+          # Verify web bundle in archive matches dist/ byte-for-byte
+          ARCHIVED_HASH=$(md5 -q "$APP/public/app.js")
+          DIST_HASH=$(md5 -q dist/app.js)
+          if [ "$ARCHIVED_HASH" != "$DIST_HASH" ]; then
+            echo "ERROR: Archived app.js ($ARCHIVED_HASH) does not match dist/app.js ($DIST_HASH)"
+            exit 1
+          fi
+          echo "iOS Archive verified fresh (hash: $ARCHIVED_HASH)"
+

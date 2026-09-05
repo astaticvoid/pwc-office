@@ -60,4 +60,7 @@ jobs:
         run: make build
 
       - name: Capacitor sync (web-to-native bridge check)
-        run: npx cap sync android
+        run: |
+          npx cap sync
+          python3 tools/check_mobile_sync.py
+

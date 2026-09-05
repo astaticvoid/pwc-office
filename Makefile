@@ -338,6 +338,22 @@ mobile-bump-version:
 mobile-ios: mobile-sync
 	npx cap open ios
 
+# Headless iOS build and archive verification — syncs, compiles, archives without signing,
+# and verifies byte-parity between dist/ and the archived app.
+mobile-ios-build: mobile-sync
+	xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+	  -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
+
+mobile-ios-archive: mobile-sync
+	@ARCHIVE_DIR=$$(mktemp -d); \
+	trap 'rm -rf "$$ARCHIVE_DIR"' EXIT; \
+	xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+	  -destination 'generic/platform=iOS' -archivePath "$$ARCHIVE_DIR/App.xcarchive" \
+	  CODE_SIGNING_ALLOWED=NO archive > /dev/null && \
+	cmp -s "$$ARCHIVE_DIR/App.xcarchive/Products/Applications/App.app/public/app.js" dist/app.js && \
+	echo "iOS Archive verified fresh (hash matches dist/app.js)"
+
+
 # Open Android project in Android Studio (requires Android Studio + JDK).
 mobile-android: mobile-sync
 	npx cap open android
