@@ -53,12 +53,36 @@ export function todayUtcString() {
 /**
  * Wraps global fetch to optionally inject auth tokens and absolute origins at build time.
  */
-async function defaultFetch(url, init = {}) {
+export async function defaultFetch(url, init = {}) {
   /** @type {RequestInit} */ const newInit = { ...init };
+  const headers = new Headers(newInit.headers);
+
   const authPlaceholder = '__EVAL_AUTH_TOKEN__';
   if (authPlaceholder.startsWith('Basic ')) {
-    newInit.headers = new Headers(newInit.headers);
-    newInit.headers.set('Authorization', authPlaceholder);
+    headers.set('Authorization', authPlaceholder);
+  }
+
+  const versionPlaceholder = '__CLIENT_VERSION__';
+  const platformPlaceholder = '__CLIENT_PLATFORM__';
+  let platform = platformPlaceholder.startsWith('__') ? 'web' : platformPlaceholder;
+  if (platform === 'web' && typeof window !== 'undefined' && window.__pwcPlugins?.Capacitor?.isNativePlatform?.()) {
+    const cap = window.__pwcPlugins?.Capacitor;
+    const p = typeof cap.getPlatform === 'function' ? cap.getPlatform() : 'mobile';
+    platform = p === 'ios' ? 'ios' : (p === 'android' ? 'android' : 'mobile');
+  }
+  headers.set('X-Client-Version', versionPlaceholder.startsWith('__') ? 'dev' : versionPlaceholder);
+  headers.set('X-Client-Platform', platform);
+  newInit.headers = headers;
+
+  // 10-second timeout to prevent hung/zombie connections on dead mobile networks
+  if (!newInit.signal) {
+    if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+      newInit.signal = AbortSignal.timeout(10000);
+    } else if (typeof AbortController !== 'undefined') {
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(new Error('Fetch timeout')), 10000);
+      newInit.signal = controller.signal;
+    }
   }
 
   let targetUrl = url;
@@ -206,6 +230,32 @@ export class DayCacheManager {
     this.memoryFallback.delete(`pwc-day:${dateStr}`);
   }
 
+  async clearAll() {
+    const clearedKeys = new Set();
+    if (this.storage) {
+      try {
+        const keysToRemove = [];
+        for (let i = 0; i < this.storage.length; i++) {
+          const key = this.storage.key(i);
+          if (key && key.startsWith('pwc-day')) {
+            keysToRemove.push(key);
+            clearedKeys.add(key);
+          }
+        }
+        for (const k of keysToRemove) {
+          this.storage.removeItem(k);
+        }
+      } catch (e) {}
+    }
+    for (const key of Array.from(this.memoryFallback.keys())) {
+      if (key.startsWith('pwc-day')) {
+        this.memoryFallback.delete(key);
+        clearedKeys.add(key);
+      }
+    }
+    return clearedKeys.size;
+  }
+
   async purge(currentDate = todayUtcString(), maxAgeDays = 30) {
     const now = Date.now();
     const isExpired = (item, key) => {
@@ -304,15 +354,36 @@ export class DayCacheManager {
     if (isOffline || !this.fetchFn) return null;
 
     const url = `${this.apiBase}?start=${startStr}&end=${endStr}&translation=${encodeURIComponent(translation)}`;
-    let res;
-    try {
-      res = await this.fetchFn(url);
-    } catch (e) {
-      return null;
+    let res = null;
+    const maxRetries = 2;
+    const delays = [500, 1500];
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        res = await this.fetchFn(url);
+        if (res && res.ok) {
+          break;
+        }
+        // Do not retry on client errors (4xx)
+        if (res && res.status >= 400 && res.status < 500) {
+          return null;
+        }
+      } catch (e) {
+        // Network drop or abort
+      }
+
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, delays[attempt]));
+      }
     }
 
     if (!res || !res.ok) return null;
-    const batchData = await res.json();
+    let batchData = null;
+    try {
+      batchData = await res.json();
+    } catch (e) {
+      return null;
+    }
     if (batchData && batchData.days) {
       for (const [dateKey, dayObj] of Object.entries(batchData.days)) {
         await this.set(dateKey, dayObj, translation);

@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: lint-css check-conservation venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata intake-year serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-bump-version mobile-ios mobile-android qa lint lint-js lint-ts lint-py test-mutations hooks slice-readings audit-copyright
+.PHONY: lint-css check-conservation venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata intake-year serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-bump-version mobile-ios mobile-android qa lint lint-js lint-ts lint-py test-mutations hooks slice-readings audit-copyright deploy-worker-staging deploy-worker-prod
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -132,6 +132,17 @@ build:
 		sed -i.bak "s|__API_ORIGIN__|$$API_ORIGIN|g" dist/data-provider.js && \
 		rm dist/data-provider.js.bak; \
 	fi
+	@CLIENT_VERSION=$$(git rev-parse --short HEAD); \
+	CLIENT_PLATFORM=$${CLIENT_PLATFORM:-web}; \
+	sed -i.bak \
+		-e "s|__CLIENT_VERSION__|$$CLIENT_VERSION|g" \
+		-e "s|__CLIENT_PLATFORM__|$$CLIENT_PLATFORM|g" \
+		dist/data-provider.js && \
+	rm dist/data-provider.js.bak; \
+	sed -i.bak \
+		-e "s|__CLIENT_VERSION__|$$CLIENT_VERSION|g" \
+		dist/app.js && \
+	rm dist/app.js.bak
 	@# Cache-bust: append ?v=<short-hash> to .js and .css references in
 	@# dist/index.html so browsers fetch fresh assets after each deploy.
 	@# Source web/index.html stays clean; Capacitor resolves the query string
@@ -361,7 +372,7 @@ slice-readings:
 audit-copyright:
 	$(PYTHON) tools/audit_copyright_leak.py --dist-dir dist
 
-deploy-staging: check-integrity check-dist audit-copyright slice-readings deploy-functions-staging
+deploy-staging: check-integrity check-dist audit-copyright slice-readings deploy-functions-staging deploy-worker-staging
 	aws s3 sync dist/ s3://$(BUCKET)/releases/$(RELEASE)/ --delete
 	# index.html must always revalidate so browsers pick up new ?v= hashes
 	# on JS/CSS assets after a promote. The sync above writes it with no
@@ -431,7 +442,28 @@ test-staging-full:
 #   - test-staging passed for that exact release
 #   - coherence is at threshold
 # The S3 existence check below is not a policy gate and always runs.
-promote: deploy-functions-prod
+deploy-worker-staging:
+	@if [ -n "$$CLOUDFLARE_API_TOKEN" ] || [ -n "$$CLOUDFLARE_ACCOUNT_ID" ]; then \
+		echo "Deploying Staging Cloudflare API Worker..."; \
+		npx wrangler deploy --config infra/cloudflare/wrangler.toml || exit 1; \
+	else \
+		echo "Skipping Cloudflare Worker deploy: Cloudflare credentials not set."; \
+	fi
+
+deploy-worker-prod:
+	@if [ -n "$$CLOUDFLARE_API_TOKEN" ] || [ -n "$$CLOUDFLARE_ACCOUNT_ID" ]; then \
+		echo "Deploying Production Cloudflare API Worker..."; \
+		npx wrangler deploy --config infra/cloudflare/wrangler.toml --env production || exit 1; \
+	else \
+		echo "Skipping Cloudflare Worker deploy: Cloudflare credentials not set."; \
+	fi
+
+# CloudFront caches by URL path, not by origin path, so swapping the origin in
+# promote does not on its own change what anyone is served. Objects under
+# releases/ carry no cache-control and the distribution uses Managed-
+# CachingOptimized (24h default), so without this a promotion stays invisible
+# for up to a day. Split out so a rollback can reuse it.
+promote: deploy-functions-prod deploy-worker-prod
 	@test -f .deploy-latest || (echo "Run deploy-staging first"; exit 1)
 	@if [ -z "$$PROMOTE_FORCE" ]; then \
 	  RELEASE=$$(cat .deploy-latest); HEAD_SHA=$$(git rev-parse --short HEAD); \
