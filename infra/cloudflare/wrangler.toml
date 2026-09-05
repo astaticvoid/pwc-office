@@ -9,3 +9,14 @@ ENVIRONMENT = "staging"
 binding = "PRIVATE_DATA"
 bucket_name = "pwc-private-data"
 
+[env.production]
+name = "pwc-office-api-prod"
+
+[env.production.vars]
+ENVIRONMENT = "production"
+
+[[env.production.r2_buckets]]
+binding = "PRIVATE_DATA"
+bucket_name = "pwc-private-data"
+
+

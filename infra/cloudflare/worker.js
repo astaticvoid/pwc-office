@@ -1,4 +1,4 @@
-/* global URL, Response, Headers */
+/* global URL, Response, Headers, console */
 
 export default {
   async fetch(request, env) {
@@ -13,7 +13,7 @@ export default {
           headers: {
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "GET, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Version, X-Client-Platform",
             "Access-Control-Max-Age": "86400",
           },
         });
@@ -29,6 +29,7 @@ export default {
             status: 401,
             headers: {
               "WWW-Authenticate": 'Basic realm="PWC Staging API"',
+              "Cache-Control": "no-store",
               "Access-Control-Allow-Origin": "*",
             },
           });
@@ -144,16 +145,20 @@ export default {
 
       return new Response(object.body, { headers });
     } catch (err) {
-      return createError(500, "Internal Server Error");
+      const clientVer = request.headers.get("X-Client-Version") || "unknown";
+      const clientPlatform = request.headers.get("X-Client-Platform") || "unknown";
+      console.error(`Internal server error [client=${clientPlatform}@${clientVer}]:`, err);
+      return createError(500, "Internal Server Error", { clientVersion: clientVer, clientPlatform });
     }
   },
 };
 
-function createError(status, message) {
-  return new Response(JSON.stringify({ error: message }), {
+function createError(status, message, extra = {}) {
+  return new Response(JSON.stringify({ error: message, ...extra }), {
     status,
     headers: {
       "Content-Type": "application/json",
+      "Cache-Control": "no-store",
       "Access-Control-Allow-Origin": "*",
     },
   });
