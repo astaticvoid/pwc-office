@@ -1,0 +1,22 @@
+default_platform(:android)
+
+platform :android do
+  desc "Submit a new build to the internal testing track"
+  lane :internal do
+    unless ENV["PLAY_STORE_JSON_KEY"] && File.exist?(ENV["PLAY_STORE_JSON_KEY"])
+      UI.user_error!("Please set the PLAY_STORE_JSON_KEY environment variable to the path of your Google Play Service Account JSON key.")
+    end
+
+    gradle(
+      task: "bundle",
+      build_type: "Release"
+    )
+    
+    upload_to_play_store(
+      track: 'internal',
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+end

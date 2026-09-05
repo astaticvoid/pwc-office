@@ -1,0 +1,7 @@
+# The JSON key file for Google Play Console authentication
+# We read this from the environment so it isn't hardcoded in the repository
+json_key_file(ENV["PLAY_STORE_JSON_KEY"])
+
+# The package name is used to identify the app in the Google Play Store.
+# Forkers can override this via the ANDROID_PACKAGE_NAME env var.
+package_name(ENV["ANDROID_PACKAGE_NAME"] || "ca.pwcoffice.dailyoffice")
