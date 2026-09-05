@@ -134,14 +134,16 @@ python3 tools/detect_office_bounds.py --write   # regenerate after PDF change
 Corrections to extracted text live in `data/corrections.json` (committed), one
 manifest covering office text, psalter, saints, and lectionary entries.
 
-### Scripture
+### Scripture & Lectionary (ADR 0025)
 
-KJV (with Apocrypha) is bundled in `data/translations/kjv/` and works offline.
-
-NRSVUE is not distributable. If you have a local copy, place it at
-`data/translations/nrsvue/` (one JSON file per book, same format as KJV)
-and the app will use it automatically. Without it, all readings fall back
-to KJV.
+The app uses a thin-client Backend-For-Frontend (BFF) architecture for daily
+lectionary and scripture readings (`/api/v2/calendar`). Sliced daily payloads
+are served from the API rather than bundled in the client build:
+- **NRSVUE** is served automatically within a ±30-day temporal window per licensing requirements.
+- **KJV** is used as a graceful fallback for dates outside the ±30-day window.
+- The client pre-fetches a 14-day rolling window into local storage for offline use and automatically purges cached readings older than 30 days.
+- When working offline on un-cached dates, a network connection error is shown.
+- Local extraction and development can still use `data/translations/kjv/` (committed) and local `data/translations/nrsvue/` (if present) for slicing payloads via `make slice-readings`.
 
 ## Architecture
 

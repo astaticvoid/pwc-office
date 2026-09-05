@@ -109,7 +109,7 @@ PDFs / CSVs  →  PyMuPDF (fitz)  →  .build/ (Stage 1 & 2)
                    └── cli/office.js (debug CLI)
 ```
 
-- **Distribution posture:** Copyrighted liturgical text in `data/` and `sources/` is gitignored. Only public-domain KJV, `data/corrections.json`, and `data/paragraphs.json` are committed. `web/data` is a symlink to `../data` dereferenced into `dist/` on build.
+- **Distribution posture:** Copyrighted liturgical text in `data/` and `sources/` is gitignored. Only public-domain KJV, `data/corrections.json`, and `data/paragraphs.json` are committed. `web/data` is a symlink to `../data` dereferenced into `dist/` on build. Per ADR 0025, clients use the standalone Backend-For-Frontend (BFF) API for daily calendar and scripture payloads rather than bundling the full year's lectionary or scripture books.
 - **Capacitor binary note:** Store builds bundle text into the app package; keep beta distribution inside authorized Synod evaluation groups.
 - **Shared renderer (`web/render.js`):** Single source of truth for rendering segments to HTML (`renderSegments`), plain text (`renderSegmentsText`), and structured JSON (`segmentsToJSON`).
 - **No service worker:** `sw.js` is a kill-switch only (unregisters old installs and clears caches).
