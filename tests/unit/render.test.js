@@ -344,7 +344,7 @@ describe('liturgical text register', () => {
       expect(psalm, `${key}.psalm_rubrics`).not.toContain('Daily Office Lectionary');
       expect(reading, `${key}.reading_rubrics`).not.toContain('Daily Office Lectionary');
       if (psalm.includes('A Psalm is said or sung.')) psalmIntros++;
-      if (reading.includes('A Reading is read.')) readingIntros++;
+      if (reading.includes('One or two readings are read.')) readingIntros++;
       // Item 4, on the canticle's closing rubric.
       expect(texts('canticle'), `${key}.canticle`)
         .not.toContain('an Affirmation of Faith or the Litany.');
@@ -858,7 +858,7 @@ describe('rubric block splits', () => {
       expect(reading.handoff.map(s => s.text), `${key} reading handoff`)
         .toEqual([`${office} Prayer continues with the Reading.`]);
       expect(reading.intro.map(s => s.text), `${key} reading intro`)
-        .toEqual(['A Reading is read.']);
+        .toEqual(['One or two readings are read.']);
       // The reflection cue shares the intro's own extracted paragraph rather
       // than being its own rubric segment, since the page prints both
       // sentences as one paragraph with no Scripture text between them (#150).

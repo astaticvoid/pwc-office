@@ -146,6 +146,7 @@ def audit_live_cdn(base_url: str, auth: str | None = None) -> list[str]:
 
 def main():
     parser = argparse.ArgumentParser(description="Audit copyright non-leakage for PWC.")
+    parser.add_argument("--url", type=str, help="Live URL to probe for leaks")
     parser.add_argument("--dist-dir", type=Path, default=ROOT / "dist", help="Path to dist directory")
     default_auth = os.environ.get("HTTP_AUTH")
     if not default_auth:
@@ -170,7 +171,7 @@ def main():
         print("  PASS: Static dist contains no unauthorized copyrighted files.")
 
     # 2. Live CDN probes (if URL provided)
-    if args.url:
+    if getattr(args, "url", None):
         cdn_errors = audit_live_cdn(args.url, auth=args.auth)
         if cdn_errors:
             print("  FAIL: Live CDN probes detected vulnerabilities:")

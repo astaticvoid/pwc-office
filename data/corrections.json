@@ -623,7 +623,7 @@
       "office": "*",
       "field": "reading_rubrics",
       "old": "A Reading from the Daily Office Lectionary, the Weekday Eucharistic Lectionary, or the Revised Common Lectionary Daily Readings is read.",
-      "new": "A Reading is read.",
+      "new": "One or two readings are read.",
       "count": 30,
       "reason": "ADR 0019 item 3, the reading half. A substring correction so the reflection prompt that shares this printed paragraph ('After a period of silent reflection one of the following is said.') stays attached — the book sets both as one paragraph and only the introduction is being shortened."
     },
