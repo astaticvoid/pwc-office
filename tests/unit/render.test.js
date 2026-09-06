@@ -8,7 +8,7 @@ import {
   formatLiturgicalText, formatProseText, splitPsalmRubrics, splitReadingRubrics,
   parseCitation, expandCitationForDisplay, SINGLE_CHAPTER_BOOKS,
   collectCommemorations, lookupFatsEntry, fatsCandidates, penitentialSegments,
-  stripDanglingEditorsBrackets,
+  stripDanglingEditorsBrackets, MARKER_LABELS, dayMarkers,
 } from '../../web/render.js';
 
 const DATA_DIR = join(import.meta.dirname, '../../data');
@@ -1095,5 +1095,65 @@ describe('fatsCandidates', () => {
   test('keys in different parts of the name are different people', () => {
     expect(fatsCandidates(fats, 'Teresa of Avila, 1582 and John of the Cross, 1591'))
       .toEqual(['Teresa of Avila', 'John of the Cross']);
+  });
+});
+
+describe('dayMarkers', () => {
+  test('surfaces Season of Creation marker', () => {
+    const day = {
+      name: 'Feria',
+      rank: 'feria',
+      observances: ['season_of_creation'],
+    };
+    expect(dayMarkers(day, 'Feria', false, false)).toEqual(['Season of Creation']);
+  });
+
+  test('surfaces fast_day and octaves', () => {
+    const day = {
+      name: 'Feria in Christmastide',
+      rank: 'feria',
+      observances: ['octave_of_christmas'],
+    };
+    expect(dayMarkers(day, 'Feria in Christmastide', false, false))
+      .toEqual(['Within the Octave of Christmas']);
+  });
+
+  test('surfaces eve_of unless suppressed by obsToggle or activeName', () => {
+    const day = {
+      name: 'Feria',
+      rank: 'feria',
+      observances: ['eve_of:the Seventh Sunday of Easter', 'season_of_creation'],
+    };
+    expect(dayMarkers(day, 'Feria', false, false)).toEqual([
+      'Eve of the Seventh Sunday of Easter',
+      'Season of Creation',
+    ]);
+    expect(dayMarkers(day, 'Eve of the Seventh Sunday of Easter', true, false)).toEqual([
+      'Feria',
+      'Season of Creation',
+    ]);
+    expect(dayMarkers(day, 'Feria', false, true)).toEqual([
+      'Season of Creation',
+    ]);
+  });
+
+  test('maps all registered non-option observance tags to descriptive labels', () => {
+    expect(MARKER_LABELS.season_of_creation).toBe('Season of Creation');
+    expect(MARKER_LABELS.octave_of_easter).toBe('Within the Octave of Easter');
+    expect(MARKER_LABELS.national_indigenous_day_of_prayer).toBe('National Indigenous Day of Prayer');
+    expect(MARKER_LABELS.week_of_prayer_for_christian_unity).toBe('Week of Prayer for Christian Unity');
+  });
+
+  test('appends non-coequal commemorations to markers', () => {
+    const day = {
+      name: 'The Holy Innocents',
+      rank: 'holy_day',
+      commemorations: [
+        { name: 'Thomas Becket, Archbishop of Canterbury, 1170', coequal: false },
+      ],
+    };
+    expect(dayMarkers(day, 'The Holy Innocents', false, false)).toEqual([
+      'Thomas Becket, Archbishop of Canterbury, 1170',
+    ]);
   });
 });

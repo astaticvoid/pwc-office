@@ -9,7 +9,8 @@ import {
   splitPsalmRubrics, splitReadingRubrics,
   parsePsalmCitation,
   collectPageNum, lookupCollect, lookupFatsEntry, penitentialSegments,
-  } from './render.js';
+  dayMarkers,
+} from './render.js';
 import {
   createDefaultDayCacheManager,
   isWithinTemporalWindow,
@@ -372,36 +373,6 @@ function dayTitle(day, activeName) {
     : activeName;
 }
 
-const MARKER_LABELS = { fast_day: 'Day of discipline and self-denial' };
-
-// `obsToggle` is whether the observance toggle above the meta row already
-// offers the evening's observances as buttons. When it does, the eve marker
-// is redundant — its name is already the alternate button — so it is dropped.
-// On the office that carries no alternate (e.g. the morning of a June-6 style
-// eve day) the toggle is absent and the marker stays, so the other day is still
-// named.
-function dayMarkers(day, activeName, isEve, obsToggle) {
-  const markers = (day.observances || []).flatMap(tag => {
-    if (tag.startsWith('eve_of:')) {
-      const label = 'Eve of ' + tag.slice(7);
-      return (obsToggle || label === activeName) ? [] : [label];
-    }
-    return MARKER_LABELS[tag] ? [MARKER_LABELS[tag]] : [];
-  });
-  // A commemoration the day keeps without being named for it — Thomas Becket
-  // under the Holy Innocents. The title names the day; this names who else it
-  // remembers. A co-equal one is in the title instead (#129).
-  for (const c of day.commemorations || []) {
-    if (!c.coequal) markers.push(c.name);
-  }
-  // The eve took the title, so the day's own commemoration would otherwise
-  // vanish from a header that still carries its fast and still opens its
-  // biography. Each office names the other's day: the eve on the morning,
-  // the commemoration on the evening — unless the observance toggle already
-  // names the commemoration as its primary button.
-  if (isEve && day.name && day.name !== activeName && !obsToggle) markers.unshift(day.name);
-  return markers;
-}
 
 // ── Psalm parsing and rendering ───────────────────────────────────────────────
 

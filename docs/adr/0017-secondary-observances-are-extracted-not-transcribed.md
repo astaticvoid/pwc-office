@@ -31,6 +31,13 @@ Point 3's separator text is untouched — "And / or" still becomes no
 observance. It is now *read* rather than ignored, as the word that says two
 commemorations stand equal; see point 6.
 
+Amended (2026-09-05): the "Out of scope" clause below concerning a
+reader-facing consumer for `observances` is settled. Authorized secondary
+liturgical periods and markers (Season of Creation, octaves, fast days,
+ecumenical/national markers) render as subtitle chips in the day header
+via `dayMarkers()`, using `MARKER_LABELS` in `web/render.js`.
+See ADR 0018's 2026-09-05 amendment.
+
 ## Context
 
 `tools/convert_lectionary.py` carries `OBSERVANCES: dict[str, list[str]]` — 175
@@ -127,10 +134,11 @@ column.**
    marker too: only ranked lines are read back, so splitting off a tail that
    is not an observance would drop it.
 
-**Out of scope for this ADR:** how (or whether) `observances` gets a
-reader-facing consumer. That's issue #56's other half and a UI/product
-decision independent of how the data gets produced. This ADR only settles
-the production method.
+**Out of scope for this ADR (settled 2026-09-05):** how (or whether)
+`observances` gets a reader-facing consumer was left open by this ADR.
+It has now been settled: authorized secondary observances render as subtitle
+chips beneath the day header via `dayMarkers()`. See ADR 0018's 2026-09-05
+amendment.
 
 ## Consequences
 

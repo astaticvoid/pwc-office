@@ -25,6 +25,15 @@ it is ever wanted. The Negative bullet's request for an audit is met in the
 same change: `validate_lectionary.cjs` licenses the slots this affects and
 fails when the set moves in either direction.
 
+Amended (2026-09-05): the "Out of scope" clause below (which left
+fast days, octaves, Season of Creation, and ecumenical/national markers
+unrendered) is superseded. Upstream lectionary usage (lectionary.anglican.ca)
+explicitly presents these authorized secondary liturgical periods and markers.
+They are now rendered as subtitle chips (.meta-item--marker) beneath the
+day header via dayMarkers(), mapping all authorized observance tags through
+MARKER_LABELS in web/render.js. Internal compiler option flags
+(ascension_sunday_option, corpus_christi_option) remain unrendered.
+
 ## Context
 
 The lectionary provides days with two possible observances. The office
@@ -90,11 +99,11 @@ colour chips and the rank chip follow the selected observance.**
    colour chip Green → White and toggling 2026-12-26 swaps the rank chip
    Holy Day → Feria.
 
-**Out of scope:** rendering the remaining observance facts (fast days,
-octaves, season of creation, plain eves) as chips or indicators. They are
-informational rather than toggles, no reader has asked for them, and they
-remain converter-internal data under ADR 0017. If a need appears, it is a
-separate decision.
+**Out of scope (amended 2026-09-05):** rendering the remaining observance facts (fast days,
+octaves, season of creation, plain eves) was initially left out of scope as
+unrequested. As recorded in the Status amendment above, they now render as
+subtitle chips beneath the day header via `dayMarkers()`, closing this gap.
+Internal compiler options (e.g. `ascension_sunday_option`) remain unrendered.
 
 ## Consequences
 

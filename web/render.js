@@ -157,6 +157,62 @@ export const ABBREV_TO_FILE = {
   'Bar':'Baruch','1 Macc':'1 Maccabees','2 Macc':'2 Maccabees','2 Esd':'2 Esdras',
 };
 
+// Labels for secondary observance markers in day metadata (ADR 0017).
+// Maps lectionary observance tags to their authorized human-readable titles.
+export const MARKER_LABELS = {
+  fast_day: 'Day of discipline and self-denial',
+  season_of_creation: 'Season of Creation',
+  octave_of_christmas: 'Within the Octave of Christmas',
+  octave_of_easter: 'Within the Octave of Easter',
+  week_of_prayer_for_christian_unity: 'Week of Prayer for Christian Unity',
+  national_indigenous_day_of_prayer: 'National Indigenous Day of Prayer',
+  freedom_sunday: 'Freedom Sunday',
+  world_day_of_prayer: 'World Day of Prayer',
+  vocations_sunday: 'Vocations Sunday',
+  jerusalem_holy_land_sunday: 'Jerusalem and the Holy Land Sunday',
+  journee_nationale_des_patriotes: 'Journée nationale des patriotes',
+  victoria_day: 'Victoria Day',
+  easter_eve: 'Easter Eve',
+  canada_day: 'Canada Day',
+  labour_day: 'Labour Day',
+  harvest_thanksgiving: 'Harvest Thanksgiving',
+  thanksgiving_day: 'Thanksgiving Day',
+  dedication_sunday: 'Dedication Sunday',
+  remembrance_sunday: 'Remembrance Sunday',
+  remembrance_day: 'Remembrance Day',
+  new_year_day: "New Year's Day",
+  accession_day: 'Accession Day',
+};
+
+// `obsToggle` is whether the observance toggle above the meta row already
+// offers the evening's observances as buttons. When it does, the eve marker
+// is redundant — its name is already the alternate button — so it is dropped.
+// On the office that carries no alternate (e.g. the morning of a June-6 style
+// eve day) the toggle is absent and the marker stays, so the other day is still
+// named.
+export function dayMarkers(day, activeName, isEve, obsToggle) {
+  const markers = (day.observances || []).flatMap(tag => {
+    if (tag.startsWith('eve_of:')) {
+      const label = 'Eve of ' + tag.slice(7);
+      return (obsToggle || label === activeName) ? [] : [label];
+    }
+    return MARKER_LABELS[tag] ? [MARKER_LABELS[tag]] : [];
+  });
+  // A commemoration the day keeps without being named for it — Thomas Becket
+  // under the Holy Innocents. The title names the day; this names who else it
+  // remembers. A co-equal one is in the title instead (#129).
+  for (const c of day.commemorations || []) {
+    if (!c.coequal) markers.push(c.name);
+  }
+  // The eve took the title, so the day's own commemoration would otherwise
+  // vanish from a header that still carries its fast and still opens its
+  // biography. Each office names the other's day: the eve on the morning,
+  // the commemoration on the evening — unless the observance toggle already
+  // names the commemoration as its primary button.
+  if (isEve && day.name && day.name !== activeName && !obsToggle) markers.unshift(day.name);
+  return markers;
+}
+
 // ── Utility ────────────────────────────────────────────────────────────────────
 
 export function esc(s) {
