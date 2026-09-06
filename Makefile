@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: lint-css check-conservation venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata intake-year serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-bump-version mobile-ios mobile-android qa lint lint-js lint-ts lint-py test-mutations hooks slice-readings audit-copyright deploy-worker-staging deploy-worker-prod sync-r2
+.PHONY: lint-css check-conservation venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata intake-year serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-bump-version mobile-ios mobile-ios-upload mobile-android qa lint lint-js lint-ts lint-py test-mutations hooks slice-readings audit-copyright deploy-worker-staging deploy-worker-prod sync-r2
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -352,6 +352,45 @@ mobile-ios-archive: mobile-sync
 	  CODE_SIGNING_ALLOWED=NO archive > /dev/null && \
 	cmp -s "$$ARCHIVE_DIR/App.xcarchive/Products/Applications/App.app/public/app.js" dist/app.js && \
 	echo "iOS Archive verified fresh (hash matches dist/app.js)"
+
+# Build signed iOS archive, export IPA, and upload directly to TestFlight.
+mobile-ios-upload: mobile-sync
+	@KEY_ID="CHDG6TL8YH"; \
+	ISSUER_ID="0d4386d5-b7c4-474c-a3d5-9b7f172e654e"; \
+	KEY_PATH="$$HOME/.appstoreconnect/AuthKey_$$KEY_ID.p8"; \
+	test -f "$$KEY_PATH" || (echo "App Store Connect key missing at $$KEY_PATH"; exit 1); \
+	BUILD_DIR=$$(mktemp -d); \
+	trap 'rm -rf "$$BUILD_DIR"' EXIT; \
+	echo "Archiving iOS Release build..."; \
+	xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+	  -destination 'generic/platform=iOS' -archivePath "$$BUILD_DIR/App.xcarchive" \
+	  -allowProvisioningUpdates -authenticationKeyPath "$$KEY_PATH" \
+	  -authenticationKeyID "$$KEY_ID" -authenticationKeyIssuerID "$$ISSUER_ID" archive > /dev/null || exit 1; \
+	cmp -s "$$BUILD_DIR/App.xcarchive/Products/Applications/App.app/public/app.js" dist/app.js || \
+	  (echo "Archive public/app.js does not match dist/app.js"; exit 1); \
+	echo "Exporting IPA for App Store Connect..."; \
+	cat << 'EOF' > "$$BUILD_DIR/exportOptions.plist"; \
+<?xml version="1.0" encoding="UTF-8"?> \
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"> \
+<plist version="1.0"> \
+<dict> \
+    <key>method</key> \
+    <string>app-store-connect</string> \
+    <key>teamID</key> \
+    <string>VYB6G7NSAS</string> \
+    <key>uploadSymbols</key> \
+    <true/> \
+</dict> \
+</plist> \
+EOF \
+	xcodebuild -exportArchive -archivePath "$$BUILD_DIR/App.xcarchive" \
+	  -exportOptionsPlist "$$BUILD_DIR/exportOptions.plist" -exportPath "$$BUILD_DIR/export" \
+	  -allowProvisioningUpdates -authenticationKeyPath "$$KEY_PATH" \
+	  -authenticationKeyID "$$KEY_ID" -authenticationKeyIssuerID "$$ISSUER_ID" || exit 1; \
+	echo "Uploading IPA to TestFlight..."; \
+	xcrun altool --upload-app --file "$$BUILD_DIR/export/App.ipa" --type ios \
+	  --apiKey "$$KEY_ID" --apiIssuer "$$ISSUER_ID" --verbose || exit 1; \
+	echo "iOS build uploaded successfully to TestFlight."
 
 
 # Open Android project in Android Studio (requires Android Studio + JDK).
