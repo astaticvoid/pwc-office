@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: lint-css check-conservation venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata intake-year serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-bump-version mobile-ios mobile-android qa lint lint-js lint-ts lint-py test-mutations hooks slice-readings audit-copyright deploy-worker-staging deploy-worker-prod
+.PHONY: lint-css check-conservation venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata intake-year serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-bump-version mobile-ios mobile-android qa lint lint-js lint-ts lint-py test-mutations hooks slice-readings audit-copyright deploy-worker-staging deploy-worker-prod sync-r2
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -399,7 +399,19 @@ slice-readings:
 audit-copyright:
 	$(PYTHON) tools/audit_copyright_leak.py --dist-dir dist
 
-deploy-staging: check-integrity check-dist audit-copyright slice-readings deploy-functions-staging deploy-worker-staging
+sync-r2:
+	@if [ -n "$$R2_ACCESS_KEY_ID" ] && [ -n "$$R2_SECRET_ACCESS_KEY" ] && [ -n "$$R2_ENDPOINT_URL" ]; then \
+		echo "Syncing private sliced data to Cloudflare R2 (pwc-private-data)..."; \
+		ENDPOINT=$$(echo "$$R2_ENDPOINT_URL" | tr -d '"'); \
+		KEY_ID=$$(echo "$$R2_ACCESS_KEY_ID" | tr -d '"'); \
+		SECRET=$$(echo "$$R2_SECRET_ACCESS_KEY" | tr -d '"'); \
+		AWS_ACCESS_KEY_ID="$$KEY_ID" AWS_SECRET_ACCESS_KEY="$$SECRET" \
+		  aws s3 sync .build/private/ s3://pwc-private-data/ --endpoint-url "$$ENDPOINT" || exit 1; \
+	else \
+		echo "Skipping R2 sync: R2 credentials not set."; \
+	fi
+
+deploy-staging: check-integrity check-dist audit-copyright slice-readings deploy-functions-staging deploy-worker-staging sync-r2
 	aws s3 sync dist/ s3://$(BUCKET)/releases/$(RELEASE)/ --delete
 	# index.html must always revalidate so browsers pick up new ?v= hashes
 	# on JS/CSS assets after a promote. The sync above writes it with no
