@@ -17,6 +17,7 @@
  */
 
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
+import { execSync } from 'child_process';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -29,6 +30,17 @@ import { collectDayCitations } from '../web/data-provider.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
+
+function getGitCommit() {
+  if (process.env.GIT_COMMIT) return process.env.GIT_COMMIT;
+  try {
+    return execSync('git rev-parse --short HEAD', { cwd: root }).toString().trim();
+  } catch (_) {
+    return 'unknown';
+  }
+}
+const CURRENT_COMMIT = getGitCommit();
+const API_VERSION = '2.0.0';
 
 const outDirArgIdx = process.argv.indexOf('--out-dir');
 const BASE_OUT_DIR = (outDirArgIdx !== -1 && process.argv[outDirArgIdx + 1])
@@ -182,6 +194,8 @@ export function buildUnifiedDayPayload(day, translation, paragraphs) {
   const isFallback = translation === 'kjv';
 
   return {
+    apiVersion: API_VERSION,
+    commit: CURRENT_COMMIT,
     ...day,
     translation,
     isFallback,
@@ -245,11 +259,15 @@ export function run() {
     const endStr = allDates[endIdx];
 
     const nrsvueBatch = {
+      apiVersion: API_VERSION,
+      commit: CURRENT_COMMIT,
       start: startStr,
       end: endStr,
       days: {},
     };
     const kjvBatch = {
+      apiVersion: API_VERSION,
+      commit: CURRENT_COMMIT,
       start: startStr,
       end: endStr,
       days: {},

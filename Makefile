@@ -471,16 +471,18 @@ test-staging-full:
 # The S3 existence check below is not a policy gate and always runs.
 deploy-worker-staging:
 	@if [ -n "$$CLOUDFLARE_API_TOKEN" ] || [ -n "$$CLOUDFLARE_ACCOUNT_ID" ] || npx wrangler whoami 2>&1 | grep -q "You are logged in"; then \
-		echo "Deploying Staging Cloudflare API Worker..."; \
-		npx wrangler deploy --config infra/cloudflare/wrangler.toml || exit 1; \
+		GIT_SHA=$$(git rev-parse --short HEAD 2>/dev/null || echo "unknown"); \
+		echo "Deploying Staging Cloudflare API Worker (commit: $$GIT_SHA)..."; \
+		npx wrangler deploy --config infra/cloudflare/wrangler.toml --var "GIT_COMMIT:$$GIT_SHA" || exit 1; \
 	else \
 		echo "Skipping Cloudflare Worker deploy: Cloudflare credentials not set."; \
 	fi
 
 deploy-worker-prod:
 	@if [ -n "$$CLOUDFLARE_API_TOKEN" ] || [ -n "$$CLOUDFLARE_ACCOUNT_ID" ] || npx wrangler whoami 2>&1 | grep -q "You are logged in"; then \
-		echo "Deploying Production Cloudflare API Worker..."; \
-		npx wrangler deploy --config infra/cloudflare/wrangler.toml --env production || exit 1; \
+		GIT_SHA=$$(git rev-parse --short HEAD 2>/dev/null || echo "unknown"); \
+		echo "Deploying Production Cloudflare API Worker (commit: $$GIT_SHA)..."; \
+		npx wrangler deploy --config infra/cloudflare/wrangler.toml --env production --var "GIT_COMMIT:$$GIT_SHA" || exit 1; \
 	else \
 		echo "Skipping Cloudflare Worker deploy: Cloudflare credentials not set."; \
 	fi

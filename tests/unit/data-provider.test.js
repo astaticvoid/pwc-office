@@ -252,4 +252,73 @@ describe('defaultFetch', () => {
   });
 });
 
+describe('Cloudflare Worker metadata and endpoints', () => {
+  // Dynamically import worker.js
+  it('returns version, commit, and environment metadata on /api/version', async () => {
+    const workerModule = await import('../../infra/cloudflare/worker.js');
+    const worker = workerModule.default;
+
+    const env = {
+      ENVIRONMENT: 'production',
+      GIT_COMMIT: 'testcommit123',
+    };
+
+    const req = new Request('https://api.pwc.local/api/version');
+    const res = await worker.fetch(req, env);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('X-API-Version')).toBe('2.0.0');
+    expect(res.headers.get('X-Git-Commit')).toBe('testcommit123');
+    expect(res.headers.get('X-Environment')).toBe('production');
+    expect(res.headers.get('Access-Control-Expose-Headers')).toContain('X-Git-Commit');
+
+    const body = await res.json();
+    expect(body.status).toBe('ok');
+    expect(body.apiVersion).toBe('2.0.0');
+    expect(body.commit).toBe('testcommit123');
+    expect(body.environment).toBe('production');
+  });
+
+  it('supports /api/v2/version as well', async () => {
+    const workerModule = await import('../../infra/cloudflare/worker.js');
+    const worker = workerModule.default;
+
+    const env = {
+      ENVIRONMENT: 'staging',
+      GIT_COMMIT: 'stagcommit456',
+      BASIC_AUTH: 'Basic dGVzdDp0ZXN0',
+    };
+
+    const req = new Request('https://api.pwc.local/api/v2/version', {
+      headers: { Authorization: 'Basic dGVzdDp0ZXN0' },
+    });
+    const res = await worker.fetch(req, env);
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe('ok');
+    expect(body.commit).toBe('stagcommit456');
+    expect(body.environment).toBe('staging');
+  });
+
+  it('injects version, commit, and environment headers on error responses', async () => {
+    const workerModule = await import('../../infra/cloudflare/worker.js');
+    const worker = workerModule.default;
+
+    const env = {
+      ENVIRONMENT: 'production',
+      GIT_COMMIT: 'prodcommit789',
+    };
+
+    const req = new Request('https://api.pwc.local/api/v2/calendar'); // Missing date parameter -> 400
+    const res = await worker.fetch(req, env);
+
+    expect(res.status).toBe(400);
+    expect(res.headers.get('X-API-Version')).toBe('2.0.0');
+    expect(res.headers.get('X-Git-Commit')).toBe('prodcommit789');
+    expect(res.headers.get('X-Environment')).toBe('production');
+  });
+});
+
+
 

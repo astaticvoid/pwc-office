@@ -14,6 +14,7 @@ export default {
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "GET, OPTIONS",
             "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Version, X-Client-Platform",
+            "Access-Control-Expose-Headers": "X-API-Version, X-Git-Commit, X-Environment",
             "Access-Control-Max-Age": "86400",
           },
         });
@@ -31,6 +32,10 @@ export default {
               "WWW-Authenticate": 'Basic realm="PWC Staging API"',
               "Cache-Control": "no-store",
               "Access-Control-Allow-Origin": "*",
+              "Access-Control-Expose-Headers": "X-API-Version, X-Git-Commit, X-Environment",
+              "X-API-Version": "2.0.0",
+              "X-Environment": env.ENVIRONMENT || "unknown",
+              "X-Git-Commit": env.GIT_COMMIT || "unknown",
             },
           });
         }
@@ -38,13 +43,37 @@ export default {
 
     // 3. API ROUTING — only /api/* is valid
     if (!url.pathname.startsWith("/api/")) {
-      return createError(404, "Not found. This is an API endpoint.");
+      return createError(404, "Not found. This is an API endpoint.", {}, env);
     }
 
     const pathParts = url.pathname.split("/").filter(Boolean);
+    // Support /api/version or /api/v2/version as dedicated health/version endpoint
+    if ((pathParts.length === 2 && pathParts[1] === "version") || (pathParts.length === 3 && pathParts[2] === "version")) {
+      return new Response(
+        JSON.stringify({
+          status: "ok",
+          apiVersion: "2.0.0",
+          commit: env.GIT_COMMIT || "unknown",
+          environment: env.ENVIRONMENT || "unknown",
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-store",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Expose-Headers": "X-API-Version, X-Git-Commit, X-Environment",
+            "X-API-Version": "2.0.0",
+            "X-Git-Commit": env.GIT_COMMIT || "unknown",
+            "X-Environment": env.ENVIRONMENT || "unknown",
+          },
+        }
+      );
+    }
+
     // Expected: ["api", "v1", "readings"] or ["api", "v2", "calendar"]
     if (pathParts.length < 3) {
-      return createError(400, "Missing API version or resource in path.");
+      return createError(400, "Missing API version or resource in path.", {}, env);
     }
 
     const version = pathParts[1];
@@ -61,16 +90,16 @@ export default {
     let r2Key = null;
 
     if (resource === "readings") {
-      if (version !== "v1") return createError(404, "Unsupported API version: " + version);
+      if (version !== "v1") return createError(404, "Unsupported API version: " + version, {}, env);
 
       const dateStr = url.searchParams.get("date");
       if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-        return createError(400, "Missing or invalid date parameter (YYYY-MM-DD)");
+        return createError(400, "Missing or invalid date parameter (YYYY-MM-DD)", {}, env);
       }
 
       const translation = url.searchParams.get("translation") || "nrsvue";
       if (translation !== "nrsvue") {
-        return createError(400, "Unsupported translation. Only nrsvue is served via this endpoint.");
+        return createError(400, "Unsupported translation. Only nrsvue is served via this endpoint.", {}, env);
       }
 
       const diffDays = calcDiff(dateStr);
@@ -83,18 +112,26 @@ export default {
           }),
           {
             status: 403,
-            headers: { "Content-Type": "application/json", "Cache-Control": "no-store", "Access-Control-Allow-Origin": "*" },
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "no-store",
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Expose-Headers": "X-API-Version, X-Git-Commit, X-Environment",
+              "X-API-Version": "2.0.0",
+              "X-Environment": env.ENVIRONMENT || "unknown",
+              "X-Git-Commit": env.GIT_COMMIT || "unknown",
+            },
           }
         );
       }
 
       r2Key = `readings/${version}/${translation}/${dateStr}.json`;
     } else if (resource === "calendar") {
-      if (version !== "v2") return createError(404, "Unsupported API version: " + version);
+      if (version !== "v2") return createError(404, "Unsupported API version: " + version, {}, env);
 
       const reqTranslation = url.searchParams.get("translation") || "nrsvue";
       if (reqTranslation !== "nrsvue" && reqTranslation !== "kjv") {
-        return createError(400, "Unsupported translation. Supported: nrsvue, kjv");
+        return createError(400, "Unsupported translation. Supported: nrsvue, kjv", {}, env);
       }
 
       const startStr = url.searchParams.get("start");
@@ -103,9 +140,9 @@ export default {
 
       if (startStr || endStr) {
         if (!startStr || !/^\d{4}-\d{2}-\d{2}$/.test(startStr) || !endStr || !/^\d{4}-\d{2}-\d{2}$/.test(endStr)) {
-          return createError(400, "Both start and end date parameters are required for batch queries.");
+          return createError(400, "Both start and end date parameters are required for batch queries.", {}, env);
         }
-        if (startStr > endStr) return createError(400, "start date must be <= end date.");
+        if (startStr > endStr) return createError(400, "start date must be <= end date.", {}, env);
 
         let useTranslation = reqTranslation;
         if (useTranslation === "nrsvue" && (calcDiff(startStr) > 31 || calcDiff(endStr) > 31)) {
@@ -113,53 +150,61 @@ export default {
         }
         r2Key = `calendar/v2/${useTranslation}/batch/${startStr}_${endStr}.json`;
       } else if (dateStr) {
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return createError(400, "Invalid date parameter.");
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return createError(400, "Invalid date parameter.", {}, env);
         let useTranslation = reqTranslation;
         if (useTranslation === "nrsvue" && calcDiff(dateStr) > 31) {
           useTranslation = "kjv";
         }
         r2Key = `calendar/v2/${useTranslation}/${dateStr}.json`;
       } else {
-        return createError(400, "Missing date or start/end parameters.");
+        return createError(400, "Missing date or start/end parameters.", {}, env);
       }
     } else {
-      return createError(404, "Invalid endpoint path.");
+      return createError(404, "Invalid endpoint path.", {}, env);
     }
 
     // Fetch from R2 bucket
     if (!env.PRIVATE_DATA) {
-      return createError(500, "R2 bucket binding (PRIVATE_DATA) not configured.");
+      return createError(500, "R2 bucket binding (PRIVATE_DATA) not configured.", {}, env);
     }
 
     const object = await env.PRIVATE_DATA.get(r2Key);
     if (object === null) {
-      return createError(404, "Data not found for requested date/translation.");
+      return createError(404, "Data not found for requested date/translation.", {}, env);
     }
 
     const headers = new Headers();
     object.writeHttpMetadata(headers);
     headers.set("etag", object.httpEtag);
     headers.set("Access-Control-Allow-Origin", "*");
+    headers.set("Access-Control-Expose-Headers", "X-API-Version, X-Git-Commit, X-Environment");
     headers.set("Content-Type", "application/json");
     headers.set("Cache-Control", "public, max-age=3600");
+    headers.set("X-API-Version", "2.0.0");
+    headers.set("X-Environment", env.ENVIRONMENT || "unknown");
+    headers.set("X-Git-Commit", env.GIT_COMMIT || "unknown");
 
       return new Response(object.body, { headers });
     } catch (err) {
       const clientVer = request.headers.get("X-Client-Version") || "unknown";
       const clientPlatform = request.headers.get("X-Client-Platform") || "unknown";
       console.error(`Internal server error [client=${clientPlatform}@${clientVer}]:`, err);
-      return createError(500, "Internal Server Error", { clientVersion: clientVer, clientPlatform });
+      return createError(500, "Internal Server Error", { clientVersion: clientVer, clientPlatform }, env);
     }
   },
 };
 
-function createError(status, message, extra = {}) {
+function createError(status, message, extra = {}, env = {}) {
   return new Response(JSON.stringify({ error: message, ...extra }), {
     status,
     headers: {
       "Content-Type": "application/json",
       "Cache-Control": "no-store",
       "Access-Control-Allow-Origin": "*",
+      "Access-Control-Expose-Headers": "X-API-Version, X-Git-Commit, X-Environment",
+      "X-API-Version": "2.0.0",
+      "X-Environment": env?.ENVIRONMENT || "unknown",
+      "X-Git-Commit": env?.GIT_COMMIT || "unknown",
     },
   });
 }

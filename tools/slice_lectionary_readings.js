@@ -19,6 +19,7 @@
  */
 
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
+import { execSync } from 'child_process';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -31,6 +32,16 @@ import { collectDayCitations } from '../web/data-provider.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
+
+function getGitCommit() {
+  if (process.env.GIT_COMMIT) return process.env.GIT_COMMIT;
+  try {
+    return execSync('git rev-parse --short HEAD', { cwd: root }).toString().trim();
+  } catch (_) {
+    return 'unknown';
+  }
+}
+const CURRENT_COMMIT = getGitCommit();
 
 const versionArgIdx = process.argv.indexOf('--version');
 const API_VERSION = (versionArgIdx !== -1 && process.argv[versionArgIdx + 1])
@@ -147,6 +158,8 @@ export function sliceDay(day, paragraphs) {
   }
 
   return {
+    apiVersion: API_VERSION,
+    commit: CURRENT_COMMIT,
     date: day.date,
     translation: 'nrsvue',
     source: 'remote',
