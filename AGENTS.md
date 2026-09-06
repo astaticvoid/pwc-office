@@ -86,6 +86,8 @@ make mobile-ios                   # mobile-sync + open Xcode
 make mobile-ios-build             # mobile-sync + headless iOS release build
 make mobile-ios-archive           # mobile-sync + headless iOS archive + parity check
 make mobile-android               # mobile-sync + open Android Studio
+make mobile-android-bundle        # mobile-sync + build release AAB
+make mobile-android-upload        # mobile-sync + build + upload AAB to Google Play internal track
 
 # Deploy
 make deploy-staging               # upload release to S3 staging/

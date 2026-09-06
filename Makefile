@@ -358,6 +358,17 @@ mobile-ios-archive: mobile-sync
 mobile-android: mobile-sync
 	npx cap open android
 
+# Build release AAB for Android.
+mobile-android-bundle: mobile-sync
+	cd android && ./gradlew bundleRelease
+
+# Upload Android release bundle to Google Play internal testing track via fastlane.
+mobile-android-upload: mobile-android-bundle
+	cd android && PLAY_STORE_JSON_KEY=$$(sed -n 's/^PLAY_STORE_JSON_KEY=["'"'"']\?\([^"'"'"']*\)["'"'"']\?/\1/p' ../.env) fastlane internal
+
+
+
+
 # ── Deploy (versioned directories) ──────────────────────────────────────────
 # Requires AWS_PROFILE or ambient credentials, BUCKET, CF_DISTRIBUTION_ID.
 #
