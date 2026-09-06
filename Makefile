@@ -355,8 +355,8 @@ mobile-ios-archive: mobile-sync
 
 # Build signed iOS archive, export IPA, and upload directly to TestFlight.
 mobile-ios-upload: mobile-sync
-	@KEY_ID="CHDG6TL8YH"; \
-	ISSUER_ID="0d4386d5-b7c4-474c-a3d5-9b7f172e654e"; \
+	@KEY_ID="$${ASC_API_KEY:-CHDG6TL8YH}"; \
+	ISSUER_ID="$${ASC_API_ISSUER:-0d4386d5-b7c4-474c-a3d5-9b7f172e654e}"; \
 	KEY_PATH="$$HOME/.appstoreconnect/AuthKey_$$KEY_ID.p8"; \
 	test -f "$$KEY_PATH" || (echo "App Store Connect key missing at $$KEY_PATH"; exit 1); \
 	BUILD_DIR=$$(mktemp -d); \
