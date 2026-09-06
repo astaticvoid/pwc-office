@@ -403,7 +403,10 @@ mobile-android-bundle: mobile-sync
 
 # Upload Android release bundle to Google Play internal testing track via fastlane.
 mobile-android-upload: mobile-android-bundle
-	cd android && PLAY_STORE_JSON_KEY=$$(sed -n 's/^PLAY_STORE_JSON_KEY=["'"'"']\?\([^"'"'"']*\)["'"'"']\?/\1/p' ../.env) fastlane internal
+	@KEY_FILE=$$(sed -n 's/^PLAY_STORE_JSON_KEY=//p' .env | tr -d '"'"'"); \
+	test -n "$$KEY_FILE" || KEY_FILE="$$PLAY_STORE_JSON_KEY"; \
+	test -f "$$KEY_FILE" || (echo "Google Play Service Account JSON key not found at $$KEY_FILE"; exit 1); \
+	cd android && PLAY_STORE_JSON_KEY="$$KEY_FILE" fastlane internal
 
 
 
