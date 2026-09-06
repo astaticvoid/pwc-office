@@ -22,6 +22,19 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 
+# Load .env if AUTH_USER or HTTP_AUTH not in os.environ
+if not (os.environ.get("HTTP_AUTH") or os.environ.get("AUTH_USER")):
+    env_file = ROOT / ".env"
+    if env_file.exists():
+        with open(env_file, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    v = v.strip().strip("'\"")
+                    if k not in os.environ:
+                        os.environ[k] = v
+
 
 def audit_dist(dist_dir: Path) -> list[str]:
     """Scan dist/ directory for any unauthorized copyrighted translation files."""
@@ -129,6 +142,10 @@ def audit_live_cdn(base_url: str, auth: str | None = None) -> list[str]:
             # Verify data is strictly date-grained lectionary readings
             if "readings" not in data or not isinstance(data["readings"], dict):
                 errors.append("Probe 6 failed: 200 response missing 'readings' dictionary")
+            if "apiVersion" not in data or data["apiVersion"] != "v1":
+                errors.append(f"Probe 6 failed: missing or invalid apiVersion: {data.get('apiVersion')}")
+            if "commit" not in data or not data["commit"]:
+                errors.append("Probe 6 failed: missing commit metadata in response")
             # Verify no full-book payloads
             for cit, reading in data.get("readings", {}).items():
                 verses = reading.get("verses", [])
@@ -140,6 +157,25 @@ def audit_live_cdn(base_url: str, auth: str | None = None) -> list[str]:
         print("  Notice: CloudFront Function gate-readings not yet attached to /api/v1/readings* on this distribution.")
     else:
         errors.append(f"Probe 6 failed: Valid in-window query returned status {status_v} (expected 200 OK)")
+
+    # Probe 7: Calendar v2 endpoint metadata shape verification
+    url_v2 = f"{base_url}/api/v2/calendar?date={today_str}&translation=nrsvue"
+    status_v2, body_v2 = probe_url(url_v2, auth=auth)
+    print(f"  Probe 7: Calendar v2 metadata verification -> Status {status_v2}")
+    if status_v2 == 200:
+        try:
+            data_v2 = json.loads(body_v2)
+            if data_v2.get("apiVersion") != "2.0.0":
+                errors.append(f"Probe 7 failed: expected apiVersion '2.0.0', got '{data_v2.get('apiVersion')}'")
+            commit_val = str(data_v2.get("commit", ""))
+            if not commit_val or commit_val == "unknown":
+                errors.append(f"Probe 7 failed: invalid or missing commit hash: '{commit_val}'")
+            if "readings" not in data_v2 or not isinstance(data_v2["readings"], dict):
+                errors.append("Probe 7 failed: missing 'readings' map in unified payload")
+        except Exception as e:
+            errors.append(f"Probe 7 failed: Unable to parse JSON response: {e}")
+    else:
+        errors.append(f"Probe 7 failed: Calendar v2 returned status {status_v2} (expected 200 OK)")
 
     return errors
 
