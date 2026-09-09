@@ -294,15 +294,12 @@ RE_EVE_OF = re.compile(
 RE_EVE_LABEL = re.compile(r"^Eve of\s+\S", re.IGNORECASE)
 
 
-def _classify_observance_line(line: str) -> list[str] | None:
+def _classify_observance_line(line: str) -> list[str | dict] | None:
     """Classify one cleaned name-column line into observance tags.
 
-    Returns a list of tags (usually one), or None when the line carries no tag
-    of this kind — commemorations ("Florence Nightingale, … - Com"), separator
-    text ("And / or") and plain eves ("Eve of Sunday") yield none here. A
-    commemoration is read by parse_commemorations instead, and the separator
-    by the joining vocabulary; neither is an observance tag (ADR 0017 points
-    3 and 6).
+    Returns a list of tags or structured observance dicts (ADR 0026), or None
+    when the line carries no tag of this kind — commemorations, separator text,
+    and plain eves yield none here.
     """
     if m := RE_EVE_OF.match(line):
         target = m.group(1).strip()
@@ -320,7 +317,7 @@ def _classify_observance_line(line: str) -> list[str] | None:
             return None
         bare = re.sub(r"^the\s+", "", target, flags=re.I).strip()
         tag = "eve_of:" + ("the " if key in EVE_THE_ARTICLE else "") + bare
-        tags = [tag]
+        tags: list[str | dict] = [tag]
         if companion := EVE_COMPANION_TAGS.get(key):
             tags.append(companion)
         return tags
@@ -336,6 +333,21 @@ def _classify_observance_line(line: str) -> list[str] | None:
         OBSERVANCE_PHRASES.items(), key=lambda kv: len(kv[0]), reverse=True
     ):
         if phrase in lowered:
+            colour = ""
+            if (i := line.rfind("(")) >= 0 and (j := line.rfind(")")) > i:
+                colour = line[i + 1 : j].strip()
+                name_part = line[:i].strip()
+            else:
+                name_part = line.strip()
+            norm_name = name_part.lower().replace("\u2019", "'")
+            # If line has an explicit custom name (e.g. Accession Day of HM King Charles III)
+            # or carries an authorized parenthetical colour (ADR 0026),
+            # return a structured observance entry preserving name and colour.
+            if colour or (norm_name != phrase and norm_name != tag.replace("_", " ")):
+                entry: dict = {"tag": tag, "name": name_part}
+                if colour:
+                    entry["colour"] = colour
+                return [entry]
             return [tag]
     _warn_phrase_drift(line, lowered)
     return None
@@ -364,13 +376,13 @@ def _warn_phrase_drift(line: str, lowered: str) -> None:
         )
 
 
-def parse_observances(raw: str) -> list[str] | None:
-    """Extract secondary-observance tags from the CSV name column (ADR 0017).
+def parse_observances(raw: str) -> list[str | dict] | None:
+    """Extract secondary-observance tags/entries from the CSV name column (ADR 0017, ADR 0026).
 
     Classifies every line of the cleaned field, in line order; returns None
     when no line is an observance.
     """
-    tags: list[str] = []
+    tags: list[str | dict] = []
     for line in clean(raw).split("\n"):
         line = line.strip()
         if not line:

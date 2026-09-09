@@ -26,6 +26,7 @@ data/translations/*
 !data/translations/kjv/
 !data/corrections.json
 !data/paragraphs.json
+!data/monarch.json
 
 boneyard/data/
 

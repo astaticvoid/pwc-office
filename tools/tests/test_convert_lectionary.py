@@ -381,9 +381,14 @@ class TestParseObservances:
     def test_primary_line_marker(self):
         # National Indigenous Day of Prayer is the entire primary line on its
         # date — the classifier must see all lines, not just line 2+.
+        # Carries an authorized colour, preserved as a structured observance (ADR 0026).
         assert parse_observances(
             "National Indigenous Day of Prayer (Green or other appropriate colour)"
-        ) == ["national_indigenous_day_of_prayer"]
+        ) == [{
+            "tag": "national_indigenous_day_of_prayer",
+            "name": "National Indigenous Day of Prayer",
+            "colour": "Green or other appropriate colour",
+        }]
 
     def test_eve_companion(self):
         assert parse_observances(
@@ -413,7 +418,10 @@ class TestParseObservances:
         assert parse_observances(
             "Holy Saturday (Red)<br>Day of discipline and self-denial<br>"
             "Easter Eve (White or Gold)"
-        ) == ["fast_day", "easter_eve"]
+        ) == [
+            "fast_day",
+            {"tag": "easter_eve", "name": "Easter Eve", "colour": "White or Gold"},
+        ]
 
     def test_all_saints_eve(self):
         # The gap the hand-written dict missed (issue #56 comment); the
@@ -427,7 +435,7 @@ class TestParseObservances:
         assert parse_observances(
             "Martin, Bishop of Tours, 397 - Mem (White)<br>"
             "Remembrance Day (Violet or Black)"
-        ) == ["remembrance_day"]
+        ) == [{"tag": "remembrance_day", "name": "Remembrance Day", "colour": "Violet or Black"}]
 
     def test_civil_marker_new_year_day(self):
         # CSV uses U+2019; the phrase vocabulary is ASCII.
@@ -440,7 +448,10 @@ class TestParseObservances:
         assert parse_observances(
             "Nativity of the Blessed Virgin Mary - Mem (White)<br>"
             "Accession Day of HM King Charles III (Green)<br>Season of Creation"
-        ) == ["accession_day", "season_of_creation"]
+        ) == [
+            {"tag": "accession_day", "name": "Accession Day of HM King Charles III", "colour": "Green"},
+            "season_of_creation",
+        ]
 
     def test_unknown_eve_target_warns(self, capsys):
         assert parse_observances("Eve of the Nativity (White)") is None

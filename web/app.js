@@ -931,8 +931,16 @@ async function render(dateStr, officeType, translation) {
         ? `<span class="meta-item">${esc(formatRank(activeRank))}</span>`
         : '')
     + colourChip
-    + dayMarkers(day, activeName, activeRank === 'eve', !!officeData.alternate).map(m =>
-        `<span class="meta-item meta-item--marker">${esc(m)}</span>`).join('');
+    + dayMarkers(day, activeName, activeRank === 'eve', !!officeData.alternate).map(m => {
+        const text = typeof m === 'object' && m !== null ? m.text : m;
+        const col = typeof m === 'object' && m !== null ? m.colour : null;
+        let dots = '';
+        if (col) {
+          const hexes = colourHexes(col);
+          dots = hexes.map(h => `<span class="colour-dot" style="background:${h}" title="${esc(col)}" aria-label="${esc(col)}"></span>`).join('');
+        }
+        return `<span class="meta-item meta-item--marker">${dots}${esc(text)}</span>`;
+      }).join('');
 
   document.querySelectorAll('.day-note, .day-note-details, .fats-bio, .temporal-notice').forEach(el => el.remove());
 

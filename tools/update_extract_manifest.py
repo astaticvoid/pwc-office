@@ -64,6 +64,7 @@ EXTRACTION_SOURCES = (
     "tools/corrections_lib.py",
     "tools/extract_lib.py",
     "data/corrections.json",
+    "data/monarch.json",
     # The lectionary CSV is committed, and is the sole input to detect_bounds()
     # — so data/season_bounds.json can be stale with respect to it while its own
     # hash still matches. Same argument as the tools above: a matching output

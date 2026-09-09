@@ -430,6 +430,16 @@ body {
 .colour-chip-toggle:hover { transform: scale(1.25); }
 .colour-cycle-hint { font-size: 0.7em; opacity: 0.55; }
 .colour-name { color: var(--color-muted); font-family: var(--font-ui); font-size: var(--fs-ui); }
+.colour-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  flex-shrink: 0;
+  vertical-align: middle;
+  margin-right: var(--sp-1);
+}
 
 /* ── View toggle (book mode) ────────────────────────────────────────────────── */
 

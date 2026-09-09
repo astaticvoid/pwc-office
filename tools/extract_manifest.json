@@ -1,5 +1,5 @@
 {
-  "extracted_at": "2026-09-05T04:21:21Z",
+  "extracted_at": "2026-09-09T03:47:42Z",
   "tool_versions": {
     "fitz": [
       "1.28.0",
@@ -12,13 +12,14 @@
     "tools/extract_office_styles.py": "6c5861a7b84b5d2c42cab1f1a7f69a1fd4f806c2f3f3b439c9621273e095d492",
     "tools/normalize_offices.py": "9411c1db3e21adc364edaceb0ac9e80d623b64e51398e353eb5c1a02eec932ce",
     "tools/extract_psalter.py": "6d697ded980ebd3d24afc90c1c9ec588be15fb38cb13c9c683e5a91ea98712f5",
-    "tools/extract_collects.py": "8dae34411e9e522390832492a34716c1e458fd489f1d7f5f3a7b34c111a29a18",
+    "tools/extract_collects.py": "e8b8364afcf384a7b0d3bcc2e62b5aca64c2fb344f822f4d9f51c3d710e0ccb6",
     "tools/extract_fats.py": "4be8d66eda97592996196a648de3b67ffecaa0de285dd31020266103a593fe2b",
-    "tools/convert_lectionary.py": "c606321059c1a75acbcac3bfed5ab7c506368b0476aee6a8979ac14e9e2a1c3a",
+    "tools/convert_lectionary.py": "021eb01a5ea6ca6b4147867c2b8af24c9d16940c46aadfdccf255b3474caf0f1",
     "tools/apply_corrections.py": "fea4322b76b639833c39dbf6880ede6228acb049a4320451c84cb70600de51b6",
     "tools/corrections_lib.py": "40119a95696e6a4a4091bcb1495d61277c9709c88cc754defddf83d127f18cb2",
     "tools/extract_lib.py": "2d77e3c60dad78a693e88557fd84115815a62128355c04d78bd0c6f42014d72e",
     "data/corrections.json": "756838a66e9233f812128f0451e9ef2472ab02489ad81f2e9bb23010fd6b88cc",
+    "data/monarch.json": "73dcad46443071b6cadd9d633a54adc15469d6938799ce0aa113debd9d02ccdb",
     "sources/bas_short_2026.csv": "909616851bf8c627428fbaf50ce894d72fc122a3b702843f1bad7c070850b89e"
   },
   "files": {
@@ -27,7 +28,7 @@
       "entries": 32
     },
     "data/collects.json": {
-      "sha256": "c3680c6d9a694a2d8581fce958566798baf7e8f0e9b57bd43d2aa56b8f72c0ce",
+      "sha256": "7088b5f6f850d38c183183e66bd2534597026aa288dac3bcae5a3535e19bf97e",
       "entries": 116
     },
     "data/psalter.json": {
@@ -43,7 +44,7 @@
       "entries": 174
     },
     "data/lectionary": {
-      "sha256": "f8c869f74af1e3409eecf8108838c8147f0ab252ce9a9621324e0dbf107b4c1f",
+      "sha256": "ada982ece8786e8e286886250704e0a99a776614c06c81147bb41a0363f52794",
       "months": 14
     }
   }

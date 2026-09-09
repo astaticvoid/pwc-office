@@ -447,10 +447,24 @@ def _extract_occasional_prayers(pdf, collects: dict) -> None:
                 "text": text,
             }
 
+    monarch = {}
+    monarch_path = ROOT / "data" / "monarch.json"
+    if monarch_path.exists():
+        import json
+        monarch = json.loads(monarch_path.read_text(encoding="utf-8"))
+
     for page, num in _OCC_PAGE_ALIASES.items():
         if num in entries:
-            collects[page] = entries[num]
-            print(f"  occ p.{page}  prayer #{num} {entries[num]['name']!r}")
+            entry = dict(entries[num])
+            if num == "8" and monarch:
+                # Canonical adaptation for reigning Sovereign (ADR 0026)
+                entry["name"] = monarch.get("collect_title", f"For the {monarch.get('title', 'King')}")
+                t = entry["text"]
+                t = re.sub(r"\bour Sovereign\s+Lady,\s*Queen Elizabeth\b", monarch["style"], t)
+                t = re.sub(r"\bunder\s+her\s*;", f"under {monarch['pronouns']['object']};", t)
+                entry["text"] = t
+            collects[page] = entry
+            print(f"  occ p.{page}  prayer #{num} {entry['name']!r}")
         else:
             print(f"  WARNING: occ prayer #{num} not found (needed for p.{page})")
 
@@ -618,6 +632,12 @@ def run():
         print(f"WARNING: pages mentioning Collect but not extracted: {failures}")
 
     # ── Spot checks ───────────────────────────────────────────────────────────
+    monarch = {}
+    monarch_path = ROOT / "data" / "monarch.json"
+    if monarch_path.exists():
+        import json
+        monarch = json.loads(monarch_path.read_text(encoding="utf-8"))
+
     checks = [
         ("268", "text",   "armour of light"),
         ("268", "name",   "First Sunday of Advent"),
@@ -635,8 +655,9 @@ def run():
         # p.392: txt fallback catches garbling; patches 007/008/010 fix remaining 3 pages
         ("392", "text",   "to be the light of the world"),
         # Occasional Prayers (pp.676-683)
-        ("677", "name",   "For the Queen"),
+        ("677", "name",   monarch.get("collect_title", "For the King") if monarch else "For the King"),
         ("677", "text",   "fountain of all goodness"),
+        ("677", "text",   monarch.get("name", "Charles") if monarch else "Queen Elizabeth"),
         ("677", "section","Occasional Prayers"),
         ("680", "name",   "For Industry and Commerce"),
         ("680", "text",   "dignified our labour"),

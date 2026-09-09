@@ -82,6 +82,14 @@ export interface Commemoration {
   colour?: string;
 }
 
+export interface StructuredObservance {
+  tag: string;
+  name: string;
+  colour?: string;
+}
+
+export type ObservanceEntry = string | StructuredObservance;
+
 /** A lectionary day entry (one date in data/lectionary/YYYY-MM.json). */
 export interface LectionaryDay {
   date: string;
@@ -91,7 +99,7 @@ export interface LectionaryDay {
   eucharist?: string;
   morning: LectionaryOffice;
   evening: LectionaryOffice;
-  observances?: string[];
+  observances?: ObservanceEntry[];
   notes?: DayNote[];
   commemorations?: Commemoration[];
   commemoration_join?: string;

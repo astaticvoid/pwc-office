@@ -42,7 +42,14 @@ for p in (ROOT / "data" / "lectionary").glob("*.json"):
     with open(p, encoding="utf-8") as f:
         DATA.update(json.load(f))
 
-OBS = {d: e.get("observances") for d, e in DATA.items() if e.get("observances")}
+def _entry_tag(e):
+    return e["tag"] if isinstance(e, dict) else e
+
+OBS = {
+    d: [_entry_tag(t) for t in e.get("observances")]
+    for d, e in DATA.items()
+    if e.get("observances")
+}
 with open(ROOT / "data" / "season_bounds.json", encoding="utf-8") as f:
     BOUNDS = json.load(f)
 

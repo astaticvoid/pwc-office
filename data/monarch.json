@@ -1,0 +1,12 @@
+{
+  "title": "King",
+  "name": "Charles",
+  "regnal_name": "HM King Charles III",
+  "style": "our Sovereign Lord, King Charles",
+  "pronouns": {
+    "subject": "he",
+    "object": "him",
+    "possessive": "his"
+  },
+  "collect_title": "For the King"
+}

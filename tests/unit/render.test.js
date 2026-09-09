@@ -1105,7 +1105,7 @@ describe('dayMarkers', () => {
       rank: 'feria',
       observances: ['season_of_creation'],
     };
-    expect(dayMarkers(day, 'Feria', false, false)).toEqual(['Season of Creation']);
+    expect(dayMarkers(day, 'Feria', false, false)).toEqual([{ text: 'Season of Creation' }]);
   });
 
   test('surfaces fast_day and octaves', () => {
@@ -1115,7 +1115,7 @@ describe('dayMarkers', () => {
       observances: ['octave_of_christmas'],
     };
     expect(dayMarkers(day, 'Feria in Christmastide', false, false))
-      .toEqual(['Within the Octave of Christmas']);
+      .toEqual([{ text: 'Within the Octave of Christmas' }]);
   });
 
   test('surfaces eve_of unless suppressed by obsToggle or activeName', () => {
@@ -1125,15 +1125,45 @@ describe('dayMarkers', () => {
       observances: ['eve_of:the Seventh Sunday of Easter', 'season_of_creation'],
     };
     expect(dayMarkers(day, 'Feria', false, false)).toEqual([
-      'Eve of the Seventh Sunday of Easter',
-      'Season of Creation',
+      { text: 'Eve of the Seventh Sunday of Easter' },
+      { text: 'Season of Creation' },
     ]);
     expect(dayMarkers(day, 'Eve of the Seventh Sunday of Easter', true, false)).toEqual([
-      'Feria',
-      'Season of Creation',
+      { text: 'Feria' },
+      { text: 'Season of Creation' },
     ]);
     expect(dayMarkers(day, 'Feria', false, true)).toEqual([
-      'Season of Creation',
+      { text: 'Season of Creation' },
+    ]);
+  });
+
+  test('surfaces structured observances with colour', () => {
+    const day = {
+      name: 'The Nativity of the Blessed Virgin Mary',
+      rank: 'holy_day',
+      colour: 'White',
+      observances: [
+        {
+          tag: 'accession_day',
+          name: 'Accession Day of HM King Charles III',
+          colour: 'Green',
+        },
+        {
+          tag: 'remembrance_day',
+          name: 'Remembrance Day',
+          colour: 'Violet or Black',
+        },
+      ],
+    };
+    expect(dayMarkers(day, 'The Nativity of the Blessed Virgin Mary', false, false)).toEqual([
+      {
+        text: 'Accession Day of HM King Charles III',
+        colour: 'Green',
+      },
+      {
+        text: 'Remembrance Day',
+        colour: 'Violet or Black',
+      },
     ]);
   });
 
@@ -1153,7 +1183,7 @@ describe('dayMarkers', () => {
       ],
     };
     expect(dayMarkers(day, 'The Holy Innocents', false, false)).toEqual([
-      'Thomas Becket, Archbishop of Canterbury, 1170',
+      { text: 'Thomas Becket, Archbishop of Canterbury, 1170' },
     ]);
   });
 });

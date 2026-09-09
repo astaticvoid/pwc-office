@@ -191,25 +191,42 @@ export const MARKER_LABELS = {
 // eve day) the toggle is absent and the marker stays, so the other day is still
 // named.
 export function dayMarkers(day, activeName, isEve, obsToggle) {
-  const markers = (day.observances || []).flatMap(tag => {
-    if (tag.startsWith('eve_of:')) {
-      const label = 'Eve of ' + tag.slice(7);
-      return (obsToggle || label === activeName) ? [] : [label];
+  const markers = (day.observances || []).flatMap(entry => {
+    let tag = '';
+    let label = '';
+    let colour;
+
+    if (typeof entry === 'object' && entry !== null) {
+      tag = entry.tag || '';
+      label = entry.name || MARKER_LABELS[tag] || tag;
+      colour = entry.colour || undefined;
+    } else if (typeof entry === 'string') {
+      tag = entry;
+      if (tag.startsWith('eve_of:')) {
+        label = 'Eve of ' + tag.slice(7);
+        if (obsToggle || label === activeName) return [];
+      } else {
+        label = MARKER_LABELS[tag];
+      }
     }
-    return MARKER_LABELS[tag] ? [MARKER_LABELS[tag]] : [];
+
+    if (!label) return [];
+    return colour ? [{ text: label, colour }] : [{ text: label }];
   });
   // A commemoration the day keeps without being named for it — Thomas Becket
   // under the Holy Innocents. The title names the day; this names who else it
   // remembers. A co-equal one is in the title instead (#129).
   for (const c of day.commemorations || []) {
-    if (!c.coequal) markers.push(c.name);
+    if (!c.coequal) markers.push(c.colour ? { text: c.name, colour: c.colour } : { text: c.name });
   }
   // The eve took the title, so the day's own commemoration would otherwise
   // vanish from a header that still carries its fast and still opens its
   // biography. Each office names the other's day: the eve on the morning,
   // the commemoration on the evening — unless the observance toggle already
   // names the commemoration as its primary button.
-  if (isEve && day.name && day.name !== activeName && !obsToggle) markers.unshift(day.name);
+  if (isEve && day.name && day.name !== activeName && !obsToggle) {
+    markers.unshift(day.colour ? { text: day.name, colour: day.colour } : { text: day.name });
+  }
   return markers;
 }
 
