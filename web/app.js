@@ -131,42 +131,50 @@ function defaultOffice() {
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 
-function initTheme() {
-  const stored = storageGet('pwc-theme');
-  if (stored) {
-    document.documentElement.setAttribute('data-theme', stored);
-  } else {
-    // No explicit user preference — follow system
+function applyTheme(targetTheme) {
+  if (targetTheme === 'auto') {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    if (prefersDark) document.documentElement.setAttribute('data-theme', 'dark');
+    document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+  } else {
+    document.documentElement.setAttribute('data-theme', targetTheme);
   }
-  updateThemeButton();
+  updateThemeSegment(targetTheme);
   updateNativeStatusBar();
+}
 
-  // Listen for system theme changes when no stored override
+function initTheme() {
+  const stored = storageGet('pwc-theme') || 'auto';
+  applyTheme(stored);
+
+  // Listen for system theme changes when in auto mode
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-    if (!storageGet('pwc-theme')) {
+    const currentStored = storageGet('pwc-theme') || 'auto';
+    if (currentStored === 'auto') {
       document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
-      updateThemeButton();
+      updateNativeStatusBar();
     }
   });
 }
 
-function toggleTheme() {
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const next = isDark ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', next);
-  storageSet('pwc-theme', next);
-  updateThemeButton();
-  updateNativeStatusBar();
+function setTheme(themeVal) {
+  if (themeVal === 'auto') {
+    try { localStorage.removeItem('pwc-theme'); } catch (_) {}
+  } else {
+    storageSet('pwc-theme', themeVal);
+  }
+  applyTheme(themeVal);
 }
 
-function updateThemeButton() {
-  const btn = document.getElementById('theme-toggle');
-  if (!btn) return;
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  btn.textContent = isDark ? 'Dark' : 'Light';
-  btn.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
+function updateThemeSegment(activeTheme) {
+  const seg = document.getElementById('theme-seg');
+  if (!seg) return;
+  const buttons = seg.querySelectorAll('button[data-theme-val]');
+  buttons.forEach(btn => {
+    const val = btn.getAttribute('data-theme-val');
+    const isActive = val === activeTheme;
+    btn.classList.toggle('is-active', isActive);
+    btn.setAttribute('aria-checked', isActive ? 'true' : 'false');
+  });
 }
 
 // ── Font size ─────────────────────────────────────────────────────────────────
@@ -1575,7 +1583,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (e.key === 'Escape') { closeSettings(); closeDayPicker(); }
   });
 
-  document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+  const themeSeg = document.getElementById('theme-seg');
+  if (themeSeg) {
+    themeSeg.addEventListener('click', (e) => {
+      const target = /** @type {HTMLElement} */ (e.target);
+      const btn = target.closest('button[data-theme-val]');
+      if (btn) {
+        const val = btn.getAttribute('data-theme-val');
+        if (val) setTheme(val);
+      }
+    });
+  }
   document.getElementById('font-size-toggle').addEventListener('click', cycleFontSize);
 
   const sel = /** @type {HTMLSelectElement} */ (document.getElementById('nav-translation'));

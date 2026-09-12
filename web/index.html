@@ -93,10 +93,14 @@
             <option value="kjv">KJV</option>
           </select>
         </label>
-        <label class="settings-row">
+        <div class="settings-row">
           <span class="settings-label">Theme</span>
-          <button id="theme-toggle" aria-label="Toggle theme">Light</button>
-        </label>
+          <div class="settings-mini-seg" id="theme-seg" role="radiogroup" aria-label="Theme">
+            <button type="button" data-theme-val="auto" aria-checked="true" role="radio">Auto</button>
+            <button type="button" data-theme-val="light" aria-checked="false" role="radio">Light</button>
+            <button type="button" data-theme-val="dark" aria-checked="false" role="radio">Dark</button>
+          </div>
+        </div>
         <label class="settings-row">
           <span class="settings-label">Text size</span>
           <button id="font-size-toggle" aria-label="Adjust text size">Medium</button>

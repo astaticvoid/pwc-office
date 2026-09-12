@@ -27,6 +27,8 @@
 | [0023](./0023-scripture-provider-abstraction-and-temporal-caching.md) | ScriptureProvider abstraction, date-grained lectionary delivery, and temporal cache purging | Accepted |
 | [0024](./0024-cloudfront-edge-gating-and-s3-private-distribution.md) | CloudFront edge temporal gating and private S3 distribution for copyrighted scripture | Accepted |
 | [0025](./0025-bff-lectionary-api-and-licensing-constraints.md) | Backend-For-Frontend (BFF) Lectionary API and Licensing Constraints | Accepted |
+| [0026](./0026-reigning-monarch-state-and-concurrent-observance-colours.md) | Dynamic monarch prayer state and concurrent observance colours | Accepted |
+| [0027](./0027-theme-preference-posture.md) | Theme Preference Posture — Auto by Default with Explicit Overrides | Accepted |
 
 ## Status values
 - **Proposed** — decision documented, awaiting review/adoption
