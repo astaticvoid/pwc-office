@@ -178,7 +178,9 @@ async function run() {
       const placeholders = document.querySelectorAll('.scripture-placeholder');
       if (placeholders.length === 0) return false;
       return Array.from(placeholders).every(el => {
-        return !el.querySelector('.loading') && el.textContent.trim().length > 20;
+        return !el.querySelector('.loading') &&
+               !el.querySelector('.error-msg') &&
+               el.querySelectorAll('.verse, p').length > 0;
       });
     }, { timeout: 12000 });
 
@@ -210,21 +212,21 @@ async function run() {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const page = await context.newPage();
 
-    await page.goto(`https://${PROD_DOMAIN}/`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    const res = await page.goto(`https://${PROD_DOMAIN}/`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    if (res.status() === 401) {
+      logPass('Unauthenticated page request returns HTTP 401');
+    } else {
+      logFail(`Expected HTTP 401 for unauthenticated request, got ${res.status()}`);
+    }
 
-    // Ensure #office-content does NOT render
+    // Ensure #office-content does NOT exist in DOM at all
     const hasOffice = await page.$('#office-content');
     const pageText = await page.textContent('body');
 
-    if (!hasOffice || hasOffice === null) {
+    if (!hasOffice) {
       logPass('Unauthenticated browser session cannot access #office-content');
     } else {
-      const isVisible = await hasOffice.isVisible();
-      if (!isVisible) {
-        logPass('App container is completely hidden from unauthenticated session');
-      } else {
-        logFail('CRITICAL: #office-content is visible to unauthenticated session!');
-      }
+      logFail('CRITICAL SECURITY FAILURE: #office-content exists in unauthenticated DOM!');
     }
 
     if (pageText.includes('For reasons of copyright, this website is no longer available')) {

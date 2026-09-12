@@ -330,9 +330,12 @@ describe('Cloudflare Worker metadata and endpoints', () => {
     const env = {
       ENVIRONMENT: 'production',
       GIT_COMMIT: 'testcommit123',
+      BASIC_AUTH: 'Basic dGVzdDp0ZXN0',
     };
 
-    const req = new Request('https://api.pwc.local/api/version');
+    const req = new Request('https://api.pwc.local/api/version', {
+      headers: { Authorization: 'Basic dGVzdDp0ZXN0' },
+    });
     const res = await worker.fetch(req, env);
 
     expect(res.status).toBe(200);
@@ -379,9 +382,12 @@ describe('Cloudflare Worker metadata and endpoints', () => {
     const env = {
       ENVIRONMENT: 'production',
       GIT_COMMIT: 'prodcommit789',
+      BASIC_AUTH: 'Basic dGVzdDp0ZXN0',
     };
 
-    const req = new Request('https://api.pwc.local/api/v2/calendar'); // Missing date parameter -> 400
+    const req = new Request('https://api.pwc.local/api/v2/calendar', {
+      headers: { Authorization: 'Basic dGVzdDp0ZXN0' },
+    }); // Missing date parameter -> 400
     const res = await worker.fetch(req, env);
 
     expect(res.status).toBe(400);

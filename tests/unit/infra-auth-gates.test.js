@@ -65,16 +65,14 @@ describe('Cloudflare Worker Authentication Gate', () => {
     expect(data.environment).toBe('staging');
   });
 
-  it('allows unauthenticated requests in production environment', async () => {
+  it('fails closed with 500 when production environment has no auth credentials configured', async () => {
     const req = new Request('https://api.praywithoutceasing.ca/api/v3/version', {
       method: 'GET',
     });
     const res = await worker.fetch(req, prodEnv);
-    expect(res.status).toBe(200);
-    const data = await res.json();
-    expect(data.status).toBe('ok');
-    expect(data.apiVersion).toBe('3.0.0');
-    expect(data.environment).toBe('production');
+    expect(res.status).toBe(500);
+    const text = await res.text();
+    expect(text).toContain('misconfigured');
   });
 
   it('rejects unauthenticated requests in production when BASIC_AUTH is configured', async () => {
@@ -106,6 +104,21 @@ describe('Cloudflare Pages Functions Middleware Gate', () => {
     AUTH_PASSWORD: 'daily',
   };
 
+  it('whitelists /sw.js to allow service worker unregistration without authentication', async () => {
+    const req = new Request('https://staging.praywithoutceasing.ca/sw.js', {
+      method: 'GET',
+    });
+    let reached = false;
+    const next = () => {
+      reached = true;
+      return new Response('self.registration.unregister();', { status: 200 });
+    };
+
+    const res = await onRequest({ request: req, next, env });
+    expect(reached).toBe(true);
+    expect(res.status).toBe(200);
+  });
+
   it('rejects unauthenticated requests with 401 and serves takedown notice HTML', async () => {
     const req = new Request('https://staging.praywithoutceasing.ca/', {
       method: 'GET',
@@ -122,7 +135,33 @@ describe('Cloudflare Pages Functions Middleware Gate', () => {
     expect(html).toContain('eval-dialog');
   });
 
-  it('passes through when valid pwc-auth cookie is present', async () => {
+  it('fails closed and serves takedown notice when env credentials are missing', async () => {
+    const req = new Request('https://staging.praywithoutceasing.ca/', {
+      method: 'GET',
+      headers: { Authorization: 'Basic X19BVVRIX1VTRVJfXzpfX0FVVEhfUEFTU1dPUkRfXw==' },
+    });
+    const next = () => new Response('should not reach here');
+
+    const res = await onRequest({ request: req, next, env: {} });
+    expect(res.status).toBe(401);
+    const html = await res.text();
+    expect(html).toContain('For reasons of copyright');
+  });
+
+  it('fails closed and blocks access even with valid cookie when credentials are not configured', async () => {
+    const req = new Request('https://staging.praywithoutceasing.ca/', {
+      method: 'GET',
+      headers: { Cookie: 'pwc-auth=1' },
+    });
+    const next = () => new Response('should not reach here');
+
+    const res = await onRequest({ request: req, next, env: {} });
+    expect(res.status).toBe(401);
+    const html = await res.text();
+    expect(html).toContain('For reasons of copyright');
+  });
+
+  it('passes through when valid pwc-auth cookie is present and credentials are configured', async () => {
     const req = new Request('https://staging.praywithoutceasing.ca/', {
       method: 'GET',
       headers: { Cookie: 'some-cookie=abc; pwc-auth=1; other=def' },
@@ -136,6 +175,36 @@ describe('Cloudflare Pages Functions Middleware Gate', () => {
     const res = await onRequest({ request: req, next, env });
     expect(reached).toBe(true);
     expect(res.status).toBe(200);
+    expect(res.headers.get('Cache-Control')).toBe('private, no-cache');
+    expect(res.headers.get('Vary')).toContain('Cookie');
+  });
+
+  it('rejects forged cookie that merely contains pwc-auth=1 as a substring', async () => {
+    const req = new Request('https://staging.praywithoutceasing.ca/', {
+      method: 'GET',
+      headers: { Cookie: 'tracking=xyz_pwc-auth=1_abc' },
+    });
+    const next = () => new Response('should not reach here');
+
+    const res = await onRequest({ request: req, next, env });
+    expect(res.status).toBe(401);
+  });
+
+  it('sets secure cookie and redirects (303) to clean URL on valid eval_token', async () => {
+    const credentials = btoa(env.AUTH_USER + ':' + env.AUTH_PASSWORD);
+    const req = new Request(`https://staging.praywithoutceasing.ca/?eval_token=${credentials}`, {
+      method: 'GET',
+    });
+    const next = () => new Response('should not reach here');
+
+    const res = await onRequest({ request: req, next, env });
+    expect(res.status).toBe(303);
+    expect(res.headers.get('Location')).toBe('/');
+    const setCookie = res.headers.get('Set-Cookie');
+    expect(setCookie).toBeDefined();
+    expect(setCookie).toContain('pwc-auth=1');
+    expect(setCookie).toContain('HttpOnly');
+    expect(setCookie).toContain('Secure');
   });
 
   it('sets secure cookie and passes through on valid Basic Auth header', async () => {

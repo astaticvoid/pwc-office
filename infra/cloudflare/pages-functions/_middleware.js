@@ -211,7 +211,8 @@ const TAKEDOWN_HTML = `<!doctype html>
         const errEl = document.getElementById('error-msg');
         errEl.style.display = 'none';
 
-        const token = btoa(u + ':' + p);
+        // UTF-8 safe base64 encoding
+        const token = btoa(unescape(encodeURIComponent(u + ':' + p)));
         try {
           const res = await fetch(window.location.href, {
             headers: { 'Authorization': 'Basic ' + token }
@@ -232,31 +233,75 @@ const TAKEDOWN_HTML = `<!doctype html>
 
 export async function onRequest(context) {
   const { request, next, env } = context;
+  const url = new URL(request.url);
 
-  // 1. Check for existing auth cookie
-  const cookieHeader = request.headers.get("Cookie") || "";
-  if (cookieHeader.includes("pwc-auth=1")) {
+  // 1. Whitelist service worker kill-switch so browsers can unregister stale service workers
+  if (url.pathname === "/sw.js") {
     return next();
   }
 
-  // 2. Evaluate Basic Authentication or evaluation query token
+  // 2. Fail-closed: If credentials are not configured, reject all access immediately.
   const expectedUser = env.AUTH_USER || "__AUTH_USER__";
   const expectedPass = env.AUTH_PASSWORD || "__AUTH_PASSWORD__";
-  const expectedToken = btoa(expectedUser + ":" + expectedPass);
+
+  if (!expectedUser || !expectedPass || expectedUser.startsWith("__") || expectedPass.startsWith("__")) {
+    return new Response(TAKEDOWN_HTML, {
+      status: 401,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
+    });
+  }
+
+  // 3. Check for existing auth cookie using exact match
+  const cookieHeader = request.headers.get("Cookie") || "";
+  const hasAuthCookie = /(?:^|;\s*)pwc-auth=1(?=;|$)/.test(cookieHeader);
+  if (hasAuthCookie) {
+    const response = await next();
+    const body = [101, 204, 205, 304].includes(response.status) ? null : response.body;
+    const authedResponse = new Response(body, response);
+    authedResponse.headers.set("Cache-Control", "private, no-cache");
+    const existingVary = response.headers.get("Vary");
+    authedResponse.headers.set("Vary", existingVary ? `${existingVary}, Cookie, Authorization` : "Cookie, Authorization");
+    return authedResponse;
+  }
+
+  // 4. Evaluate Basic Authentication or evaluation query token (UTF-8 safe base64)
+  const expectedToken = btoa(unescape(encodeURIComponent(expectedUser + ":" + expectedPass)));
   const expectedAuth = "Basic " + expectedToken;
 
   const authHeader = request.headers.get("Authorization");
-  const url = new URL(request.url);
   const queryToken = url.searchParams.get("eval_token");
 
-  if (authHeader === expectedAuth || queryToken === expectedToken) {
+  // Query token bypass: set cookie and redirect (HTTP 303) to clean URL
+  // Mitigate open redirect by enforcing safe root-relative path
+  if (queryToken && queryToken === expectedToken) {
+    url.searchParams.delete("eval_token");
+    const safePath = "/" + url.pathname.replace(/^\/+/, "");
+    const cleanUrl = safePath + (url.search ? url.search : "") + url.hash;
+    return new Response(null, {
+      status: 303,
+      headers: {
+        "Location": cleanUrl,
+        "Set-Cookie": "pwc-auth=1; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400",
+        "Cache-Control": "no-store",
+      },
+    });
+  }
+
+  if (authHeader === expectedAuth) {
     const response = await next();
-    const newResponse = new Response(response.body, response);
+    const body = [101, 204, 205, 304].includes(response.status) ? null : response.body;
+    const newResponse = new Response(body, response);
     newResponse.headers.append("Set-Cookie", "pwc-auth=1; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400");
+    newResponse.headers.set("Cache-Control", "private, no-cache");
+    const existingVary = response.headers.get("Vary");
+    newResponse.headers.set("Vary", existingVary ? `${existingVary}, Cookie, Authorization` : "Cookie, Authorization");
     return newResponse;
   }
 
-  // 3. Unauthenticated response: Return 401 with takedown notice HTML
+  // 5. Unauthenticated response: Return 401 with takedown notice HTML
   // NOTE: Omit "WWW-Authenticate" so the browser does NOT pop up a native credentials prompt.
   // Visitors immediately see the takedown notice, and evaluators can click "Evaluation Sign In".
   return new Response(TAKEDOWN_HTML, {

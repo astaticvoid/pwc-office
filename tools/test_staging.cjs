@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global document */
 /**
  * tools/test_staging.cjs — Automated verification probe for Staging deployments.
  *
@@ -128,6 +129,15 @@ async function run() {
     const context = await browser.newContext({
       httpCredentials: { username: USER, password: PASS },
     });
+    await context.addCookies([{
+      name: 'pwc-auth',
+      value: '1',
+      domain: STAGING_DOMAIN,
+      path: '/',
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Lax',
+    }]);
     const page = await context.newPage();
 
     const consoleErrors = [];
@@ -145,6 +155,16 @@ async function run() {
       logFail('Failed to find #day-title or empty title');
     }
 
+    await page.waitForFunction(() => {
+      const placeholders = document.querySelectorAll('.scripture-placeholder');
+      if (placeholders.length === 0) return false;
+      return Array.from(placeholders).every(el => {
+        return !el.querySelector('.loading') &&
+               !el.querySelector('.error-msg') &&
+               el.querySelectorAll('.verse, p').length > 0;
+      });
+    }, { timeout: 12000 }).catch(() => {});
+
     const placeholders = await page.$$eval('.scripture-placeholder', els => els.map(el => ({
       citation: el.dataset.citation,
       text: el.innerText.trim(),
@@ -153,7 +173,7 @@ async function run() {
     if (placeholders.length > 0) {
       let resolvedCount = 0;
       for (const p of placeholders) {
-        if (p.text && !p.text.includes('Loading') && !p.text.includes('Error')) {
+        if (p.text && !p.text.includes('Loading') && !p.text.includes('Error') && !p.text.includes('Authentication required')) {
           resolvedCount++;
         }
       }

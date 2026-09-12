@@ -37,6 +37,13 @@ function storageSet(key, value) {
   }
 }
 
+function storageRemove(key) {
+  try { localStorage.removeItem(key); } catch (_) {}
+  if (isNative) {
+    window.__pwcPlugins.Preferences.remove({ key }).catch(() => {});
+  }
+}
+
 async function migrateStorageToPreferences() {
   if (!isNative) return;
   try {
@@ -70,10 +77,22 @@ async function restoreStorageFromPreferences() {
 // ── Native platform features ──────────────────────────────────────────────────
 
 function updateNativeStatusBar() {
-  if (!isNative) return;
+  if (!isNative || !window.__pwcPlugins?.StatusBar) return;
+  const theme = document.documentElement.getAttribute('data-theme') || 'light';
   const { StatusBar, Style } = window.__pwcPlugins;
-  StatusBar.setStyle({ style: Style.Dark });
-  StatusBar.setBackgroundColor({ color: '#15382A' });
+  const isDark = theme === 'dark';
+
+  // Capacitor's naming is inverted and counter-intuitive:
+  // - Style.Dark means "content suited for dark background" -> white/light text and icons.
+  // - Style.Light means "content suited for light background" -> black/dark text and icons.
+  const STATUS_ICONS_LIGHT = Style.Dark;
+
+  // Both themes use a dark header bar:
+  // - Light theme: dark pine green header (#15382A)
+  // - Dark theme: dark charcoal header (#1C1A17)
+  // Therefore, icons must always be white/light (STATUS_ICONS_LIGHT) to ensure high contrast.
+  StatusBar.setStyle({ style: STATUS_ICONS_LIGHT }).catch(() => {});
+  StatusBar.setBackgroundColor({ color: isDark ? '#1C1A17' : '#15382A' }).catch(() => {});
 }
 
 function initNativeFeatures() {
@@ -158,7 +177,7 @@ function initTheme() {
 
 function setTheme(themeVal) {
   if (themeVal === 'auto') {
-    try { localStorage.removeItem('pwc-theme'); } catch (_) {}
+    storageRemove('pwc-theme');
   } else {
     storageSet('pwc-theme', themeVal);
   }

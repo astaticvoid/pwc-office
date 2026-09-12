@@ -466,23 +466,28 @@ deploy-pages-staging:
 	USER=$$(echo "$$AUTH_USER" | tr -d '"'\' ); \
 	PASS=$$(echo "$$AUTH_PASSWORD" | tr -d '"'\' ); \
 	TOKEN=$$( [ -n "$$USER" ] && [ -n "$$PASS" ] && node -e 'console.log("Basic " + Buffer.from(process.argv[1] + ":" + process.argv[2]).toString("base64"))' "$$USER" "$$PASS" || echo "" ); \
+	mkdir -p .build; \
+	rm -rf .build/pages-staging-dist; \
 	$(MAKE) build EVAL_AUTH_TOKEN="$$TOKEN" API_ORIGIN="$$STAGING_ORIGIN"; \
 	cp -r dist .build/pages-staging-dist; \
 	$(MAKE) build EVAL_AUTH_TOKEN="" API_ORIGIN=""; \
 	if [ -n "$$CLOUDFLARE_API_TOKEN" ] || [ -n "$$CLOUDFLARE_ACCOUNT_ID" ] || npx wrangler whoami $(WRANGLER_FLAGS) 2>&1 | grep -q "You are logged in"; then \
 		PROJECT=$$(echo "$${CF_PAGES_PROJECT:-pwc-office}" | tr -d '"'\' ); \
 		rm -rf functions; \
-		if [ -d infra/cloudflare/pages-functions ] && [ -n "$$USER" ] && [ -n "$$PASS" ]; then \
+		if [ -d infra/cloudflare/pages-functions ]; then \
 			mkdir -p functions; \
-			node -e ' \
-				const fs = require("fs"); \
-				let code = fs.readFileSync("infra/cloudflare/pages-functions/_middleware.js", "utf8"); \
-				code = code.replace(/__AUTH_USER__/g, process.argv[1]).replace(/__AUTH_PASSWORD__/g, process.argv[2]); \
-				fs.writeFileSync("functions/_middleware.js", code); \
-			' "$$USER" "$$PASS"; \
+			cp infra/cloudflare/pages-functions/_middleware.js functions/_middleware.js; \
+			if [ -n "$$USER" ] && [ -n "$$PASS" ]; then \
+				node -e ' \
+					const fs = require("fs"); \
+					let code = fs.readFileSync("functions/_middleware.js", "utf8"); \
+					code = code.replace(/__AUTH_USER__/g, () => process.argv[1]).replace(/__AUTH_PASSWORD__/g, () => process.argv[2]); \
+					fs.writeFileSync("functions/_middleware.js", code); \
+				' "$$USER" "$$PASS"; \
+			fi; \
 		fi; \
 		echo "Deploying Staging Cloudflare Pages (target: $(DEPLOY_TARGET), project: $$PROJECT)..."; \
-		CLOUDFLARE_API_TOKEN="" npx wrangler pages deploy .build/pages-staging-dist --project-name "$$PROJECT" --branch staging $(WRANGLER_FLAGS) --commit-dirty=true || (rm -rf functions .build/pages-staging-dist; exit 1); \
+		npx wrangler pages deploy .build/pages-staging-dist --project-name "$$PROJECT" --branch staging $(WRANGLER_FLAGS) --commit-dirty=true || (rm -rf functions .build/pages-staging-dist; exit 1); \
 		rm -rf functions .build/pages-staging-dist; \
 	else \
 		rm -rf .build/pages-staging-dist; \
@@ -494,25 +499,31 @@ deploy-pages-prod:
 	USER=$$(echo "$$AUTH_USER" | tr -d '"'\' ); \
 	PASS=$$(echo "$$AUTH_PASSWORD" | tr -d '"'\' ); \
 	TOKEN=$$( [ -n "$$USER" ] && [ -n "$$PASS" ] && node -e 'console.log("Basic " + Buffer.from(process.argv[1] + ":" + process.argv[2]).toString("base64"))' "$$USER" "$$PASS" || echo "" ); \
-	$(MAKE) build EVAL_AUTH_TOKEN="$$TOKEN" API_ORIGIN="$$PROD_ORIGIN"
-	@if [ -n "$$CLOUDFLARE_API_TOKEN" ] || [ -n "$$CLOUDFLARE_ACCOUNT_ID" ] || npx wrangler whoami $(WRANGLER_FLAGS) 2>&1 | grep -q "You are logged in"; then \
+	mkdir -p .build; \
+	rm -rf .build/pages-prod-dist; \
+	$(MAKE) build EVAL_AUTH_TOKEN="$$TOKEN" API_ORIGIN="$$PROD_ORIGIN"; \
+	cp -r dist .build/pages-prod-dist; \
+	$(MAKE) build EVAL_AUTH_TOKEN="" API_ORIGIN=""; \
+	if [ -n "$$CLOUDFLARE_API_TOKEN" ] || [ -n "$$CLOUDFLARE_ACCOUNT_ID" ] || npx wrangler whoami $(WRANGLER_FLAGS) 2>&1 | grep -q "You are logged in"; then \
 		PROJECT=$$(echo "$${CF_PAGES_PROJECT:-pwc-office}" | tr -d '"'\' ); \
-		USER=$$(echo "$$AUTH_USER" | tr -d '"'\' ); \
-		PASS=$$(echo "$$AUTH_PASSWORD" | tr -d '"'\' ); \
 		rm -rf functions; \
-		if [ -d infra/cloudflare/pages-functions ] && [ -n "$$USER" ] && [ -n "$$PASS" ]; then \
+		if [ -d infra/cloudflare/pages-functions ]; then \
 			mkdir -p functions; \
-			node -e ' \
-				const fs = require("fs"); \
-				let code = fs.readFileSync("infra/cloudflare/pages-functions/_middleware.js", "utf8"); \
-				code = code.replace(/__AUTH_USER__/g, process.argv[1]).replace(/__AUTH_PASSWORD__/g, process.argv[2]); \
-				fs.writeFileSync("functions/_middleware.js", code); \
-			' "$$USER" "$$PASS"; \
+			cp infra/cloudflare/pages-functions/_middleware.js functions/_middleware.js; \
+			if [ -n "$$USER" ] && [ -n "$$PASS" ]; then \
+				node -e ' \
+					const fs = require("fs"); \
+					let code = fs.readFileSync("functions/_middleware.js", "utf8"); \
+					code = code.replace(/__AUTH_USER__/g, () => process.argv[1]).replace(/__AUTH_PASSWORD__/g, () => process.argv[2]); \
+					fs.writeFileSync("functions/_middleware.js", code); \
+				' "$$USER" "$$PASS"; \
+			fi; \
 		fi; \
 		echo "Deploying Production Cloudflare Pages (target: $(DEPLOY_TARGET), project: $$PROJECT)..."; \
-		CLOUDFLARE_API_TOKEN="" npx wrangler pages deploy dist --project-name "$$PROJECT" --branch main $(WRANGLER_FLAGS) --commit-dirty=true || (rm -rf functions; exit 1); \
-		rm -rf functions; \
+		npx wrangler pages deploy .build/pages-prod-dist --project-name "$$PROJECT" --branch main $(WRANGLER_FLAGS) --commit-dirty=true || (rm -rf functions .build/pages-prod-dist; exit 1); \
+		rm -rf functions .build/pages-prod-dist; \
 	else \
+		rm -rf .build/pages-prod-dist; \
 		echo "Skipping Cloudflare Pages deploy: Cloudflare credentials not set."; \
 	fi
 

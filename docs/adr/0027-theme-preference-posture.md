@@ -20,7 +20,7 @@ Previously, the app used an implicit binary toggle button in the Settings sheet:
    - `Auto`: `localStorage.removeItem('pwc-theme')`. The DOM attribute `data-theme` mirrors the live OS query.
    - `Light`: `localStorage.setItem('pwc-theme', 'light')`. The DOM attribute `data-theme` is set to `"light"`.
    - `Dark`: `localStorage.setItem('pwc-theme', 'dark')`. The DOM attribute `data-theme` is set to `"dark"`.
-4. **Native Shell Coordination:** When running within native Capacitor shells (iOS/Android), the system status bar style (`Style.Light` vs `Style.Dark`) updates synchronously with the resolved theme state.
+4. **Native Shell Coordination:** When running within native Capacitor shells (iOS/Android), the system status bar background color updates synchronously with the resolved theme state (`#15382A` for light mode, `#1C1A17` for dark mode). Because both themes employ dark navigation headers, the status bar content style is set to light icons (`Style.Dark` in Capacitor's inverted nomenclature) to preserve WCAG AA contrast.
 
 ## Consequences
 - Readers who prefer printed paper appearance (cream/warm-white) at all hours can lock `Light`.

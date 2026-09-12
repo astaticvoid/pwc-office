@@ -21,10 +21,10 @@ export default {
       }
 
       // 2. BASIC AUTHENTICATION
-      // Staging: fail-closed (500 if unconfigured). Production: soft gate (enforce if configured, pass-through if not).
+      // Fail closed: If credentials are not configured, halt with 500 to prevent exposing scripture.
       const expectedAuth = env.STAGING_AUTH || env.BASIC_AUTH;
-      if (env.ENVIRONMENT === "staging" && !expectedAuth) {
-        return new Response("Staging authentication is misconfigured", {
+      if (!expectedAuth) {
+        return new Response(`${env.ENVIRONMENT || "Server"} authentication is misconfigured`, {
           status: 500,
           headers: {
             "Content-Type": "text/plain; charset=utf-8",
@@ -33,25 +33,22 @@ export default {
         });
       }
 
-      if (expectedAuth) {
-        const authHeader = request.headers.get("Authorization");
-
-        if (authHeader !== expectedAuth) {
-          const isV3 = url.pathname.includes("/v3/") || url.pathname.endsWith("/version");
-          const realm = env.ENVIRONMENT === "staging" ? "PWC Staging API" : "PWC API";
-          return new Response("Unauthorized", {
-            status: 401,
-            headers: {
-              "WWW-Authenticate": `Basic realm="${realm}"`,
-              "Cache-Control": "no-store",
-              "Access-Control-Allow-Origin": "*",
-              "Access-Control-Expose-Headers": "X-API-Version, X-Git-Commit, X-Environment",
-              "X-API-Version": isV3 ? "3.0.0" : "2.0.0",
-              "X-Environment": env.ENVIRONMENT || "unknown",
-              "X-Git-Commit": env.GIT_COMMIT || "unknown",
-            },
-          });
-        }
+      const authHeader = request.headers.get("Authorization");
+      if (authHeader !== expectedAuth) {
+        const isV3 = url.pathname.includes("/v3/") || url.pathname.endsWith("/version");
+        const realm = env.ENVIRONMENT === "staging" ? "PWC Staging API" : "PWC API";
+        return new Response("Unauthorized", {
+          status: 401,
+          headers: {
+            "WWW-Authenticate": `Basic realm="${realm}"`,
+            "Cache-Control": "no-store",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Expose-Headers": "X-API-Version, X-Git-Commit, X-Environment",
+            "X-API-Version": isV3 ? "3.0.0" : "2.0.0",
+            "X-Environment": env.ENVIRONMENT || "unknown",
+            "X-Git-Commit": env.GIT_COMMIT || "unknown",
+          },
+        });
       }
 
     // 3. API ROUTING — only /api/* is valid
@@ -196,7 +193,8 @@ export default {
     headers.set("Access-Control-Allow-Origin", "*");
     headers.set("Access-Control-Expose-Headers", "X-API-Version, X-Git-Commit, X-Environment");
     headers.set("Content-Type", "application/json");
-    headers.set("Cache-Control", "public, max-age=3600");
+    headers.set("Cache-Control", "private, no-cache, no-store");
+    headers.set("Vary", "Authorization");
     headers.set("X-API-Version", apiVerHeader);
     headers.set("X-Environment", env.ENVIRONMENT || "unknown");
     headers.set("X-Git-Commit", env.GIT_COMMIT || "unknown");
