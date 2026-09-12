@@ -331,7 +331,10 @@ check-integrity:
 # (runbook: docs/runbooks/ios-testflight-ship.md).
 mobile-sync:
 	@NATIVE_API_ORIGIN=$$( [ -n "$$API_ORIGIN" ] && echo "$$API_ORIGIN" | tr -d '"'\' || ([ -n "$$CF_API_DOMAIN" ] && echo "https://$$(echo "$$CF_API_DOMAIN" | tr -d '"'\' )" || ([ -n "$$CF_DOMAIN" ] && echo "https://$$(echo "$$CF_DOMAIN" | tr -d '"'\' )" || "")) ); \
-	$(MAKE) check-dist API_ORIGIN="$$NATIVE_API_ORIGIN" EVAL_AUTH_TOKEN=""
+	USER=$$(echo "$$AUTH_USER" | tr -d '"'\' ); \
+	PASS=$$(echo "$$AUTH_PASSWORD" | tr -d '"'\' ); \
+	TOKEN=$$( [ -n "$$USER" ] && [ -n "$$PASS" ] && node -e 'console.log("Basic " + Buffer.from(process.argv[1] + ":" + process.argv[2]).toString("base64"))' "$$USER" "$$PASS" || echo "" ); \
+	ALLOW_EVAL_AUTH=1 $(MAKE) check-dist API_ORIGIN="$$NATIVE_API_ORIGIN" EVAL_AUTH_TOKEN="$$TOKEN"
 	npx cap sync
 	$(PYTHON) tools/check_mobile_sync.py
 

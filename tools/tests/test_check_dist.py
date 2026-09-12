@@ -60,6 +60,16 @@ def test_check_dist_detects_basic_auth_leak(tmp_path):
     assert "data-provider.js contains embedded Basic Auth credentials!" in res.stdout
 
 
+def test_check_dist_permits_eval_auth_with_override(tmp_path):
+    mock_dist = _setup_mock_dist(tmp_path)
+    data_provider = mock_dist / "data-provider.js"
+    data_provider.write_text("const authPlaceholder = 'Basic b2ZmaWNlOmRhaWx5';")
+
+    res = run_check_dist(dist_path=mock_dist, env_overrides={"ALLOW_EVAL_AUTH": "1", "ALLOW_STAGING_AUTH": "0"})
+    # It should pass auth check (might fail on other missing mock files if any, but not on auth)
+    assert "data-provider.js contains embedded Basic Auth credentials!" not in res.stdout
+
+
 def test_check_dist_detects_staging_origin_leak(tmp_path):
     mock_dist = _setup_mock_dist(tmp_path)
     data_provider = mock_dist / "data-provider.js"

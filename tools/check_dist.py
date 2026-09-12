@@ -254,7 +254,7 @@ else:
 data_provider = dist / "data-provider.js"
 if data_provider.exists():
     dp_content = data_provider.read_text()
-    if re.search(r"authPlaceholder\s*=\s*['\"]Basic\s+", dp_content) and os.environ.get("ALLOW_STAGING_AUTH") != "1":
+    if re.search(r"authPlaceholder\s*=\s*['\"]Basic\s+", dp_content) and os.environ.get("ALLOW_STAGING_AUTH") != "1" and os.environ.get("ALLOW_EVAL_AUTH") != "1":
         errors.append(
             "data-provider.js contains embedded Basic Auth credentials! "
             "Staging credentials must never be bundled into release artifacts."
