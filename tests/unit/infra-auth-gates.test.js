@@ -106,7 +106,7 @@ describe('Cloudflare Pages Functions Middleware Gate', () => {
     AUTH_PASSWORD: 'daily',
   };
 
-  it('rejects unauthenticated requests with 401 and WWW-Authenticate header', async () => {
+  it('rejects unauthenticated requests with 401 and serves takedown notice HTML', async () => {
     const req = new Request('https://staging.praywithoutceasing.ca/', {
       method: 'GET',
     });
@@ -115,6 +115,11 @@ describe('Cloudflare Pages Functions Middleware Gate', () => {
     const res = await onRequest({ request: req, next, env });
     expect(res.status).toBe(401);
     expect(res.headers.get('WWW-Authenticate')).toContain('Basic realm="Pray Without Ceasing Staging"');
+    expect(res.headers.get('Content-Type')).toContain('text/html');
+    const html = await res.text();
+    expect(html).toContain('For reasons of copyright, this website is no longer available');
+    expect(html).toContain('Evaluation Sign In');
+    expect(html).toContain('eval-dialog');
   });
 
   it('passes through when valid pwc-auth cookie is present', async () => {
