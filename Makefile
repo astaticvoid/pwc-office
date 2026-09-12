@@ -8,8 +8,8 @@ export
 PORT      ?= 8080
 PORT_DIST ?= 8081
 
-# Default API_ORIGIN to CF_API_DOMAIN or CF_DOMAIN if set, so Capacitor builds target the deployed API
-API_ORIGIN ?= $(if $(CF_API_DOMAIN),https://$(CF_API_DOMAIN),$(if $(CF_DOMAIN),https://$(CF_DOMAIN),))
+# Default API_ORIGIN: only set if explicitly defined in environment (Capacitor/mobile builds)
+API_ORIGIN ?=
 
 # Python interpreter. Prefer the project venv (`make venv`) when present, so no
 # shell activation is needed; fall back to the ambient python3 (CI, which gets a
@@ -327,7 +327,9 @@ check-integrity:
 # The synced native web dirs are gitignored, so staleness is invisible to git:
 # check_mobile_sync.py is the guard that keeps an archive from bundling an old dist/
 # (runbook: docs/runbooks/ios-testflight-ship.md).
-mobile-sync: check-dist
+mobile-sync:
+	@NATIVE_API_ORIGIN=$$( [ -n "$$API_ORIGIN" ] && echo "$$API_ORIGIN" | tr -d '"'\' || ([ -n "$$CF_API_DOMAIN" ] && echo "https://$$(echo "$$CF_API_DOMAIN" | tr -d '"'\' )" || ([ -n "$$CF_DOMAIN" ] && echo "https://$$(echo "$$CF_DOMAIN" | tr -d '"'\' )" || "")) ); \
+	$(MAKE) check-dist API_ORIGIN="$$NATIVE_API_ORIGIN" EVAL_AUTH_TOKEN=""
 	npx cap sync
 	$(PYTHON) tools/check_mobile_sync.py
 
@@ -457,32 +459,43 @@ sync-r2:
 		echo "Skipping R2 sync: R2 credentials not set for target $(DEPLOY_TARGET)."; \
 	fi
 
-deploy-pages-staging: build
-	@if [ -n "$$CLOUDFLARE_API_TOKEN" ] || [ -n "$$CLOUDFLARE_ACCOUNT_ID" ] || npx wrangler whoami $(WRANGLER_FLAGS) 2>&1 | grep -q "You are logged in"; then \
+deploy-pages-staging:
+	@STAGING_ORIGIN=$$( [ -n "$$CF_API_STAGING_DOMAIN" ] && echo "https://$$(echo "$$CF_API_STAGING_DOMAIN" | tr -d '"'\' )" || echo "" ); \
+	USER=$$(echo "$$AUTH_USER" | tr -d '"'\' ); \
+	PASS=$$(echo "$$AUTH_PASSWORD" | tr -d '"'\' ); \
+	TOKEN=$$( [ -n "$$USER" ] && [ -n "$$PASS" ] && node -e 'console.log("Basic " + Buffer.from(process.argv[1] + ":" + process.argv[2]).toString("base64"))' "$$USER" "$$PASS" || echo "" ); \
+	rm -rf .build/pages-staging-dist; \
+	EVAL_AUTH_TOKEN="$$TOKEN" API_ORIGIN="$$STAGING_ORIGIN" $(MAKE) build; \
+	cp -r dist .build/pages-staging-dist; \
+	$(MAKE) build EVAL_AUTH_TOKEN="" API_ORIGIN=""; \
+	if [ -n "$$CLOUDFLARE_API_TOKEN" ] || [ -n "$$CLOUDFLARE_ACCOUNT_ID" ] || npx wrangler whoami $(WRANGLER_FLAGS) 2>&1 | grep -q "You are logged in"; then \
 		PROJECT=$$(echo "$${CF_PAGES_PROJECT:-pwc-office}" | tr -d '"'\' ); \
-		USER=$$(echo "$$AUTH_USER" | tr -d '"'\' ); \
-		PASS=$$(echo "$$AUTH_PASSWORD" | tr -d '"'\' ); \
 		rm -rf functions; \
-		if [ -d infra/cloudflare/pages-functions ]; then \
+		if [ -d infra/cloudflare/pages-functions ] && [ -n "$$USER" ] && [ -n "$$PASS" ]; then \
 			mkdir -p functions; \
-			cp -r infra/cloudflare/pages-functions/* functions/; \
-			if [ -n "$$USER" ] && [ -n "$$PASS" ]; then \
-				sed -i.bak -e "s|__AUTH_USER__|$$USER|g" -e "s|__AUTH_PASSWORD__|$$PASS|g" functions/_middleware.js && rm -f functions/_middleware.js.bak; \
-			fi; \
+			node -e ' \
+				const fs = require("fs"); \
+				let code = fs.readFileSync("infra/cloudflare/pages-functions/_middleware.js", "utf8"); \
+				code = code.replace(/__AUTH_USER__/g, process.argv[1]).replace(/__AUTH_PASSWORD__/g, process.argv[2]); \
+				fs.writeFileSync("functions/_middleware.js", code); \
+			' "$$USER" "$$PASS"; \
 		fi; \
 		echo "Deploying Staging Cloudflare Pages (target: $(DEPLOY_TARGET), project: $$PROJECT)..."; \
-		CLOUDFLARE_API_TOKEN="" npx wrangler pages deploy dist --project-name "$$PROJECT" --branch production $(WRANGLER_FLAGS) --commit-dirty=true || (rm -rf functions; exit 1); \
-		rm -rf functions; \
+		CLOUDFLARE_API_TOKEN="" npx wrangler pages deploy .build/pages-staging-dist --project-name "$$PROJECT" --branch staging $(WRANGLER_FLAGS) --commit-dirty=true || (rm -rf functions .build/pages-staging-dist; exit 1); \
+		rm -rf functions .build/pages-staging-dist; \
 	else \
+		rm -rf .build/pages-staging-dist; \
 		echo "Skipping Cloudflare Pages deploy: Cloudflare credentials not set."; \
 	fi
 
 deploy-pages-prod:
-	@EVAL_AUTH_TOKEN="" $(MAKE) build
+	@PROD_ORIGIN=$$( [ -n "$$CF_API_DOMAIN" ] && echo "https://$$(echo "$$CF_API_DOMAIN" | tr -d '"'\' )" || echo "" ); \
+	$(MAKE) build EVAL_AUTH_TOKEN="" API_ORIGIN="$$PROD_ORIGIN"
 	@if [ -n "$$CLOUDFLARE_API_TOKEN" ] || [ -n "$$CLOUDFLARE_ACCOUNT_ID" ] || npx wrangler whoami $(WRANGLER_FLAGS) 2>&1 | grep -q "You are logged in"; then \
 		PROJECT=$$(echo "$${CF_PAGES_PROJECT:-pwc-office}" | tr -d '"'\' ); \
+		rm -rf functions; \
 		echo "Deploying Production Cloudflare Pages (target: $(DEPLOY_TARGET), project: $$PROJECT)..."; \
-		npx wrangler pages deploy dist --project-name "$$PROJECT" --branch main $(WRANGLER_FLAGS) --commit-dirty=true || exit 1; \
+		CLOUDFLARE_API_TOKEN="" npx wrangler pages deploy dist --project-name "$$PROJECT" --branch main $(WRANGLER_FLAGS) --commit-dirty=true || exit 1; \
 	else \
 		echo "Skipping Cloudflare Pages deploy: Cloudflare credentials not set."; \
 	fi
