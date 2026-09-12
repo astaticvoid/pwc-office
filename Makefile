@@ -5,7 +5,7 @@ DEPLOY_TARGET ?= personal
 EVAL_AUTH_TOKEN :=
 export
 
-.PHONY: lint-css check-conservation venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata intake-year serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-bump-version mobile-ios mobile-ios-upload mobile-android qa lint lint-js lint-ts lint-py test-mutations hooks slice-readings audit-copyright deploy-worker-staging deploy-worker-prod sync-r2 deploy-pages-staging deploy-pages-prod deploy-aws-staging deploy-aws-prod
+.PHONY: lint-css check-conservation venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata intake-year serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-bump-version mobile-ios mobile-ios-upload mobile-android qa lint lint-js lint-ts lint-py test-mutations hooks slice-readings audit-copyright deploy-worker-staging deploy-worker-prod sync-r2 deploy-pages-staging deploy-pages-prod deploy-aws-staging deploy-aws-prod test-prod
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
@@ -594,6 +594,13 @@ deploy-worker-staging:
 		echo "Skipping Cloudflare Worker deploy: Cloudflare credentials not set."; \
 	fi
 
+test-prod:
+	@if [ "$(DEPLOY_TARGET)" = "diocese" ]; then \
+		node tools/test_prod.cjs || exit 1; \
+	else \
+		echo "Production probe only configured for diocese target."; \
+	fi
+
 deploy-worker-prod:
 	@if [ -n "$$CLOUDFLARE_API_TOKEN" ] || [ -n "$$CLOUDFLARE_ACCOUNT_ID" ] || npx wrangler whoami $(WRANGLER_FLAGS) 2>&1 | grep -q "You are logged in"; then \
 		GIT_SHA=$$(git rev-parse --short HEAD 2>/dev/null || echo "unknown"); \
@@ -652,6 +659,10 @@ promote:
 	$(MAKE) deploy-worker-prod
 	$(MAKE) deploy-pages-prod
 	$(MAKE) deploy-aws-prod
+	@if [ "$(DEPLOY_TARGET)" = "diocese" ]; then \
+		echo "Running mandatory production security verification probe..."; \
+		$(MAKE) test-prod || exit 1; \
+	fi
 	@echo "Promoted to production: $$(cat .deploy-latest) (target: $(DEPLOY_TARGET))"
 
 deploy-aws-prod:
