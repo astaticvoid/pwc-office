@@ -460,8 +460,19 @@ sync-r2:
 deploy-pages-staging: build
 	@if [ -n "$$CLOUDFLARE_API_TOKEN" ] || [ -n "$$CLOUDFLARE_ACCOUNT_ID" ] || npx wrangler whoami $(WRANGLER_FLAGS) 2>&1 | grep -q "You are logged in"; then \
 		PROJECT=$$(echo "$${CF_PAGES_PROJECT:-pwc-office}" | tr -d '"'\' ); \
+		USER=$$(echo "$$AUTH_USER" | tr -d '"'\' ); \
+		PASS=$$(echo "$$AUTH_PASSWORD" | tr -d '"'\' ); \
+		rm -rf functions; \
+		if [ -d infra/cloudflare/pages-functions ]; then \
+			mkdir -p functions; \
+			cp -r infra/cloudflare/pages-functions/* functions/; \
+			if [ -n "$$USER" ] && [ -n "$$PASS" ]; then \
+				sed -i.bak -e "s|__AUTH_USER__|$$USER|g" -e "s|__AUTH_PASSWORD__|$$PASS|g" functions/_middleware.js && rm -f functions/_middleware.js.bak; \
+			fi; \
+		fi; \
 		echo "Deploying Staging Cloudflare Pages (target: $(DEPLOY_TARGET), project: $$PROJECT)..."; \
-		npx wrangler pages deploy dist --project-name "$$PROJECT" --branch staging $(WRANGLER_FLAGS) --commit-dirty=true || exit 1; \
+		CLOUDFLARE_API_TOKEN="" npx wrangler pages deploy dist --project-name "$$PROJECT" --branch production $(WRANGLER_FLAGS) --commit-dirty=true || (rm -rf functions; exit 1); \
+		rm -rf functions; \
 	else \
 		echo "Skipping Cloudflare Pages deploy: Cloudflare credentials not set."; \
 	fi
