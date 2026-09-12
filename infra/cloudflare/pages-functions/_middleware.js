@@ -253,10 +253,11 @@ export async function onRequest(context) {
   }
 
   // 3. Unauthenticated response: Return 401 with takedown notice HTML
+  // NOTE: Omit "WWW-Authenticate" so the browser does NOT pop up a native credentials prompt.
+  // Visitors immediately see the takedown notice, and evaluators can click "Evaluation Sign In".
   return new Response(TAKEDOWN_HTML, {
     status: 401,
     headers: {
-      "WWW-Authenticate": 'Basic realm="Pray Without Ceasing Staging"',
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "no-store",
     },

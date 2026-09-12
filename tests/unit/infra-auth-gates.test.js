@@ -114,7 +114,7 @@ describe('Cloudflare Pages Functions Middleware Gate', () => {
 
     const res = await onRequest({ request: req, next, env });
     expect(res.status).toBe(401);
-    expect(res.headers.get('WWW-Authenticate')).toContain('Basic realm="Pray Without Ceasing Staging"');
+    expect(res.headers.get('WWW-Authenticate')).toBeNull();
     expect(res.headers.get('Content-Type')).toContain('text/html');
     const html = await res.text();
     expect(html).toContain('For reasons of copyright, this website is no longer available');
