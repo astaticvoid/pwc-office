@@ -594,12 +594,12 @@ deploy-worker-staging:
 		fi; \
 		echo "Deploying Staging Cloudflare API Worker (target: $(DEPLOY_TARGET), commit: $$GIT_SHA)..."; \
 		if [ -n "$$BASIC_AUTH_TOKEN" ]; then \
-			npx wrangler deploy --config infra/cloudflare/wrangler.toml $(WRANGLER_FLAGS) \
+			npx wrangler deploy --config infra/cloudflare/wrangler.toml --env "" $(WRANGLER_FLAGS) \
 			  $$DOMAIN_FLAG \
 			  --var "GIT_COMMIT:$$GIT_SHA" \
 			  --var "STAGING_AUTH:$$BASIC_AUTH_TOKEN" || exit 1; \
 		else \
-			npx wrangler deploy --config infra/cloudflare/wrangler.toml $(WRANGLER_FLAGS) \
+			npx wrangler deploy --config infra/cloudflare/wrangler.toml --env "" $(WRANGLER_FLAGS) \
 			  $$DOMAIN_FLAG \
 			  --var "GIT_COMMIT:$$GIT_SHA" || exit 1; \
 		fi; \
