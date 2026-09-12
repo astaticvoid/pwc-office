@@ -25,8 +25,9 @@ As the project reached diocesan adoption and prepared for authorized synod evalu
 ### 2. Streamlined API v3 Slicing Pipeline
 - `make slice-readings` executes solely `tools/slice_daily_payload.js` (API v3).
 - The legacy `tools/slice_lectionary_readings.js` (v1 readings) is retired from the active pipeline.
-- Sliced calendar payloads are generated into `.build/private/calendar/v3/{nrsvue,kjv}/` and synced directly to `s3://pwc-private-data/calendar/v3/` on Cloudflare R2 with `--delete`.
-- Total synced files decrease from 3,970 to ~1,588 files (~113 MB), eliminating legacy v1 and v2 artifacts, speeding up R2 syncs to seconds, and remaining well below Cloudflare R2's free tier thresholds (10 GB storage, 10,000,000 Class B read requests/month).
+- Sliced calendar payloads are generated deterministically into `.build/private/calendar/v3/{nrsvue,kjv}/`: volatile build timestamps (`fetchedAt`) and build commit hashes are omitted from the static JSON, and `writeIfChanged` avoids modifying untouched files.
+- `make sync-r2` syncs directly to `s3://pwc-private-data/calendar/v3/` on Cloudflare R2 using `--size-only --delete`.
+- Unchanged deployments perform 0 writes to R2 in ~1 second. Total stored footprint is ~109 MB across 1,588 files, eliminating legacy v1/v2 duplication and staying well within Cloudflare R2's free tier thresholds (10 GB storage, 1,000,000 Class A writes/month, 10,000,000 Class B reads/month, zero egress fees).
 
 ### 3. Complete Legacy Isolation
 - AWS S3 syncs (`deploy-aws-staging`, `deploy-aws-prod`), CloudFront cache invalidations (`invalidate-production`), and legacy origin-swap rollbacks (`rollback`, `deploy`) are guarded with strict checks:
