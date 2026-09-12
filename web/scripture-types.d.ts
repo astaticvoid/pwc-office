@@ -18,7 +18,8 @@ export interface ScriptureReading {
   citation: string;
   book: string;
   verses: ScriptureVerse[];
-  html: string;
+  paragraphs?: Record<string, number[]>;
+  html?: string;
   translation: string;
   isFallback?: boolean;
 }

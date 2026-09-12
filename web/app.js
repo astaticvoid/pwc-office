@@ -8,6 +8,7 @@ import {
   collectSecondaryPage, collectCommemorations, assembleSections, formatLiturgicalText, invitatorySegments, phosHilaronSegments,
   splitPsalmRubrics, splitReadingRubrics,
   parsePsalmCitation,
+  renderScriptureReading,
   collectPageNum, lookupCollect, lookupFatsEntry, penitentialSegments,
   dayMarkers,
 } from './render.js';
@@ -230,7 +231,7 @@ function fetchPsalm(num) {
 
 
 export const dayCacheManager = createDefaultDayCacheManager({
-  apiBase: '/api/v2/calendar',
+  apiBase: '/api/v3/calendar',
   storage: typeof localStorage !== 'undefined' ? localStorage : null,
 });
 
@@ -1317,17 +1318,21 @@ async function fillScripture(root, translation, dateStr, day) {
             citation: rawCitation,
             book: subReadings[0].book,
             verses: subReadings.flatMap(r => r.verses),
-            html: subReadings.map(r => `<div class="scripture-option"><p class="scripture-choice-rubric"><strong>${r.citation}</strong></p>${r.html}</div>`).join('<p class="seg-rubric">or</p>'),
             translation: subReadings[0].translation,
             isFallback: subReadings.some(r => r.isFallback),
           };
         }
       }
 
-      if (reading && reading.html) {
-        el.innerHTML = reading.html;
+      const readingHtml = reading ? renderScriptureReading(reading, dayReadings?.readings) : '';
+
+      if (readingHtml) {
+        el.innerHTML = readingHtml;
         if ((reading.isFallback || reading.translation === 'kjv' || isKjvOutside) && translation !== 'kjv') {
-          el.innerHTML += `<p class="scripture-fallback-note">[Showing KJV — outside ±30-day window]</p>`;
+          const noteText = isKjvOutside
+            ? '[Showing KJV — outside ±30-day window]'
+            : '[KJV shown — NRSVUE unavailable for this reading]';
+          el.innerHTML += `<p class="scripture-fallback-note">${noteText}</p>`;
         }
       } else {
         el.innerHTML = `<p class="error-msg">Text unavailable: ${esc(rawCitation)}</p>`;

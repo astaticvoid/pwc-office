@@ -659,16 +659,55 @@ export function renderChapterHtml(chVerses, chNum, breaks) {
  */
 export function buildParagraphHtml(verses, paraMap) {
   const cleanedVerses = stripDanglingEditorsBrackets(verses);
+  const chapterOrder = [];
   const byChapter = {};
   for (const v of cleanedVerses) {
-    (byChapter[v.ch] || (byChapter[v.ch] = [])).push(v);
+    if (!byChapter[v.ch]) {
+      byChapter[v.ch] = [];
+      chapterOrder.push(v.ch);
+    }
+    byChapter[v.ch].push(v);
   }
 
   const blocks = [];
-  for (const [chStr, chVerses] of Object.entries(byChapter)) {
-    blocks.push(renderChapterHtml(chVerses, parseInt(chStr), (paraMap && paraMap[chStr]) || null));
+  for (const ch of chapterOrder) {
+    const chVerses = byChapter[ch];
+    blocks.push(renderChapterHtml(chVerses, ch, (paraMap && (paraMap[ch] || paraMap[String(ch)])) || null));
   }
   return blocks.join('\n');
+}
+
+/**
+ * Render a scripture reading object to HTML.
+ * Supports pre-rendered html (v2), structured pure-data (v3),
+ * and composite alternative choices containing ' or '.
+ * @param {import('./scripture-types.d.ts').ScriptureReading} reading
+ * @param {Record<string, import('./scripture-types.d.ts').ScriptureReading>} [allReadings]
+ * @returns {string} Formatted HTML
+ */
+export function renderScriptureReading(reading, allReadings) {
+  if (!reading) return '';
+  if (reading.html) return reading.html;
+
+  const rawCitation = reading.citation;
+  if (rawCitation && rawCitation.includes(' or ') && allReadings) {
+    const parts = rawCitation.split(' or ').map(s => s.trim());
+    // Render each option. If an option is missing, render an unavailable message for that option (ADR 0016)
+    const optionsHtml = parts.map(cit => {
+      const sub = allReadings[cit];
+      if (sub) {
+        return `<div class="scripture-option"><p class="scripture-choice-rubric"><strong>${sub.citation}</strong></p>${renderScriptureReading(sub, allReadings)}</div>`;
+      }
+      return `<div class="scripture-option"><p class="scripture-choice-rubric"><strong>${cit}</strong></p><p class="error-msg">Text unavailable: ${esc(cit)}</p></div>`;
+    });
+    return optionsHtml.join('<p class="seg-rubric">or</p>');
+  }
+
+  if (reading.verses && reading.verses.length) {
+    return buildParagraphHtml(reading.verses, reading.paragraphs || null);
+  }
+
+  return '';
 }
 
 /**

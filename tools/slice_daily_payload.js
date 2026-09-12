@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 /**
  * @file slice_daily_payload.js
- * Slices unified calendar + scripture daily payloads for v2 BFF architecture (ADR 0025).
+ * Slices unified calendar + scripture daily payloads for v3 BFF architecture (ADR 0025).
  *
- * Slices daily payloads containing both calendar variables and raw scripture readings
- * for NRSVue and KJV fallback, as well as rolling 14-day batch payloads.
+ * Slices pure-data daily payloads containing calendar variables, structured verses,
+ * and paragraph break metadata for NRSVue and KJV fallback, as well as rolling 14-day batches.
  *
  * Output:
- *   - .build/private/calendar/v2/nrsvue/YYYY-MM-DD.json
- *   - .build/private/calendar/v2/kjv/YYYY-MM-DD.json
- *   - .build/private/calendar/v2/nrsvue/batch/START_END.json
- *   - .build/private/calendar/v2/kjv/batch/START_END.json
+ *   - .build/private/calendar/v3/nrsvue/YYYY-MM-DD.json
+ *   - .build/private/calendar/v3/kjv/YYYY-MM-DD.json
+ *   - .build/private/calendar/v3/nrsvue/batch/START_END.json
+ *   - .build/private/calendar/v3/kjv/batch/START_END.json
  *
  * Usage:
  *   node tools/slice_daily_payload.js [--out-dir <path>]
@@ -24,7 +24,6 @@ import {
   parseCitation,
   parseRanges,
   extractVersesWithChapter,
-  buildParagraphHtml,
 } from '../web/render.js';
 import { collectDayCitations } from '../web/data-provider.js';
 
@@ -40,12 +39,12 @@ function getGitCommit() {
   }
 }
 const CURRENT_COMMIT = getGitCommit();
-const API_VERSION = '2.0.0';
+const API_VERSION = '3.0.0';
 
 const outDirArgIdx = process.argv.indexOf('--out-dir');
 const BASE_OUT_DIR = (outDirArgIdx !== -1 && process.argv[outDirArgIdx + 1])
   ? process.argv[outDirArgIdx + 1]
-  : join(root, '.build/private/calendar/v2');
+  : join(root, '.build/private/calendar/v3');
 
 const _bookCache = new Map();
 
@@ -100,8 +99,8 @@ export function loadBook(bookName, translation = 'nrsvue') {
     if (existsSync(kjvPath)) {
       try {
         const data = JSON.parse(readFileSync(kjvPath, 'utf8'));
-        _bookCache.set(cacheKey, { data, translation: 'kjv', isFallback: true });
-        return { data, translation: 'kjv', isFallback: true };
+        _bookCache.set(cacheKey, { data, translation: 'kjv', isFallback: false });
+        return { data, translation: 'kjv', isFallback: false };
       } catch (_) {
         /* failed */
       }
@@ -144,14 +143,22 @@ export function sliceReadingsForDay(day, translation, paragraphs) {
       const allVerses = ranges.flatMap(r => extractVersesWithChapter(loaded.data, r));
       if (!allVerses.length) continue;
 
-      const paraMap = paragraphs ? (paragraphs[parsed.file] || null) : null;
-      const html = buildParagraphHtml(allVerses, paraMap);
+      const bookParas = paragraphs ? (paragraphs[parsed.file] || null) : null;
+      const relevantParas = {};
+      if (bookParas) {
+        const chs = new Set(allVerses.map(v => String(v.ch)));
+        for (const ch of chs) {
+          if (bookParas[ch]) {
+            relevantParas[ch] = bookParas[ch];
+          }
+        }
+      }
 
       readings[rawCitation] = {
         citation: rawCitation,
         book: parsed.file,
         verses: allVerses,
-        html,
+        paragraphs: relevantParas,
         translation: loaded.translation,
         ...(loaded.isFallback ? { isFallback: true } : {}),
       };
@@ -170,11 +177,15 @@ export function sliceReadingsForDay(day, translation, paragraphs) {
         const subReadings = parts.map(p => readings[p]).filter(Boolean);
         if (subReadings.length > 0) {
           const isFallback = subReadings.some(r => r.isFallback);
+          const combinedParas = {};
+          for (const r of subReadings) {
+            if (r.paragraphs) Object.assign(combinedParas, r.paragraphs);
+          }
           readings[raw] = {
             citation: raw,
             book: subReadings[0].book,
             verses: subReadings.flatMap(r => r.verses),
-            html: subReadings.map(r => `<div class="scripture-option"><p class="scripture-choice-rubric"><strong>${r.citation}</strong></p>${r.html}</div>`).join('<p class="seg-rubric">or</p>'),
+            paragraphs: combinedParas,
             translation: subReadings[0].translation,
             ...(isFallback ? { isFallback: true } : {}),
           };
@@ -191,7 +202,7 @@ export function sliceReadingsForDay(day, translation, paragraphs) {
  */
 export function buildUnifiedDayPayload(day, translation, paragraphs) {
   const readings = sliceReadingsForDay(day, translation, paragraphs);
-  const isFallback = translation === 'kjv';
+  const isFallback = Object.values(readings).some(r => r.isFallback);
 
   return {
     apiVersion: API_VERSION,

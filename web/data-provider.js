@@ -141,7 +141,7 @@ export class DayCacheManager {
    * @param {typeof fetch} [options.fetchFn]
    */
   constructor({
-    apiBase = '/api/v2/calendar',
+    apiBase = '/api/v3/calendar',
     storage = null,
     fetchFn = null,
   } = {}) {
@@ -261,9 +261,13 @@ export class DayCacheManager {
     const isExpired = (item, key) => {
       if (!item) return false;
       const targetDate = item.date || key.split(':').pop();
-      const diffDays = Math.abs(dayDifference(targetDate, currentDate));
-      const ageDays = (now - (item.fetchedAt || now)) / 86400000;
-      return diffDays > maxAgeDays || ageDays > maxAgeDays || (item.expiresAt && now > item.expiresAt);
+      const isNrsvue = (item.translation === 'nrsvue' || key.includes(':nrsvue:') || (!key.includes(':kjv:') && item.translation !== 'kjv'));
+      if (isNrsvue) {
+        const diffDays = Math.abs(dayDifference(targetDate, currentDate));
+        const ageDays = (now - (item.fetchedAt || now)) / 86400000;
+        if (diffDays > maxAgeDays || ageDays > maxAgeDays) return true;
+      }
+      return !!(item.expiresAt && now > item.expiresAt);
     };
 
     const purgedKeys = new Set();
@@ -386,7 +390,7 @@ export class DayCacheManager {
     }
     if (batchData && batchData.days) {
       for (const [dateKey, dayObj] of Object.entries(batchData.days)) {
-        await this.set(dateKey, dayObj, translation);
+        await this.set(dateKey, dayObj, dayObj.translation || translation);
       }
     }
     return batchData;
@@ -408,13 +412,12 @@ export class DayCacheManager {
  */
 export function createDefaultDayCacheManager(options = {}) {
   const {
-    apiBase = '/api/v2/calendar',
+    apiBase = '/api/v3/calendar',
     storage = null,
     fetchFn = null,
   } = options;
 
   return new DayCacheManager({ apiBase, storage, fetchFn: fetchFn || defaultFetch });
-
 }
 
 

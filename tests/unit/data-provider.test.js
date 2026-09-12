@@ -38,7 +38,7 @@ describe('DayCacheManager (ADR 0025)', () => {
   it('creates default instance via factory', () => {
     const manager = createDefaultDayCacheManager();
     expect(manager).toBeInstanceOf(DayCacheManager);
-    expect(manager.apiBase).toBe('/api/v2/calendar');
+    expect(manager.apiBase).toBe('/api/v3/calendar');
   });
 
   it('stores and retrieves cached unified day payload', async () => {
@@ -109,7 +109,7 @@ describe('DayCacheManager (ADR 0025)', () => {
 
     const manager = new DayCacheManager({ fetchFn });
     const result = await manager.getDay('2026-09-03');
-    expect(fetchFn).toHaveBeenCalledWith('/api/v2/calendar?date=2026-09-03&translation=nrsvue');
+    expect(fetchFn).toHaveBeenCalledWith('/api/v3/calendar?date=2026-09-03&translation=nrsvue');
     expect(result.name).toBe('Gregory the Great');
 
     // Subsequent call should hit cache without calling fetch
@@ -136,7 +136,7 @@ describe('DayCacheManager (ADR 0025)', () => {
     const manager = new DayCacheManager({ fetchFn });
     await manager.prefetchBatch('2026-09-03', '2026-09-04');
 
-    expect(fetchFn).toHaveBeenCalledWith('/api/v2/calendar?start=2026-09-03&end=2026-09-04&translation=nrsvue');
+    expect(fetchFn).toHaveBeenCalledWith('/api/v3/calendar?start=2026-09-03&end=2026-09-04&translation=nrsvue');
     const day1 = await manager.get('2026-09-03');
     const day2 = await manager.get('2026-09-04');
     expect(day1?.name).toBe('Day 1');
@@ -267,14 +267,14 @@ describe('Cloudflare Worker metadata and endpoints', () => {
     const res = await worker.fetch(req, env);
 
     expect(res.status).toBe(200);
-    expect(res.headers.get('X-API-Version')).toBe('2.0.0');
+    expect(res.headers.get('X-API-Version')).toBe('3.0.0');
     expect(res.headers.get('X-Git-Commit')).toBe('testcommit123');
     expect(res.headers.get('X-Environment')).toBe('production');
     expect(res.headers.get('Access-Control-Expose-Headers')).toContain('X-Git-Commit');
 
     const body = await res.json();
     expect(body.status).toBe('ok');
-    expect(body.apiVersion).toBe('2.0.0');
+    expect(body.apiVersion).toBe('3.0.0');
     expect(body.commit).toBe('testcommit123');
     expect(body.environment).toBe('production');
   });
@@ -295,8 +295,10 @@ describe('Cloudflare Worker metadata and endpoints', () => {
     const res = await worker.fetch(req, env);
 
     expect(res.status).toBe(200);
+    expect(res.headers.get('X-API-Version')).toBe('2.0.0');
     const body = await res.json();
     expect(body.status).toBe('ok');
+    expect(body.apiVersion).toBe('2.0.0');
     expect(body.commit).toBe('stagcommit456');
     expect(body.environment).toBe('staging');
   });
