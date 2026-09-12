@@ -1,4 +1,4 @@
-/* global Response, btoa */
+/* global Response, btoa, URL */
 
 const TAKEDOWN_HTML = `<!doctype html>
 <html lang="en">
@@ -239,13 +239,17 @@ export async function onRequest(context) {
     return next();
   }
 
-  // 2. Evaluate Basic Authentication
+  // 2. Evaluate Basic Authentication or evaluation query token
   const expectedUser = env.AUTH_USER || "__AUTH_USER__";
   const expectedPass = env.AUTH_PASSWORD || "__AUTH_PASSWORD__";
-  const expectedAuth = "Basic " + btoa(expectedUser + ":" + expectedPass);
+  const expectedToken = btoa(expectedUser + ":" + expectedPass);
+  const expectedAuth = "Basic " + expectedToken;
 
   const authHeader = request.headers.get("Authorization");
-  if (authHeader === expectedAuth) {
+  const url = new URL(request.url);
+  const queryToken = url.searchParams.get("eval_token");
+
+  if (authHeader === expectedAuth || queryToken === expectedToken) {
     const response = await next();
     const newResponse = new Response(response.body, response);
     newResponse.headers.append("Set-Cookie", "pwc-auth=1; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400");

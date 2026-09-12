@@ -149,9 +149,18 @@ async function run() {
   try {
     browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({
-      httpCredentials: { username: USER, password: PASS },
       viewport: { width: 1280, height: 800 },
     });
+    // Set the authentication cookie simulating an authorized evaluator session
+    await context.addCookies([{
+      name: 'pwc-auth',
+      value: '1',
+      domain: PROD_DOMAIN,
+      path: '/',
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Lax',
+    }]);
     const page = await context.newPage();
 
     const consoleErrors = [];
