@@ -58,7 +58,7 @@ export async function defaultFetch(url, init = {}) {
   const headers = new Headers(newInit.headers);
 
   const authPlaceholder = '__EVAL_AUTH_TOKEN__';
-  if (authPlaceholder.startsWith('Basic ')) {
+  if (authPlaceholder.startsWith('Basic ') && !headers.has('Authorization')) {
     headers.set('Authorization', authPlaceholder);
   }
 
@@ -88,7 +88,7 @@ export async function defaultFetch(url, init = {}) {
   let targetUrl = url;
   const originPlaceholder = '__API_ORIGIN__';
   if (originPlaceholder.startsWith('http') && targetUrl.startsWith('/api/')) {
-    targetUrl = originPlaceholder + targetUrl;
+    targetUrl = originPlaceholder.replace(/\/+$/, '') + targetUrl;
   }
 
   return fetch(targetUrl, newInit);

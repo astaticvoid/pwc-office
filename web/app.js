@@ -246,19 +246,23 @@ async function fetchDay(dateStr) {
 
 /** Map a fetch failure to a short, non-technical message — never surface raw error text. */
 function friendlyLoadError(err) {
-  if (err && (err.isOfflineMiss || err.message === 'Network connection required' || (err.message && err.message.includes('Network connection required')))) {
-    return 'Network connection required to view readings for this date while offline.';
+  const msg = String(err && err.message);
+  if (err?.status === 401 || /\b401\b/.test(msg) || /unauthorized/i.test(msg)) {
+    return 'Authentication required. Please refresh the page and enter evaluation credentials.';
   }
   if (window.__pwcOffline || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
     return 'Network connection required. You appear to be offline.';
   }
+  if (err && (err.isOfflineMiss || msg.includes('Network connection required'))) {
+    return 'Unable to reach the server. Please check your internet connection and try again.';
+  }
   // Browsers reject fetch() with a TypeError for network failures (DNS, CORS, connection drop).
   if (err instanceof TypeError) {
-    return 'Network connection required. Unable to load — check your internet connection and try again.';
+    return 'Unable to reach the server — check your internet connection and try again.';
   }
-  // fetchOnce/fetchBook/fetchDay throw `new Error(status)` on a non-OK HTTP response.
-  if (/^\d{3}$/.test(String(err && err.message))) {
-    return 'This content isn’t available right now.';
+  // fetchOnce/fetchBook/fetchDay throw error with HTTP status codes (e.g. 404, 500, 502)
+  if (/\b\d{3}\b/.test(msg)) {
+    return 'This content isn’t available right now. Please try again shortly.';
   }
   return 'Something went wrong loading this content. Please try again.';
 }
@@ -1299,8 +1303,15 @@ async function fillScripture(root, translation, dateStr, day) {
 
   try {
     let dayReadings = day;
-    if (!dayReadings || !dayReadings.readings || (translation && dayReadings.translation !== translation && !dayReadings.isFallback)) {
-      dayReadings = await dayCacheManager.getDay(dateStr, { translation });
+    if (!dayReadings || !dayReadings.readings || (translation && dayReadings.translation !== translation)) {
+      try {
+        dayReadings = await dayCacheManager.getDay(dateStr, { translation });
+      } catch (fetchErr) {
+        if (translation !== 'kjv') {
+          dayReadings = await dayCacheManager.getDay(dateStr, { translation: 'kjv' }).catch(() => null);
+        }
+        if (!dayReadings) throw fetchErr;
+      }
     }
 
     const isKjvOutside = ((dayReadings?.isFallback || dayReadings?.translation === 'kjv') && translation !== 'kjv');
@@ -1309,19 +1320,10 @@ async function fillScripture(root, translation, dateStr, day) {
       const rawCitation = el.dataset.citation;
       let reading = dayReadings?.readings?.[rawCitation];
 
-      // Handle internal choices if not pre-keyed (e.g. Rom 5:12-21 or Gal 4:1-7)
+      // If not pre-keyed directly under the composite citation string (e.g. Rom 5:12-21 or Gal 4:1-7),
+      // provide a minimal descriptor so renderScriptureReading can resolve each option via allReadings
       if (!reading && rawCitation && rawCitation.includes(' or ')) {
-        const parts = rawCitation.split(' or ').map(s => s.trim());
-        const subReadings = parts.map(p => dayReadings?.readings?.[p]).filter(Boolean);
-        if (subReadings.length > 0) {
-          reading = {
-            citation: rawCitation,
-            book: subReadings[0].book,
-            verses: subReadings.flatMap(r => r.verses),
-            translation: subReadings[0].translation,
-            isFallback: subReadings.some(r => r.isFallback),
-          };
-        }
+        reading = { citation: rawCitation };
       }
 
       const readingHtml = reading ? renderScriptureReading(reading, dayReadings?.readings) : '';

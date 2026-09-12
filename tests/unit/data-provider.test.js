@@ -250,6 +250,75 @@ describe('defaultFetch', () => {
       delete globalThis.window;
     }
   });
+
+  it('keeps URLs relative and omits Authorization when placeholders are unreplaced', async () => {
+    const origFetch = globalThis.fetch;
+    const mockFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true })));
+    globalThis.fetch = mockFetch;
+
+    try {
+      await defaultFetch('/api/v3/calendar?date=2026-09-12');
+      const [calledUrl, calledInit] = mockFetch.mock.calls[0];
+      expect(calledUrl).toBe('/api/v3/calendar?date=2026-09-12');
+      expect(calledInit.headers.get('Authorization')).toBeNull();
+    } finally {
+      globalThis.fetch = origFetch;
+    }
+  });
+
+  it('correctly rewrites URL and attaches Authorization when placeholders are populated', async () => {
+    // Dynamically evaluate a version with injected placeholders as make build would
+    const fs = await import('fs');
+    const path = await import('path');
+    const sourceCode = fs.readFileSync(path.resolve(__dirname, '../../web/data-provider.js'), 'utf8');
+    const injectedCode = sourceCode
+      .replace('__API_ORIGIN__', 'https://api-staging.praywithoutceasing.ca')
+      .replace('__EVAL_AUTH_TOKEN__', 'Basic b2ZmaWNlOmRhaWx5');
+
+    const dataUri = 'data:text/javascript;base64,' + Buffer.from(injectedCode).toString('base64');
+    const injectedModule = await import(dataUri);
+
+    const origFetch = globalThis.fetch;
+    const mockFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true })));
+    globalThis.fetch = mockFetch;
+
+    try {
+      await injectedModule.defaultFetch('/api/v3/calendar?date=2026-09-12');
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [calledUrl, calledInit] = mockFetch.mock.calls[0];
+      expect(calledUrl).toBe('https://api-staging.praywithoutceasing.ca/api/v3/calendar?date=2026-09-12');
+      expect(calledInit.headers.get('Authorization')).toBe('Basic b2ZmaWNlOmRhaWx5');
+    } finally {
+      globalThis.fetch = origFetch;
+    }
+  });
+
+  it('normalizes trailing slash in originPlaceholder and preserves caller Authorization', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const sourceCode = fs.readFileSync(path.resolve(__dirname, '../../web/data-provider.js'), 'utf8');
+    const injectedCode = sourceCode
+      .replace('__API_ORIGIN__', 'https://api-staging.praywithoutceasing.ca///')
+      .replace('__EVAL_AUTH_TOKEN__', 'Basic b2ZmaWNlOmRhaWx5');
+
+    const dataUri = 'data:text/javascript;base64,' + Buffer.from(injectedCode).toString('base64');
+    const injectedModule = await import(dataUri);
+
+    const origFetch = globalThis.fetch;
+    const mockFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true })));
+    globalThis.fetch = mockFetch;
+
+    try {
+      await injectedModule.defaultFetch('/api/v3/calendar?date=2026-09-12', {
+        headers: { Authorization: 'Bearer custom_token' },
+      });
+      const [calledUrl, calledInit] = mockFetch.mock.calls[0];
+      expect(calledUrl).toBe('https://api-staging.praywithoutceasing.ca/api/v3/calendar?date=2026-09-12');
+      expect(calledInit.headers.get('Authorization')).toBe('Bearer custom_token');
+    } finally {
+      globalThis.fetch = origFetch;
+    }
+  });
 });
 
 describe('Cloudflare Worker metadata and endpoints', () => {

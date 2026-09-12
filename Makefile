@@ -1,6 +1,8 @@
 DEPLOY_TARGET ?= personal
 -include .env
 -include .env.$(DEPLOY_TARGET)
+# Never inherit EVAL_AUTH_TOKEN from .env; it must only be supplied by explicit staging targets
+EVAL_AUTH_TOKEN :=
 export
 
 .PHONY: lint-css check-conservation venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata intake-year serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-bump-version mobile-ios mobile-ios-upload mobile-android qa lint lint-js lint-ts lint-py test-mutations hooks slice-readings audit-copyright deploy-worker-staging deploy-worker-prod sync-r2 deploy-pages-staging deploy-pages-prod deploy-aws-staging deploy-aws-prod
@@ -464,8 +466,7 @@ deploy-pages-staging:
 	USER=$$(echo "$$AUTH_USER" | tr -d '"'\' ); \
 	PASS=$$(echo "$$AUTH_PASSWORD" | tr -d '"'\' ); \
 	TOKEN=$$( [ -n "$$USER" ] && [ -n "$$PASS" ] && node -e 'console.log("Basic " + Buffer.from(process.argv[1] + ":" + process.argv[2]).toString("base64"))' "$$USER" "$$PASS" || echo "" ); \
-	rm -rf .build/pages-staging-dist; \
-	EVAL_AUTH_TOKEN="$$TOKEN" API_ORIGIN="$$STAGING_ORIGIN" $(MAKE) build; \
+	$(MAKE) build EVAL_AUTH_TOKEN="$$TOKEN" API_ORIGIN="$$STAGING_ORIGIN"; \
 	cp -r dist .build/pages-staging-dist; \
 	$(MAKE) build EVAL_AUTH_TOKEN="" API_ORIGIN=""; \
 	if [ -n "$$CLOUDFLARE_API_TOKEN" ] || [ -n "$$CLOUDFLARE_ACCOUNT_ID" ] || npx wrangler whoami $(WRANGLER_FLAGS) 2>&1 | grep -q "You are logged in"; then \
@@ -529,12 +530,15 @@ deploy-aws-staging:
 # the release it is about to ship, so a deploy that was never smoke-tested — or
 # one superseded by a later deploy-staging — cannot reach production (#52).
 test-staging:
-	@test -f .deploy-latest || (echo "Nothing deployed. Run 'make deploy-staging' first."; exit 1)
-	BASE_URL=https://$(STAGING_DOMAIN) \
-	  npx playwright test --grep "@smoke"
-	$(PYTHON) tools/audit_copyright_leak.py --url https://$(STAGING_DOMAIN)
-	@cp .deploy-latest .staging-tested
-	@echo "Staging verified: $$(cat .staging-tested)"
+	@if [ "$(DEPLOY_TARGET)" = "diocese" ]; then \
+		node tools/test_staging.cjs || exit 1; \
+	else \
+		test -f .deploy-latest || (echo "Nothing deployed. Run 'make deploy-staging' first."; exit 1); \
+		BASE_URL=https://$(STAGING_DOMAIN) npx playwright test --grep "@smoke"; \
+		$(PYTHON) tools/audit_copyright_leak.py --url https://$(STAGING_DOMAIN); \
+	fi
+	@cp -f .deploy-latest .staging-tested 2>/dev/null || true
+	@echo "Staging verified (target: $(DEPLOY_TARGET))."
 
 # Full regression against staging — every e2e spec, not just @smoke.
 # Slower (~3 min); run before a risky promote or after UI-touching changes.

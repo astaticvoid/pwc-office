@@ -18,11 +18,12 @@ Exit 0 = ready to deploy, 1 = failures found.
 import datetime
 import hashlib
 import json
+import os
 import re
 import sys
 from pathlib import Path
 
-dist = Path(__file__).parent.parent / "dist"
+dist = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).parent.parent / "dist"
 errors: list[str] = []
 warnings: list[str] = []
 
@@ -247,6 +248,26 @@ if trans_dir.exists():
     errors.append("ADR 0025: data/translations/ must not be bundled in dist/ (scripture is served via /api/v2/calendar)")
 else:
     print("translations: not bundled in dist/ (ADR 0025 dynamic BFF API)")
+
+# ── Secrets & Credential Sanitation Gate ───────────────────────────────────────
+
+data_provider = dist / "data-provider.js"
+if data_provider.exists():
+    dp_content = data_provider.read_text()
+    if re.search(r"authPlaceholder\s*=\s*['\"]Basic\s+", dp_content) and os.environ.get("ALLOW_STAGING_AUTH") != "1":
+        errors.append(
+            "data-provider.js contains embedded Basic Auth credentials! "
+            "Staging credentials must never be bundled into release artifacts."
+        )
+    if re.search(r"originPlaceholder\s*=\s*['\"]https?://api-staging\.", dp_content) and os.environ.get("ALLOW_STAGING_ORIGIN") != "1":
+        errors.append(
+            "data-provider.js contains staging API origin! "
+            "Staging origin must not be bundled into default/production dist."
+        )
+
+for secret_pattern in (".env*", "*.p8", "*.jks", "*.keystore", "*.p12", "*.pem", "*.key", "id_rsa*", "*.bak"):
+    for f in dist.rglob(secret_pattern):
+        errors.append(f"secret/credential file detected in dist/: {f.relative_to(dist)}")
 
 # ── Report ─────────────────────────────────────────────────────────────────────
 
