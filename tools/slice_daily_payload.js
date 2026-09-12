@@ -17,7 +17,6 @@
  */
 
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
-import { execSync } from 'child_process';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -30,15 +29,6 @@ import { collectDayCitations } from '../web/data-provider.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
 
-function getGitCommit() {
-  if (process.env.GIT_COMMIT) return process.env.GIT_COMMIT;
-  try {
-    return execSync('git rev-parse --short HEAD', { cwd: root }).toString().trim();
-  } catch (_) {
-    return 'unknown';
-  }
-}
-const CURRENT_COMMIT = getGitCommit();
 const API_VERSION = '3.0.0';
 
 const outDirArgIdx = process.argv.indexOf('--out-dir');
@@ -197,6 +187,15 @@ export function sliceReadingsForDay(day, translation, paragraphs) {
   return readings;
 }
 
+function writeIfChanged(filePath, content) {
+  if (existsSync(filePath)) {
+    const existing = readFileSync(filePath, 'utf8');
+    if (existing === content) return false;
+  }
+  writeFileSync(filePath, content, 'utf8');
+  return true;
+}
+
 /**
  * Creates a unified daily payload object combining calendar day variables and scripture.
  */
@@ -206,13 +205,10 @@ export function buildUnifiedDayPayload(day, translation, paragraphs) {
 
   return {
     apiVersion: API_VERSION,
-    commit: CURRENT_COMMIT,
     ...day,
     translation,
     isFallback,
     readings,
-    fetchedAt: Date.now(),
-    expiresAt: translation === 'nrsvue' ? Date.now() + 30 * 86400000 : Date.now() + 365 * 86400000,
   };
 }
 
@@ -239,6 +235,7 @@ export function run() {
   const allDates = [];
   const nrsvueDays = {};
   const kjvDays = {};
+  let filesWritten = 0;
 
   for (const file of files) {
     const filePath = join(lectionaryDir, file);
@@ -255,8 +252,8 @@ export function run() {
       nrsvueDays[dateStr] = nrsvuePayload;
       kjvDays[dateStr] = kjvPayload;
 
-      writeFileSync(join(nrsvueDir, `${dateStr}.json`), JSON.stringify(nrsvuePayload), 'utf8');
-      writeFileSync(join(kjvDir, `${dateStr}.json`), JSON.stringify(kjvPayload), 'utf8');
+      if (writeIfChanged(join(nrsvueDir, `${dateStr}.json`), JSON.stringify(nrsvuePayload))) filesWritten++;
+      if (writeIfChanged(join(kjvDir, `${dateStr}.json`), JSON.stringify(kjvPayload))) filesWritten++;
     }
   }
 
@@ -271,14 +268,12 @@ export function run() {
 
     const nrsvueBatch = {
       apiVersion: API_VERSION,
-      commit: CURRENT_COMMIT,
       start: startStr,
       end: endStr,
       days: {},
     };
     const kjvBatch = {
       apiVersion: API_VERSION,
-      commit: CURRENT_COMMIT,
       start: startStr,
       end: endStr,
       days: {},
@@ -290,12 +285,12 @@ export function run() {
       kjvBatch.days[d] = kjvDays[d];
     }
 
-    writeFileSync(join(nrsvueBatchDir, `${startStr}_${endStr}.json`), JSON.stringify(nrsvueBatch), 'utf8');
-    writeFileSync(join(kjvBatchDir, `${startStr}_${endStr}.json`), JSON.stringify(kjvBatch), 'utf8');
+    if (writeIfChanged(join(nrsvueBatchDir, `${startStr}_${endStr}.json`), JSON.stringify(nrsvueBatch))) filesWritten++;
+    if (writeIfChanged(join(kjvBatchDir, `${startStr}_${endStr}.json`), JSON.stringify(kjvBatch))) filesWritten++;
     batchCount++;
   }
 
-  console.log(`Sliced ${allDates.length} unified daily payloads and ${batchCount} batches across nrsvue & kjv to ${BASE_OUT_DIR}`);
+  console.log(`Processed ${allDates.length} unified daily payloads and ${batchCount} batches (${filesWritten} updated) to ${BASE_OUT_DIR}`);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

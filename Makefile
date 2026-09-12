@@ -456,7 +456,7 @@ sync-r2:
 		KEY_ID=$$(echo "$$R2_ACCESS_KEY_ID" | tr -d '"'\' ); \
 		SECRET=$$(echo "$$R2_SECRET_ACCESS_KEY" | tr -d '"'\' ); \
 		AWS_ACCESS_KEY_ID="$$KEY_ID" AWS_SECRET_ACCESS_KEY="$$SECRET" AWS_DEFAULT_REGION="auto" \
-		  aws s3 sync .build/private/calendar/v3/ s3://pwc-private-data/calendar/v3/ --delete --endpoint-url "$$ENDPOINT" || exit 1; \
+		  aws s3 sync .build/private/calendar/v3/ s3://pwc-private-data/calendar/v3/ --size-only --delete --endpoint-url "$$ENDPOINT" || exit 1; \
 	else \
 		echo "Skipping R2 sync: R2 credentials not set for target $(DEPLOY_TARGET)."; \
 	fi
