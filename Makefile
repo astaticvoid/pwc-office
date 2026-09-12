@@ -532,8 +532,8 @@ deploy-staging: check-integrity check-dist audit-copyright slice-readings deploy
 	@echo "$(RELEASE)" > .deploy-latest
 
 deploy-aws-staging:
-	@if [ -n "$$BUCKET" ] && [ -n "$$CF_DISTRIBUTION_ID" ]; then \
-	  echo "Legacy AWS S3/CloudFront staging sync..."; \
+	@if [ "$(DEPLOY_TARGET)" = "personal" ] && [ -n "$$BUCKET" ] && [ -n "$$CF_DISTRIBUTION_ID" ]; then \
+	  echo "Legacy AWS S3/CloudFront staging sync (target: personal)..."; \
 	  $(MAKE) deploy-functions-staging; \
 	  aws s3 sync dist/ s3://$(BUCKET)/releases/$(RELEASE)/ --delete; \
 	  aws s3 cp dist/index.html s3://$(BUCKET)/releases/$(RELEASE)/index.html --cache-control "no-cache"; \
@@ -677,7 +677,7 @@ promote:
 	@echo "Promoted to production: $$(cat .deploy-latest) (target: $(DEPLOY_TARGET))"
 
 deploy-aws-prod:
-	@if [ -n "$$BUCKET" ] && [ -n "$$CF_DISTRIBUTION_ID" ]; then \
+	@if [ "$(DEPLOY_TARGET)" = "personal" ] && [ -n "$$BUCKET" ] && [ -n "$$CF_DISTRIBUTION_ID" ]; then \
 	  $(MAKE) deploy-functions-prod; \
 	  RELEASE=$$(cat .deploy-latest) && \
 	  (aws s3 ls s3://$(BUCKET)/releases/$$RELEASE/index.html >/dev/null 2>&1 || \
