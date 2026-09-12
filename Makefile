@@ -378,20 +378,7 @@ mobile-ios-upload: mobile-sync
 	cmp -s "$$BUILD_DIR/App.xcarchive/Products/Applications/App.app/public/app.js" dist/app.js || \
 	  (echo "Archive public/app.js does not match dist/app.js"; exit 1); \
 	echo "Exporting IPA for App Store Connect..."; \
-	cat << 'EOF' > "$$BUILD_DIR/exportOptions.plist"; \
-<?xml version="1.0" encoding="UTF-8"?> \
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"> \
-<plist version="1.0"> \
-<dict> \
-    <key>method</key> \
-    <string>app-store-connect</string> \
-    <key>teamID</key> \
-    <string>VYB6G7NSAS</string> \
-    <key>uploadSymbols</key> \
-    <true/> \
-</dict> \
-</plist> \
-EOF \
+	printf '<plist version="1.0"><dict><key>method</key><string>app-store-connect</string><key>teamID</key><string>VYB6G7NSAS</string><key>uploadSymbols</key><true/></dict></plist>' > "$$BUILD_DIR/exportOptions.plist"; \
 	xcodebuild -exportArchive -archivePath "$$BUILD_DIR/App.xcarchive" \
 	  -exportOptionsPlist "$$BUILD_DIR/exportOptions.plist" -exportPath "$$BUILD_DIR/export" \
 	  -allowProvisioningUpdates -authenticationKeyPath "$$KEY_PATH" \
