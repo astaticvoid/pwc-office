@@ -29,6 +29,7 @@
 | [0025](./0025-bff-lectionary-api-and-licensing-constraints.md) | Backend-For-Frontend (BFF) Lectionary API and Licensing Constraints | Accepted |
 | [0026](./0026-reigning-monarch-state-and-concurrent-observance-colours.md) | Dynamic monarch prayer state and concurrent observance colours | Accepted |
 | [0027](./0027-theme-preference-posture.md) | Theme Preference Posture — Auto by Default with Explicit Overrides | Accepted |
+| [0028](./0028-diocese-infrastructure-and-v3-pipeline.md) | Diocese Infrastructure Cutover and API v3 Data Pipeline | Accepted |
 
 ## Status values
 - **Proposed** — decision documented, awaiting review/adoption

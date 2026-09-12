@@ -15,8 +15,9 @@ npx playwright install
 # Python venv with PyMuPDF and pytest (one-time)
 make venv
 
-# .env — no API keys needed; deploy targets read BUCKET, CF_DISTRIBUTION_ID,
-# CF_DOMAIN, STAGING_DOMAIN, AUTH_*, AWS_PROFILE from it
+# .env — configuration loaded automatically via make:
+# DEPLOY_TARGET defaults to diocese (Cloudflare Pages, Workers, R2).
+# Legacy personal targets use AWS S3/CloudFront.
 cp .env.example .env   # edit as needed
 ```
 

@@ -1,4 +1,4 @@
-DEPLOY_TARGET ?= personal
+DEPLOY_TARGET ?= diocese
 -include .env
 -include .env.$(DEPLOY_TARGET)
 # Never inherit EVAL_AUTH_TOKEN from .env; it must only be supplied by explicit staging targets
@@ -441,7 +441,7 @@ GIT_DIRTY := $(shell git status --porcelain 2>/dev/null | head -1)
 RELEASE := $(shell date -u +%Y-%m-%dT%H%M%SZ)-$(shell git rev-parse --short HEAD)$(if $(GIT_DIRTY),-dirty,)
 
 slice-readings:
-	node tools/slice_lectionary_readings.js
+	rm -rf .build/private/calendar/v3
 	node tools/slice_daily_payload.js
 
 audit-copyright:
@@ -451,12 +451,12 @@ WRANGLER_FLAGS ?= $(if $(WRANGLER_PROFILE),--profile $(WRANGLER_PROFILE),)
 
 sync-r2:
 	@if [ -n "$$R2_ACCESS_KEY_ID" ] && [ -n "$$R2_SECRET_ACCESS_KEY" ] && [ -n "$$R2_ENDPOINT_URL" ]; then \
-		echo "Syncing private sliced data to Cloudflare R2 (target: $(DEPLOY_TARGET), pwc-private-data)..."; \
+		echo "Syncing private sliced calendar data to Cloudflare R2 (target: $(DEPLOY_TARGET), pwc-private-data/calendar/v3)..."; \
 		ENDPOINT=$$(echo "$$R2_ENDPOINT_URL" | tr -d '"'\' ); \
 		KEY_ID=$$(echo "$$R2_ACCESS_KEY_ID" | tr -d '"'\' ); \
 		SECRET=$$(echo "$$R2_SECRET_ACCESS_KEY" | tr -d '"'\' ); \
 		AWS_ACCESS_KEY_ID="$$KEY_ID" AWS_SECRET_ACCESS_KEY="$$SECRET" AWS_DEFAULT_REGION="auto" \
-		  aws s3 sync .build/private/ s3://pwc-private-data/ --endpoint-url "$$ENDPOINT" || exit 1; \
+		  aws s3 sync .build/private/calendar/v3/ s3://pwc-private-data/calendar/v3/ --delete --endpoint-url "$$ENDPOINT" || exit 1; \
 	else \
 		echo "Skipping R2 sync: R2 credentials not set for target $(DEPLOY_TARGET)."; \
 	fi
@@ -466,6 +466,7 @@ deploy-pages-staging:
 	USER=$$(echo "$$AUTH_USER" | tr -d '"'\' ); \
 	PASS=$$(echo "$$AUTH_PASSWORD" | tr -d '"'\' ); \
 	TOKEN=$$( [ -n "$$USER" ] && [ -n "$$PASS" ] && node -e 'console.log("Basic " + Buffer.from(process.argv[1] + ":" + process.argv[2]).toString("base64"))' "$$USER" "$$PASS" || echo "" ); \
+	trap 'rm -rf functions .build/pages-staging-dist' EXIT INT TERM; \
 	mkdir -p .build; \
 	rm -rf .build/pages-staging-dist; \
 	$(MAKE) build EVAL_AUTH_TOKEN="$$TOKEN" API_ORIGIN="$$STAGING_ORIGIN"; \
@@ -499,6 +500,7 @@ deploy-pages-prod:
 	USER=$$(echo "$$AUTH_USER" | tr -d '"'\' ); \
 	PASS=$$(echo "$$AUTH_PASSWORD" | tr -d '"'\' ); \
 	TOKEN=$$( [ -n "$$USER" ] && [ -n "$$PASS" ] && node -e 'console.log("Basic " + Buffer.from(process.argv[1] + ":" + process.argv[2]).toString("base64"))' "$$USER" "$$PASS" || echo "" ); \
+	trap 'rm -rf functions .build/pages-prod-dist' EXIT INT TERM; \
 	mkdir -p .build; \
 	rm -rf .build/pages-prod-dist; \
 	$(MAKE) build EVAL_AUTH_TOKEN="$$TOKEN" API_ORIGIN="$$PROD_ORIGIN"; \
@@ -701,12 +703,15 @@ deploy-aws-prod:
 # CachingOptimized (24h default), so without this a promotion stays invisible
 # for up to a day. Split out so a rollback can reuse it.
 invalidate-production:
-	@echo "Invalidating production cache..."
-	@ID=$$(aws cloudfront create-invalidation --distribution-id $(CF_DISTRIBUTION_ID) \
-	  --paths "/*" --query 'Invalidation.Id' --output text) && \
-	echo "Invalidation $$ID created (typically completes in 1-3 min)."
-	@echo "Note: pwc-deploy cannot read invalidation status (cloudfront:GetInvalidation"
-	@echo "is denied), so this cannot be waited on — check the site in a minute or two."
+	@if [ "$(DEPLOY_TARGET)" = "personal" ] && [ -n "$$CF_DISTRIBUTION_ID" ]; then \
+	  echo "Invalidating production cache (AWS CloudFront)..."; \
+	  ID=$$(aws cloudfront create-invalidation --distribution-id $(CF_DISTRIBUTION_ID) \
+	    --paths "/*" --query 'Invalidation.Id' --output text) && \
+	  echo "Invalidation $$ID created (typically completes in 1-3 min)." && \
+	  echo "Note: pwc-deploy cannot read invalidation status (cloudfront:GetInvalidation is denied)."; \
+	else \
+	  echo "CloudFront cache invalidation only applies to legacy personal target."; \
+	fi
 
 # Rolls back to the newest release strictly older than the one currently live,
 # rather than "second newest in the bucket" — those differ as soon as a deploy
@@ -715,6 +720,11 @@ invalidate-production:
 # already wrong, so swapping to an incomplete prefix is the worst possible
 # outcome. See #53.
 rollback:
+	@if [ "$(DEPLOY_TARGET)" != "personal" ]; then \
+	  echo "Rollback via origin swap is only supported on legacy personal target (AWS)."; \
+	  echo "For diocese (Cloudflare), use 'wrangler pages deployment list' / 'rollback'."; \
+	  exit 1; \
+	fi
 	@CURRENT=$$(aws cloudfront get-distribution-config --id $(CF_DISTRIBUTION_ID) \
 	  --query 'DistributionConfig.Origins.Items[?Id!=`S3-Private`].OriginPath | [0]' --output text \
 	  | sed 's:^/releases/::') && \
@@ -739,6 +749,11 @@ rollback:
 # Legacy single-step deploy — kept for compatibility during transition.
 # Use deploy-staging + test-staging + promote for production deploys.
 deploy: check-integrity check-dist
+	@if [ "$(DEPLOY_TARGET)" != "personal" ]; then \
+	  echo "Legacy single-step 'make deploy' is only for personal target."; \
+	  echo "For diocese, use 'make deploy-staging' and 'make promote'."; \
+	  exit 1; \
+	fi
 	@echo "DEPRECATED: use 'make deploy-staging' then 'make promote'"
 	@echo "Running legacy deploy..."
 	aws s3 sync dist/ s3://$(BUCKET)/ --delete --exclude "sw.js"
@@ -748,8 +763,9 @@ deploy: check-integrity check-dist
 	aws cloudfront create-invalidation --distribution-id $(CF_DISTRIBUTION_ID) --paths "/*"
 
 deploy-functions-staging:
-	@echo "Deploying Staging CloudFront functions..."
-	@for func in pwc-basic-auth pwc-set-auth-cookie pwc-gate-readings; do \
+	@if [ "$(DEPLOY_TARGET)" = "personal" ]; then \
+	  echo "Deploying Staging CloudFront functions..."; \
+	  for func in pwc-basic-auth pwc-set-auth-cookie pwc-gate-readings; do \
 		ETAG=$$(aws cloudfront describe-function --name $$func-staging --query ETag --output text 2>/dev/null || echo ""); \
 		if [ -z "$$ETAG" ]; then \
 			aws cloudfront create-function --name $$func-staging --function-config Comment="Staging $$func",Runtime=cloudfront-js-2.0 --function-code fileb://infra/cloudfront-functions/$$func.js >/dev/null; \
@@ -758,12 +774,14 @@ deploy-functions-staging:
 		fi; \
 		NEWETAG=$$(aws cloudfront describe-function --name $$func-staging --query ETag --output text); \
 		aws cloudfront publish-function --name $$func-staging --if-match $$NEWETAG >/dev/null; \
-	done
-	@echo "Staging CloudFront functions deployed."
+	  done; \
+	  echo "Staging CloudFront functions deployed."; \
+	fi
 
 deploy-functions-prod:
-	@echo "Deploying Prod CloudFront functions..."
-	@for func in pwc-basic-auth pwc-set-auth-cookie pwc-gate-readings; do \
+	@if [ "$(DEPLOY_TARGET)" = "personal" ]; then \
+	  echo "Deploying Prod CloudFront functions..."; \
+	  for func in pwc-basic-auth pwc-set-auth-cookie pwc-gate-readings; do \
 		ETAG=$$(aws cloudfront describe-function --name $$func-prod --query ETag --output text 2>/dev/null || echo ""); \
 		if [ -z "$$ETAG" ]; then \
 			aws cloudfront create-function --name $$func-prod --function-config Comment="Prod $$func",Runtime=cloudfront-js-2.0 --function-code fileb://infra/cloudfront-functions/$$func.js >/dev/null; \
@@ -772,5 +790,6 @@ deploy-functions-prod:
 		fi; \
 		NEWETAG=$$(aws cloudfront describe-function --name $$func-prod --query ETag --output text); \
 		aws cloudfront publish-function --name $$func-prod --if-match $$NEWETAG >/dev/null; \
-	done
-	@echo "Prod CloudFront functions deployed."
+	  done; \
+	  echo "Prod CloudFront functions deployed."; \
+	fi

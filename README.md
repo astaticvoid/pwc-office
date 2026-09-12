@@ -29,18 +29,17 @@ Requires `data/` to be populated — see **Data pipeline** below.
 
 ## Deploying
 
-Three-stage deploy pipeline with staging verification:
+Three-stage deploy pipeline with staging verification and automated security gates (ADR 0028):
 
 ```sh
-make deploy-staging    # upload to releases/vTIMESTAMP/ + staging/
-make test-staging      # Playwright smoke tests against staging
-make promote           # CloudFront origin-path swap to production
-make rollback          # revert to previous release
+make deploy-staging    # deploy staging: Cloudflare Pages + API Worker + R2
+make test-staging      # automated security & DOM verification against staging
+make promote           # promote to production: Cloudflare Pages + API Worker
 ```
 
-Requires the AWS CLI plus `BUCKET`, `CF_DISTRIBUTION_ID`, and `CF_DOMAIN` in `.env`, and
-`STAGING_DOMAIN` for `make test-staging` (see `.env.example`). Remote staging
-access uses `AUTH_USER` and `AUTH_PASSWORD`.
+By default (`DEPLOY_TARGET=diocese`), deployments target official diocesan Cloudflare infrastructure (`praywithoutceasing.ca`, Cloudflare Pages, Workers, and R2). The legacy personal environment (`DEPLOY_TARGET=personal` on AWS S3/CloudFront) is isolated for eventual teardown.
+
+Evaluation access is protected by HTTP basic auth and evaluation session tokens (`AUTH_USER` and `AUTH_PASSWORD`). Full details on environment configuration are documented in [AGENTS.md](AGENTS.md) and `.env.example`.
 
 Before promoting, review changes:
 

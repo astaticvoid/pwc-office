@@ -25,12 +25,12 @@ make venv                           # .venv with pymupdf + pytest + ruff
 
 Every Python target runs through `$(PYTHON)`, resolving to `.venv/bin/python3` when the venv exists and falling back to ambient `python3` otherwise (CI). Do not install into Homebrew's python3 directly (PEP 668).
 
-Environment variables in `.env` (gitignored, loaded automatically via `Makefile` `-include .env`):
-- `BUCKET`, `CF_DISTRIBUTION_ID`, `CF_DOMAIN`: Required for `make deploy-staging`, `promote`, `rollback`. `CF_DOMAIN` also defaults `API_ORIGIN` for mobile builds.
-- `STAGING_DOMAIN`: Required for `make test-staging`.
-- `AUTH_USER`, `AUTH_PASSWORD`: HTTP basic auth credentials for remote staging verification and comparison tools.
-- `API_ORIGIN`: Remote API origin injected into Capacitor native builds (defaults to `https://$(CF_DOMAIN)`).
-- `AWS_PROFILE`: Set so AWS CLI credentials resolve automatically.
+Environment variables in `.env` and `.env.$(DEPLOY_TARGET)` (gitignored, loaded automatically via `Makefile` `-include .env` and `-include .env.$(DEPLOY_TARGET)`):
+- `DEPLOY_TARGET`: Deployment environment, defaults to `diocese` (Cloudflare Pages, Workers, R2). Use `personal` only for legacy AWS/Cloudflare development.
+- `CF_PAGES_PROJECT`, `CF_PAGES_DOMAIN`, `CF_API_DOMAIN`, `R2_ENDPOINT_URL`: Diocese Cloudflare configuration for web SPA, API v3 worker, and private scripture storage.
+- `AUTH_USER`, `AUTH_PASSWORD`: HTTP basic auth credentials for evaluation gating.
+- `API_ORIGIN`: Remote API origin injected into Capacitor native builds (defaults to `https://$(CF_API_DOMAIN)`).
+- Legacy AWS (`personal` target only): `BUCKET`, `CF_DISTRIBUTION_ID`, `AWS_PROFILE`.
 - Scripture: Bundled KJV works offline in `data/translations/kjv/`. Local NRSVUE in `data/translations/nrsvue/` is used automatically when present.
 
 **Always run build, test, and deploy operations through `make`.**
@@ -90,10 +90,11 @@ make mobile-android-bundle        # mobile-sync + build release AAB
 make mobile-android-upload        # mobile-sync + build + upload AAB to Google Play internal track
 
 # Deploy
-make deploy-staging               # upload release to S3 staging/
-make test-staging                 # Playwright tests against staging
-make promote                      # swap CloudFront origin path to production
-make rollback                     # revert to previous release
+make deploy-staging               # deploy diocese staging (Pages + Worker + R2)
+make test-staging                 # run staging verification & security probes
+make promote                      # deploy diocese production (Pages + Worker) and verify test-prod
+make test-prod                    # run production verification & security probes
+make rollback                     # revert release (legacy personal target only)
 ```
 
 ## Architecture

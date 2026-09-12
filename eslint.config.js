@@ -30,6 +30,8 @@ export default [
       'sources/**',
       'data/**', // symlinked pipeline output; not app source
       'web/data/**',
+      '.wrangler/**',
+      'functions/**',
     ],
   },
 

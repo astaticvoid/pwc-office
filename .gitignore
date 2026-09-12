@@ -35,6 +35,7 @@ boneyard/data/
 .env.*
 !.env.example
 .wrangler/
+functions/
 *.p8
 *.jks
 *.keystore
