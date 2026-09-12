@@ -76,6 +76,28 @@ describe('Cloudflare Worker Authentication Gate', () => {
     expect(data.apiVersion).toBe('3.0.0');
     expect(data.environment).toBe('production');
   });
+
+  it('rejects unauthenticated requests in production when BASIC_AUTH is configured', async () => {
+    const req = new Request('https://api.praywithoutceasing.ca/api/v3/version', {
+      method: 'GET',
+    });
+    const authedProdEnv = { ...prodEnv, BASIC_AUTH: 'Basic b2ZmaWNlOmRhaWx5' };
+    const res = await worker.fetch(req, authedProdEnv);
+    expect(res.status).toBe(401);
+    expect(res.headers.get('WWW-Authenticate')).toContain('PWC API');
+  });
+
+  it('allows authenticated requests in production when BASIC_AUTH is configured', async () => {
+    const req = new Request('https://api.praywithoutceasing.ca/api/v3/version', {
+      method: 'GET',
+      headers: { Authorization: 'Basic b2ZmaWNlOmRhaWx5' },
+    });
+    const authedProdEnv = { ...prodEnv, BASIC_AUTH: 'Basic b2ZmaWNlOmRhaWx5' };
+    const res = await worker.fetch(req, authedProdEnv);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.environment).toBe('production');
+  });
 });
 
 describe('Cloudflare Pages Functions Middleware Gate', () => {

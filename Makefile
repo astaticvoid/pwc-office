@@ -491,12 +491,27 @@ deploy-pages-staging:
 
 deploy-pages-prod:
 	@PROD_ORIGIN=$$( [ -n "$$CF_API_DOMAIN" ] && echo "https://$$(echo "$$CF_API_DOMAIN" | tr -d '"'\' )" || echo "" ); \
-	$(MAKE) build EVAL_AUTH_TOKEN="" API_ORIGIN="$$PROD_ORIGIN"
+	USER=$$(echo "$$AUTH_USER" | tr -d '"'\' ); \
+	PASS=$$(echo "$$AUTH_PASSWORD" | tr -d '"'\' ); \
+	TOKEN=$$( [ -n "$$USER" ] && [ -n "$$PASS" ] && node -e 'console.log("Basic " + Buffer.from(process.argv[1] + ":" + process.argv[2]).toString("base64"))' "$$USER" "$$PASS" || echo "" ); \
+	$(MAKE) build EVAL_AUTH_TOKEN="$$TOKEN" API_ORIGIN="$$PROD_ORIGIN"
 	@if [ -n "$$CLOUDFLARE_API_TOKEN" ] || [ -n "$$CLOUDFLARE_ACCOUNT_ID" ] || npx wrangler whoami $(WRANGLER_FLAGS) 2>&1 | grep -q "You are logged in"; then \
 		PROJECT=$$(echo "$${CF_PAGES_PROJECT:-pwc-office}" | tr -d '"'\' ); \
+		USER=$$(echo "$$AUTH_USER" | tr -d '"'\' ); \
+		PASS=$$(echo "$$AUTH_PASSWORD" | tr -d '"'\' ); \
 		rm -rf functions; \
+		if [ -d infra/cloudflare/pages-functions ] && [ -n "$$USER" ] && [ -n "$$PASS" ]; then \
+			mkdir -p functions; \
+			node -e ' \
+				const fs = require("fs"); \
+				let code = fs.readFileSync("infra/cloudflare/pages-functions/_middleware.js", "utf8"); \
+				code = code.replace(/__AUTH_USER__/g, process.argv[1]).replace(/__AUTH_PASSWORD__/g, process.argv[2]); \
+				fs.writeFileSync("functions/_middleware.js", code); \
+			' "$$USER" "$$PASS"; \
+		fi; \
 		echo "Deploying Production Cloudflare Pages (target: $(DEPLOY_TARGET), project: $$PROJECT)..."; \
-		CLOUDFLARE_API_TOKEN="" npx wrangler pages deploy dist --project-name "$$PROJECT" --branch main $(WRANGLER_FLAGS) --commit-dirty=true || exit 1; \
+		CLOUDFLARE_API_TOKEN="" npx wrangler pages deploy dist --project-name "$$PROJECT" --branch main $(WRANGLER_FLAGS) --commit-dirty=true || (rm -rf functions; exit 1); \
+		rm -rf functions; \
 	else \
 		echo "Skipping Cloudflare Pages deploy: Cloudflare credentials not set."; \
 	fi
@@ -584,10 +599,20 @@ deploy-worker-prod:
 		GIT_SHA=$$(git rev-parse --short HEAD 2>/dev/null || echo "unknown"); \
 		DOMAIN=$$(echo "$${CF_API_DOMAIN}" | tr -d '"'\' ); \
 		DOMAIN_FLAG=$$( [ -n "$$DOMAIN" ] && echo "--domains $$DOMAIN" || echo "" ); \
+		USER=$$(echo "$$AUTH_USER" | tr -d '"'\' ); \
+		PASS=$$(echo "$$AUTH_PASSWORD" | tr -d '"'\' ); \
+		BASIC_AUTH_TOKEN=$$( [ -n "$$USER" ] && [ -n "$$PASS" ] && node -e 'console.log("Basic " + Buffer.from(process.argv[1] + ":" + process.argv[2]).toString("base64"))' "$$USER" "$$PASS" || echo "" ); \
 		echo "Deploying Production Cloudflare API Worker (target: $(DEPLOY_TARGET), commit: $$GIT_SHA)..."; \
-		npx wrangler deploy --config infra/cloudflare/wrangler.toml --env production $(WRANGLER_FLAGS) \
-		  $$DOMAIN_FLAG \
-		  --var "GIT_COMMIT:$$GIT_SHA" || exit 1; \
+		if [ -n "$$BASIC_AUTH_TOKEN" ]; then \
+			npx wrangler deploy --config infra/cloudflare/wrangler.toml --env production $(WRANGLER_FLAGS) \
+			  $$DOMAIN_FLAG \
+			  --var "GIT_COMMIT:$$GIT_SHA" \
+			  --var "BASIC_AUTH:$$BASIC_AUTH_TOKEN" || exit 1; \
+		else \
+			npx wrangler deploy --config infra/cloudflare/wrangler.toml --env production $(WRANGLER_FLAGS) \
+			  $$DOMAIN_FLAG \
+			  --var "GIT_COMMIT:$$GIT_SHA" || exit 1; \
+		fi; \
 	else \
 		echo "Skipping Cloudflare Worker deploy: Cloudflare credentials not set."; \
 	fi

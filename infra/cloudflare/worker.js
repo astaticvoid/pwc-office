@@ -20,27 +20,29 @@ export default {
         });
       }
 
-      // 2. STAGING BASIC AUTHENTICATION (fail-closed in staging environment)
-      if (env.ENVIRONMENT === "staging") {
-        const expectedAuth = env.STAGING_AUTH || env.BASIC_AUTH;
-        if (!expectedAuth) {
-          return new Response("Staging authentication is misconfigured", {
-            status: 500,
-            headers: {
-              "Content-Type": "text/plain; charset=utf-8",
-              "Access-Control-Allow-Origin": "*",
-            },
-          });
-        }
+      // 2. BASIC AUTHENTICATION
+      // Staging: fail-closed (500 if unconfigured). Production: soft gate (enforce if configured, pass-through if not).
+      const expectedAuth = env.STAGING_AUTH || env.BASIC_AUTH;
+      if (env.ENVIRONMENT === "staging" && !expectedAuth) {
+        return new Response("Staging authentication is misconfigured", {
+          status: 500,
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Access-Control-Allow-Origin": "*",
+          },
+        });
+      }
 
+      if (expectedAuth) {
         const authHeader = request.headers.get("Authorization");
 
         if (authHeader !== expectedAuth) {
           const isV3 = url.pathname.includes("/v3/") || url.pathname.endsWith("/version");
+          const realm = env.ENVIRONMENT === "staging" ? "PWC Staging API" : "PWC API";
           return new Response("Unauthorized", {
             status: 401,
             headers: {
-              "WWW-Authenticate": 'Basic realm="PWC Staging API"',
+              "WWW-Authenticate": `Basic realm="${realm}"`,
               "Cache-Control": "no-store",
               "Access-Control-Allow-Origin": "*",
               "Access-Control-Expose-Headers": "X-API-Version, X-Git-Commit, X-Environment",
