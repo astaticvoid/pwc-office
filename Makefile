@@ -1,13 +1,15 @@
+DEPLOY_TARGET ?= personal
 -include .env
+-include .env.$(DEPLOY_TARGET)
 export
 
-.PHONY: lint-css check-conservation venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata intake-year serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-bump-version mobile-ios mobile-ios-upload mobile-android qa lint lint-js lint-ts lint-py test-mutations hooks slice-readings audit-copyright deploy-worker-staging deploy-worker-prod sync-r2
+.PHONY: lint-css check-conservation venv extract-baseline extract-diff invalidate-production test test-unit test-smoke test-seasonal test-full test-tools build check-dist check-integrity check-text audit-errata intake-year serve serve-fg serve-dist stop status restart deploy test-web validate fetch-sources extract mobile-sync mobile-bump-version mobile-ios mobile-ios-upload mobile-android qa lint lint-js lint-ts lint-py test-mutations hooks slice-readings audit-copyright deploy-worker-staging deploy-worker-prod sync-r2 deploy-pages-staging deploy-pages-prod deploy-aws-staging deploy-aws-prod
 
 PORT      ?= 8080
 PORT_DIST ?= 8081
 
-# Default API_ORIGIN to CF_DOMAIN if set, so Capacitor builds target the deployed API
-API_ORIGIN ?= $(if $(CF_DOMAIN),https://$(CF_DOMAIN),)
+# Default API_ORIGIN to CF_API_DOMAIN or CF_DOMAIN if set, so Capacitor builds target the deployed API
+API_ORIGIN ?= $(if $(CF_API_DOMAIN),https://$(CF_API_DOMAIN),$(if $(CF_DOMAIN),https://$(CF_DOMAIN),))
 
 # Python interpreter. Prefer the project venv (`make venv`) when present, so no
 # shell activation is needed; fall back to the ambient python3 (CI, which gets a
@@ -432,7 +434,7 @@ mobile-android-upload: mobile-android-bundle
 # tree is dirty by default right after `make extract` (the manifest timestamp).
 # promote refuses a -dirty release unless forced, which is where it matters (#53).
 GIT_DIRTY := $(shell git status --porcelain 2>/dev/null | head -1)
-RELEASE = $(shell date -u +%Y-%m-%dT%H%M%SZ)-$(shell git rev-parse --short HEAD)$(if $(GIT_DIRTY),-dirty,)
+RELEASE := $(shell date -u +%Y-%m-%dT%H%M%SZ)-$(shell git rev-parse --short HEAD)$(if $(GIT_DIRTY),-dirty,)
 
 slice-readings:
 	node tools/slice_lectionary_readings.js
@@ -441,64 +443,63 @@ slice-readings:
 audit-copyright:
 	$(PYTHON) tools/audit_copyright_leak.py --dist-dir dist
 
+WRANGLER_FLAGS ?= $(if $(WRANGLER_PROFILE),--profile $(WRANGLER_PROFILE),)
+
 sync-r2:
 	@if [ -n "$$R2_ACCESS_KEY_ID" ] && [ -n "$$R2_SECRET_ACCESS_KEY" ] && [ -n "$$R2_ENDPOINT_URL" ]; then \
-		echo "Syncing private sliced data to Cloudflare R2 (pwc-private-data)..."; \
-		ENDPOINT=$$(echo "$$R2_ENDPOINT_URL" | tr -d '"'); \
-		KEY_ID=$$(echo "$$R2_ACCESS_KEY_ID" | tr -d '"'); \
-		SECRET=$$(echo "$$R2_SECRET_ACCESS_KEY" | tr -d '"'); \
-		AWS_ACCESS_KEY_ID="$$KEY_ID" AWS_SECRET_ACCESS_KEY="$$SECRET" \
+		echo "Syncing private sliced data to Cloudflare R2 (target: $(DEPLOY_TARGET), pwc-private-data)..."; \
+		ENDPOINT=$$(echo "$$R2_ENDPOINT_URL" | tr -d '"'\' ); \
+		KEY_ID=$$(echo "$$R2_ACCESS_KEY_ID" | tr -d '"'\' ); \
+		SECRET=$$(echo "$$R2_SECRET_ACCESS_KEY" | tr -d '"'\' ); \
+		AWS_ACCESS_KEY_ID="$$KEY_ID" AWS_SECRET_ACCESS_KEY="$$SECRET" AWS_DEFAULT_REGION="auto" \
 		  aws s3 sync .build/private/ s3://pwc-private-data/ --endpoint-url "$$ENDPOINT" || exit 1; \
 	else \
-		echo "Skipping R2 sync: R2 credentials not set."; \
+		echo "Skipping R2 sync: R2 credentials not set for target $(DEPLOY_TARGET)."; \
 	fi
 
-deploy-staging: check-integrity check-dist audit-copyright slice-readings deploy-functions-staging deploy-worker-staging sync-r2
-	aws s3 sync dist/ s3://$(BUCKET)/releases/$(RELEASE)/ --delete
-	# index.html must always revalidate so browsers pick up new ?v= hashes
-	# on JS/CSS assets after a promote. The sync above writes it with no
-	# cache-control (CloudFront default), which lets the browser heuristic-
-	# cache it for hours. This overwrite adds no-cache so the browser stores
-	# it but always checks with the server before serving.
-	aws s3 cp dist/index.html s3://$(BUCKET)/releases/$(RELEASE)/index.html \
-	  --cache-control "no-cache"
-	# Sync private sliced calendar and lectionary readings (protected by CloudFront gate function)
-	aws s3 sync .build/private/ s3://$(BUCKET)/private/ \
-	  --cache-control "max-age=86400"
-	# Everything on staging gets a 1-minute cache. Staging exists to be deployed
-	# to and looked at immediately, so production-shaped TTLs are wrong here: the
-	# data files were cached for an hour and the images for a day, which meant a
-	# re-extraction could be verified as correct on the CDN while the browser
-	# kept serving the previous copy. Production caching is unaffected — the
-	# releases/ objects below carry no cache-control and promote swaps the
-	# CloudFront origin path.
-	#
-	# Wiped first because `aws s3 sync` skips files whose content is unchanged,
-	# and cache-control is only written on upload — so an object keeps whatever
-	# TTL it was first uploaded with, forever. Changing the header above without
-	# this would leave every unchanged file on its old TTL. Staging is ~11MB, so
-	# re-uploading it wholesale each deploy is cheaper than reasoning about which
-	# objects carry stale metadata.
-	aws s3 rm s3://$(BUCKET)/staging/ --recursive --only-show-errors
-	aws s3 sync dist/ s3://$(BUCKET)/staging/ --delete \
-	  --exclude "*" \
-	  --include "*.html" --include "*.js" --include "*.css" \
-	  --include "*.json" --include "*.png" --include "*.svg" --include "*.ico" \
-	  --include "*.woff2" \
-	  --exclude "sw.js" --exclude "index.html" \
-	  --cache-control "max-age=60"
-	# sw.js: never cache — kill-switch must always be fresh. The exclude above
-	# must come after --include "*.js", since s3 filters apply in order and the
-	# last match wins; ahead of it, the *.js include would claim sw.js and this
-	# sync would then skip it as unchanged, leaving the kill-switch cacheable.
-	aws s3 sync dist/ s3://$(BUCKET)/staging/ \
-	  --exclude "*" --include "sw.js" \
-	  --cache-control "max-age=0, no-store"
-	# index.html: always revalidate so ?v= cache-busted asset URLs take effect.
-	aws s3 cp dist/index.html s3://$(BUCKET)/staging/index.html \
-	  --cache-control "no-cache"
-	@echo "Staging deployed: $(RELEASE)"
+deploy-pages-staging: build
+	@if [ -n "$$CLOUDFLARE_API_TOKEN" ] || [ -n "$$CLOUDFLARE_ACCOUNT_ID" ] || npx wrangler whoami $(WRANGLER_FLAGS) 2>&1 | grep -q "You are logged in"; then \
+		PROJECT=$$(echo "$${CF_PAGES_PROJECT:-pwc-office}" | tr -d '"'\' ); \
+		echo "Deploying Staging Cloudflare Pages (target: $(DEPLOY_TARGET), project: $$PROJECT)..."; \
+		npx wrangler pages deploy dist --project-name "$$PROJECT" --branch staging $(WRANGLER_FLAGS) --commit-dirty=true || exit 1; \
+	else \
+		echo "Skipping Cloudflare Pages deploy: Cloudflare credentials not set."; \
+	fi
+
+deploy-pages-prod:
+	@EVAL_AUTH_TOKEN="" $(MAKE) build
+	@if [ -n "$$CLOUDFLARE_API_TOKEN" ] || [ -n "$$CLOUDFLARE_ACCOUNT_ID" ] || npx wrangler whoami $(WRANGLER_FLAGS) 2>&1 | grep -q "You are logged in"; then \
+		PROJECT=$$(echo "$${CF_PAGES_PROJECT:-pwc-office}" | tr -d '"'\' ); \
+		echo "Deploying Production Cloudflare Pages (target: $(DEPLOY_TARGET), project: $$PROJECT)..."; \
+		npx wrangler pages deploy dist --project-name "$$PROJECT" --branch main $(WRANGLER_FLAGS) --commit-dirty=true || exit 1; \
+	else \
+		echo "Skipping Cloudflare Pages deploy: Cloudflare credentials not set."; \
+	fi
+
+deploy-staging: check-integrity check-dist audit-copyright slice-readings deploy-worker-staging sync-r2 deploy-pages-staging deploy-aws-staging
+	@echo "Staging deployed: $(RELEASE) (target: $(DEPLOY_TARGET))"
 	@echo "$(RELEASE)" > .deploy-latest
+
+deploy-aws-staging:
+	@if [ -n "$$BUCKET" ] && [ -n "$$CF_DISTRIBUTION_ID" ]; then \
+	  echo "Legacy AWS S3/CloudFront staging sync..."; \
+	  $(MAKE) deploy-functions-staging; \
+	  aws s3 sync dist/ s3://$(BUCKET)/releases/$(RELEASE)/ --delete; \
+	  aws s3 cp dist/index.html s3://$(BUCKET)/releases/$(RELEASE)/index.html --cache-control "no-cache"; \
+	  aws s3 sync .build/private/ s3://$(BUCKET)/private/ --cache-control "max-age=86400"; \
+	  aws s3 rm s3://$(BUCKET)/staging/ --recursive --only-show-errors; \
+	  aws s3 sync dist/ s3://$(BUCKET)/staging/ --delete \
+	    --exclude "*" \
+	    --include "*.html" --include "*.js" --include "*.css" \
+	    --include "*.json" --include "*.png" --include "*.svg" --include "*.ico" \
+	    --include "*.woff2" \
+	    --exclude "sw.js" --exclude "index.html" \
+	    --cache-control "max-age=60"; \
+	  aws s3 sync dist/ s3://$(BUCKET)/staging/ \
+	    --exclude "*" --include "sw.js" \
+	    --cache-control "max-age=0, no-store"; \
+	  aws s3 cp dist/index.html s3://$(BUCKET)/staging/index.html --cache-control "no-cache"; \
+	fi
 
 # On success, record which release was verified. promote requires this to name
 # the release it is about to ship, so a deploy that was never smoke-tested — or
@@ -524,19 +525,41 @@ test-staging-full:
 #   - coherence is at threshold
 # The S3 existence check below is not a policy gate and always runs.
 deploy-worker-staging:
-	@if [ -n "$$CLOUDFLARE_API_TOKEN" ] || [ -n "$$CLOUDFLARE_ACCOUNT_ID" ] || npx wrangler whoami 2>&1 | grep -q "You are logged in"; then \
+	@if [ -n "$$CLOUDFLARE_API_TOKEN" ] || [ -n "$$CLOUDFLARE_ACCOUNT_ID" ] || npx wrangler whoami $(WRANGLER_FLAGS) 2>&1 | grep -q "You are logged in"; then \
 		GIT_SHA=$$(git rev-parse --short HEAD 2>/dev/null || echo "unknown"); \
-		echo "Deploying Staging Cloudflare API Worker (commit: $$GIT_SHA)..."; \
-		npx wrangler deploy --config infra/cloudflare/wrangler.toml --var "GIT_COMMIT:$$GIT_SHA" || exit 1; \
+		DOMAIN=$$(echo "$${CF_API_STAGING_DOMAIN}" | tr -d '"'\' ); \
+		DOMAIN_FLAG=$$( [ -n "$$DOMAIN" ] && echo "--domains $$DOMAIN" || echo "" ); \
+		USER=$$(echo "$$AUTH_USER" | tr -d '"'\' ); \
+		PASS=$$(echo "$$AUTH_PASSWORD" | tr -d '"'\' ); \
+		AUTH_ARG=""; \
+		if [ -n "$$USER" ] && [ -n "$$PASS" ]; then \
+			BASIC_AUTH_TOKEN=$$(node -e 'console.log("Basic " + Buffer.from(process.argv[1] + ":" + process.argv[2]).toString("base64"))' "$$USER" "$$PASS"); \
+			AUTH_ARG="--var STAGING_AUTH:$$BASIC_AUTH_TOKEN"; \
+		fi; \
+		echo "Deploying Staging Cloudflare API Worker (target: $(DEPLOY_TARGET), commit: $$GIT_SHA)..."; \
+		if [ -n "$$BASIC_AUTH_TOKEN" ]; then \
+			npx wrangler deploy --config infra/cloudflare/wrangler.toml $(WRANGLER_FLAGS) \
+			  $$DOMAIN_FLAG \
+			  --var "GIT_COMMIT:$$GIT_SHA" \
+			  --var "STAGING_AUTH:$$BASIC_AUTH_TOKEN" || exit 1; \
+		else \
+			npx wrangler deploy --config infra/cloudflare/wrangler.toml $(WRANGLER_FLAGS) \
+			  $$DOMAIN_FLAG \
+			  --var "GIT_COMMIT:$$GIT_SHA" || exit 1; \
+		fi; \
 	else \
 		echo "Skipping Cloudflare Worker deploy: Cloudflare credentials not set."; \
 	fi
 
 deploy-worker-prod:
-	@if [ -n "$$CLOUDFLARE_API_TOKEN" ] || [ -n "$$CLOUDFLARE_ACCOUNT_ID" ] || npx wrangler whoami 2>&1 | grep -q "You are logged in"; then \
+	@if [ -n "$$CLOUDFLARE_API_TOKEN" ] || [ -n "$$CLOUDFLARE_ACCOUNT_ID" ] || npx wrangler whoami $(WRANGLER_FLAGS) 2>&1 | grep -q "You are logged in"; then \
 		GIT_SHA=$$(git rev-parse --short HEAD 2>/dev/null || echo "unknown"); \
-		echo "Deploying Production Cloudflare API Worker (commit: $$GIT_SHA)..."; \
-		npx wrangler deploy --config infra/cloudflare/wrangler.toml --env production --var "GIT_COMMIT:$$GIT_SHA" || exit 1; \
+		DOMAIN=$$(echo "$${CF_API_DOMAIN}" | tr -d '"'\' ); \
+		DOMAIN_FLAG=$$( [ -n "$$DOMAIN" ] && echo "--domains $$DOMAIN" || echo "" ); \
+		echo "Deploying Production Cloudflare API Worker (target: $(DEPLOY_TARGET), commit: $$GIT_SHA)..."; \
+		npx wrangler deploy --config infra/cloudflare/wrangler.toml --env production $(WRANGLER_FLAGS) \
+		  $$DOMAIN_FLAG \
+		  --var "GIT_COMMIT:$$GIT_SHA" || exit 1; \
 	else \
 		echo "Skipping Cloudflare Worker deploy: Cloudflare credentials not set."; \
 	fi
@@ -547,7 +570,7 @@ deploy-worker-prod:
 # releases/ carry no cache-control and the distribution uses Managed-
 # CachingOptimized (24h default), so without this a promotion stays invisible
 # for up to a day. Split out so a rollback can reuse it.
-promote: deploy-functions-prod deploy-worker-prod
+promote:
 	@test -f .deploy-latest || (echo "Run deploy-staging first"; exit 1)
 	@if [ -z "$$PROMOTE_FORCE" ]; then \
 	  RELEASE=$$(cat .deploy-latest); HEAD_SHA=$$(git rev-parse --short HEAD); \
@@ -573,20 +596,29 @@ promote: deploy-functions-prod deploy-worker-prod
 	        rm -f /tmp/pwc-promote-val.json /tmp/pwc-promote-aud.json; exit 1); \
 	  rm -f /tmp/pwc-promote-val.json /tmp/pwc-promote-aud.json; \
 	fi
-	@RELEASE=$$(cat .deploy-latest) && \
-	(aws s3 ls s3://$(BUCKET)/releases/$$RELEASE/index.html >/dev/null 2>&1 || \
-	  (echo "Promotion aborted — s3://$(BUCKET)/releases/$$RELEASE/ has no index.html."; \
-	   echo "The release is missing or incomplete; swapping to it would break production."; \
-	   exit 1)) && \
-	aws cloudfront get-distribution-config --id $(CF_DISTRIBUTION_ID) \
-	  > /tmp/cf-config.json && \
-	jq '(.DistributionConfig.Origins.Items[] | select(.Id != "S3-Private")).OriginPath = "/releases/'"$$RELEASE"'" | .DistributionConfig' \
-	  /tmp/cf-config.json > /tmp/cf-new.json && \
-	aws cloudfront update-distribution --id $(CF_DISTRIBUTION_ID) \
-	  --distribution-config file:///tmp/cf-new.json \
-	  --if-match $$(jq -r '.ETag' /tmp/cf-config.json) > /dev/null && \
-	echo "Promoted $$RELEASE to production" && \
-	$(MAKE) invalidate-production --no-print-directory
+	$(MAKE) deploy-worker-prod
+	$(MAKE) deploy-pages-prod
+	$(MAKE) deploy-aws-prod
+	@echo "Promoted to production: $$(cat .deploy-latest) (target: $(DEPLOY_TARGET))"
+
+deploy-aws-prod:
+	@if [ -n "$$BUCKET" ] && [ -n "$$CF_DISTRIBUTION_ID" ]; then \
+	  $(MAKE) deploy-functions-prod; \
+	  RELEASE=$$(cat .deploy-latest) && \
+	  (aws s3 ls s3://$(BUCKET)/releases/$$RELEASE/index.html >/dev/null 2>&1 || \
+	    (echo "Promotion aborted — s3://$(BUCKET)/releases/$$RELEASE/ has no index.html."; \
+	     echo "The release is missing or incomplete; swapping to it would break production."; \
+	     exit 1)) && \
+	  aws cloudfront get-distribution-config --id $(CF_DISTRIBUTION_ID) \
+	    > /tmp/cf-config.json && \
+	  jq '(.DistributionConfig.Origins.Items[] | select(.Id != "S3-Private")).OriginPath = "/releases/'"$$RELEASE"'" | .DistributionConfig' \
+	    /tmp/cf-config.json > /tmp/cf-new.json && \
+	  aws cloudfront update-distribution --id $(CF_DISTRIBUTION_ID) \
+	    --distribution-config file:///tmp/cf-new.json \
+	    --if-match $$(jq -r '.ETag' /tmp/cf-config.json) > /dev/null && \
+	  echo "Promoted $$RELEASE to production (AWS CloudFront)" && \
+	  $(MAKE) invalidate-production --no-print-directory; \
+	fi
 
 # CloudFront caches by URL path, not by origin path, so swapping the origin in
 # promote does not on its own change what anyone is served. Objects under

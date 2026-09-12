@@ -32,6 +32,9 @@ boneyard/data/
 
 # Local secrets — never commit
 .env
+.env.*
+!.env.example
+.wrangler/
 *.p8
 *.jks
 *.keystore
