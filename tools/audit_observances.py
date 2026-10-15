@@ -176,6 +176,6 @@ civil_kw = ["remembrance day", "victoria day", "canada day", "labour day",
 untagged = []
 for kw in civil_kw:
     for d, raw in ROWS.items():
-        if kw in raw.lower() and d not in OBS:
+        if kw in raw.lower() and d in DATA and d not in OBS:
             untagged.append((d, kw))
 print(f"untagged civil-marker lines: {untagged or 'none'}")

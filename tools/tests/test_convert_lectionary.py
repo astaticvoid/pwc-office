@@ -24,6 +24,7 @@ from convert_lectionary import (
     parse_observances,
     parse_psalm_field,
     parse_single_office,
+    read_lectionary_rows,
     unjoined_co_commemorations,
     unlabelled_alternates,
     unmatched_eve_offices,
@@ -176,6 +177,14 @@ class TestParsePsalmField:
         psalms = result["psalms"]
         assert all(isinstance(p, dict) and p.get("optional") for p in psalms)
 
+    def test_psalms_without_space_after_comma(self):
+        result = parse_psalm_field("Ps 9,15")
+        assert result == {"psalms": ["9", "15"]}
+
+    def test_oxford_comma_before_or_split(self):
+        result = parse_psalm_field("Ps 113, 114, or 118")
+        assert result == {"psalm_sets": [["113", "114"], ["118"]]}
+
 
 # ── parse_lesson ──────────────────────────────────────────────────────────────
 
@@ -200,6 +209,19 @@ class TestParseLesson:
     def test_fixes_period_chapter_separator(self):
         # "Gal 4.21-31" → "Gal 4:21-31"
         assert parse_lesson("Gal 4.21-31") == "Gal 4:21-31"
+
+    def test_fixes_period_after_book_name(self):
+        assert parse_lesson("Is. 42:(1-9), 10-17") == "Is 42:(1-9), 10-17"
+
+    def test_fixes_cross_chapter_dot(self):
+        assert parse_lesson("Rom 2:25—3.18") == "Rom 2:25—3:18"
+
+    def test_fixes_numbered_book_dot(self):
+        assert parse_lesson("1 Jn 3.1-10") == "1 Jn 3:1-10"
+
+    def test_substitutes_easter_duplicate_rubric(self):
+        raw = "Acts 3:1-10 (duplicates 1st lesson at HE—reading from Year 2 may be substituted: 1 Cor 15:(29), 30-41)"
+        assert parse_lesson(raw) == "Acts 3:1-10 or 1 Cor 15:(29), 30-41"
 
     def test_whitespace_stripped(self):
         assert parse_lesson("  Isa 40:1-11  ") == "Isa 40:1-11"
@@ -320,25 +342,20 @@ class TestIsCalendarName:
     def test_every_label_the_shipped_csv_produces_is_a_name(self):
         # The classifier decides what reaches `label`, so the corpus is the
         # check on it: a rubric slipping through would be set as a caption.
-        import csv as _csv
-        import re as _re
 
-        from convert_lectionary import RE_OR_SPLIT, clean
+        from convert_lectionary import RE_OR_SPLIT, clean, read_lectionary_rows
 
         paths = sorted((ROOT / "sources").glob("bas_short_*.csv"))
         if not paths:
             pytest.skip("no sources/bas_short_*.csv in this checkout")
         labels = set()
-        for path in paths:
-            with open(path, newline="", encoding="utf-8") as f:
-                for row in _csv.reader(f, quoting=_csv.QUOTE_MINIMAL):
-                    if len(row) < 5 or not _re.match(r"\d{4}-\d{2}-\d{2}", row[0].strip()):
-                        continue
-                    for idx in (3, 4):
-                        for branch in RE_OR_SPLIT.split(clean(row[idx])):
-                            office = parse_single_office(branch.strip())
-                            if "label" in office:
-                                labels.add(office["label"])
+        _, rows = read_lectionary_rows(paths)
+        for row in rows:
+            for idx in (3, 4):
+                for branch in RE_OR_SPLIT.split(clean(row[idx])):
+                    office = parse_single_office(branch.strip())
+                    if "label" in office:
+                        labels.add(office["label"])
         assert labels, "expected the CSV to produce labels"
         assert {name for name in labels if not is_calendar_name(name)} == set()
 
@@ -640,16 +657,11 @@ class TestUntypedNoteDates:
 
     def test_the_current_csv_is_fully_typed(self):
         # The gate must pass on shipped data or it is not a gate, it is a wall.
-        import csv as _csv
-        import re as _re
-        rows = {}
-        for path in sorted((ROOT / "sources").glob("bas_short_*.csv")):
-            with open(path, newline="", encoding="utf-8") as f:
-                for row in _csv.reader(f, quoting=_csv.QUOTE_MINIMAL):
-                    if len(row) >= 5 and _re.match(r"\d{4}-\d{2}-\d{2}", row[0].strip()):
-                        rows[row[0].strip()] = row
-        if not rows:
+        from convert_lectionary import read_lectionary_rows
+        paths = sorted((ROOT / "sources").glob("bas_short_*.csv"))
+        if not paths:
             pytest.skip("no sources/bas_short_*.csv in this checkout")
+        rows, _ = read_lectionary_rows(paths)
         assert untyped_note_dates(rows) == []
 
 
@@ -688,16 +700,11 @@ class TestUnmatchedEveOffices:
 
     def test_the_current_csv_has_no_unmatched_eves(self):
         # The gate must pass on shipped data or it is not a gate, it is a wall.
-        import csv as _csv
-        import re as _re
-        rows = {}
-        for path in sorted((ROOT / "sources").glob("bas_short_*.csv")):
-            with open(path, newline="", encoding="utf-8") as f:
-                for row in _csv.reader(f, quoting=_csv.QUOTE_MINIMAL):
-                    if len(row) >= 5 and _re.match(r"\d{4}-\d{2}-\d{2}", row[0].strip()):
-                        rows[row[0].strip()] = row
-        if not rows:
+        from convert_lectionary import read_lectionary_rows
+        paths = sorted((ROOT / "sources").glob("bas_short_*.csv"))
+        if not paths:
             pytest.skip("no sources/bas_short_*.csv in this checkout")
+        rows, _ = read_lectionary_rows(paths)
         assert unmatched_eve_offices(rows) == []
 
 
@@ -845,26 +852,21 @@ class TestUnjoinedCoCommemorations:
             "Thomas Becket, Archbishop of Canterbury, 1170 - Com (White)")}
         assert unjoined_co_commemorations(rows) == []
 
-    def test_a_bare_or_is_not_a_joining_word_and_blocks(self):
-        # "or" splits the line but is not in CO_COMMEMORATION_JOINS, so the pair
-        # reaches the worklist rather than the header naming one of two days.
+    def test_an_unrecognized_join_word_blocks(self):
+        # A join word not in CO_COMMEMORATION_JOINS reaches the worklist rather
+        # than the header naming one of two days.
         rows = {"2026-10-30": ["2026-10-30",
-            "A Saint, 1900 - Com (Green) or B Saint, 1901 - Com (Green)",
+            "A Saint, 1900 - Com (Green)\nwith\nB Saint, 1901 - Com (Green)",
             "", "Ps 1", "Ps 2", ""]}
         assert [d for d, _ in unjoined_co_commemorations(rows)] == ["2026-10-30"]
 
     def test_the_current_csv_has_no_unjoined_co_commemorations(self):
         # The gate must pass on shipped data or it is not a gate, it is a wall.
-        import csv as _csv
-        import re as _re
-        rows = {}
-        for path in sorted((ROOT / "sources").glob("bas_short_*.csv")):
-            with open(path, newline="", encoding="utf-8") as f:
-                for row in _csv.reader(f, quoting=_csv.QUOTE_MINIMAL):
-                    if len(row) >= 5 and _re.match(r"\d{4}-\d{2}-\d{2}", row[0].strip()):
-                        rows[row[0].strip()] = row
-        if not rows:
+        from convert_lectionary import read_lectionary_rows
+        paths = sorted((ROOT / "sources").glob("bas_short_*.csv"))
+        if not paths:
             pytest.skip("no sources/bas_short_*.csv in this checkout")
+        rows, _ = read_lectionary_rows(paths)
         assert unjoined_co_commemorations(rows) == []
 
 
@@ -897,16 +899,11 @@ class TestUnlabelledAlternates:
 
     def test_the_current_csv_has_no_unlabelled_alternates(self):
         # The gate must pass on shipped data or it is not a gate, it is a wall.
-        import csv as _csv
-        import re as _re
-        rows = {}
-        for path in sorted((ROOT / "sources").glob("bas_short_*.csv")):
-            with open(path, newline="", encoding="utf-8") as f:
-                for row in _csv.reader(f, quoting=_csv.QUOTE_MINIMAL):
-                    if len(row) >= 5 and _re.match(r"\d{4}-\d{2}-\d{2}", row[0].strip()):
-                        rows[row[0].strip()] = row
-        if not rows:
+        from convert_lectionary import read_lectionary_rows
+        paths = sorted((ROOT / "sources").glob("bas_short_*.csv"))
+        if not paths:
             pytest.skip("no sources/bas_short_*.csv in this checkout")
+        rows, _ = read_lectionary_rows(paths)
         assert unlabelled_alternates(rows) == []
 
 
@@ -998,3 +995,44 @@ class TestDetectBounds:
                     'easter', 'pentecost', 'trinity_sunday', 'all_saints']
         for key in required:
             assert key in bounds, f"Missing required bound: {key}"
+
+
+# ── read_lectionary_rows ──────────────────────────────────────────────────────
+
+class TestReadLectionaryRows:
+    def test_legacy_six_column_format(self, tmp_path):
+        f = tmp_path / "legacy.csv"
+        f.write_text(
+            '2026-04-05,"Easter Day","HE Propers","Ps 148","Ps 114","Note 1"\n',
+            encoding="utf-8",
+        )
+        rows_by_date, rows = read_lectionary_rows([f])
+        assert "2026-04-05" in rows_by_date
+        assert rows_by_date["2026-04-05"] == [
+            "2026-04-05", "Easter Day", "HE Propers", "Ps 148", "Ps 114", "Note 1"
+        ]
+        assert len(rows) == 1
+
+    def test_nine_column_with_header_and_utf8_bom(self, tmp_path):
+        f = tmp_path / "nine_col.csv"
+        # Includes UTF-8 BOM, an empty leading line, and remapped columns
+        content = (
+            '\ufeff\n'
+            'date,title,subtitle,HE,MP,EP,HE_ALT,HE_EASTER_OT,HE_EASTER_PSALM\n'
+            '2027-01-06,"The Epiphany","Epiphany notes","HE 279","Ps 46","Ps 96","alt","ot","ps"\n'
+        )
+        f.write_text(content, encoding="utf-8")
+        rows_by_date, rows = read_lectionary_rows([f])
+        assert "2027-01-06" in rows_by_date
+        assert rows_by_date["2027-01-06"] == [
+            "2027-01-06", "The Epiphany", "HE 279", "Ps 46", "Ps 96", "Epiphany notes"
+        ]
+
+    def test_later_files_win_on_overlapping_dates(self, tmp_path):
+        f1 = tmp_path / "first.csv"
+        f2 = tmp_path / "second.csv"
+        f1.write_text('2026-12-31,"Old Year","HE 1","MP 1","EP 1",""\n', encoding="utf-8")
+        f2.write_text('2026-12-31,"Updated Year","HE 2","MP 2","EP 2","New Note"\n', encoding="utf-8")
+        rows_by_date, rows = read_lectionary_rows([f1, f2])
+        assert rows_by_date["2026-12-31"][1] == "Updated Year"
+        assert rows_by_date["2026-12-31"][5] == "New Note"

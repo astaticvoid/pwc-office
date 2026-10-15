@@ -15,7 +15,6 @@ gate — this is the worklist for clearing it. See
 docs/runbooks/lectionary-year-intake.md.
 """
 import argparse
-import csv
 import datetime
 import difflib
 import json
@@ -37,6 +36,7 @@ from convert_lectionary import (  # noqa: E402
     _type_hint,
     clean,
     detect_bounds,
+    read_lectionary_rows,
     unjoined_co_commemorations,
     unlabelled_alternates,
     unmatched_eve_offices,
@@ -68,13 +68,7 @@ def main() -> None:
     if not paths:
         sys.exit("No bas_short_*.csv found in sources/ — run make fetch-sources first.")
 
-    rows_by_date: dict[str, list] = {}
-    for path in paths:
-        with open(path, newline="", encoding="utf-8") as f:
-            for row in csv.reader(f, quoting=csv.QUOTE_MINIMAL):
-                if len(row) >= 5 and RE_DATE.match(row[0].strip()):
-                    rows_by_date[row[0].strip()] = row
-    rows = sorted(rows_by_date.values(), key=lambda r: r[0])
+    rows_by_date, rows = read_lectionary_rows(paths)
     dates = sorted(rows_by_date)
     print(f"Lectionary intake — {len(paths)} file(s), {len(dates)} dates")
     print(f"  {', '.join(p.name for p in paths)}")

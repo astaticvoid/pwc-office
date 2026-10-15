@@ -1,5 +1,5 @@
 {
-  "extracted_at": "2026-10-15T21:56:29Z",
+  "extracted_at": "2026-10-15T22:48:54Z",
   "tool_versions": {
     "fitz": [
       "1.28.0",
@@ -14,13 +14,14 @@
     "tools/extract_psalter.py": "6d697ded980ebd3d24afc90c1c9ec588be15fb38cb13c9c683e5a91ea98712f5",
     "tools/extract_collects.py": "e8b8364afcf384a7b0d3bcc2e62b5aca64c2fb344f822f4d9f51c3d710e0ccb6",
     "tools/extract_fats.py": "4be8d66eda97592996196a648de3b67ffecaa0de285dd31020266103a593fe2b",
-    "tools/convert_lectionary.py": "021eb01a5ea6ca6b4147867c2b8af24c9d16940c46aadfdccf255b3474caf0f1",
+    "tools/convert_lectionary.py": "4cb6218757b1170cffc604c65ce470cd9dd5099341c5769eece2dda6c24ab8ef",
     "tools/apply_corrections.py": "fea4322b76b639833c39dbf6880ede6228acb049a4320451c84cb70600de51b6",
     "tools/corrections_lib.py": "40119a95696e6a4a4091bcb1495d61277c9709c88cc754defddf83d127f18cb2",
     "tools/extract_lib.py": "2d77e3c60dad78a693e88557fd84115815a62128355c04d78bd0c6f42014d72e",
     "data/corrections.json": "6d8b59480c46c015f5d826fa4a182cd8e4e4a66d28311c0b43ecd19adfb181a8",
     "data/monarch.json": "73dcad46443071b6cadd9d633a54adc15469d6938799ce0aa113debd9d02ccdb",
-    "sources/bas_short_2026.csv": "909616851bf8c627428fbaf50ce894d72fc122a3b702843f1bad7c070850b89e"
+    "sources/bas_short_2026.csv": "909616851bf8c627428fbaf50ce894d72fc122a3b702843f1bad7c070850b89e",
+    "sources/bas_short_2027.csv": "e065ec352132dd4ed481ca1d57f65778474ab7dd8a29c8bfc851c511cf45e01b"
   },
   "files": {
     "data/offices.json": {
@@ -44,8 +45,8 @@
       "entries": 174
     },
     "data/lectionary": {
-      "sha256": "ada982ece8786e8e286886250704e0a99a776614c06c81147bb41a0363f52794",
-      "months": 14
+      "sha256": "9252d614e3ebfbce164cd7ca071e29287bc799d6265e41637b1e581f24a44259",
+      "months": 24
     }
   }
 }

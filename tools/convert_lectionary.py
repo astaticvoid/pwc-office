@@ -88,6 +88,7 @@ OBSERVANCE_PHRASES: dict[str, str] = {
     "remembrance day": "remembrance_day",
     "new year's day": "new_year_day",
     "accession day": "accession_day",
+    "emancipation sunday": "emancipation_sunday",
 }
 
 # Feast names whose English liturgical usage prefixes the definite article to
@@ -101,6 +102,7 @@ EVE_THE_ARTICLE = frozenset({
     "baptism of the lord",
     "presentation of the lord",
     "annunciation",
+    "sunday of the passion",
     "sunday of the passion: palm sunday",
     "ascension",
     "seventh sunday of easter",
@@ -140,12 +142,13 @@ KNOWN_EVE_TARGETS = (
         "christmas", "christmas i", "christmas ii",
         "lent i", "lent ii", "lent iii", "lent iv", "lent v",
         "easter ii", "easter iii", "easter iv", "easter v", "easter vi",
+        "easter vii",
         "pentecost", "trinity sunday", "corpus christi", "ascension sunday",
         "national indigenous day of prayer",
         "saint peter and saint paul", "saint mary the virgin",
         "saint michael and all angels", "holy cross",
         "harvest thanksgiving", "dedication sunday", "remembrance sunday",
-        "all saints' day",
+        "all saints' day", "all saints' sunday",
     })
 )
 
@@ -250,6 +253,69 @@ NOTE_TYPES: dict[str, str | list[str]] = {
     "2026-12-26": ["source_note", "source_note", "precedence_rule"],
     "2026-12-28": "source_note",
     "2026-12-29": ["source_note", "source_note"],
+    # 2027 Intake
+    "2027-01-06": ["pastoral", "pastoral", "pastoral", "office_note"],
+    "2027-02-02": "pastoral",
+    "2027-02-07": ["pastoral", "pastoral", "pastoral"],
+    "2027-02-10": ["pastoral", "pastoral", "pastoral", "pastoral", "pastoral", "pastoral", "office_note", "pastoral", "pastoral"],
+    "2027-03-14": "pastoral",
+    "2027-03-21": ["pastoral", "pastoral", "pastoral", "pastoral"],
+    "2027-03-25": ["pastoral", "pastoral", "pastoral", "pastoral", "pastoral"],
+    "2027-03-26": ["pastoral", "pastoral", "pastoral", "office_note"],
+    "2027-03-27": "pastoral",
+    "2027-03-28": [
+        "pastoral",
+        "source_note", "source_note", "source_note", "source_note", "source_note",
+        "source_note", "source_note", "source_note", "source_note", "source_note",
+        "source_note",
+        "pastoral", "pastoral", "pastoral", "pastoral", "pastoral",
+        "source_note",
+    ],
+    "2027-04-03": "pastoral",
+    "2027-04-18": ["pastoral", "pastoral"],
+    "2027-05-06": "pastoral",
+    "2027-05-16": ["pastoral", "pastoral"],
+    "2027-05-27": ["pastoral", "pastoral", "pastoral"],
+    "2027-06-21": ["pastoral", "pastoral"],
+    "2027-09-01": ["pastoral", "source_note"],
+    "2027-09-02": ["pastoral", "source_note"],
+    "2027-09-03": ["pastoral", "source_note"],
+    "2027-09-04": ["pastoral", "source_note"],
+    "2027-09-05": ["pastoral", "source_note"],
+    "2027-09-06": ["pastoral", "source_note"],
+    "2027-09-07": ["pastoral", "source_note"],
+    "2027-09-08": ["pastoral", "source_note"],
+    "2027-09-09": ["pastoral", "source_note"],
+    "2027-09-10": ["pastoral", "source_note"],
+    "2027-09-11": ["pastoral", "source_note"],
+    "2027-09-12": ["pastoral", "source_note"],
+    "2027-09-13": ["pastoral", "source_note"],
+    "2027-09-14": ["pastoral", "source_note"],
+    "2027-09-15": ["pastoral", "source_note"],
+    "2027-09-16": ["pastoral", "source_note"],
+    "2027-09-17": ["pastoral", "source_note"],
+    "2027-09-18": ["pastoral", "source_note"],
+    "2027-09-19": ["pastoral", "source_note"],
+    "2027-09-20": ["pastoral", "source_note"],
+    "2027-09-21": ["pastoral", "source_note"],
+    "2027-09-22": ["pastoral", "source_note"],
+    "2027-09-23": ["pastoral", "source_note"],
+    "2027-09-24": ["pastoral", "source_note"],
+    "2027-09-25": ["pastoral", "source_note"],
+    "2027-09-26": ["pastoral", "source_note"],
+    "2027-09-27": ["pastoral", "source_note"],
+    "2027-09-28": ["pastoral", "source_note"],
+    "2027-09-29": ["pastoral", "source_note"],
+    "2027-09-30": ["pastoral", "source_note"],
+    "2027-10-01": ["pastoral", "source_note"],
+    "2027-10-02": ["pastoral", "source_note"],
+    "2027-10-03": ["pastoral", "source_note"],
+    "2027-10-04": ["pastoral", "source_note"],
+    "2027-10-31": "pastoral",
+    "2027-11-02": ["pastoral", "pastoral", "pastoral", "pastoral"],
+    "2027-11-14": ["pastoral", "pastoral", "pastoral", "pastoral", "source_note"],
+    "2027-11-28": ["pastoral", "pastoral", "pastoral", "pastoral", "o_antiphon", "pastoral"],
+    "2027-12-24": ["pastoral", "pastoral", "pastoral"],
 }
 
 
@@ -257,17 +323,21 @@ NOTE_TYPES: dict[str, str | list[str]] = {
 
 def clean(s: str) -> str:
     """Strip HTML tags/entities and normalise whitespace."""
-    s = s.replace("<br>", "\n").replace("<BR>", "\n")
+    s = re.sub(r"<br\s*/?>", "\n", s, flags=re.I)
+    s = re.sub(r"</?(?:p|div|h[1-6]|li)\b[^>]*>", "\n", s, flags=re.I)
     s = re.sub(r"<[^>]+>", "", s)
     s = html.unescape(s)
+    s = s.replace("\u00a0", " ")
     return s.strip()
 
 
 def clean_inline(s: str) -> str:
     """Strip HTML, decode entities, and collapse to a single line."""
     s = re.sub(r"<br\s*/?>", " ", s, flags=re.I)
+    s = re.sub(r"</?(?:p|div|h[1-6]|li)\b[^>]*>", " ", s, flags=re.I)
     s = re.sub(r"<[^>]+>", "", s)
     s = html.unescape(s)
+    s = s.replace("\u00a0", " ")
     return " ".join(s.split())
 
 
@@ -486,6 +556,10 @@ def eve_identity(label: str, lines: list[str]) -> dict | None:
 # ── Name / rank / colour ───────────────────────────────────────────────────────
 
 RANK_SUFFIXES = {
+    " - Principal Feast": "principal_feast",
+    " - Holy Day": "holy_day",
+    " - Memorial": "memorial",
+    " - Commemoration": "commemoration",
     " - PF": "principal_feast",
     " - HD": "holy_day",
     " - Mem": "memorial",
@@ -495,7 +569,10 @@ RANK_SUFFIXES = {
 
 # A name-column line carrying a rank suffix — the shape that names an
 # observance, as against the separator and note lines around it.
-RE_RANKED_LINE = re.compile(r"\s-\s(?:PF|HD|Mem|Com)\b")
+RE_RANKED_LINE = re.compile(
+    r"\s-\s(?:Principal Feast|Holy Day|Memorial|Commemoration|PF|HD|Mem|Com)\b",
+    re.I,
+)
 
 # How the calendar joins two commemorations of equal standing, and the word
 # the header joins them with. Written after the pair ("Or Both Together") or
@@ -504,8 +581,10 @@ RE_RANKED_LINE = re.compile(r"\s-\s(?:PF|HD|Mem|Com)\b")
 # reported rather than guessed at (ADR 0017).
 CO_COMMEMORATION_JOINS = {
     "or both together": "or",
+    "both together": "or",
     "and / or": "and / or",
     "and": "and",
+    "or": "or",
 }
 
 # A second observance joined onto the end of the first, on one line (#137).
@@ -513,12 +592,12 @@ CO_COMMEMORATION_JOINS = {
 # the Great and Gregory of Nazianzus … - Mem" is one commemoration of two
 # people — and one after it starts another observance.
 RE_INLINE_OBSERVANCE_JOIN = re.compile(
-    r"(\s-\s(?:PF|HD|Mem|Com)\b(?:\s*\([^()]*\))?(?:\s*\[[^\]]*\])?)"
+    r"(\s-\s(?:Principal Feast|Holy Day|Memorial|Commemoration|PF|HD|Mem|Com)\b(?:\s*\([^()]*\))?(?:\s*\[[^\]]*\])?)"
     r"\s+(and|or)\s+"
     # What follows has to be an observance itself, or the join word was joining
     # something else and the tail is not a line to split off — it would be
     # dropped, since only ranked lines are read back.
-    r"(?=[^\n]*\s-\s(?:PF|HD|Mem|Com)\b)",
+    r"(?=[^\n]*\s-\s(?:Principal Feast|Holy Day|Memorial|Commemoration|PF|HD|Mem|Com)\b)",
     re.I,
 )
 
@@ -629,18 +708,14 @@ CANONICAL_BOUNDS_PHRASES = {
 
 
 def _bounds_title_forms(desc):
-    """The candidate titles in a CSV description, with its decorations removed.
-
-    The source writes a feast as an article, one or two titles, then a rank code
-    and a colour: "the sunday of the resurrection: easter day - pf (white or
-    gold)". CANONICAL_BOUNDS_PHRASES holds the bare titles, so matching the raw
-    description could only ever succeed as a loose substring — every correct
-    match reported itself as fuzzy, and six such warnings printed on every
-    extraction. A warning that always fires trains people to ignore the ones
-    that mean something, so the decorations are stripped and a real match is
-    allowed to be exact.
-    """
-    text = re.sub(r"\s*[-–]\s*(pf|hd|fd)\b.*$", "", desc)   # rank code and after
+    """The candidate titles in a CSV description, with its decorations removed."""
+    desc = clean(desc)
+    text = re.sub(
+        r"\s*[-–]\s*(?:principal feast|holy day|memorial|commemoration|pf|hd|fd|mem|com)\b.*$",
+        "",
+        desc,
+        flags=re.I,
+    )   # rank code and after
     text = re.sub(r"\s*\([^)]*\)\s*$", "", text)            # trailing colour
     text = re.sub(r"\s*\[[^]]*\]", "", text)                # proper number
     text = text.strip()
@@ -732,13 +807,13 @@ def detect_bounds(rows) -> dict:
 # ── Psalm parsing ──────────────────────────────────────────────────────────────
 
 def _psalm_token(token: str):
-    t = token.strip()
+    t = token.strip().rstrip(",").strip()
     if not t:
         return None
     if (t.startswith("(") and t.endswith(")")) or (
         t.startswith("[") and t.endswith("]")
     ):
-        return {"citation": t[1:-1], "optional": True}
+        return {"citation": t[1:-1].strip().rstrip(",").strip(), "optional": True}
     return t
 
 
@@ -849,7 +924,9 @@ def parse_psalm_field(raw: str) -> dict:
     s = raw.strip()
     if not s.startswith("Ps "):
         return {}
-    s = s[3:]
+    s = s[3:].strip()
+    s = re.sub(r",\s*or\s+", " or ", s)
+    s = re.sub(r",(?!\s)", ", ", s)
 
     if " or " in s:
         parts = s.split(" or ", 1)
@@ -861,17 +938,24 @@ def parse_psalm_field(raw: str) -> dict:
 
 # ── Lesson parsing ─────────────────────────────────────────────────────────────
 
-_RE_BOOK_COLON = re.compile(r'^([A-Z][a-z]*):\s*(?=\d)')
-_RE_CHAPTER_DOT = re.compile(r'^([A-Z][a-z]* \d+)\.(\d+)')
+_RE_BOOK_COLON = re.compile(r"^(\d?\s*[A-Z][a-z]*):\s*(?=\d)")
+_RE_BOOK_DOT = re.compile(r"^(\d?\s*[A-Z][a-z]*)\.\s*(?=\d)")
+_RE_CHAPTER_DOT = re.compile(r"\b(\d+)\.(\d+)\b")
+_RE_DUPLICATE_SUBST = re.compile(r"\s*\(duplicates.+?substituted:\s*(.+)\)$", re.I)
 
 
 def _clean_citation(s: str) -> str:
     """Fix CSV source errors in a citation string."""
+    s = s.replace("\u00a0", " ")
     # "Mt: 22:23-33" or "Ezek:7:10-15" → "Mt 22:23-33" / "Ezek 7:10-15"
-    s = _RE_BOOK_COLON.sub(r'\1 ', s)
-    # "Gal 4.21-31" → "Gal 4:21-31" (period used as chapter separator)
-    s = _RE_CHAPTER_DOT.sub(r'\1:\2', s)
-    return s
+    s = _RE_BOOK_COLON.sub(r"\1 ", s)
+    # "Is. 42:(1-9), 10-17" → "Is 42:(1-9), 10-17"
+    s = _RE_BOOK_DOT.sub(r"\1 ", s)
+    # "Gal 4.21-31" or "Rom 2:25—3.18" → "Gal 4:21-31" / "Rom 2:25—3:18"
+    s = _RE_CHAPTER_DOT.sub(r"\1:\2", s)
+    # Easter week: "(duplicates 1st lesson at HE—reading from Year 2 may be substituted: 1 Cor 15:1-11)" → " or 1 Cor 15:1-11"
+    s = _RE_DUPLICATE_SUBST.sub(r" or \1", s)
+    return s.strip()
 
 
 def parse_lesson(raw: str):
@@ -1069,6 +1153,76 @@ def _type_hint(segments: list[str]) -> str:
     return "[" + ", ".join('"???"' for _ in segments) + "]"
 
 
+def read_lectionary_rows(
+    paths: list[Path | str],
+) -> tuple[dict[str, list], list[list]]:
+    """Read lectionary CSV files and return (rows_by_date, sorted_rows).
+
+    Normalizes both legacy 6-column and updated 9-column CSV schemas into
+    canonical 6-element rows:
+        [date, name, eucharist, morning, evening, notes]
+    Later files win on overlapping dates.
+    """
+    rows_by_date: dict[str, list] = {}
+    for p in paths:
+        path = Path(p)
+        with open(path, newline="", encoding="utf-8-sig") as f:
+            reader = csv.reader(f, quoting=csv.QUOTE_MINIMAL)
+            first_row = next(reader, None)
+            while first_row is not None and len(first_row) == 0:
+                first_row = next(reader, None)
+            if first_row is None:
+                continue
+
+            col_date = 0
+            col_title = 1
+            col_he = 2
+            col_mp = 3
+            col_ep = 4
+            col_notes = 5
+
+            # Detect formal header row
+            if first_row and len(first_row) > 0 and first_row[0].strip().lower().startswith("date"):
+                h = [col.strip().lower() for col in first_row]
+                col_date = h.index("date") if "date" in h else 0
+                col_title = h.index("title") if "title" in h else (h.index("name") if "name" in h else 1)
+                col_notes = h.index("subtitle") if "subtitle" in h else (h.index("notes") if "notes" in h else None)
+                col_he = h.index("he") if "he" in h else (h.index("eucharist") if "eucharist" in h else None)
+                col_mp = h.index("mp") if "mp" in h else (h.index("morning") if "morning" in h else None)
+                col_ep = h.index("ep") if "ep" in h else (h.index("evening") if "evening" in h else None)
+            else:
+                if len(first_row) >= 9:
+                    col_date, col_title, col_notes, col_he, col_mp, col_ep = 0, 1, 2, 3, 4, 5
+                else:
+                    col_date, col_title, col_he, col_mp, col_ep, col_notes = 0, 1, 2, 3, 4, 5
+
+                if len(first_row) > col_date:
+                    d = first_row[col_date].strip()
+                    if re.match(r"^\d{4}-\d{2}-\d{2}$", d):
+                        t = first_row[col_title].strip() if len(first_row) > col_title else ""
+                        he = first_row[col_he].strip() if col_he is not None and len(first_row) > col_he else ""
+                        mp = first_row[col_mp].strip() if col_mp is not None and len(first_row) > col_mp else ""
+                        ep = first_row[col_ep].strip() if col_ep is not None and len(first_row) > col_ep else ""
+                        nt = first_row[col_notes].strip() if col_notes is not None and len(first_row) > col_notes else ""
+                        rows_by_date[d] = [d, t, he, mp, ep, nt]
+
+            for row in reader:
+                if not row or len(row) <= col_date:
+                    continue
+                d = row[col_date].strip()
+                if not re.match(r"^\d{4}-\d{2}-\d{2}$", d):
+                    continue
+                t = row[col_title].strip() if len(row) > col_title else ""
+                he = row[col_he].strip() if col_he is not None and len(row) > col_he else ""
+                mp = row[col_mp].strip() if col_mp is not None and len(row) > col_mp else ""
+                ep = row[col_ep].strip() if col_ep is not None and len(row) > col_ep else ""
+                nt = row[col_notes].strip() if col_notes is not None and len(row) > col_notes else ""
+                rows_by_date[d] = [d, t, he, mp, ep, nt]
+
+    rows = sorted(rows_by_date.values(), key=lambda r: r[0])
+    return rows_by_date, rows
+
+
 def untyped_note_dates(rows_by_date: dict[str, list]) -> list[tuple[str, list[str]]]:
     """Note-bearing dates with no NOTE_TYPES entry, with their segments.
 
@@ -1233,13 +1387,7 @@ def main():
         sys.exit("No CSV files found. Add a bas_short_YYYY.csv file to sources/ and re-run.")
 
     # Merge rows from all CSVs by date; sort by year so later files win on overlap.
-    rows_by_date: dict[str, list] = {}
-    for csv_path in csv_paths:
-        with open(csv_path, newline="", encoding="utf-8") as f:
-            for row in csv.reader(f, quoting=csv.QUOTE_MINIMAL):
-                if len(row) >= 5 and re.match(r"\d{4}-\d{2}-\d{2}", row[0].strip()):
-                    rows_by_date[row[0].strip()] = row
-    rows = sorted(rows_by_date.values(), key=lambda r: r[0])
+    rows_by_date, rows = read_lectionary_rows(csv_paths)
     print(f"Loaded {len(rows)} unique dates from {len(csv_paths)} CSV file(s)")
 
     # Intake gate. Everything a new lectionary year needs decided by hand is
