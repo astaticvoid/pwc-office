@@ -79,9 +79,14 @@ describe('Scripture API v3 pure-data rendering (ADR 0025)', () => {
     };
 
     const html = renderScriptureReading(choiceReading, allReadings);
-    expect(html).toContain('<div class="scripture-option"><p class="scripture-choice-rubric"><strong>Rom 5:1-2</strong></p>');
-    expect(html).toContain('<div class="scripture-option"><p class="scripture-choice-rubric"><strong>Gal 4:4-5</strong></p>');
-    expect(html).toContain('<p class="seg-rubric">or</p>');
+    expect(html).toContain('class="alt-block"');
+    expect(html).toContain('class="alt-tabs" role="tablist"');
+    expect(html).toContain('data-key="pwc-alt-reading-Rom 5:1-2-Gal 4:4-5"');
+    expect(html).toContain('class="alt-source">Romans 5:1-2</p>');
+    expect(html).toContain('class="alt-source">Galatians 4:4-5</p>');
+    expect(html).toContain('Romans 5:1-2');
+    expect(html).toContain('Galatians 4:4-5');
+    expect(html).toContain('Therefore, since we are justified');
   });
 
   it('maintains backward compatibility with pre-rendered html if present', () => {
@@ -132,8 +137,9 @@ describe('Scripture API v3 pure-data rendering (ADR 0025)', () => {
     };
 
     const html = renderScriptureReading(reading, allReadings);
+    expect(html).toContain('class="alt-block"');
+    expect(html).toContain('class="alt-tabs"');
     expect(html).toContain('First choice text');
     expect(html).toContain('Text unavailable: Option B');
-    expect(html).toContain('<p class="seg-rubric">or</p>');
   });
 });

@@ -693,6 +693,42 @@ export function buildParagraphHtml(verses, paraMap) {
   return blocks.join('\n');
 }
 
+// Monotonic ID salt: keeps tab/panel IDs unique when the same contextKey
+// renders twice in one document (two lessons → 'reading_response', primary
+// + alternate → 'doxology'). stateKey/data-key stay shared so cross-block
+// tab sync and localStorage persistence are unchanged.
+let _altUid = 0;
+
+/**
+ * Render a tabbed alternatives block for scripture citations containing ' or '.
+ * In print and book mode, .alt-tabs are hidden and all panels are shown;
+ * an .alt-source header preserves citation provenance in each panel.
+ * @param {string[]} parts
+ * @param {(cit: string, label: string) => string} renderContent
+ * @returns {string} HTML string
+ */
+function renderScriptureChoiceTabs(parts, renderContent) {
+  const stateKey = 'pwc-alt-reading-' + parts.join('-');
+  const savedIdx = parseInt(_ls.getItem(stateKey) || '0');
+  const activeIdx = Math.min(Math.max(0, savedIdx), parts.length - 1);
+  const idBase = stateKey.replace(/[^a-zA-Z0-9-]/g, '_') + '-' + (++_altUid);
+
+  const tabsHtml = parts.map((cit, i) => {
+    const label = expandCitationForDisplay(cit);
+    const isActive = i === activeIdx;
+    return `<button class="alt-tab${isActive ? ' alt-tab-active' : ''}" role="tab" aria-selected="${isActive}" aria-controls="${idBase}-panel-${i}" id="${idBase}-tab-${i}" data-idx="${i}" data-key="${esc(stateKey)}">${esc(label)}</button>`;
+  }).join('');
+
+  const panelsHtml = parts.map((cit, i) => {
+    const label = expandCitationForDisplay(cit);
+    const content = renderContent(cit, label);
+    const isHidden = i !== activeIdx;
+    return `<div class="alt-panel${isHidden ? ' alt-panel-hidden' : ''}" role="tabpanel" id="${idBase}-panel-${i}" aria-labelledby="${idBase}-tab-${i}" data-idx="${i}"><p class="alt-source">${esc(label)}</p>${content}</div>`;
+  }).join('');
+
+  return `<div class="alt-block"><div class="alt-tabs" role="tablist">${tabsHtml}</div>${panelsHtml}</div>`;
+}
+
 /**
  * Render a scripture reading object to HTML.
  * Supports pre-rendered html (v2), structured pure-data (v3),
@@ -708,15 +744,12 @@ export function renderScriptureReading(reading, allReadings) {
   const rawCitation = reading.citation;
   if (rawCitation && rawCitation.includes(' or ') && allReadings) {
     const parts = rawCitation.split(' or ').map(s => s.trim());
-    // Render each option. If an option is missing, render an unavailable message for that option (ADR 0016)
-    const optionsHtml = parts.map(cit => {
+    return renderScriptureChoiceTabs(parts, (cit) => {
       const sub = allReadings[cit];
-      if (sub) {
-        return `<div class="scripture-option"><p class="scripture-choice-rubric"><strong>${sub.citation}</strong></p>${renderScriptureReading(sub, allReadings)}</div>`;
-      }
-      return `<div class="scripture-option"><p class="scripture-choice-rubric"><strong>${cit}</strong></p><p class="error-msg">Text unavailable: ${esc(cit)}</p></div>`;
+      return sub
+        ? renderScriptureReading(sub, allReadings)
+        : `<p class="error-msg">Text unavailable: ${esc(cit)}</p>`;
     });
-    return optionsHtml.join('<p class="seg-rubric">or</p>');
   }
 
   if (reading.verses && reading.verses.length) {
@@ -756,12 +789,6 @@ export function lookupCollect(collects, ref) {
 }
 
 // ── Rendering ─────────────────────────────────────────────────────────────────
-
-// Monotonic ID salt: keeps tab/panel IDs unique when the same contextKey
-// renders twice in one document (two lessons → 'reading_response', primary
-// + alternate → 'doxology'). stateKey/data-key stay shared so cross-block
-// tab sync and localStorage persistence are unchanged.
-let _altUid = 0;
 
 /**
  * Render an alternatives block (a choice between groups) as tabs + panels.
@@ -995,8 +1022,19 @@ export function lessonHtml(lesson, shared, form, reflection, isFirst = false) {
   // dropping the prefix there would leave a bare citation with no indication
   // it's a reading at all.
   const heading = isFirst ? esc(display) : `The Reading: ${esc(display)}`;
+
+  let bodyHtml = '';
+  if (typeof rawCitation === 'string' && rawCitation.includes(' or ')) {
+    const parts = rawCitation.split(' or ').map(s => s.trim());
+    bodyHtml = renderScriptureChoiceTabs(parts, (part) => {
+      return `<div class="scripture-placeholder" data-citation="${esc(part)}"><p class="loading">Loading…</p></div>`;
+    });
+  } else {
+    bodyHtml = `<div class="scripture-placeholder" data-citation="${esc(rawCitation)}"><p class="loading">Loading…</p></div>`;
+  }
+
   return `<h3 class="reading-heading">${heading}</h3>`
-    + `<div class="scripture-placeholder" data-citation="${esc(rawCitation)}"><p class="loading">Loading…</p></div>`
+    + bodyHtml
     + reflectionHtml
     + responseHtml;
 }

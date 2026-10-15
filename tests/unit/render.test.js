@@ -141,6 +141,31 @@ describe('lessonHtml', () => {
     expect(html).toContain('alt-tabs');
   });
 
+  test('renders tabbed selector for alternative reading choices containing " or "', () => {
+    const form = offices['ordinary-wednesday-mp'];
+    const html = lessonHtml('Est 1:1-4, 10-19 or Jdt 4:1-15', shared, form);
+    expect(html).toContain('class="alt-block"');
+    expect(html).toContain('class="alt-tabs" role="tablist"');
+    expect(html).toContain('role="tab" aria-selected="true"');
+    expect(html).toContain('role="tabpanel"');
+    expect(html).toContain('class="alt-source">Esther 1:1-4, 10-19</p>');
+    expect(html).toContain('class="alt-source">Judith 4:1-15</p>');
+    expect(html).toContain('data-key="pwc-alt-reading-Est 1:1-4, 10-19-Jdt 4:1-15"');
+    expect(html).toContain('Esther 1:1-4, 10-19');
+    expect(html).toContain('Judith 4:1-15');
+    expect(html).toContain('data-citation="Est 1:1-4, 10-19"');
+    expect(html).toContain('data-citation="Jdt 4:1-15"');
+  });
+
+  test('renders tabbed selector for 3-way alternative reading choices', () => {
+    const form = offices['ordinary-wednesday-mp'];
+    const html = lessonHtml('Rom 5:1-2 or Gal 4:4-5 or Heb 1:1-2', shared, form);
+    expect(html).toContain('Romans 5:1-2');
+    expect(html).toContain('Galatians 4:4-5');
+    expect(html).toContain('Hebrews 1:1-2');
+    expect(html.match(/data-key="pwc-alt-reading-[^"]*"/g)).toHaveLength(3);
+  });
+
   test("Lord's Prayer present in ordinary-time form", () => {
     const form = offices['ordinary-wednesday-mp'];
     const lpHtml = renderSegments(form.lords_prayer_intro, shared);
