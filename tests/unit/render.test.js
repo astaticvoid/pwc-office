@@ -1078,6 +1078,14 @@ describe('lookupFatsEntry', () => {
     expect(lookupFatsEntry({ 'Richard': { bio: 'x' } }, 'Prichards of Wales')).toBeNull();
   });
 
+  test('resolves FATS_ALIASES across Oxford comma mismatches', () => {
+    const fatsWithFounders = {
+      'Founders, Benefactors and Missionaries of the Anglican Church of Canada': { bio: 'Founders' },
+    };
+    expect(lookupFatsEntry(fatsWithFounders, 'Founders, Benefactors, and Missionaries of the Anglican Church of Canada')?.bio)
+      .toBe('Founders');
+  });
+
   test('an unknown name resolves to nothing', () => {
     expect(lookupFatsEntry(fats, 'Advent Feria')).toBeNull();
     expect(lookupFatsEntry(fats, '')).toBeNull();

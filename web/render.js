@@ -1173,7 +1173,10 @@ export function collectSecondaryPage(ref) {
 // ── For All The Saints (FATS) lookup ─────────────────────────────────────────
 
 // Known name mismatches between lectionary and FATS keys. Add entries as discovered.
-export const FATS_ALIASES = {};
+export const FATS_ALIASES = {
+  'Founders, Benefactors, and Missionaries of the Anglican Church of Canada':
+    'Founders, Benefactors and Missionaries of the Anglican Church of Canada',
+};
 
 const RE_ESCAPE = /[.*+?^${}()|[\]\\]/g;
 
