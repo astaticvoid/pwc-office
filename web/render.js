@@ -12,10 +12,26 @@
  * @typedef {import('./office-types.d.ts').SectionValue} SectionValue
  */
 
-// localStorage polyfill for Node environment
-const _ls = typeof localStorage !== 'undefined'
-  ? localStorage
-  : { getItem: () => null, setItem: () => {} };
+// localStorage wrapper with error fallback (e.g. Node 26 sqlite lock or restricted iframe)
+let _rawLs = null;
+try {
+  _rawLs = typeof localStorage !== 'undefined' ? localStorage : null;
+} catch (_) {}
+
+const _ls = {
+  getItem: (k) => {
+    try {
+      return _rawLs ? _rawLs.getItem(k) : null;
+    } catch (_) {
+      return null;
+    }
+  },
+  setItem: (k, v) => {
+    try {
+      if (_rawLs) _rawLs.setItem(k, v);
+    } catch (_) {}
+  },
+};
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -989,14 +1005,17 @@ export function lessonHtml(lesson, shared, form, reflection, isFirst = false) {
 // book order (ADR 0019 item 7) and this rubric is the fixed head-of-section
 // text announcing that a choice exists. Load-bearing, not book-only — the
 // reader must know a choice exists even though nothing is hidden from them.
-// Returns '' when there is none.
-export function lessonsPickText(pick, total) {
+// If introSegs already contains the rubric text (e.g. from office reading intro),
+// returns '' to avoid duplicating the rubric.
+export function lessonsPickText(pick, total, introSegs = []) {
   if (!pick || pick >= total) return '';
-  return LITURGICAL_TEXT_REGISTER.readingsPick.text;
+  const text = LITURGICAL_TEXT_REGISTER.readingsPick.text;
+  if (Array.isArray(introSegs) && introSegs.some(s => (s?.text || '').includes(text))) return '';
+  return text;
 }
 
-export function lessonsPickRubricHtml(pick, total) {
-  const text = lessonsPickText(pick, total);
+export function lessonsPickRubricHtml(pick, total, introSegs = []) {
+  const text = lessonsPickText(pick, total, introSegs);
   return text ? `<p class="seg-rubric">${esc(text)}</p>` : '';
 }
 

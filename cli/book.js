@@ -144,7 +144,7 @@ if (psalms.length && shared.doxology) {
 
 const lessons = officeData?.lessons || [];
 if (officeData?.lessons_pick) {
-  const pickText = lessonsPickText(officeData.lessons_pick, lessons.length);
+  const pickText = lessonsPickText(officeData.lessons_pick, lessons.length, readingIntro);
   if (pickText) B.push(`(${pickText})`);
 }
 // Guarded on the lessons like every neighbour here: with no lectionary file

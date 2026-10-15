@@ -174,6 +174,18 @@ describe('lessonsPick', () => {
     expect(lessonsPickText(0, 3)).toBe('');
     expect(lessonsPickRubricHtml(undefined, 3)).toBe('');
   });
+
+  test('suppresses duplicate rubric when intro rubrics already contain it', () => {
+    const intro = [{ type: 'rubric', text: 'One or two readings are read.' }];
+    expect(lessonsPickText(2, 3, intro)).toBe('');
+    expect(lessonsPickRubricHtml(2, 3, intro)).toBe('');
+  });
+
+  test('handles null/undefined introSegs gracefully', () => {
+    expect(lessonsPickText(2, 3, null)).toBe('One or two readings are read.');
+    expect(lessonsPickRubricHtml(2, 3, null)).toContain('One or two readings are read.');
+    expect(lessonsPickText(2, 3, undefined)).toBe('One or two readings are read.');
+  });
 });
 
 // ── placeholder N italics ────────────────────────────────────────────────────

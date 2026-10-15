@@ -26,14 +26,14 @@ test.describe('the page shows what the data carries', () => {
   test('a day offering a choice of readings announces it', async ({ page }) => {
     // The rubric is the fixed form from LITURGICAL_TEXT_REGISTER (ADR 0019
     // item 7/#77), not a per-count computed sentence — same text regardless
-    // of pick/total. On a day offering a choice, both the section intro and the
-    // pick rubric render this text (count is 2).
+    // of pick/total. The rubric is deduplicated if already present in the
+    // section intro, so exactly 1 instance renders (#173).
     const date = findDay('a day offering a choice of readings', d => d.morning?.lessons_pick);
     await gotoOffice(page, date, 'mp');
     await expect(page.locator('.seg-rubric', { hasText: 'One or two readings are read.' }).first())
       .toBeVisible({ timeout: 5000 });
     await expect(page.locator('.seg-rubric', { hasText: 'One or two readings are read.' }))
-      .toHaveCount(2);
+      .toHaveCount(1);
   });
 
   test('a day offering no choice announces none', async ({ page }) => {

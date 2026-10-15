@@ -87,7 +87,7 @@ if (psalms.length) {
 
 const lessons = officeData?.lessons ?? [];
 if (officeData?.lessons_pick) {
-  const pickText = lessonsPickText(officeData.lessons_pick, lessons.length);
+  const pickText = lessonsPickText(officeData.lessons_pick, lessons.length, readingIntro);
   if (pickText) out += `\n${pickText}\n`;
 }
 // Guarded on the lessons, like the psalm rubrics above: with no lectionary file
