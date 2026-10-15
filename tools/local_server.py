@@ -62,7 +62,7 @@ class PwcDevHandler(http.server.SimpleHTTPRequestHandler):
                     self.end_headers()
                     self.wfile.write(json.dumps({"error": f"Unsupported API version: {version}"}).encode("utf-8"))
                     return
-                elif resource == "calendar" and version != "v2":
+                elif resource == "calendar" and version not in ("v2", "v3"):
                     self.send_response(404)
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()
@@ -116,7 +116,9 @@ class PwcDevHandler(http.server.SimpleHTTPRequestHandler):
                 now_utc = datetime.now(timezone.utc)
                 diff_days = abs((target_dt.date() - now_utc.date()).days)
 
-                if diff_days > 31:
+                is_unrestricted = getattr(self.server, "unrestricted", False) or qs.get("unrestricted", ["0"])[0] in ("1", "true") or qs.get("debug", ["0"])[0] in ("1", "true")
+
+                if not is_unrestricted and diff_days > 31:
                     self.send_response(403)
                     self.send_header("Content-Type", "application/json")
                     self.send_header("Cache-Control", "no-store")
@@ -189,11 +191,17 @@ class PwcDevHandler(http.server.SimpleHTTPRequestHandler):
                         self.wfile.write(json.dumps({"error": "Invalid date format (YYYY-MM-DD)"}).encode("utf-8"))
                         return
 
+                    is_unrestricted = getattr(self.server, "unrestricted", False) or qs.get("unrestricted", ["0"])[0] in ("1", "true") or qs.get("debug", ["0"])[0] in ("1", "true")
+
                     use_trans = req_trans
-                    if use_trans == "nrsvue" and (s_diff > 31 or e_diff > 31):
+                    if not is_unrestricted and use_trans == "nrsvue" and (s_diff > 31 or e_diff > 31):
                         use_trans = "kjv"
 
-                    batch_path = ROOT / ".build" / "private" / "calendar" / "v2" / use_trans / "batch" / f"{start_str}_{end_str}.json"
+                    cal_dir = ROOT / ".build" / "private" / "calendar" / version / use_trans
+                    if not cal_dir.exists():
+                        cal_dir = ROOT / ".build" / "private" / "calendar" / "v3" / use_trans
+
+                    batch_path = cal_dir / "batch" / f"{start_str}_{end_str}.json"
                     if batch_path.exists():
                         data = batch_path.read_bytes()
                     else:
@@ -204,7 +212,7 @@ class PwcDevHandler(http.server.SimpleHTTPRequestHandler):
                         from datetime import timedelta
                         while cur_dt <= stop_dt:
                             cur_str = cur_dt.strftime("%Y-%m-%d")
-                            day_p = ROOT / ".build" / "private" / "calendar" / "v2" / use_trans / f"{cur_str}.json"
+                            day_p = cal_dir / f"{cur_str}.json"
                             if day_p.exists():
                                 days_dict[cur_str] = json.loads(day_p.read_text(encoding="utf-8"))
                             cur_dt += timedelta(days=1)
@@ -235,11 +243,17 @@ class PwcDevHandler(http.server.SimpleHTTPRequestHandler):
                     self.wfile.write(json.dumps({"error": "Invalid date format (YYYY-MM-DD)"}).encode("utf-8"))
                     return
 
+                is_unrestricted = getattr(self.server, "unrestricted", False) or qs.get("unrestricted", ["0"])[0] in ("1", "true") or qs.get("debug", ["0"])[0] in ("1", "true")
+
                 use_trans = req_trans
-                if use_trans == "nrsvue" and diff_days > 31:
+                if not is_unrestricted and use_trans == "nrsvue" and diff_days > 31:
                     use_trans = "kjv"
 
-                day_path = ROOT / ".build" / "private" / "calendar" / "v2" / use_trans / f"{date_str}.json"
+                cal_dir = ROOT / ".build" / "private" / "calendar" / version / use_trans
+                if not cal_dir.exists():
+                    cal_dir = ROOT / ".build" / "private" / "calendar" / "v3" / use_trans
+
+                day_path = cal_dir / f"{date_str}.json"
                 if not day_path.exists():
                     self.send_response(404)
                     self.send_header("Content-Type", "application/json")
@@ -262,6 +276,8 @@ def main():
     parser = argparse.ArgumentParser(description="PWC Local Development Server")
     parser.add_argument("port", nargs="?", type=int, default=8080, help="Port to listen on (default: 8080)")
     parser.add_argument("--directory", "-d", default="web", help="Directory to serve static files from (default: web)")
+    parser.add_argument("--bind", "-b", default="", help="Address to bind to (default: all interfaces)")
+    parser.add_argument("--unrestricted", action="store_true", help="Bypass ±30 day temporal restriction for local development and historical testing")
     args = parser.parse_args()
 
     serve_dir = Path(args.directory).resolve()
@@ -269,8 +285,11 @@ def main():
     def handler_factory(*h_args, **h_kwargs):
         return PwcDevHandler(*h_args, directory=str(serve_dir), **h_kwargs)
 
-    server = http.server.ThreadingHTTPServer(("", args.port), handler_factory)
-    print(f"Serving HTTP on 0.0.0.0 port {args.port} (serving {serve_dir}) ...", file=sys.stderr)
+    server = http.server.ThreadingHTTPServer((args.bind, args.port), handler_factory)
+    server.unrestricted = args.unrestricted
+    bind_label = args.bind if args.bind else "0.0.0.0"
+    mode_label = " [unrestricted]" if args.unrestricted else ""
+    print(f"Serving HTTP on {bind_label} port {args.port} (serving {serve_dir}){mode_label} ...", file=sys.stderr)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -79,6 +79,32 @@ describe('DayCacheManager (ADR 0025)', () => {
     expect(await manager.get('2026-09-03')).not.toBeNull();
   });
 
+  it('skips purge when unrestricted mode is active', async () => {
+    const manager = new DayCacheManager({ unrestricted: true });
+    const today = '2026-09-03';
+
+    await manager.set('2026-07-01', {
+      date: '2026-07-01',
+      fetchedAt: Date.now() - 40 * 86400000,
+      expiresAt: Date.now() - 10 * 86400000,
+    });
+
+    const purged = await manager.purge(today, 30);
+    expect(purged).toBe(0);
+    expect(await manager.get('2026-07-01')).not.toBeNull();
+  });
+
+  it('appends unrestricted query parameter when unrestricted mode is active', async () => {
+    const mockPayload = { date: '2026-07-01', name: 'Canada Day', readings: {} };
+    const fetchFn = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => mockPayload,
+    });
+    const manager = new DayCacheManager({ fetchFn, unrestricted: true });
+    await manager.getDay('2026-07-01');
+    expect(fetchFn).toHaveBeenCalledWith('/api/v3/calendar?date=2026-07-01&translation=nrsvue&unrestricted=1');
+  });
+
   it('throws "Network connection required" on offline cache miss', async () => {
     const manager = new DayCacheManager({
       fetchFn: vi.fn().mockRejectedValue(new Error('Failed to fetch')),

@@ -139,15 +139,24 @@ export class DayCacheManager {
    * @param {string} [options.apiBase]
    * @param {Storage|null} [options.storage]
    * @param {typeof fetch} [options.fetchFn]
+   * @param {boolean|null} [options.unrestricted]
    */
   constructor({
     apiBase = '/api/v3/calendar',
     storage = null,
     fetchFn = null,
+    unrestricted = null,
   } = {}) {
     this.apiBase = apiBase;
     this.storage = storage || (typeof localStorage !== 'undefined' ? localStorage : null);
     this.fetchFn = fetchFn || (typeof fetch !== 'undefined' ? (url, init) => fetch(url, init) : null);
+    this.unrestricted = unrestricted !== null
+      ? Boolean(unrestricted)
+      : (typeof window !== 'undefined' && Boolean(
+          window.location.hostname === 'localhost' ||
+          window.location.hostname === '127.0.0.1' ||
+          (window.location.search && (window.location.search.includes('unrestricted=1') || window.location.search.includes('debug=1')))
+        ));
     /** @type {Map<string, object>} */
     this.memoryFallback = new Map();
   }
@@ -178,7 +187,7 @@ export class DayCacheManager {
 
     if (!item) return null;
 
-    if (item.expiresAt && Date.now() > item.expiresAt) {
+    if (!this.unrestricted && item.expiresAt && Date.now() > item.expiresAt) {
       await this.delete(dateStr, t);
       return null;
     }
@@ -257,6 +266,7 @@ export class DayCacheManager {
   }
 
   async purge(currentDate = todayUtcString(), maxAgeDays = 30) {
+    if (this.unrestricted) return 0;
     const now = Date.now();
     const isExpired = (item, key) => {
       if (!item) return false;
@@ -332,7 +342,8 @@ export class DayCacheManager {
       throw err;
     }
 
-    const url = `${this.apiBase}?date=${dateStr}&translation=${encodeURIComponent(translation)}`;
+    const extra = this.unrestricted ? '&unrestricted=1' : '';
+    const url = `${this.apiBase}?date=${dateStr}&translation=${encodeURIComponent(translation)}${extra}`;
     let res;
     try {
       res = await this.fetchFn(url);
@@ -357,7 +368,8 @@ export class DayCacheManager {
       (typeof navigator !== 'undefined' && navigator.onLine === false);
     if (isOffline || !this.fetchFn) return null;
 
-    const url = `${this.apiBase}?start=${startStr}&end=${endStr}&translation=${encodeURIComponent(translation)}`;
+    const extra = this.unrestricted ? '&unrestricted=1' : '';
+    const url = `${this.apiBase}?start=${startStr}&end=${endStr}&translation=${encodeURIComponent(translation)}${extra}`;
     let res = null;
     const maxRetries = 2;
     const delays = [500, 1500];
@@ -408,6 +420,7 @@ export class DayCacheManager {
  * @param {string} [options.apiBase]
  * @param {Storage|null} [options.storage]
  * @param {typeof fetch} [options.fetchFn]
+ * @param {boolean|null} [options.unrestricted]
  * @returns {DayCacheManager}
  */
 export function createDefaultDayCacheManager(options = {}) {
@@ -415,9 +428,10 @@ export function createDefaultDayCacheManager(options = {}) {
     apiBase = '/api/v3/calendar',
     storage = null,
     fetchFn = null,
+    unrestricted = null,
   } = options;
 
-  return new DayCacheManager({ apiBase, storage, fetchFn: fetchFn || defaultFetch });
+  return new DayCacheManager({ apiBase, storage, fetchFn: fetchFn || defaultFetch, unrestricted });
 }
 
 

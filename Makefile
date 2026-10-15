@@ -175,7 +175,7 @@ kill_port = kill $$(lsof -ti tcp:$(1)) 2>/dev/null; true
 
 serve:
 	@$(MAKE) stop --no-print-directory 2>/dev/null; true
-	@nohup $(PYTHON) tools/local_server.py $(PORT) --directory web > /tmp/pwc-server.log 2>&1 & echo $$! > $(PID_FILE)
+	@nohup $(PYTHON) tools/local_server.py $(PORT) --directory web --unrestricted > /tmp/pwc-server.log 2>&1 & echo $$! > $(PID_FILE)
 	@sleep 0.5
 	@if kill -0 $$(cat $(PID_FILE)) 2>/dev/null; then \
 	  echo "Server started: http://localhost:$(PORT) (pid $$(cat $(PID_FILE)))"; \
@@ -202,7 +202,7 @@ restart: stop serve
 serve-fg:
 	@$(call kill_port,$(PORT))
 	@sleep 0.3
-	$(PYTHON) tools/local_server.py $(PORT) --directory web
+	$(PYTHON) tools/local_server.py $(PORT) --directory web --unrestricted
 
 # Build and serve dist/ as it will appear when deployed (http://localhost:$(PORT_DIST)/).
 # Required for E2E tests and pre-deploy checks.
@@ -210,7 +210,7 @@ serve-fg:
 serve-dist: check-dist
 	@$(call kill_port,$(PORT_DIST))
 	@sleep 0.3
-	$(PYTHON) tools/local_server.py $(PORT_DIST) --directory dist
+	$(PYTHON) tools/local_server.py $(PORT_DIST) --directory dist --unrestricted
 
 # Unit tests for Python extraction tools (pytest comes from `make venv`).
 test-tools:
