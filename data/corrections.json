@@ -969,6 +969,42 @@
       "old": "Sadhe ",
       "new": "Tsadhe ",
       "reason": "Source PDF uses the non-standard transliteration 'Sadhe' for the 18th section; psalter uses the standard 'Tsadhe'."
+    },
+    {
+      "id": "ps90-v2-line-wrap",
+      "source": "pdf-extraction-artifact",
+      "psalm": 90,
+      "verse": 2,
+      "old": "were\nborn, *",
+      "new": "were born, *",
+      "reason": "Join PDF column wrap isolating 'born, *' before caesura asterisk."
+    },
+    {
+      "id": "ps93-v3-line-wrap",
+      "source": "pdf-extraction-artifact",
+      "psalm": 93,
+      "verse": 3,
+      "old": "their\nvoice; *",
+      "new": "their voice; *",
+      "reason": "Join PDF column wrap isolating 'voice; *' before caesura asterisk."
+    },
+    {
+      "id": "ps97-v7-line-wrap",
+      "source": "pdf-extraction-artifact",
+      "psalm": 97,
+      "verse": 7,
+      "old": "false\ngods! *",
+      "new": "false gods! *",
+      "reason": "Join PDF column wrap isolating 'gods! *' before caesura asterisk."
+    },
+    {
+      "id": "ps144-v13-line-wrap",
+      "source": "pdf-extraction-artifact",
+      "psalm": 144,
+      "verse": 13,
+      "old": "tens of\nthousands;",
+      "new": "tens of thousands;",
+      "reason": "Join PDF column wrap isolating 'thousands;' in second hemistich."
     }
   ],
   "fats": [
