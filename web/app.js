@@ -841,13 +841,21 @@ async function render(dateStr, officeType, translation) {
   // sees the date they navigated to, not the previous page's date).
 
   // Bounds enforcement before attempting to fetch the day file.
-  const boundsMax = offsetDate(bounds.christmas_ii, 6);
+  let latestChristmas = bounds.christmas_iii || bounds.christmas_ii || bounds.christmas;
+  if (bounds.years) {
+    const yearsSorted = Object.keys(bounds.years).sort();
+    const lastYear = yearsSorted[yearsSorted.length - 1];
+    if (bounds.years[lastYear]?.christmas) {
+      latestChristmas = bounds.years[lastYear].christmas;
+    }
+  }
+  const boundsMax = latestChristmas ? offsetDate(latestChristmas, 6) : '2099-12-31';
   const boundsMin = bounds.advent_i;
   if (dateStr > boundsMax) {
     contentEl.innerHTML = `<div class="out-of-range-msg">
       <p class="out-of-range-title">Readings not yet available</p>
       <p>Coverage extends through <strong>${esc(fmtFullDate(boundsMax))}</strong>.</p>
-      <p class="out-of-range-note">Year A readings (Advent 2026 and beyond) are in preparation.</p>
+      <p class="out-of-range-note">Later readings are in preparation.</p>
     </div>`;
     return;
   }

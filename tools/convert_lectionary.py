@@ -747,6 +747,7 @@ def _bounds_match(desc, phrases):
 
 def detect_bounds(rows) -> dict:
     bounds = {}
+    years = {}
     advent_count = 0
     christmas_count = 0
     for row in rows:
@@ -756,51 +757,62 @@ def detect_bounds(rows) -> dict:
         if not re.match(r"\d{4}-\d{2}-\d{2}", date_str):
             continue
         desc = first_line(clean(row[1])).lower()
+        y = date_str[:4]
+        if y not in years:
+            years[y] = {}
 
-        # advent_i / advent_ii: same phrase appears twice in a multi-year CSV
+        # advent_i / advent_ii: same phrase appears across years in multi-year CSV
         phrases = CANONICAL_BOUNDS_PHRASES["advent_i"]
         match_type, _ = _bounds_match(desc, phrases)
         if match_type:
             if match_type == 'fuzzy':
                 print(f"WARNING: detect_bounds: 'advent_i' matched via fuzzy substring; "
                       f"expected one of {phrases!r}, got {desc!r}", file=sys.stderr)
+            if "advent_i" not in years[y]:
+                years[y]["advent_i"] = date_str
             advent_count += 1
             if advent_count == 1:
                 bounds["advent_i"] = date_str
             elif advent_count == 2:
                 bounds["advent_ii"] = date_str
+            elif advent_count == 3:
+                bounds["advent_iii"] = date_str
             continue
 
-        # christmas / christmas_ii: same phrase appears twice in a multi-year CSV
+        # christmas / christmas_ii: same phrase appears across years in multi-year CSV
         phrases = CANONICAL_BOUNDS_PHRASES["christmas"]
         match_type, _ = _bounds_match(desc, phrases)
         if match_type:
             if match_type == 'fuzzy':
                 print(f"WARNING: detect_bounds: 'christmas' matched via fuzzy substring; "
                       f"expected one of {phrases!r}, got {desc!r}", file=sys.stderr)
+            if "christmas" not in years[y]:
+                years[y]["christmas"] = date_str
             christmas_count += 1
             if christmas_count == 1:
                 bounds["christmas"] = date_str
             elif christmas_count == 2:
                 bounds["christmas_ii"] = date_str
+            elif christmas_count == 3:
+                bounds["christmas_iii"] = date_str
             continue
 
-        # All remaining single-occurrence bounds
+        # All remaining single-occurrence bounds per year
         for key, phrases in CANONICAL_BOUNDS_PHRASES.items():
             if key in ("advent_i", "christmas"):
                 continue
-            if key in bounds:
-                continue
             match_type, _ = _bounds_match(desc, phrases)
-            if match_type == 'exact':
-                bounds[key] = date_str
-                break
-            elif match_type == 'fuzzy':
-                print(f"WARNING: detect_bounds: '{key}' matched via fuzzy substring; "
-                      f"expected one of {phrases!r}, got {desc!r}", file=sys.stderr)
-                bounds[key] = date_str
+            if match_type:
+                if key not in years[y]:
+                    years[y][key] = date_str
+                if key not in bounds:
+                    if match_type == 'fuzzy':
+                        print(f"WARNING: detect_bounds: '{key}' matched via fuzzy substring; "
+                              f"expected one of {phrases!r}, got {desc!r}", file=sys.stderr)
+                    bounds[key] = date_str
                 break
 
+    bounds["years"] = years
     return bounds
 
 
@@ -1417,9 +1429,20 @@ def main():
     missing = [k for k in _REQUIRED_BOUNDS if k not in bounds]
     if missing:
         sys.exit(
-            f"ERROR: detect_bounds() missing required keys: {', '.join(missing)}\n"
+            f"ERROR: detect_bounds() missing required root keys: {', '.join(missing)}\n"
             "Check CSV name strings and update detect_bounds() if ACC wording changed."
         )
+
+    # Validate that every full calendar year (having both epiphany and christmas) has all required bounds
+    if "years" in bounds:
+        for y, y_bounds in bounds["years"].items():
+            if "epiphany" in y_bounds and "christmas" in y_bounds:
+                y_missing = [k for k in _REQUIRED_BOUNDS if k not in y_bounds]
+                if y_missing:
+                    sys.exit(
+                        f"ERROR: detect_bounds() year {y} missing required keys: {', '.join(y_missing)}\n"
+                        f"Check CSV name strings for year {y}."
+                    )
     entries = []
     skipped = 0
 

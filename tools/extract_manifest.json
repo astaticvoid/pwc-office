@@ -1,5 +1,5 @@
 {
-  "extracted_at": "2026-10-15T22:48:54Z",
+  "extracted_at": "2026-10-16T04:40:20Z",
   "tool_versions": {
     "fitz": [
       "1.28.0",
@@ -14,7 +14,7 @@
     "tools/extract_psalter.py": "6d697ded980ebd3d24afc90c1c9ec588be15fb38cb13c9c683e5a91ea98712f5",
     "tools/extract_collects.py": "e8b8364afcf384a7b0d3bcc2e62b5aca64c2fb344f822f4d9f51c3d710e0ccb6",
     "tools/extract_fats.py": "4be8d66eda97592996196a648de3b67ffecaa0de285dd31020266103a593fe2b",
-    "tools/convert_lectionary.py": "4cb6218757b1170cffc604c65ce470cd9dd5099341c5769eece2dda6c24ab8ef",
+    "tools/convert_lectionary.py": "ee575fcd0d11d1646e90a9d0d89c44e46820b9ef95be82bcf7af21e06bc4bfd4",
     "tools/apply_corrections.py": "fea4322b76b639833c39dbf6880ede6228acb049a4320451c84cb70600de51b6",
     "tools/corrections_lib.py": "40119a95696e6a4a4091bcb1495d61277c9709c88cc754defddf83d127f18cb2",
     "tools/extract_lib.py": "2d77e3c60dad78a693e88557fd84115815a62128355c04d78bd0c6f42014d72e",
@@ -37,8 +37,8 @@
       "entries": 150
     },
     "data/season_bounds.json": {
-      "sha256": "0f76ec8d40a5e10059ab6171d817b91b12e1adbb141a9d40add6d40afb31033c",
-      "entries": 14
+      "sha256": "ebbc7cf9f7f344c1188a1d78add3680784d0619dad1abd4b66bf5d07727d1548",
+      "entries": 17
     },
     "data/fats/saints.json": {
       "sha256": "1c063f73ac567d77039ba4870abcc419bfc478a2becf6a8e0320ebdd5fbb8775",

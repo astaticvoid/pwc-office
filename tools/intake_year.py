@@ -229,8 +229,19 @@ def main() -> None:
     required = ["advent_i", "christmas", "epiphany", "ash_wednesday",
                 "easter", "pentecost", "trinity_sunday", "all_saints"]
     missing = [b for b in required if b not in bounds]
-    for name, date_str in sorted(bounds.items(), key=lambda kv: kv[1]):
-        print(f"    {date_str}  {name}")
+    if "years" in bounds:
+        for y, y_bounds in sorted(bounds["years"].items()):
+            print(f"  Year {y}:")
+            for name, date_str in sorted(y_bounds.items(), key=lambda kv: kv[1]):
+                print(f"    {date_str}  {name}")
+            if "epiphany" in y_bounds and "christmas" in y_bounds:
+                y_missing = [b for b in required if b not in y_bounds]
+                if y_missing:
+                    print(f"    MISSING required in {y}: {', '.join(y_missing)}")
+    else:
+        scalar_bounds = {k: v for k, v in bounds.items() if isinstance(v, str)}
+        for name, date_str in sorted(scalar_bounds.items(), key=lambda kv: kv[1]):
+            print(f"    {date_str}  {name}")
     if missing:
         print(f"\n  MISSING required bound(s): {', '.join(missing)}")
         print("  detect_bounds reads CANONICAL_BOUNDS_PHRASES against the name")

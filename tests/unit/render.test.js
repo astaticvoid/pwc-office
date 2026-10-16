@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest';
 import { readFileSync, readdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import {
-  formKey, officeFormSeason, renderSegments, renderSubsection, lessonHtml,
+  formKey, officeFormSeason, seasonOf, seasonWeekIndex, renderSegments, renderSubsection, lessonHtml,
   lessonsPickText, lessonsPickRubricHtml, renderOfficeJSON,
   LITURGICAL_TEXT_REGISTER, SKIP_RUBRICS, assembleSections, esc,
   formatLiturgicalText, formatProseText, splitPsalmRubrics, splitReadingRubrics,
@@ -84,8 +84,26 @@ describe('officeFormSeason', () => {
     ['2026-03-25', 'Passiontide'],
     ['2026-05-20', 'Pentecost'],
     ['2026-11-04', 'AllSaints'],
+    ['2027-01-05', 'Christmas'],
+    ['2027-01-15', 'Epiphany'],
+    ['2027-02-05', 'OrdinaryTime'],
+    ['2027-02-15', 'Lent'],
+    ['2027-03-18', 'Passiontide'],
+    ['2027-03-31', 'Easter'],
+    ['2027-05-10', 'Pentecost'],
+    ['2027-06-05', 'OrdinaryTime'],
+    ['2027-11-05', 'AllSaints'],
+    ['2027-12-05', 'Advent'],
   ])('%s → %s', (date, expected) => {
     expect(officeFormSeason(date, bounds)).toBe(expected);
+  });
+
+  test('seasonOf and seasonWeekIndex across multi-year cycles', () => {
+    if (!HAS_DATA) return;
+    expect(seasonOf('2027-01-05', bounds)).toBe('Christmas');
+    expect(seasonOf('2027-03-31', bounds)).toBe('Easter');
+    expect(seasonWeekIndex('2027-02-17', 'Lent', bounds)).toBe(1);
+    expect(seasonWeekIndex('2026-12-06', 'Advent', bounds)).toBe(1);
   });
 });
 

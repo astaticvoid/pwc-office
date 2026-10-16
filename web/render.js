@@ -404,6 +404,27 @@ export function formatLiturgicalText(text, prefix = '', suffix = '') {
 // ── Date / season ─────────────────────────────────────────────────────────────
 
 export function seasonOf(dateStr, bounds) {
+  if (!dateStr || typeof dateStr !== 'string') return 'OrdinaryTime';
+  if (bounds?.years) {
+    const y = dateStr.slice(0, 4);
+    const prevY = String(Number(y) - 1);
+    const by = bounds.years[y] || {};
+    const prevBy = bounds.years[prevY] || {};
+    if (by.christmas && dateStr >= by.christmas) return 'Christmas';
+    if (by.advent_i && dateStr >= by.advent_i) return 'Advent';
+    if (by.all_saints && dateStr >= by.all_saints) return 'AllSaints';
+    if (by.trinity_sunday && dateStr > by.trinity_sunday) return 'OrdinaryTime';
+    if (by.pentecost && dateStr >= by.pentecost) return 'Pentecost';
+    if (by.easter && dateStr >= by.easter) return 'Easter';
+    const passionStart = by.passiontide || by.palm_sunday;
+    if (passionStart && dateStr >= passionStart) return 'Passiontide';
+    if (by.ash_wednesday && dateStr >= by.ash_wednesday) return 'Lent';
+    if (by.epiphany && dateStr >= by.epiphany) return 'Epiphany';
+    // Days in early January before Epiphany are in Christmastide from previous year
+    if (prevBy.christmas && by.epiphany && dateStr < by.epiphany) return 'Christmas';
+    return 'OrdinaryTime';
+  }
+
   const d = parseDate(dateStr);
   const passionStart = parseDate(bounds.passiontide || bounds.palm_sunday);
   if (parseDate(bounds.christmas_ii)  && d >= parseDate(bounds.christmas_ii))  return 'Christmas';
@@ -421,6 +442,29 @@ export function seasonOf(dateStr, bounds) {
 }
 
 export function officeFormSeason(dateStr, bounds) {
+  if (!dateStr || typeof dateStr !== 'string') return 'OrdinaryTime';
+  if (bounds?.years) {
+    const y = dateStr.slice(0, 4);
+    const prevY = String(Number(y) - 1);
+    const by = bounds.years[y] || {};
+    const prevBy = bounds.years[prevY] || {};
+    if (by.christmas && dateStr >= by.christmas) return 'Christmas';
+    if (by.advent_i && dateStr >= by.advent_i) return 'Advent';
+    if (by.all_saints && dateStr >= by.all_saints) return 'AllSaints';
+    if (by.trinity_sunday && dateStr > by.trinity_sunday) return 'OrdinaryTime';
+    const pentecostFormStart = by.ascension || by.pentecost;
+    if (pentecostFormStart && dateStr >= pentecostFormStart) return 'Pentecost';
+    if (by.easter && dateStr >= by.easter) return 'Easter';
+    const passionStart = by.passiontide || by.palm_sunday;
+    if (passionStart && dateStr >= passionStart) return 'Passiontide';
+    if (by.ash_wednesday && dateStr >= by.ash_wednesday) return 'Lent';
+    if (by.presentation && dateStr >= by.presentation) return 'OrdinaryTime';
+    if (by.epiphany && dateStr >= by.epiphany) return 'Epiphany';
+    // Days in early January before Epiphany are in Christmastide from previous year
+    if (prevBy.christmas && by.epiphany && dateStr < by.epiphany) return 'Christmas';
+    return 'OrdinaryTime';
+  }
+
   const d = parseDate(dateStr);
   const passionStart      = parseDate(bounds.passiontide || bounds.palm_sunday);
   const pentecostFormStart = parseDate(bounds.ascension || bounds.pentecost);
@@ -442,18 +486,45 @@ export function officeFormSeason(dateStr, bounds) {
 
 // Returns 0-based week index within the season (0 = first week, 1 = second, …).
 export function seasonWeekIndex(dateStr, season, bounds) {
+  if (!dateStr || typeof dateStr !== 'string') return 0;
   const d = parseDate(dateStr);
-  const starts = {
-    Easter:      bounds.easter,
-    Lent:        bounds.ash_wednesday,
-    Epiphany:    bounds.epiphany,
-    Christmas:   bounds.christmas,
-    AllSaints:   bounds.all_saints,
-    Advent:      bounds.advent_i,
-    Passiontide: bounds.passiontide || bounds.palm_sunday,
-    Pentecost:   bounds.ascension   || bounds.pentecost,
-  };
-  const start = parseDate(starts[season] || null);
+  let startStr = null;
+  if (bounds?.years) {
+    const y = dateStr.slice(0, 4);
+    const prevY = String(Number(y) - 1);
+    const by = bounds.years[y] || {};
+    const prevBy = bounds.years[prevY] || {};
+    if (season === 'Christmas') {
+      startStr = by.christmas && dateStr >= by.christmas ? by.christmas : (prevBy.christmas || bounds.christmas);
+    } else if (season === 'Advent') {
+      startStr = by.advent_i || bounds.advent_i;
+    } else if (season === 'Easter') {
+      startStr = by.easter || bounds.easter;
+    } else if (season === 'Lent') {
+      startStr = by.ash_wednesday || bounds.ash_wednesday;
+    } else if (season === 'Epiphany') {
+      startStr = by.epiphany || bounds.epiphany;
+    } else if (season === 'AllSaints') {
+      startStr = by.all_saints || bounds.all_saints;
+    } else if (season === 'Passiontide') {
+      startStr = (by.passiontide || by.palm_sunday) || (bounds.passiontide || bounds.palm_sunday);
+    } else if (season === 'Pentecost') {
+      startStr = (by.ascension || by.pentecost) || (bounds.ascension || bounds.pentecost);
+    }
+  } else {
+    const starts = {
+      Easter:      bounds?.easter,
+      Lent:        bounds?.ash_wednesday,
+      Epiphany:    bounds?.epiphany,
+      Christmas:   bounds?.christmas,
+      AllSaints:   bounds?.all_saints,
+      Advent:      bounds?.advent_i,
+      Passiontide: bounds?.passiontide || bounds?.palm_sunday,
+      Pentecost:   bounds?.ascension   || bounds?.pentecost,
+    };
+    startStr = starts[season] || null;
+  }
+  const start = parseDate(startStr);
   if (!start || !d) return 0;
   return Math.floor((d.getTime() - start.getTime()) / (7 * 24 * 3600 * 1000));
 }
