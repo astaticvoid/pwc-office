@@ -26,10 +26,98 @@ root = Path(__file__).parent.parent
 
 # Superscript digits the source uses as in-text verse numbers.
 _SUPERSCRIPTS = '⁰¹²³⁴⁵⁶⁷⁸⁹'
-_STRIP_RE = re.compile(rf'^[{re.escape(_SUPERSCRIPTS)}]+\s*')
+_STRIP_RE = re.compile(rf'^\s*[{re.escape(_SUPERSCRIPTS)}]+(?:[,–\-][{re.escape(_SUPERSCRIPTS)}]+)*\s*')
+_TRANS = str.maketrans(_SUPERSCRIPTS, '0123456789')
+
 
 def strip_verse_num(text: str) -> str:
     return _STRIP_RE.sub('', text).rstrip()
+
+
+def get_superscript_num(text: str) -> int | None:
+    m = re.match(r'^([⁰¹²³⁴⁵⁶⁷⁸⁹]+)', text.strip())
+    if m:
+        return int(m.group(1).translate(_TRANS))
+    return None
+
+
+def normalize_book(book_name: str, chapters: dict[str, dict]) -> dict[str, dict]:
+    """
+    Normalize book chapters to ensure verse numbers match true versification
+    rather than raw array indices, separating prefaces/prologues where needed.
+    """
+    clean: dict[str, dict] = {}
+
+    if book_name == "Sirach":
+        ch1_raw = chapters.get("1", {})
+        if "35" in ch1_raw and "34" in ch1_raw and "\n\n" in ch1_raw["34"]:
+            # Prologue lines were conflated into chapter 1
+            prologue_clean = {}
+            for k in range(1, 34):
+                if str(k) in ch1_raw:
+                    prologue_clean[str(k)] = strip_verse_num(ch1_raw[str(k)])
+            v34 = ch1_raw["34"]
+            parts = v34.split("\n\n", 1)
+            prologue_clean["34"] = strip_verse_num(parts[0])
+            clean["Prologue"] = prologue_clean
+
+            ch1_clean = {"1": strip_verse_num(parts[1])}
+            for k_int in sorted(int(k) for k in ch1_raw if k.isdigit() and int(k) >= 35):
+                raw = ch1_raw.get(str(k_int))
+                if not raw:
+                    continue
+                num = get_superscript_num(raw)
+                key = str(num) if num is not None else str(k_int)
+                ch1_clean[key] = strip_verse_num(raw)
+            clean["1"] = ch1_clean
+        else:
+            if "Prologue" in chapters:
+                clean["Prologue"] = {k: strip_verse_num(v) for k, v in chapters["Prologue"].items()}
+            ch1_clean = {}
+            for k, v in ch1_raw.items():
+                num = get_superscript_num(v)
+                key = str(num) if num is not None else k
+                ch1_clean[key] = strip_verse_num(v)
+            clean["1"] = ch1_clean
+
+        for ch_str, verses in chapters.items():
+            if ch_str in ("1", "Prologue"):
+                continue
+            clean[ch_str] = {}
+            for k, text in verses.items():
+                num = get_superscript_num(text)
+                key = str(num) if num is not None else k
+                clean[ch_str][key] = strip_verse_num(text)
+        return clean
+
+    if book_name == "James":
+        for ch_str, verses in chapters.items():
+            clean[ch_str] = {}
+            if ch_str == "1" and "7" in verses and ("⁷,⁸" in verses["7"] or "7,8" in verses["7"]):
+                for k, text in verses.items():
+                    if k == "7":
+                        t = strip_verse_num(text)
+                        clean["1"]["7"] = t
+                        clean["1"]["8"] = t
+                    elif k == "8" and ("⁷,⁸" in text or "7,8" in text):
+                        continue
+                    else:
+                        num = get_superscript_num(text)
+                        key = str(num) if num is not None else k
+                        clean["1"][key] = strip_verse_num(text)
+            else:
+                for k, text in verses.items():
+                    num = get_superscript_num(text)
+                    key = str(num) if num is not None else k
+                    clean[ch_str][key] = strip_verse_num(text)
+        return clean
+
+    # Standard books
+    for ch_str, verses in chapters.items():
+        clean[ch_str] = {}
+        for v_str, text in verses.items():
+            clean[ch_str][v_str] = strip_verse_num(text)
+    return clean
 
 
 def main():
@@ -45,12 +133,9 @@ def main():
 
     for testament, books in data.items():
         for book_name, chapters in books.items():
-            clean: dict[str, dict] = {}
-            for ch_str, verses in chapters.items():
-                clean[ch_str] = {}
-                for v_str, text in verses.items():
-                    clean[ch_str][v_str] = strip_verse_num(text)
-                    total_verses += 1
+            clean = normalize_book(book_name, chapters)
+            for ch_dict in clean.values():
+                total_verses += len(ch_dict)
             dst = dst_dir / f"{book_name}.json"
             with open(dst, "w", encoding="utf-8") as f:
                 json.dump(clean, f, ensure_ascii=False, separators=(',', ':'))

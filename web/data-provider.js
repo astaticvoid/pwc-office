@@ -133,6 +133,8 @@ export function offsetDate(dateStr, n) {
  * actively purges payloads older than 30 days to enforce licensing limits,
  * and detects offline cache misses.
  */
+export const CACHE_EPOCH = '2026-10-16-v1';
+
 export class DayCacheManager {
   /**
    * @param {object} [options]
@@ -159,6 +161,16 @@ export class DayCacheManager {
         ));
     /** @type {Map<string, object>} */
     this.memoryFallback = new Map();
+
+    if (this.storage) {
+      try {
+        const storedEpoch = this.storage.getItem('pwc-cache-epoch');
+        if (storedEpoch !== CACHE_EPOCH) {
+          this.clearAll();
+          this.storage.setItem('pwc-cache-epoch', CACHE_EPOCH);
+        }
+      } catch (e) {}
+    }
   }
 
   _key(dateStr, translation = 'nrsvue') {

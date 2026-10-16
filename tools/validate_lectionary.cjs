@@ -87,13 +87,83 @@ function checkCitation(cit) {
 
 // ── Resolution helpers ──────────────────────────────────────────────────────
 
+const nrsvueDir = join(root, 'data/translations/nrsvue');
+const hasNrsvue = existsSync(nrsvueDir);
+
+const KNOWN_TEXTUAL_DIVERGENCES = {
+  '2 Cor 13:1-14': 'v12-13 joined in Greek critical text vs split in KJV',
+  '3 Jn 1-15': 'v14 split into 14 & 15 in Greek critical text vs KJV',
+  '3 Jn 1:1-15': 'v14 split into 14 & 15 in Greek critical text vs KJV',
+  'Sir 1:1-10, 18-27': 'vv 5, 7, 21 omitted in Greek Septuagint vs Vulgate/KJV',
+  'Sir 3:17-31': 'v 19 omitted in Greek Septuagint vs Vulgate/KJV',
+  'Sir 11:2-20': 'vv 15-16 omitted in Greek Septuagint vs Vulgate/KJV',
+  'Sir 28:14-26': 'v 25 omitted in Greek Septuagint vs Vulgate/KJV',
+  'Sir 43:1-22': 'v 16 omitted in Greek Septuagint vs Vulgate/KJV',
+  'Sir 44:19—45:5': 'v 44:23 versification in Greek vs KJV',
+};
+
 const _bookCache = new Map();
-function loadBook(file) {
-  if (_bookCache.has(file)) return _bookCache.get(file);
-  const path = join(root, 'data/translations/kjv', `${file}.json`);
+function loadBook(file, translation = 'kjv') {
+  const key = `${translation}:${file}`;
+  if (_bookCache.has(key)) return _bookCache.get(key);
+  const path = join(root, `data/translations/${translation}`, `${file}.json`);
   const book = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null;
-  _bookCache.set(file, book);
+  _bookCache.set(key, book);
   return book;
+}
+
+/** Check that a lesson citation resolves to valid verses in KJV (always)
+ * and in NRSVue (when local data present), validating translation parity. */
+function checkLessonResolution(citation, date, ot, idx, { parseCitation, parseRanges, extractVersesWithChapter }, failures) {
+  const parts = citation.split(/\s+or\s+/);
+  let defaultAbbrev = null;
+  for (const part of parts) {
+    let trimmed = part.trim();
+    let parsed = parseCitation(trimmed);
+    if (!parsed && defaultAbbrev && /^\d/.test(trimmed)) {
+      parsed = parseCitation(`${defaultAbbrev} ${trimmed}`);
+    }
+    if (parsed) defaultAbbrev = parsed.abbrev;
+    if (!parsed) {
+      failures.push({ date, office: ot, detail: `lesson[${idx}] "${trimmed}" parseCitation returned null` });
+      continue;
+    }
+    const ranges = parseRanges(parsed.rest);
+    if (!ranges.length) {
+      failures.push({ date, office: ot, detail: `lesson[${idx}] "${trimmed}" parseRanges returned empty` });
+      continue;
+    }
+
+    const kjvBook = loadBook(parsed.file, 'kjv');
+    if (!kjvBook) {
+      failures.push({ date, office: ot, detail: `lesson[${idx}] "${trimmed}" — KJV missing book "${parsed.file}"` });
+      continue;
+    }
+    const kVerses = ranges.flatMap(r => extractVersesWithChapter(kjvBook, r));
+    if (!kVerses.length) {
+      failures.push({ date, office: ot, detail: `lesson[${idx}] "${trimmed}" does not resolve to any verses in KJV` });
+    }
+
+    if (hasNrsvue) {
+      const nrsvueBook = loadBook(parsed.file, 'nrsvue');
+      if (!nrsvueBook) {
+        failures.push({ date, office: ot, detail: `lesson[${idx}] "${trimmed}" — NRSVue missing book "${parsed.file}"` });
+        continue;
+      }
+      const nVerses = ranges.flatMap(r => extractVersesWithChapter(nrsvueBook, r));
+      if (!nVerses.length) {
+        failures.push({ date, office: ot, detail: `lesson[${idx}] "${trimmed}" does not resolve to any verses in NRSVue` });
+      }
+      for (const v of nVerses) {
+        if (v.text && v.text.includes('Many great teachings have been given')) {
+          failures.push({ date, office: ot, detail: `lesson[${idx}] "${trimmed}" contains Prologue text in NRSVue` });
+        }
+      }
+      if (nVerses.length !== kVerses.length && !KNOWN_TEXTUAL_DIVERGENCES[trimmed]) {
+        failures.push({ date, office: ot, detail: `lesson[${idx}] "${trimmed}" verse count mismatch: NRSVue=${nVerses.length}, KJV=${kVerses.length}` });
+      }
+    }
+  }
 }
 
 /** Returns [{raw, num, start, end}, ...] for each " or "-separated
@@ -106,19 +176,6 @@ function psalmNumbersIn(cit, parsePsalmCitation) {
     const { num, start, end } = parsePsalmCitation(trimmed);
     return isNaN(num) ? null : { raw: trimmed, num, start, end };
   }).filter(Boolean);
-}
-
-/** True if a lesson citation resolves to at least one real verse (KJV, the
- * always-available fallback translation — matches what the app itself falls
- * back to when a preferred translation is missing a book). */
-function resolvesToVerses(citation, { parseCitation, parseRanges, extractVersesWithChapter }) {
-  const parsed = parseCitation(citation);
-  if (!parsed) return false;
-  const book = loadBook(parsed.file);
-  if (!book) return false;
-  const ranges = parseRanges(parsed.rest);
-  if (!ranges.length) return false;
-  return ranges.some(r => extractVersesWithChapter(book, r).length > 0);
 }
 
 /** The verse numbers data/psalter.json actually has for one psalm. */
@@ -300,8 +357,8 @@ async function main() {
             }
             if (!LESSON_RE.test(citation)) {
               failures.push({ date, office: ot, detail: `lesson[${i}] unparseable: "${citation}"` });
-            } else if (!resolvesToVerses(citation, { parseCitation, parseRanges, extractVersesWithChapter })) {
-              failures.push({ date, office: ot, detail: `lesson[${i}] "${citation}" does not resolve to any verses` });
+            } else {
+              checkLessonResolution(citation, date, ot, i, { parseCitation, parseRanges, extractVersesWithChapter }, failures);
             }
             // Check for raw HTML entities
             if (/&mdash;|&amp;|<br>/.test(citation)) {

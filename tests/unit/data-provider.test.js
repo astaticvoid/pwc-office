@@ -57,6 +57,24 @@ describe('DayCacheManager (ADR 0025)', () => {
     expect(cached?.readings['Job 1:1']).toBeDefined();
   });
 
+  it('automatically clears stale cache when cache epoch changes', async () => {
+    const mockStorage = {
+      _data: {
+        'pwc-cache-epoch': 'old-epoch-2026-01-01',
+        'pwc-day:nrsvue:2026-09-03': JSON.stringify({ name: 'Old Stale Day' }),
+      },
+      getItem(k) { return this._data[k] ?? null; },
+      setItem(k, v) { this._data[k] = String(v); },
+      removeItem(k) { delete this._data[k]; },
+      key(i) { return Object.keys(this._data)[i] ?? null; },
+      get length() { return Object.keys(this._data).length; },
+    };
+
+    const manager = new DayCacheManager({ storage: mockStorage });
+    expect(mockStorage.getItem('pwc-cache-epoch')).toBe('2026-10-16-v1');
+    expect(await manager.get('2026-09-03')).toBeNull();
+  });
+
   it('purges entries older than 30 days', async () => {
     const manager = new DayCacheManager();
     const today = '2026-09-03';

@@ -142,4 +142,26 @@ describe('Scripture API v3 pure-data rendering (ADR 0025)', () => {
     expect(html).toContain('First choice text');
     expect(html).toContain('Text unavailable: Option B');
   });
+
+  it('renders Sirach 1:1-10, 18-27 starting from Chapter 1 verse 1 rather than the Prologue', () => {
+    const reading = {
+      citation: 'Sir 1:1-10, 18-27',
+      book: 'Sirach',
+      verses: [
+        { ch: 1, v: 1, text: 'All wisdom is from the Lord, and with him it remains forever.' },
+        { ch: 1, v: 2, text: 'The sand of the sea, the drops of rain, and the days of eternity—who can count them?' },
+        { ch: 1, v: 10, text: 'upon all the living according to his gift; he lavished her upon those who love him.' },
+        { ch: 1, v: 18, text: 'The fear of the Lord is the crown of wisdom, making peace and perfect health to flourish.' },
+        { ch: 1, v: 27, text: 'For the fear of the Lord is wisdom and discipline; fidelity and humility are his delight.' },
+      ],
+      paragraphs: {},
+      translation: 'nrsvue',
+    };
+
+    const html = renderScriptureReading(reading);
+    expect(html).toContain('<span class="scripture-ch-num">1</span> All wisdom is from the Lord');
+    expect(html).toContain('<sup class="verse-num">18</sup>\u00A0The fear of the Lord is the crown of wisdom');
+    expect(html).toContain('<sup class="verse-num">27</sup>\u00A0For the fear of the Lord is wisdom');
+    expect(html).not.toContain('Many great teachings');
+  });
 });
