@@ -15,6 +15,9 @@
   "plugins": {
     "CapacitorHttp": {
       "enabled": true
+    },
+    "StatusBar": {
+      "style": "DARK"
     }
   }
 }

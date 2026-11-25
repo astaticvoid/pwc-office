@@ -389,12 +389,29 @@ mobile-ios-upload: mobile-sync
 	echo "iOS build uploaded successfully to TestFlight."
 
 
+# Resolve an ARM64-capable JDK for Gradle on macOS when the system /usr/bin/java
+# or a pre-set JAVA_HOME fails under macOS 27 (e.g. legacy x86_64 Bad CPU type).
+ANDROID_JAVA_HOME = \
+	JAVA_HOME_VAL="$$JAVA_HOME"; \
+	if [ -n "$$JAVA_HOME_VAL" ] && ! "$$JAVA_HOME_VAL/bin/java" -version >/dev/null 2>&1; then \
+		JAVA_HOME_VAL=""; \
+	fi; \
+	if [ -z "$$JAVA_HOME_VAL" ] && ! java -version >/dev/null 2>&1; then \
+		for candidate in \
+			/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
+			"/Applications/Android Studio.app/Contents/jbr/Contents/Home"; do \
+			if "$$candidate/bin/java" -version >/dev/null 2>&1; then JAVA_HOME_VAL="$$candidate"; break; fi; \
+		done; \
+	fi; \
+	if [ -n "$$JAVA_HOME_VAL" ]; then export JAVA_HOME="$$JAVA_HOME_VAL"; fi
+
 # Open Android project in Android Studio (requires Android Studio + JDK).
 mobile-android: mobile-sync
 	npx cap open android
 
 # Build release AAB for Android.
 mobile-android-bundle: mobile-sync
+	@$(ANDROID_JAVA_HOME); \
 	cd android && ./gradlew bundleRelease
 
 # Upload Android release bundle to Google Play internal testing track via fastlane.
@@ -402,6 +419,7 @@ mobile-android-upload: mobile-android-bundle
 	@KEY_FILE=$$(sed -n 's/^PLAY_STORE_JSON_KEY=//p' .env | tr -d '"'"'"); \
 	test -n "$$KEY_FILE" || KEY_FILE="$$PLAY_STORE_JSON_KEY"; \
 	test -f "$$KEY_FILE" || (echo "Google Play Service Account JSON key not found at $$KEY_FILE"; exit 1); \
+	$(ANDROID_JAVA_HOME); \
 	cd android && PLAY_STORE_JSON_KEY="$$KEY_FILE" fastlane internal
 
 
