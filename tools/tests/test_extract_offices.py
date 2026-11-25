@@ -749,3 +749,38 @@ class TestSplitBulletinPeriodRubric:
         assert grp_segs[1] == {"type": "rubric", "text": "Week of Epiphany"}
         assert grp_segs[2]["type"] == "leader"
 
+    def test_epiphany_seasonal_collects_scopes_or_to_its_period(self):
+        from extract_offices import _group_seasonal_collect_alternatives
+
+        segs = [
+            {
+                "type": "rubric",
+                "text": (
+                    "Additional intercessions, petitions, and thanksgivings may be offered silently or aloud.\n"
+                    "• the unity of the Church\n"
+                    "After a period of silence either the Collect of the Day or one of the following collects may be said or sung."
+                ),
+            },
+            {"type": "rubric", "text": "Week of Epiphany"},
+            {"type": "leader", "text": "O God of light and peace. Amen."},
+            {"type": "rubric", "text": "Between the Baptism of Christ and Presentation"},
+            {"type": "leader", "text": "Perfect Light of revelation. Amen."},
+            {"type": "rubric", "text": "or"},
+            {"type": "leader", "text": "O God, you spoke your word. Amen."},
+            {"type": "rubric", "text": "Presentation"},
+            {"type": "leader", "text": "God of steadfast love. Amen."},
+            {"type": "rubric", "text": "Morning Prayer continues with the Lord’s Prayer."},
+            {"type": "rubric", "text": "The Lord’s Prayer"},
+        ]
+        out = _group_seasonal_collect_alternatives(segs, office="epiphany-mp")
+        assert out[0]["type"] == "rubric"
+        assert out[1] == {"type": "rubric", "text": "Week of Epiphany"}
+        assert out[2] == {"type": "leader", "text": "O God of light and peace. Amen."}
+        assert out[3] == {"type": "rubric", "text": "Between the Baptism of Christ and Presentation"}
+        assert out[4]["type"] == "alternatives"
+        assert [g["label"] for g in out[4]["groups"]] == ["I", "II"]
+        assert out[5] == {"type": "rubric", "text": "Presentation"}
+        assert out[6] == {"type": "leader", "text": "God of steadfast love. Amen."}
+        assert out[7] == {"type": "rubric", "text": "Morning Prayer continues with the Lord’s Prayer."}
+        assert out[8] == {"type": "rubric", "text": "The Lord’s Prayer"}
+

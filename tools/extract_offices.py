@@ -474,6 +474,68 @@ def _split_bulletin_period_rubric(segs: list) -> list:
     return out
 
 
+def _group_seasonal_collect_alternatives(segs: list[dict], office: str = "",
+                                         section: str = "seasonal_collects") -> list[dict]:
+    """Group 'or' alternatives within each seasonal-collect period separately.
+
+    Seasonal forms open with the intercessions bulletin and divide their
+    collects by period-heading rubrics (e.g. 'Week of Epiphany', 'Between the
+    Baptism of Christ and Presentation', 'Presentation'). Running
+    _group_alternatives across the whole section sweeps the bulletin and prior
+    periods into group I when a later period has an 'or' alternative
+    (Epiphany). Scoping _group_alternatives to each period's body keeps the
+    bulletin, period headings, and hand-off rubrics at top level.
+    """
+    out: list[dict] = []
+    i = 0
+    # Leading bulletin rubric(s) stay flat at top level.
+    while i < len(segs) and segs[i].get("type") == "rubric" and _INTERCESSIONS_BULLETIN.match(segs[i].get("text", "")):
+        out.append(segs[i])
+        i += 1
+
+    # Trailing hand-off / Lord's Prayer rubrics stay flat at top level.
+    end = len(segs)
+    trailing: list[dict] = []
+    while end > i and segs[end - 1].get("type") == "rubric" and (
+        _CONTINUES_ALT.search(segs[end - 1].get("text", ""))
+        or re.match(r"^The Lord['\u2019]?s Prayer\.?$", segs[end - 1].get("text", "").strip())
+    ):
+        trailing.append(segs[end - 1])
+        end -= 1
+    trailing.reverse()
+
+    body = segs[i:end]
+    # Split body into (period_rubric | None, period_body_segs) chunks.
+    chunks: list[tuple[dict | None, list[dict]]] = []
+    cur_heading: dict | None = None
+    cur_body: list[dict] = []
+    for seg in body:
+        typ = seg.get("type")
+        txt = seg.get("text", "")
+        is_or = typ == "rubric" and (_OR_UPPER.match(txt) or _OR_LOWER.match(txt) or _OR_NAMED.match(txt))
+        is_intro = typ == "rubric" and (
+            _BLOCK_SEP_ONLY.search(txt) or _GENERAL_INTRO.search(txt) or _CANTICLE_INTRO.match(txt)
+        )
+        if typ == "rubric" and not is_or and not is_intro:
+            if cur_heading is not None or cur_body:
+                chunks.append((cur_heading, cur_body))
+            cur_heading = seg
+            cur_body = []
+        else:
+            cur_body.append(seg)
+    if cur_heading is not None or cur_body:
+        chunks.append((cur_heading, cur_body))
+
+    for heading, period_segs in chunks:
+        if heading is not None:
+            out.append(heading)
+        if period_segs:
+            out.extend(_group_alternatives(period_segs, office=office, section=section))
+
+    out.extend(trailing)
+    return out
+
+
 def _merge(segs: list[dict]) -> list[dict]:
     """Merge consecutive segments of the same type into one.
 
@@ -1453,22 +1515,15 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
             else:
                 sections["seasonal_collects"] = sc
 
-    # Apply alternatives grouping to all sections. psalm_rubrics/reading_rubrics
-    # are exempt: their alternatives (doxologies, reading responses) dropped
-    # with the lectionary content, and the rubrics that introduced them would
-    # otherwise be misread as group-introducers, producing empty groups (#84).
-    _NO_ALT_SECTIONS = {"litany", "lords_prayer_intro", "psalm_rubrics", "reading_rubrics"}
-    for key in list(sections.keys()):
-        if key not in _NO_ALT_SECTIONS:
-            sections[key] = _group_alternatives(sections[key], office=office_key, section=key)
-            sections[key] = _hoist_office_transition(sections[key], office_key, key)
-
     # Seasonal collect leaders are prose; the PDF's column-width hard
     # wraps are typographic, not semantic. Join them. The intercessions
     # bulletin rubric is prose too — its intro and closing sentences wrap
     # mid-phrase on the page — but it carries its own lineation (the bullet
     # list, the week label), so it gets a dedicated, more conservative reflow
     # rather than the blanket leader one. Response segments keep lineation.
+    # For seasonal forms (opened by _INTERCESSIONS_BULLETIN), split the
+    # first week's heading out of the bulletin BEFORE grouping alternatives so
+    # an 'or' in a later period (Epiphany) never captures the bulletin (#179).
     if "seasonal_collects" in sections:
         _reflow_by_geometry(sections["seasonal_collects"], office_key,
                             "seasonal_collects", prose=True)
@@ -1477,6 +1532,29 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
         sections["seasonal_collects"] = _split_bulletin_period_rubric(
             sections["seasonal_collects"]
         )
+        if (sections["seasonal_collects"]
+                and sections["seasonal_collects"][0].get("type") == "rubric"
+                and _INTERCESSIONS_BULLETIN.match(sections["seasonal_collects"][0].get("text", ""))):
+            sections["seasonal_collects"] = _group_seasonal_collect_alternatives(
+                sections["seasonal_collects"], office=office_key, section="seasonal_collects"
+            )
+        else:
+            sections["seasonal_collects"] = _group_alternatives(
+                sections["seasonal_collects"], office=office_key, section="seasonal_collects"
+            )
+            sections["seasonal_collects"] = _hoist_office_transition(
+                sections["seasonal_collects"], office_key, "seasonal_collects"
+            )
+
+    # Apply alternatives grouping to all other sections. psalm_rubrics/reading_rubrics
+    # are exempt: their alternatives (doxologies, reading responses) dropped
+    # with the lectionary content, and the rubrics that introduced them would
+    # otherwise be misread as group-introducers, producing empty groups (#84).
+    _NO_ALT_SECTIONS = {"litany", "lords_prayer_intro", "psalm_rubrics", "reading_rubrics", "seasonal_collects"}
+    for key in list(sections.keys()):
+        if key not in _NO_ALT_SECTIONS:
+            sections[key] = _group_alternatives(sections[key], office=office_key, section=key)
+            sections[key] = _hoist_office_transition(sections[key], office_key, key)
 
     # Litany is mixed verse and prose, so each break is judged on its own
     # geometry rather than section-wide (#39).
