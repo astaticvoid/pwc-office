@@ -404,6 +404,10 @@ def _reflow_bulletin_rubric(segs: list, office_key: str = "", section: str = "")
     preserved exactly as it arrives rather than guessed from leading.
     """
     for seg in segs:
+        if seg.get("type") == "alternatives":
+            for grp in seg.get("groups", []):
+                _reflow_bulletin_rubric(grp.get("segments", []), office_key, section)
+            continue
         if seg.get("type") != "rubric" or not seg.get("text"):
             continue
         lines = seg["text"].split("\n")
@@ -426,6 +430,48 @@ def _reflow_bulletin_rubric(segs: list, office_key: str = "", section: str = "")
             out += (" " if join else "\n") + nxt.strip()
         seg["text"] = re.sub(r"[ \t]+", " ", out).strip()
     return segs
+
+
+_COLLECT_INTRO_LINE = re.compile(
+    r"^After a period of silence.+may be said or sung\.$", re.IGNORECASE
+)
+
+
+def _split_bulletin_period_rubric(segs: list) -> list:
+    """Split a trailing seasonal period label (e.g. 'Week of All Saints') out
+    of the intercessions bulletin rubric into its own rubric segment.
+
+    During merging, consecutive rubrics coalesce into one segment: the
+    intercessions bulletin, the 'After a period of silence…' collect intro,
+    and the first week's period heading. Keeping that week heading glued onto
+    the bulletin causes downstream seasonal filtering to display the first
+    week's heading (e.g. 'Week of All Saints') on every week of the season.
+    """
+    out = []
+    for seg in segs:
+        if seg.get("type") == "alternatives":
+            for grp in seg.get("groups", []):
+                grp["segments"] = _split_bulletin_period_rubric(grp.get("segments", []))
+            out.append(seg)
+            continue
+        if seg.get("type") != "rubric" or not _INTERCESSIONS_BULLETIN.match(seg.get("text", "")):
+            out.append(seg)
+            continue
+        lines = seg["text"].split("\n")
+        split_idx = next(
+            (i for i, line in enumerate(lines) if _COLLECT_INTRO_LINE.match(line.strip())),
+            None,
+        )
+        if split_idx is None:
+            out.append(seg)
+            continue
+        trailing = "\n".join(line.strip() for line in lines[split_idx + 1:] if line.strip()).strip()
+        if not trailing:
+            out.append(seg)
+            continue
+        out.append({"type": "rubric", "text": "\n".join(lines[:split_idx + 1]).strip()})
+        out.append({"type": "rubric", "text": trailing})
+    return out
 
 
 def _merge(segs: list[dict]) -> list[dict]:
@@ -1428,6 +1474,9 @@ def extract_office(typed_lines: list, office_key: str = "") -> dict:
                             "seasonal_collects", prose=True)
         _reflow_bulletin_rubric(sections["seasonal_collects"], office_key,
                                 "seasonal_collects")
+        sections["seasonal_collects"] = _split_bulletin_period_rubric(
+            sections["seasonal_collects"]
+        )
 
     # Litany is mixed verse and prose, so each break is judged on its own
     # geometry rather than section-wide (#39).

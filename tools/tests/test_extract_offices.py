@@ -22,6 +22,7 @@ from extract_offices import (
     _reflow_bulletin_rubric,
     _reflow_by_geometry,
     _rehome_reading_handoff,
+    _split_bulletin_period_rubric,
     extract_office,
 )
 
@@ -689,3 +690,62 @@ def test_subtitles_are_seasonal_only_and_date_ranged():
             assert subtitle, f"{form} is seasonal but has no subtitle"
             assert subtitle.startswith("From "), f"{form} subtitle {subtitle!r}"
             assert len(subtitle) < 80, f"{form} subtitle too long: {len(subtitle)} chars"
+
+
+class TestSplitBulletinPeriodRubric:
+    """The first week's period rubric (e.g. 'Week of All Saints') must be
+    split out of the intercessions bulletin so filterSeasonalCollects never
+    leaks Week-0's title onto later weeks."""
+
+    def test_splits_flat_seasonal_bulletin_period_label(self):
+        segs = [
+            {
+                "type": "rubric",
+                "text": (
+                    "Additional intercessions, petitions, and thanksgivings may be offered silently or aloud. "
+                    "Among these concerns it is appropriate to remember\n"
+                    "• the saints on earth\n"
+                    "After a period of silence either the Collect of the Day or one of the following collects may be said or sung.\n"
+                    "Week of All Saints"
+                ),
+            },
+            {"type": "leader", "text": "God of unfailing light. Amen."},
+        ]
+        out = _split_bulletin_period_rubric(segs)
+        assert len(out) == 3
+        assert out[0]["type"] == "rubric"
+        assert out[0]["text"].endswith("may be said or sung.")
+        assert "Week of All Saints" not in out[0]["text"]
+        assert out[1] == {"type": "rubric", "text": "Week of All Saints"}
+        assert out[2] == segs[1]
+
+    def test_splits_nested_alternatives_bulletin_period_label(self):
+        segs = [
+            {
+                "type": "alternatives",
+                "groups": [
+                    {
+                        "label": "I",
+                        "segments": [
+                            {
+                                "type": "rubric",
+                                "text": (
+                                    "Additional intercessions, petitions, and thanksgivings may be offered silently or aloud.\n"
+                                    "• the unity of the Church\n"
+                                    "After a period of silence either the Collect of the Day or one of the following collects may be said or sung.\n"
+                                    "Week of Epiphany"
+                                ),
+                            },
+                            {"type": "leader", "text": "O God of light and peace. Amen."},
+                        ],
+                    },
+                ],
+            }
+        ]
+        out = _split_bulletin_period_rubric(segs)
+        grp_segs = out[0]["groups"][0]["segments"]
+        assert len(grp_segs) == 3
+        assert grp_segs[0]["text"].endswith("may be said or sung.")
+        assert grp_segs[1] == {"type": "rubric", "text": "Week of Epiphany"}
+        assert grp_segs[2]["type"] == "leader"
+

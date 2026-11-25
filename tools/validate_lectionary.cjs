@@ -67,6 +67,9 @@ const KNOWN_NO_ALTERNATE_IDENTITY = {
   '2026-06-03/morning': 133,
   '2027-01-03/morning': 133,
   '2027-01-03/evening': 133,
+  '2027-11-06/evening': 133,
+  '2027-12-29/morning': 133,
+  '2027-12-29/evening': 133,
 };
 
 function checkCitation(cit) {
