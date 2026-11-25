@@ -1,7 +1,7 @@
 'use strict';
 
 import {
-  esc, seasonOf, officeFormSeason, seasonWeekIndex, formKey,
+  esc, seasonOf, officeFormSeason, seasonalCollectPeriodIndex, formKey,
   filterSeasonalCollects, renderAlternatives, renderSegments, renderSubsection, renderSubsectionWithCitation,
   lessonHtml, lessonsPickRubricHtml,
   SC_HEADER, SC_FOOTER, SC_CONTINUES,
@@ -89,10 +89,10 @@ function updateNativeStatusBar() {
 
   // Both themes use a dark header bar:
   // - Light theme: dark pine green header (#15382A)
-  // - Dark theme: dark charcoal header (#1C1A17)
+  // - Dark theme: deep pine charcoal header (#0F1A14, --color-nav-bg)
   // Therefore, icons must always be white/light (STATUS_ICONS_LIGHT) to ensure high contrast.
   StatusBar.setStyle({ style: STATUS_ICONS_LIGHT }).catch(() => {});
-  StatusBar.setBackgroundColor({ color: isDark ? '#1C1A17' : '#15382A' }).catch(() => {});
+  StatusBar.setBackgroundColor({ color: isDark ? '#0F1A14' : '#15382A' }).catch(() => {});
 }
 
 function initNativeFeatures() {
@@ -775,15 +775,27 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared, fatsEntry
     return html;
   }
 
-  if (hasDaily && hasSeasonal) {
+  function seasonalCollectEntries() {
     const periodMarker = seasonalContent.find(s => s.type === 'rubric');
-    const displaySeasonal = seasonalContent.filter(s => s.type !== 'rubric');
+    const displaySeasonal = seasonalContent.filter(s => s !== periodMarker);
     const seasonalTitle = periodMarker ? `<p class="alt-source">${esc(periodMarker.text)}</p>` : '';
-    const entries = [
-      ['Collect of the Day', dailyHtml()],
+    if (displaySeasonal.length === 1 && displaySeasonal[0].type === 'alternatives') {
+      return (displaySeasonal[0].groups || []).map(g => [
+        'Seasonal ' + g.label,
+        seasonalTitle + `<div class="liturgy">${renderSegments(g.segments, shared)}</div>`,
+      ]);
+    }
+    return [
       ['Seasonal Collect', seasonalTitle + `<div class="liturgy">${renderSegments(displaySeasonal, shared)}</div>`],
     ];
-    entries.push(...extraEntries);
+  }
+
+  if (hasDaily && hasSeasonal) {
+    const entries = [
+      ['Collect of the Day', dailyHtml()],
+      ...seasonalCollectEntries(),
+      ...extraEntries,
+    ];
     html += tabBlock(entries);
   } else if (hasDaily) {
     if (extraEntries.length) {
@@ -794,12 +806,9 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared, fatsEntry
   } else if (fatsCollect) {
     // No BAS collect entry — fall back to FATS collect
     if (hasSeasonal) {
-      const periodMarker = seasonalContent.find(s => s.type === 'rubric');
-      const displaySeasonal = seasonalContent.filter(s => s.type !== 'rubric');
-      const seasonalTitle = periodMarker ? `<p class="alt-source">${esc(periodMarker.text)}</p>` : '';
       html += tabBlock([
         ['Collect of the Day', fatsPanelHtml()],
-        ['Seasonal Collect', seasonalTitle + `<div class="liturgy">${renderSegments(displaySeasonal, shared)}</div>`],
+        ...seasonalCollectEntries(),
         ...extraEntries,
       ]);
     } else if (extraEntries.length) {
@@ -917,7 +926,7 @@ async function render(dateStr, officeType, translation) {
   const weekday = d.getUTCDay();
   const season = seasonOf(dateStr, bounds);
   const fSeason = officeFormSeason(dateStr, bounds);
-  const weekIdx = seasonWeekIndex(dateStr, fSeason, bounds);
+  const weekIdx = seasonalCollectPeriodIndex(dateStr, fSeason, bounds);
   const key = formKey(fSeason, officeType, weekday);
   const form = offices[key] || null;
 

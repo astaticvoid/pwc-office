@@ -1034,6 +1034,7 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
   #nav { display: none; position: static; }
   #main { max-width: 100%; padding: 1rem; }
   .seg-rubric { color: #7A3030; }
+  .seg-rubric-list { color: #7A3030; }
   .alt-panel-hidden { display: block !important; }
   .alt-tabs { display: none; }
   .alt-source { margin-top: 0; }

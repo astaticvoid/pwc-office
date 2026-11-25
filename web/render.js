@@ -485,16 +485,27 @@ export function officeFormSeason(dateStr, bounds) {
   return 'OrdinaryTime';
 }
 
+const WEEK_MS = 7 * 24 * 3600 * 1000;
+const DAY_MS  = 24 * 3600 * 1000;
+
+function addUtcDays(d, days) {
+  return new Date(d.getTime() + days * DAY_MS);
+}
+
+function yearBoundsSlice(dateStr, bounds) {
+  if (!bounds?.years || !dateStr) return { by: {}, prevBy: {} };
+  const y = dateStr.slice(0, 4);
+  const prevY = String(Number(y) - 1);
+  return { by: bounds.years[y] || {}, prevBy: bounds.years[prevY] || {} };
+}
+
 // Returns 0-based week index within the season (0 = first week, 1 = second, …).
 export function seasonWeekIndex(dateStr, season, bounds) {
   if (!dateStr || typeof dateStr !== 'string') return 0;
   const d = parseDate(dateStr);
   let startStr = null;
   if (bounds?.years) {
-    const y = dateStr.slice(0, 4);
-    const prevY = String(Number(y) - 1);
-    const by = bounds.years[y] || {};
-    const prevBy = bounds.years[prevY] || {};
+    const { by, prevBy } = yearBoundsSlice(dateStr, bounds);
     if (season === 'Christmas') {
       startStr = by.christmas && dateStr >= by.christmas ? by.christmas : (prevBy.christmas || bounds.christmas);
     } else if (season === 'Advent') {
@@ -527,7 +538,111 @@ export function seasonWeekIndex(dateStr, season, bounds) {
   }
   const start = parseDate(startStr);
   if (!start || !d) return 0;
-  return Math.floor((d.getTime() - start.getTime()) / (7 * 24 * 3600 * 1000));
+  return Math.floor((d.getTime() - start.getTime()) / WEEK_MS);
+}
+
+/**
+ * Returns the 0-based period index within a seasonal form's `seasonal_collects`
+ * matching the liturgical calendar headings printed in PWC.
+ */
+export function seasonalCollectPeriodIndex(dateStr, season, bounds) {
+  if (!dateStr || typeof dateStr !== 'string') return 0;
+  const d = parseDate(dateStr);
+  if (!d) return 0;
+  const { by, prevBy } = yearBoundsSlice(dateStr, bounds);
+
+  if (season === 'Advent') {
+    const yearPrefix = dateStr.slice(0, 4) + '-';
+    const flatAdvent = [bounds?.advent_i, bounds?.advent_ii, bounds?.advent_iii]
+      .filter(Boolean)
+      .find(s => s.startsWith(yearPrefix)) || bounds?.advent_i;
+    const adventI = parseDate(by.advent_i || flatAdvent);
+    if (!adventI) return 0;
+    if (d < adventI) return 0; // Week of the Reign of Christ
+    return 1 + Math.floor((d.getTime() - adventI.getTime()) / WEEK_MS);
+  }
+
+  if (season === 'Christmas') {
+    const isDec = dateStr.slice(5, 7) === '12';
+    const flatList = [bounds?.christmas, bounds?.christmas_ii, bounds?.christmas_iii].filter(Boolean);
+    const flatChristmas = isDec
+      ? (flatList.find(s => s.startsWith(dateStr.slice(0, 4) + '-12')) || bounds?.christmas)
+      : (flatList.filter(s => s <= dateStr).pop() || bounds?.christmas);
+    const christmas = parseDate(
+      isDec ? (by.christmas || flatChristmas) : (prevBy.christmas || flatChristmas),
+    );
+    if (!christmas) return 0;
+    if (d < christmas) return 0; // Christmas Eve
+    const sun1 = addUtcDays(christmas, 7 - christmas.getUTCDay());
+    const sun2 = addUtcDays(sun1, 7);
+    if (d < sun1) return 1; // Christmas until First Sunday after Christmas
+    if (d < sun2) return 2; // Week of First Sunday after Christmas
+    return 3;               // Week of Second Sunday after Christmas
+  }
+
+  if (season === 'Epiphany') {
+    const baptism = parseDate(by.epiphany || bounds?.epiphany);
+    const pres    = parseDate(by.presentation || bounds?.presentation);
+    if (pres && d >= pres) return 3; // Presentation
+    if (!baptism) return 0;
+    if (d < baptism) return 0;       // Week of Epiphany
+    if (d < addUtcDays(baptism, 7)) return 1; // Week of the Baptism of Christ
+    return 2;                        // Between the Baptism of Christ and Presentation
+  }
+
+  if (season === 'Lent') {
+    const ash = parseDate(by.ash_wednesday || bounds?.ash_wednesday);
+    if (!ash) return 0;
+    const lent2 = addUtcDays(ash, 11); // Ash Wed + 4d = Lent 1, + 11d = Lent 2
+    if (d < lent2) return 0;
+    return 1 + Math.floor((d.getTime() - lent2.getTime()) / WEEK_MS);
+  }
+
+  if (season === 'Passiontide') {
+    const palm   = parseDate(by.palm_sunday || bounds?.palm_sunday);
+    const easter = parseDate(by.easter || bounds?.easter);
+    const goodFriday = easter ? addUtcDays(easter, -2) : (palm ? addUtcDays(palm, 5) : null);
+    if (palm && d < palm) return 0;             // The Week of Lent 5
+    if (goodFriday && d < goodFriday) return 1; // Palm/Passion Sunday to Good Friday
+    if (goodFriday && d >= goodFriday) return 2; // Good Friday to Easter Vigil
+    return 0;
+  }
+
+  if (season === 'Easter') {
+    const easter = parseDate(by.easter || bounds?.easter);
+    if (!easter || d < easter) return 0;
+    return Math.floor((d.getTime() - easter.getTime()) / WEEK_MS);
+  }
+
+  if (season === 'Pentecost') {
+    const asc  = parseDate(by.ascension || bounds?.ascension);
+    const pent = parseDate(by.pentecost || bounds?.pentecost);
+    const trin = parseDate(by.trinity_sunday || bounds?.trinity_sunday);
+    if (trin && d >= trin) return 3; // The Week of Trinity Sunday
+    if (pent && d >= pent) return 2; // Pentecost to Trinity Sunday
+    if (asc) {
+      const sunAfterAsc = addUtcDays(asc, (7 - asc.getUTCDay()) % 7 || 7);
+      return d < sunAfterAsc ? 0 : 1;
+    }
+    return 0;
+  }
+
+  if (season === 'AllSaints') {
+    const yNum = Number(dateStr.slice(0, 4));
+    const nov6 = new Date(Date.UTC(yNum, 10, 6));
+    const sunNov6_12  = addUtcDays(nov6, (7 - nov6.getUTCDay()) % 7);
+    const sunNov13_19 = addUtcDays(sunNov6_12, 7);
+    const adventI = parseDate(by.advent_i || bounds?.advent_i);
+    const reignOfChrist = (adventI && adventI.getUTCFullYear() === yNum)
+      ? addUtcDays(adventI, -7)
+      : addUtcDays(sunNov13_19, 7);
+    if (d >= reignOfChrist) return 3; // The Reign of Christ to the First Sunday of Advent
+    if (d >= sunNov13_19) return 2;   // Week of Sunday between 13 and 19 Nov
+    if (d >= sunNov6_12) return 1;    // Week of Sunday between 6 and 12 Nov
+    return 0;                         // Week of All Saints
+  }
+
+  return seasonWeekIndex(dateStr, season, bounds);
 }
 
 // Filter seasonal_collects to the period matching weekIdx.

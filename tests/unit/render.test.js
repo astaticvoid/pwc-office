@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest';
 import { readFileSync, readdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import {
-  formKey, officeFormSeason, seasonOf, seasonWeekIndex, renderSegments, renderSubsection, lessonHtml,
+  formKey, officeFormSeason, seasonOf, seasonWeekIndex, seasonalCollectPeriodIndex, renderSegments, renderSubsection, lessonHtml,
   lessonsPickText, lessonsPickRubricHtml, renderOfficeJSON, filterSeasonalCollects,
   LITURGICAL_TEXT_REGISTER, SKIP_RUBRICS, assembleSections, esc,
   formatLiturgicalText, formatProseText, splitPsalmRubrics, splitReadingRubrics,
@@ -1301,5 +1301,87 @@ describe.skipIf(!HAS_DATA)('filterSeasonalCollects period separation', () => {
     expect(filtered).toHaveLength(2);
     expect(filtered[0].type).toBe('alternatives');
     expect(filtered[1]).toEqual({ type: 'rubric', text: 'Morning Prayer continues with the Lord’s Prayer.' });
+  });
+
+  test('epiphany keeps intercessions bulletin outside alternatives and renders period collects', () => {
+    const sc = offices['epiphany-mp'].seasonal_collects;
+    expect(sc[0].type).toBe('rubric');
+    expect(sc[0].text).toContain('Additional intercessions');
+    expect(sc[0].text).not.toContain('Week of Epiphany');
+
+    const between = filterSeasonalCollects(sc, 2);
+    expect(between[0].text).toContain('Additional intercessions');
+    expect(between[1]).toEqual({ type: 'rubric', text: 'Between the Baptism of Christ and Presentation' });
+    expect(between[2].type).toBe('alternatives');
+    expect(between[2].groups.map(g => g.label)).toEqual(['I', 'II']);
+    expect(between[3]).toEqual({ type: 'rubric', text: 'Morning Prayer continues with the Lord’s Prayer.' });
+  });
+
+  test.each([
+    ['2026-11-24', 'The Reign of Christ to the First Sunday of Advent'],
+    ['2026-11-29', 'Advent 1'],
+    ['2026-12-06', 'Advent 2'],
+    ['2026-12-13', 'Advent 3'],
+    ['2026-12-20', 'Advent 4'],
+    ['2026-12-24', 'Advent 4'],
+    ['2026-12-25', 'Christmas (until the First Sunday after Christmas)'],
+    ['2026-12-27', 'Week of the First Sunday after Christmas'],
+    ['2027-01-03', 'Week of the Second Sunday after Christmas'],
+    ['2026-01-04', 'Week of the Second Sunday after Christmas'],
+    ['2027-01-10', 'Week of the Baptism of Christ'],
+    ['2027-01-17', 'Between the Baptism of Christ and Presentation'],
+    ['2027-02-10', 'From Ash Wednesday until the Second Sunday in Lent'],
+    ['2027-02-17', 'From Ash Wednesday until the Second Sunday in Lent'],
+    ['2027-02-21', 'The Week of the Second Sunday in Lent'],
+    ['2027-02-28', 'The Week of the Third Sunday in Lent'],
+    ['2027-03-07', 'The Week of the Fourth Sunday in Lent'],
+    ['2027-03-14', 'The Week of Lent 5'],
+    ['2027-03-21', 'Palm/Passion Sunday to Good Friday'],
+    ['2027-03-26', 'Good Friday to Easter Vigil'],
+    ['2027-03-28', 'Week of Easter'],
+    ['2027-05-02', 'Week of Easter 6'],
+    ['2027-05-06', 'Ascension to the Sunday after Ascension'],
+    ['2027-05-09', 'Sunday after Ascension to Pentecost'],
+    ['2027-05-16', 'Pentecost to Trinity Sunday'],
+    ['2027-05-23', 'The Week of Trinity Sunday'],
+    ['2026-11-01', 'Week of All Saints'],
+    ['2026-11-08', 'Week of the Sunday between 6 and 12 November inclusive'],
+    ['2026-11-15', 'Week of the Sunday between 13 and 19 November inclusive'],
+    ['2027-11-05', 'Week of All Saints'],
+    ['2027-11-07', 'Week of the Sunday between 6 and 12 November inclusive'],
+    ['2027-11-14', 'Week of the Sunday between 13 and 19 November inclusive'],
+    ['2027-11-21', 'The Reign of Christ to the First Sunday of Advent'],
+    ['2027-11-28', 'Advent 1'],
+  ])('seasonalCollectPeriodIndex %s selects %s', (dateStr, expectedHeading) => {
+    const fSeason = officeFormSeason(dateStr, bounds);
+    const fk = formKey(fSeason, 'mp', new Date(dateStr + 'T00:00:00Z').getUTCDay());
+    const idx = seasonalCollectPeriodIndex(dateStr, fSeason, bounds);
+    const segs = filterSeasonalCollects(offices[fk].seasonal_collects, idx);
+    const periodRubric = segs.find(s => s.type === 'rubric' && !/^Additional|^Morning|^The Lord/.test(s.text));
+    expect(periodRubric?.text).toBe(expectedHeading);
+  });
+
+  test('seasonalCollectPeriodIndex handles period 0/3 edges, flat bounds, and leap years', () => {
+    // Explicit season period-0 and period-3 boundary dates
+    expect(seasonalCollectPeriodIndex('2026-11-24', 'Advent', bounds)).toBe(0);
+    expect(seasonalCollectPeriodIndex('2026-12-24', 'Christmas', bounds)).toBe(0);
+    expect(seasonalCollectPeriodIndex('2027-01-06', 'Epiphany', bounds)).toBe(0);
+    expect(seasonalCollectPeriodIndex('2027-02-02', 'Epiphany', bounds)).toBe(3);
+
+    // Flat bounds (no .years map) across multi-year Advent and Christmas cycles
+    const flatBounds = { ...bounds };
+    delete flatBounds.years;
+    expect(seasonalCollectPeriodIndex('2026-11-29', 'Advent', flatBounds)).toBe(1);
+    expect(seasonalCollectPeriodIndex('2026-12-24', 'Christmas', flatBounds)).toBe(0);
+    expect(seasonalCollectPeriodIndex('2026-12-25', 'Christmas', flatBounds)).toBe(1);
+    expect(seasonalCollectPeriodIndex('2026-12-27', 'Christmas', flatBounds)).toBe(2);
+    expect(seasonalCollectPeriodIndex('2027-01-03', 'Christmas', flatBounds)).toBe(3);
+
+    // Leap year (2024: Ash Wed Feb 14, Lent 2 Feb 25, Feb 29 in Lent 2)
+    const leapBounds = {
+      years: { '2024': { ash_wednesday: '2024-02-14', epiphany: '2024-01-07', presentation: '2024-02-02' } },
+    };
+    expect(seasonalCollectPeriodIndex('2024-02-24', 'Lent', leapBounds)).toBe(0);
+    expect(seasonalCollectPeriodIndex('2024-02-29', 'Lent', leapBounds)).toBe(1);
   });
 });

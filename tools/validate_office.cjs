@@ -16,7 +16,7 @@ const root = join(dirname(__filename), '..');
 const { resolveQaDates } = require('./qa_days.cjs');
 
 async function main() {
-  const { renderOfficeJSON, segmentsToJSON, walkSegments, seasonOf, officeFormSeason, seasonWeekIndex,
+  const { renderOfficeJSON, segmentsToJSON, walkSegments, seasonOf, officeFormSeason, seasonalCollectPeriodIndex,
           isSkippedRubric } = await import('../web/render.js');
 
   const useJson = process.argv.includes('--json');
@@ -529,7 +529,7 @@ async function main() {
       const officeData = officeType === 'ep' ? (day.evening || {}) : (day.morning || {});
       const fSeason = officeFormSeason(entry.date, bounds);
       const season = seasonOf(entry.date, bounds);
-      const weekIdx = seasonWeekIndex(entry.date, fSeason, bounds);
+      const weekIdx = seasonalCollectPeriodIndex(entry.date, fSeason, bounds);
 
       const cfg = {
         form, shared, officeData, officeType, season,

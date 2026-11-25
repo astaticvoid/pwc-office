@@ -99,6 +99,7 @@ const OPACITY_EXEMPT = {
  */
 const LITERAL_PAIRS = [
   { selector: '.seg-rubric', fg: '#7A3030', ground: '#FFFFFF', min: AA_TEXT, why: 'print stylesheet — the ground is paper, not a token' },
+  { selector: '.seg-rubric-list', fg: '#7A3030', ground: '#FFFFFF', min: AA_TEXT, why: 'print stylesheet — the ground is paper, not a token' },
 ];
 
 // Painted, but carrying no information: contrast has nothing to protect.
