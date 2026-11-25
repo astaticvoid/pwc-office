@@ -128,6 +128,7 @@ export function isSkippedRubric(text) {
 // Exported so app.js can use them in collectToggleHtml without re-declaration.
 export const SC_HEADER = /^Additional\s+intercessions/i;
 export const SC_FOOTER = /^the\s+Lord['’]s\s+Prayer/i;
+export const SC_CONTINUES = /^(?:Morning|Evening)\s+Prayer\s+continues\s+with\s+the\s+Lord['’]s\s+Prayer/i;
 
 // ── App-authored liturgical text register (ADR 0015) ─────────────────────────
 // Rubrics the app authors rather than extracts, held to the same provenance
@@ -531,10 +532,14 @@ export function seasonWeekIndex(dateStr, season, bounds) {
 
 // Filter seasonal_collects to the period matching weekIdx.
 export function filterSeasonalCollects(segs, weekIdx) {
-  const pre = [], groups = [];
+  const pre = [], groups = [], post = [];
   let cur = null;
   for (const seg of segs) {
     if (seg.type === 'rubric' && SC_FOOTER.test(seg.text)) continue;
+    if (seg.type === 'rubric' && SC_CONTINUES.test(seg.text)) {
+      post.push(seg);
+      continue;
+    }
     const isPeriodMarker = seg.type === 'rubric' && !SC_HEADER.test(seg.text);
     if (isPeriodMarker) {
       if (cur !== null) groups.push(cur);
@@ -546,16 +551,16 @@ export function filterSeasonalCollects(segs, weekIdx) {
   }
   if (cur !== null) groups.push(cur);
 
-  if (!groups.length) return segs;
+  if (!groups.length) return [...pre, ...post];
 
   const preRubrics  = pre.filter(s => s.type === 'rubric');
   const week0Content = pre.filter(s => s.type !== 'rubric');
 
   if (week0Content.length) {
-    if (weekIdx <= 0) return [...preRubrics, ...week0Content];
-    return [...preRubrics, ...groups[Math.min(weekIdx - 1, groups.length - 1)]];
+    if (weekIdx <= 0) return [...preRubrics, ...week0Content, ...post];
+    return [...preRubrics, ...groups[Math.min(weekIdx - 1, groups.length - 1)], ...post];
   } else {
-    return [...preRubrics, ...(groups[Math.min(weekIdx, groups.length - 1)] || [])];
+    return [...preRubrics, ...(groups[Math.min(weekIdx, groups.length - 1)] || []), ...post];
   }
 }
 
@@ -903,6 +908,54 @@ export function renderAlternatives(seg, shared, contextKey, verse = false) {
 }
 
 /**
+ * Render a rubric segment, formatting bulleted lines (e.g. intercessions
+ * biddings) as a semantic HTML list while keeping literal bullet text in DOM.
+ * @param {string} text
+ * @returns {string} HTML string
+ */
+function renderRubricHtml(text) {
+  if (!/^\s*\u2022/m.test(text)) {
+    return `<p class="seg-rubric">${esc(text)}</p>`;
+  }
+  const out = [];
+  let proseChunk = [];
+  let listItems = [];
+
+  const flushProse = () => {
+    if (!proseChunk.length) return;
+    out.push(`<p class="seg-rubric">${esc(proseChunk.join('\n'))}</p>`);
+    proseChunk = [];
+  };
+  const flushList = () => {
+    if (!listItems.length) return;
+    const lis = listItems
+      .map(item => `<li><span class="seg-rubric-bullet" aria-hidden="true">\u2022</span> <span class="seg-rubric-item">${esc(item)}</span></li>`)
+      .join('');
+    out.push(`<ul class="seg-rubric-list">${lis}</ul>`);
+    listItems = [];
+  };
+
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushList();
+      flushProse();
+      continue;
+    }
+    if (trimmed.startsWith('\u2022')) {
+      flushProse();
+      listItems.push(trimmed.slice(1).trim());
+    } else {
+      flushList();
+      proseChunk.push(trimmed);
+    }
+  }
+  flushList();
+  flushProse();
+  return out.join('');
+}
+
+/**
  * Render segments to HTML. Resolves shared refs and alternatives inline.
  * @param {Segment[]} segs
  * @param {Object} shared - _shared reference map
@@ -921,7 +974,7 @@ export function renderSegments(segs, shared, verse = false) {
     // the old `|| ''` applied to a text-bearing segment.
     const text = 'text' in seg ? (seg.text || '') : '';
     if (seg.type === 'rubric') {
-      return `<p class="seg-rubric">${esc(text)}</p>`;
+      return renderRubricHtml(text);
     }
     if (seg.type === 'label')    return `<p class="seg-label">${esc(text)}</p>`;
     if (seg.type === 'response') return `<p class="seg-response">${formatLiturgicalText(text)}</p>`;

@@ -4,7 +4,7 @@ import {
   esc, seasonOf, officeFormSeason, seasonWeekIndex, formKey,
   filterSeasonalCollects, renderAlternatives, renderSegments, renderSubsection, renderSubsectionWithCitation,
   lessonHtml, lessonsPickRubricHtml,
-  SC_HEADER, SC_FOOTER,
+  SC_HEADER, SC_FOOTER, SC_CONTINUES,
   collectSecondaryPage, collectCommemorations, assembleSections, formatLiturgicalText, invitatorySegments, phosHilaronSegments,
   splitPsalmRubrics, splitReadingRubrics,
   parsePsalmCitation,
@@ -683,7 +683,14 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared, fatsEntry
   while (splitAt < seasonalSegs.length && seasonalSegs[splitAt].type === 'rubric'
          && SC_HEADER.test(seasonalSegs[splitAt].text)) splitAt++;
   const generalRubrics = seasonalSegs.slice(0, splitAt);
-  const seasonalContent = seasonalSegs.slice(splitAt);
+  const rest = seasonalSegs.slice(splitAt);
+  const trailingRubrics = rest.filter(s => s.type === 'rubric' && SC_CONTINUES.test(s.text));
+  const seasonalContent = rest.filter(
+    s => !(s.type === 'rubric' && (SC_CONTINUES.test(s.text) || SC_FOOTER.test(s.text)))
+  );
+  const trailingHtml = trailingRubrics.length
+    ? `<div class="liturgy">${renderSegments(trailingRubrics, shared)}</div>`
+    : '';
 
   if (collectRef) collectInline = null; // BAS ref wins when both exist
   const hasDaily      = !!collectRef || !!collectInline;
@@ -722,7 +729,7 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared, fatsEntry
   let html = '';
   if (generalRubrics.length) html += `<div class="liturgy">${renderSegments(generalRubrics, shared)}</div>`;
 
-  if (!hasDaily && !hasSeasonal && !fatsCollect) return html;
+  if (!hasDaily && !hasSeasonal && !fatsCollect) return html + trailingHtml;
 
   const stateKey = 'pwc-alt-collect';
   const tabBlock = entries => tabBlockHtml(stateKey, entries);
@@ -764,7 +771,7 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared, fatsEntry
       entries.push(['Seasonal ' + g.label, `<div class="liturgy">${renderSegments(cleanSegs, shared)}</div>`]);
     });
     entries.push(...extraEntries);
-    html += tabBlock(entries);
+    html += tabBlock(entries) + trailingHtml;
     return html;
   }
 
@@ -803,7 +810,7 @@ function collectToggleHtml(collects, collectRef, seasonalSegs, shared, fatsEntry
   } else {
     html += `<h3 class="office-subsection-title">Seasonal Collect</h3><div class="liturgy">${renderSegments(seasonalContent, shared)}</div>`;
   }
-  return html;
+  return html + trailingHtml;
 }
 
 // ── Date formatting ───────────────────────────────────────────────────────────
@@ -1269,7 +1276,6 @@ async function render(dateStr, officeType, translation) {
       // extracted per form, and closes the affirmation section above (#84).
       html += renderSubsection('The Litany', form.litany, shared);
     }
-    html += `<h3 class="office-subsection-title">The Collect</h3>`;
     html += `<div id="prayers-collect">${collectToggleHtml(collects, activeOfficeData.collect, seasonalSegs, shared, fatsEntry, day.collect_inline)}</div>`;
     if (form.lords_prayer_intro && form.lords_prayer_intro.length) {
       html += `<h3 class="office-subsection-title">The Lord's Prayer</h3>`;

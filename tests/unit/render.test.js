@@ -3,7 +3,7 @@ import { readFileSync, readdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import {
   formKey, officeFormSeason, seasonOf, seasonWeekIndex, renderSegments, renderSubsection, lessonHtml,
-  lessonsPickText, lessonsPickRubricHtml, renderOfficeJSON,
+  lessonsPickText, lessonsPickRubricHtml, renderOfficeJSON, filterSeasonalCollects,
   LITURGICAL_TEXT_REGISTER, SKIP_RUBRICS, assembleSections, esc,
   formatLiturgicalText, formatProseText, splitPsalmRubrics, splitReadingRubrics,
   parseCitation, expandCitationForDisplay, SINGLE_CHAPTER_BOOKS,
@@ -1248,5 +1248,58 @@ describe('dayMarkers', () => {
     expect(dayMarkers(day, 'The Holy Innocents', false, false)).toEqual([
       { text: 'Thomas Becket, Archbishop of Canterbury, 1170' },
     ]);
+  });
+});
+
+// ── Bulleted intercessions list & seasonal period filtering ──────────────────
+
+describe('intercessions bullet list formatting', () => {
+  test('renders bulleted lines as a semantic ul.seg-rubric-list while keeping non-bullet rubrics as p.seg-rubric', () => {
+    const seg = {
+      type: 'rubric',
+      text: 'Additional intercessions, petitions, and thanksgivings may be offered silently or aloud. Among these concerns it is appropriate to remember\n• the saints on earth\n• all people\nAfter a period of silence either the Collect of the Day or one of the following collects may be said or sung.',
+    };
+    const html = renderSegments([seg], {});
+    expect(html).toContain('<p class="seg-rubric">Additional intercessions, petitions, and thanksgivings may be offered silently or aloud. Among these concerns it is appropriate to remember</p>');
+    expect(html).toContain('<ul class="seg-rubric-list">');
+    expect(html).toContain('<li><span class="seg-rubric-bullet" aria-hidden="true">•</span> <span class="seg-rubric-item">the saints on earth</span></li>');
+    expect(html).toContain('<li><span class="seg-rubric-bullet" aria-hidden="true">•</span> <span class="seg-rubric-item">all people</span></li>');
+    expect(html).toContain('<p class="seg-rubric">After a period of silence either the Collect of the Day or one of the following collects may be said or sung.</p>');
+
+    const plainSeg = { type: 'rubric', text: 'The Litany is said or sung.' };
+    expect(renderSegments([plainSeg], {})).toBe('<p class="seg-rubric">The Litany is said or sung.</p>');
+  });
+});
+
+describe.skipIf(!HAS_DATA)('filterSeasonalCollects period separation', () => {
+  test('keeps Week of All Saints out of weekIdx > 0, preserves SC_CONTINUES, and clamps overflow', () => {
+    const sc = offices['allsaints-mp'].seasonal_collects;
+    expect(sc[0].text).not.toContain('Week of All Saints');
+    expect(sc[1]).toEqual({ type: 'rubric', text: 'Week of All Saints' });
+
+    const week0 = filterSeasonalCollects(sc, 0);
+    expect(week0.some(s => s.text === 'Week of All Saints')).toBe(true);
+    expect(week0.some(s => s.text.includes('God of unfailing light'))).toBe(true);
+    expect(week0[week0.length - 1]).toEqual({ type: 'rubric', text: 'Morning Prayer continues with the Lord’s Prayer.' });
+    expect(week0.some(s => s.text === 'The Lord’s Prayer')).toBe(false);
+
+    const week3 = filterSeasonalCollects(sc, 3);
+    expect(week3.some(s => s.text.includes('Week of All Saints'))).toBe(false);
+    expect(week3.some(s => s.text === 'The Reign of Christ to the First Sunday of Advent')).toBe(true);
+    expect(week3.some(s => s.text.includes('Holy God, our refuge and strength'))).toBe(true);
+    expect(week3[week3.length - 1]).toEqual({ type: 'rubric', text: 'Morning Prayer continues with the Lord’s Prayer.' });
+
+    const overflow = filterSeasonalCollects(sc, 99);
+    expect(overflow.some(s => s.text === 'The Reign of Christ to the First Sunday of Advent')).toBe(true);
+    expect(overflow[overflow.length - 1]).toEqual({ type: 'rubric', text: 'Morning Prayer continues with the Lord’s Prayer.' });
+    expect(overflow.some(s => s.text === 'The Lord’s Prayer')).toBe(false);
+  });
+
+  test('strips SC_FOOTER while preserving SC_CONTINUES in ordinary-time alternatives', () => {
+    const sc = offices['ordinary-sunday-mp'].seasonal_collects;
+    const filtered = filterSeasonalCollects(sc, 0);
+    expect(filtered).toHaveLength(2);
+    expect(filtered[0].type).toBe('alternatives');
+    expect(filtered[1]).toEqual({ type: 'rubric', text: 'Morning Prayer continues with the Lord’s Prayer.' });
   });
 });

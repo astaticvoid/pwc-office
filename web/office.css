@@ -621,6 +621,37 @@ body.book-mode .alt-panel + .alt-panel::before {
   white-space: pre-wrap;
 }
 
+.seg-rubric-list {
+  font-family: var(--font-liturgy);
+  font-size: var(--fs-rubric);
+  font-style: italic;
+  color: var(--color-rubric);
+  list-style: none;
+  margin: 0 0 var(--sp-3);
+  padding: 0 0 0 var(--indent);
+}
+
+.seg-rubric + .seg-rubric-list {
+  margin-top: calc(-1 * var(--sp-1));
+}
+
+.seg-rubric-list li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.5em;
+  align-items: baseline;
+  margin: 0 0 var(--sp-1);
+  line-height: var(--line-height);
+}
+
+.seg-rubric-list li:last-child {
+  margin-bottom: 0;
+}
+
+.seg-rubric-bullet {
+  font-style: normal;
+}
+
 /* ── Psalm text ─────────────────────────────────────────────────────────────── */
 
 /* Separate consecutive psalms within a single office section (each carries
@@ -695,6 +726,10 @@ body.book-mode .alt-panel + .alt-panel::before {
 }
 
 /* ── Collect ────────────────────────────────────────────────────────────────── */
+
+#prayers-collect {
+  margin-top: var(--sp-4);
+}
 
 .collect-text {
   font-family: var(--font-liturgy); font-size: var(--fs-liturgy);

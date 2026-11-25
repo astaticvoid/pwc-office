@@ -179,7 +179,6 @@ B.push(text(form.intercessions));
 B.push('The Litany');
 B.push(text(form.litany));
 
-B.push('The Collect');
 B.push(`[Collect of the Day: ${dateStr}]`);
 B.push(text(form.seasonal_collects, { joinLines: true }));
 

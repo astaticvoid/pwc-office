@@ -110,8 +110,7 @@ test.describe('Office loads', () => {
   test('morning prayer: collect appears in Prayers section', async ({ page }) => {
     await gotoOffice(page, DATE, 'mp');
     await expect(page.locator('.office-section-title', { hasText: 'Prayers' })).toBeVisible();
-    await expect(page.locator('.office-subsection-title', { hasText: 'Collect' }).first())
-      .toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#prayers-collect')).toBeVisible({ timeout: 5000 });
   });
 
   test('morning prayer: reading headings use full book names', async ({ page }) => {
