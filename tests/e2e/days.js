@@ -93,8 +93,12 @@ export function daysNamed(pattern) {
  */
 export function richDay() {
   return findDay(
-    'a day with an alternate observance in both offices, two lessons in each, and a long pastoral note',
-    d => d.morning?.alternate && d.evening?.alternate
+    'a seasonal day with an alternate observance (with its own colour) in both offices, two lessons in each, and a long pastoral note',
+    d => seasonFor(d.date) !== 'OrdinaryTime'
+      && d.morning?.alternate && d.evening?.alternate
+      && d.morning.collect && d.morning.alternate.collect
+      && d.morning.collect !== d.morning.alternate.collect
+      && d.morning.alternate.colour && d.morning.alternate.colour !== d.colour
       && (d.morning.lessons || []).length >= 2 && (d.evening.lessons || []).length >= 2
       && (d.notes || []).some(n => n.type === 'pastoral' && (n.text || '').length > 200)
       // Navigation tests step to the neighbours, and the bounds check refuses a

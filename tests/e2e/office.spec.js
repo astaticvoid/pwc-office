@@ -14,6 +14,19 @@ import { parsePsalmCitation } from '../../web/render.js';
 const DATE      = richDay();
 const DATE_PREV = shiftDate(DATE, -1);
 const DATE_NEXT = shiftDate(DATE, +1);
+const DATE_DAY  = dayOf(DATE);
+const DATE_ALT  = officeOf(DATE, 'mp').alternate || {};
+const COLLECTS  = JSON.parse(readFileSync(join(import.meta.dirname, '../../data/collects.json'), 'utf8'));
+const fmtDayMonthYear = iso => {
+  const dt = new Date(iso + 'T12:00:00Z');
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  return `${dt.getUTCDate()} ${months[dt.getUTCMonth()]} ${dt.getUTCFullYear()}`;
+};
+const escRe = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const collectNameFor = ref => {
+  const m = String(ref || '').match(/^(\d+)/);
+  return (m && COLLECTS[m[1]]?.name) || '';
+};
 
 // Days named by the shape that makes them the case under test (#141).
 const twoNamedCollects = () => findDay(
@@ -55,8 +68,8 @@ test.describe('Office loads', () => {
   test('morning prayer: page title and header @smoke', async ({ page }) => {
     await gotoOffice(page, DATE, 'mp');
     await expect(page).toHaveTitle(/Morning Prayer/);
-    await expect(page.locator('#day-title')).toContainText('Easter');
-    await expect(page.locator('#day-date-label')).toContainText('2026');
+    await expect(page.locator('#day-title')).toContainText(DATE_DAY.name);
+    await expect(page.locator('#day-date-label')).toContainText(DATE.slice(0, 4));
     await expect(page.locator('.day-ctrl-group--office .day-ctrl-btn:text-is("Morning Prayer")')).toHaveAttribute('aria-pressed', 'true');
   });
 
@@ -189,7 +202,7 @@ test.describe('Navigation', () => {
     await openDatePicker(page);
     await page.locator('#day-date-picker').fill(DATE_PREV);
     await expect(page.locator('#day-date-picker')).toHaveValue(DATE_PREV);
-    await expect(page.locator('#day-date-label')).toContainText('16 May 2026');
+    await expect(page.locator('#day-date-label')).toContainText(fmtDayMonthYear(DATE_PREV));
     await expect(page.locator('#day-title')).not.toBeEmpty();
   });
 
@@ -626,33 +639,31 @@ test.describe('Observance toggle', () => {
     await gotoOffice(page, DATE, 'mp');
     await expect(page.locator(OBS_ALT)).toBeVisible({ timeout: 5000 });
     await page.locator(OBS_ALT).click();
-    await expect(page).toHaveTitle(/Ascension/, { timeout: 5000 });
+    await expect(page).toHaveTitle(new RegExp(escRe(DATE_ALT.label || DATE_ALT.name)), { timeout: 5000 });
   });
 
   test('collect updates to alternate observance collect', async ({ page }) => {
+    const priCollect = collectNameFor(officeOf(DATE, 'mp').collect);
+    const altCollect = collectNameFor(DATE_ALT.collect);
     await gotoOffice(page, DATE, 'mp');
-    // Primary: Seventh Sunday of Easter (collect 344)
-    await expect(page.locator('#prayers-collect')).toContainText('Seventh Sunday of Easter', { timeout: 5000 });
-    // Switch to Ascension (collect 343)
+    await expect(page.locator('#prayers-collect')).toContainText(priCollect, { timeout: 5000 });
     await expect(page.locator(OBS_ALT)).toBeVisible({ timeout: 5000 });
     await page.locator(OBS_ALT).click();
-    await expect(page.locator('#prayers-collect')).toContainText('Ascension of the Lord', { timeout: 5000 });
+    await expect(page.locator('#prayers-collect')).toContainText(altCollect, { timeout: 5000 });
     // Switch back — the primary observance button is the first in the obs
     // segment (its data-navigate ends "|primary").
     await page.locator('.day-ctrl-seg--obs .day-ctrl-btn').first().click();
-    await expect(page.locator('#prayers-collect')).toContainText('Seventh Sunday of Easter', { timeout: 5000 });
+    await expect(page.locator('#prayers-collect')).toContainText(priCollect, { timeout: 5000 });
   });
 
   // ADR 0018: the toggle presents the selected observance's identity, not
   // just its readings — colour chips and rank chip follow the toggle.
   test('colour chip updates to the alternate observance colour', async ({ page }) => {
     await gotoOffice(page, DATE, 'mp');
-    // Primary: Seventh Sunday of Easter (White)
-    await expect(page.locator('.colour-name')).toContainText('White', { timeout: 5000 });
+    await expect(page.locator('.colour-name')).toContainText(DATE_DAY.colour, { timeout: 5000 });
     await expect(page.locator(OBS_ALT)).toBeVisible({ timeout: 5000 });
     await page.locator(OBS_ALT).click();
-    // Alternate: Ascension Sunday (White or Gold)
-    await expect(page.locator('.colour-name')).toContainText('White or Gold', { timeout: 5000 });
+    await expect(page.locator('.colour-name')).toContainText(DATE_ALT.colour, { timeout: 5000 });
   });
 
   test('rank chip follows the alternate observance', async ({ page }) => {
@@ -698,13 +709,14 @@ test.describe('Observance toggle', () => {
     await page.locator(OBS_ALT).click();
     await expect(page.locator('#day-meta')).not.toContainText('Holy Day');
     await expect(page.locator('#day-meta .colour-name')).toHaveCount(0);
-    await expect(page.locator('#day-meta')).toContainText('Epiphany');
+    const expectedSeason = seasonFor(date) === 'OrdinaryTime' ? 'Ordinary Time' : seasonFor(date);
+    await expect(page.locator('#day-meta')).toContainText(expectedSeason);
 
     // Back to the primary and both return — suppression is about the slot,
     // not a one-way erase of the header.
     await page.locator('.day-ctrl-seg--obs .day-ctrl-btn').first().click();
     await expect(page.locator('#day-meta')).toContainText('Holy Day');
-    await expect(page.locator('#day-meta .colour-name')).toHaveText('Red');
+    await expect(page.locator('#day-meta .colour-name')).toHaveText(dayOf(date).colour);
   });
 
   // The label is the whole name, at any length: the control is the only place
@@ -998,34 +1010,36 @@ test.describe('Psalm omit-range clamping (#78)', () => {
 // All three facts on one day: a commemoration, a fast, and an eve that takes
 // the evening — the combination the markers have to keep apart.
 const EVE_DATE = findDay(
-  'a day carrying a commemoration, a fast, and an eve on its evening',
+  'a day carrying a commemoration, a fast, and an eve taking its evening',
   d => (d.observances || []).includes('fast_day')
     && (d.observances || []).some(o => /^eve_of:/.test(o))
-    && d.rank === 'commemoration');
+    && d.rank === 'commemoration'
+    && d.evening?.rank === 'eve');
+const EVE_DAY = dayOf(EVE_DATE);
 
 test.describe('Eve identity (#128)', () => {
   test('evening prayer presents the eve, not the commemoration', async ({ page }) => {
     await gotoOffice(page, EVE_DATE, 'ep');
-    await expect(page.locator('#day-title')).toHaveText('Eve of Saint Mary the Virgin');
-    await expect(page).toHaveTitle(/Eve of Saint Mary the Virgin/);
-    // The eve's colour, not the commemoration's green.
-    await expect(page.locator('#day-meta .colour-name')).toHaveText('White');
+    await expect(page.locator('#day-title')).toHaveText(EVE_DAY.evening.title);
+    await expect(page).toHaveTitle(new RegExp(escRe(EVE_DAY.evening.title)));
+    // The eve's colour, not the commemoration's colour.
+    await expect(page.locator('#day-meta .colour-name')).toHaveText(EVE_DAY.evening.colour);
     await expect(page.locator('#day-meta')).toContainText('Eve');
   });
 
   test('morning prayer keeps the commemoration whose propers it prays', async ({ page }) => {
     await gotoOffice(page, EVE_DATE, 'mp');
-    await expect(page.locator('#day-title')).toContainText('Bonhoeffer');
-    await expect(page.locator('#day-meta .colour-name')).toHaveText('Green');
+    await expect(page.locator('#day-title')).toContainText(EVE_DAY.name);
+    await expect(page.locator('#day-meta .colour-name')).toHaveText(EVE_DAY.colour);
     await expect(page.locator('#day-meta')).toContainText('Commemoration');
   });
 
   test('the header names the eve in the name column\'s full form', async ({ page }) => {
-    // The office column abbreviates it to "Eve of Saint Mary", which stays
+    // The office column abbreviates it, which stays
     // where the source put it — above the readings.
     await gotoOffice(page, EVE_DATE, 'ep');
-    await expect(page.locator('#day-title')).toHaveText('Eve of Saint Mary the Virgin');
-    await expect(page.locator('.observance-label')).toHaveText('Eve of Saint Mary');
+    await expect(page.locator('#day-title')).toHaveText(EVE_DAY.evening.title);
+    await expect(page.locator('.observance-label')).toHaveText(EVE_DAY.evening.label);
   });
 
   test('the observance toggle names the primary slot as the title does', async ({ page }) => {
@@ -1054,9 +1068,9 @@ test.describe('Commemoration collect (#135)', () => {
       d => /^\d+ \(Com: \d/.test(d.morning?.collect || ''));
     await gotoOffice(page, date, 'mp');
     const tabs = page.locator('#prayers-collect .alt-tab');
-    // Both are offered: the day's own and the one the ref names beside it.
+    // Both are offered: the day's own and the one the ref names beside it (plus seasonal collects).
+    await expect(tabs.filter({ hasText: 'Collect of the Day' })).toHaveCount(1);
     await expect(tabs.filter({ hasText: 'Common of' })).toHaveCount(1);
-    await expect(tabs).toHaveCount(2);
   });
 
   test('a slashed page offers both facing collects', async ({ page }) => {
@@ -1214,9 +1228,9 @@ test.describe('Day markers (#128)', () => {
     // The eve is a fact about the calendar day, so the morning says so; the
     // evening, having taken the eve as its title, names the commemoration.
     await gotoOffice(page, EVE_DATE, 'mp');
-    await expect(page.locator('#day-meta')).toContainText('Eve of Saint Mary the Virgin');
+    await expect(page.locator('#day-meta')).toContainText(EVE_DAY.evening.title);
     await ensureOffice(page, 'ep');
-    await expect(page.locator('#day-meta')).toContainText('Bonhoeffer');
+    await expect(page.locator('#day-meta')).toContainText(EVE_DAY.name);
   });
 
   test('the eve marker is dropped where the observance toggle already offers it', async ({ page }) => {
@@ -1248,9 +1262,14 @@ test.describe('Day markers (#128)', () => {
   });
 });
 
+const SOURCE_NOTE_DATE = findDay(
+  'a day carrying a DOL source note with two sets of readings and no pastoral note',
+  d => (d.notes || []).some(n => n.type === 'source_note' && /two sets of readings/i.test(n.text || ''))
+    && !(d.notes || []).some(n => n.type === 'pastoral'));
+
 test.describe('Source notes (#127)', () => {
   test('apparatus is behind a closed disclosure, not in the reading flow', async ({ page }) => {
-    await gotoOffice(page, EVE_DATE, 'mp');
+    await gotoOffice(page, SOURCE_NOTE_DATE, 'mp');
     const det = page.locator('.day-note-details');
     await expect(det).toHaveCount(1);
     await expect(det).not.toHaveAttribute('open', '');
@@ -1260,7 +1279,7 @@ test.describe('Source notes (#127)', () => {
   });
 
   test('opening it shows the note and glosses DOL', async ({ page }) => {
-    await gotoOffice(page, EVE_DATE, 'mp');
+    await gotoOffice(page, SOURCE_NOTE_DATE, 'mp');
     await page.locator('.day-note-details summary').click();
     await expect(page.locator('.day-note-details-body')).toContainText('two sets of readings');
     await expect(page.locator('.day-note-gloss')).toContainText('Daily Office Lectionary');
@@ -1296,5 +1315,44 @@ test.describe('Source notes (#127)', () => {
     await gotoOffice(page, date, 'mp');
     await expect(page.locator('.day-note')).toContainText('Gaudete');
     await expect(page.locator('.day-note-details')).toHaveCount(0);
+  });
+});
+
+test.describe('Prayers layout & seasonal collect periods', () => {
+  test('intercessions bullet list renders semantically and Collect omits redundant heading', async ({ page }) => {
+    const date = ordinaryTimeDay();
+    await gotoOffice(page, date, 'mp');
+    await expect(page.locator('.seg-rubric-list li').first()).toBeVisible({ timeout: 5000 });
+    expect(await page.locator('.seg-rubric-list li').count()).toBeGreaterThanOrEqual(4);
+    await expect(page.locator('.office-subsection-title', { hasText: /^The Collect$/ })).toHaveCount(0);
+    await expect(page.locator('#prayers-collect')).toContainText('continues with the Lord’s Prayer.');
+    const overflow = await page.evaluate(() => document.body.scrollWidth > window.innerWidth + 1);
+    expect(overflow).toBe(false);
+  });
+
+  test('Epiphany period renders intercessions bulletin outside collect tabs without nesting', async ({ page }) => {
+    // Any Sunday in Epiphany after the Week of the Baptism of Christ and before Presentation
+    const date = findDay('an Epiphany Sunday between Baptism of Christ and Presentation',
+      d => seasonFor(d.date) === 'Epiphany' && new Date(d.date + 'T12:00:00Z').getUTCDay() === 0
+        && d.date.slice(5) > '01-18' && d.date.slice(5) < '02-02');
+    await gotoOffice(page, date, 'mp');
+    const collectBox = page.locator('#prayers-collect');
+    // Bulletin and bullet list must be visible while Collect of the Day tab is active
+    await expect(collectBox.locator('.seg-rubric-list li').first()).toBeVisible({ timeout: 5000 });
+    await expect(collectBox.locator('> .liturgy .seg-rubric').first()).toContainText('Additional intercessions');
+    // Flat peer tabs: Collect of the Day + Seasonal I + Seasonal II (no nested .alt-block)
+    await expect(collectBox.locator('.alt-block .alt-block')).toHaveCount(0);
+    const tabs = collectBox.locator('.alt-tab');
+    await expect(tabs.filter({ hasText: /^Seasonal I$/ })).toHaveCount(1);
+    await expect(tabs.filter({ hasText: /^Seasonal II$/ })).toHaveCount(1);
+  });
+
+  test('Advent 1 displays Advent 1 seasonal collect (not Reign of Christ)', async ({ page }) => {
+    const date = findDay('the First Sunday of Advent',
+      d => /First Sunday of Advent/i.test(d.name || ''));
+    await gotoOffice(page, date, 'mp');
+    const collectBox = page.locator('#prayers-collect');
+    await collectBox.locator('.alt-tab', { hasText: 'Seasonal Collect' }).click();
+    await expect(collectBox.locator('.alt-source:visible')).toContainText('Advent 1');
   });
 });
