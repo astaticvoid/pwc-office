@@ -8,7 +8,7 @@ import {
   formatLiturgicalText, formatProseText, splitPsalmRubrics, splitReadingRubrics,
   parseCitation, expandCitationForDisplay, SINGLE_CHAPTER_BOOKS,
   collectCommemorations, lookupFatsEntry, fatsCandidates, penitentialSegments,
-  stripDanglingEditorsBrackets, MARKER_LABELS, dayMarkers,
+  stripDanglingEditorsBrackets, MARKER_LABELS, dayMarkers, formatSeasonLabel,
 } from '../../web/render.js';
 
 const DATA_DIR = join(import.meta.dirname, '../../data');
@@ -1383,5 +1383,25 @@ describe.skipIf(!HAS_DATA)('filterSeasonalCollects period separation', () => {
     };
     expect(seasonalCollectPeriodIndex('2024-02-24', 'Lent', leapBounds)).toBe(0);
     expect(seasonalCollectPeriodIndex('2024-02-29', 'Lent', leapBounds)).toBe(1);
+  });
+
+  test('formatSeasonLabel spaces multi-word season keys and MARKER_LABELS covers all lectionary string tags', () => {
+    expect(formatSeasonLabel('OrdinaryTime')).toBe('Ordinary Time');
+    expect(formatSeasonLabel('AllSaints')).toBe('All Saints');
+    expect(formatSeasonLabel('Advent')).toBe('Advent');
+
+    if (!HAS_LECTIONARY) return;
+    const missing = [];
+    for (const file of readdirSync(LECT_DIR).filter(f => /^\d{4}-\d{2}\.json$/.test(f))) {
+      const month = JSON.parse(readFileSync(join(LECT_DIR, file), 'utf8'));
+      for (const day of Object.values(month)) {
+        for (const obs of day.observances || []) {
+          if (typeof obs === 'string' && !obs.startsWith('eve_of:') && !(obs in MARKER_LABELS)) {
+            missing.push(`${day.date}:${obs}`);
+          }
+        }
+      }
+    }
+    expect(missing).toEqual([]);
   });
 });

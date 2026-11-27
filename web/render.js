@@ -199,7 +199,16 @@ export const MARKER_LABELS = {
   remembrance_day: 'Remembrance Day',
   new_year_day: "New Year's Day",
   accession_day: 'Accession Day',
+  emancipation_sunday: 'Emancipation Sunday',
+  ascension_sunday_option: 'Ascension Sunday',
 };
+
+/** Format an internal season key for human display (e.g. 'AllSaints' → 'All Saints'). */
+export function formatSeasonLabel(season) {
+  if (season === 'OrdinaryTime') return 'Ordinary Time';
+  if (season === 'AllSaints') return 'All Saints';
+  return season;
+}
 
 // `obsToggle` is whether the observance toggle above the meta row already
 // offers the evening's observances as buttons. When it does, the eve marker

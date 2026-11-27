@@ -4,7 +4,7 @@ import { join } from 'path';
 import { test, expect } from '@playwright/test';
 import { gotoOffice, ensureOffice, openDatePicker } from './helpers.js';
 import { richDay, daysNamed, shiftDate, findDay, extremeDay, dayOf, officeOf, seasonFor, partialPsalmDay } from './days.js';
-import { parsePsalmCitation } from '../../web/render.js';
+import { parsePsalmCitation, formatSeasonLabel } from '../../web/render.js';
 
 // A day with structure to exercise rather than today, whose shape is whatever
 // the calendar happens to give: an alternate observance in both offices, two
@@ -709,8 +709,7 @@ test.describe('Observance toggle', () => {
     await page.locator(OBS_ALT).click();
     await expect(page.locator('#day-meta')).not.toContainText('Holy Day');
     await expect(page.locator('#day-meta .colour-name')).toHaveCount(0);
-    const expectedSeason = seasonFor(date) === 'OrdinaryTime' ? 'Ordinary Time' : seasonFor(date);
-    await expect(page.locator('#day-meta')).toContainText(expectedSeason);
+    await expect(page.locator('#day-meta')).toContainText(formatSeasonLabel(seasonFor(date)));
 
     // Back to the primary and both return — suppression is about the slot,
     // not a one-way erase of the header.
@@ -1354,5 +1353,24 @@ test.describe('Prayers layout & seasonal collect periods', () => {
     const collectBox = page.locator('#prayers-collect');
     await collectBox.locator('.alt-tab', { hasText: 'Seasonal Collect' }).click();
     await expect(collectBox.locator('.alt-source:visible')).toContainText('Advent 1');
+  });
+
+  test('All Saints season label renders with a space in day-meta', async ({ page }) => {
+    const date = findDay('a day in the All Saints season',
+      d => seasonFor(d.date) === 'AllSaints');
+    await gotoOffice(page, date, 'mp');
+    await expect(page.locator('#day-meta .meta-item--season')).toHaveText('All Saints');
+  });
+
+  test('O Antiphon renders Latin label, separate cf. reference, and Evening Prayer cue on MP', async ({ page }) => {
+    const date = findDay('an Advent day carrying an O Antiphon',
+      d => (d.notes || []).some(n => n.type === 'o_antiphon'));
+    await gotoOffice(page, date, 'ep');
+    await expect(page.locator('.note-antiphon-label')).toHaveText(/^O [A-Za-z ]+$/);
+    await expect(page.locator('.note-antiphon-body')).not.toContainText('cf.');
+    await expect(page.locator('.note-antiphon-ref')).toContainText('cf.');
+
+    await ensureOffice(page, 'mp');
+    await expect(page.locator('.note-antiphon-label')).toContainText('· Evening Prayer');
   });
 });

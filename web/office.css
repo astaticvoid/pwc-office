@@ -857,6 +857,11 @@ details[open] .fats-bio-toggle::before { content: '▼ '; }
   font-family: var(--font-liturgy); font-size: 1rem;
   font-style: italic; line-height: var(--line-height);
 }
+.note-antiphon-ref {
+  font-family: var(--font-ui); font-size: var(--fs-micro);
+  font-style: normal; color: var(--color-muted);
+  margin-top: var(--sp-1);
+}
 .day-note--info {
   font-size: 0.85rem; font-style: normal; font-family: var(--font-ui);
   color: var(--color-muted);

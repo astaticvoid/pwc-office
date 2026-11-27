@@ -172,7 +172,7 @@ _Severity:_ P3 — invisible to most users; not a doctrinal error. _Lesson:_ cas
 
 ## Potential correctness risks (as identified in June 2026)
 
-Status added 2026-08-07. Three of the five have since been answered; the table
+Status added 2026-08-07. All five have since been answered or rendered moot; the table
 is kept because what a past audit thought was risky is worth knowing, not
 because it is a live worklist.
 
@@ -180,7 +180,7 @@ because it is a live worklist.
 |------|----------------|--------|
 | Seasonal forms (Advent, Lent, etc.) | Different canticles, litanies, and collects | **Largely answered.** The errata pass (2026-08) applied 46 corrections across the seasonal and ordinary forms, and `make audit-errata` now checks every errata block against the published data on demand. Not a line-by-line audit of unerrata'd text, so not closed outright. |
 | Other weekday litany capitalisation | BUG-18 may affect other weekdays | **Moot.** BUG-18's premise came from pdfplumber decoding small-caps as lowercase. fitz decodes the glyphs correctly and the casing corrections were removed wholesale (ADR 0011). |
-| O Antiphons (Dec 17–23) | Render as plain italic; liturgically significant | **Open.** They are present and typed (14 `o_antiphon` notes in the published lectionary); how they render is still a UX question. The tracker referenced here as "UX-09" is gone — see GitHub Issues. |
+| O Antiphons (Dec 17–23) | Render as plain italic; liturgically significant | **Answered.** Styled as accented callouts (`.day-note--antiphon` with Latin eyebrow, Evening Prayer context on MP, and quiet `cf.` scriptural citation line). |
 | Collect of the Day accuracy | Verify collected text matches lectionary source | **Answered mechanically.** `validate_lectionary.cjs` resolves every collect reference for all 397 dates × 2 offices against `collects.json`, using the runtime resolution functions rather than a reimplementation. |
 | Year B → Year A transition | Coverage ends Dec 2026 | **Answered.** Year A (2026–2027) lectionary CSV ingested; season bounds and office forms expanded to multi-year cycles across 2025–2027 with 1,402 office checks passing. |
 

@@ -1,7 +1,7 @@
 'use strict';
 
 import {
-  esc, seasonOf, officeFormSeason, seasonalCollectPeriodIndex, formKey,
+  esc, seasonOf, officeFormSeason, seasonalCollectPeriodIndex, formKey, formatSeasonLabel,
   filterSeasonalCollects, renderAlternatives, renderSegments, renderSubsection, renderSubsectionWithCitation,
   lessonHtml, lessonsPickRubricHtml,
   SC_HEADER, SC_FOOTER, SC_CONTINUES,
@@ -980,7 +980,7 @@ async function render(dateStr, officeType, translation) {
       + `</span>`
       + `</span>`
     : '';
-  const seasonLabel = season === 'OrdinaryTime' ? 'Ordinary Time' : season;
+  const seasonLabel = formatSeasonLabel(season);
   document.getElementById('day-meta').innerHTML =
     `<span class="meta-item meta-item--season">${esc(seasonLabel)}</span>`
     + (activeRank
@@ -1145,20 +1145,30 @@ async function render(dateStr, officeType, translation) {
 
       // ── O Antiphon — liturgical block with Latin title ──────────────────────
       if (type === 'o_antiphon') {
-        // Text format: "O Sapientia: O Wisdom, coming forth…"
+        // Text format: "O Sapientia: O Wisdom, coming forth… cf. Ecclesiasticus 24:3; Wisdom 8:1"
         const colonIdx = text.indexOf(': ');
         const latinName = colonIdx > 0 ? text.slice(0, colonIdx) : 'O Antiphon';
-        const body = colonIdx > 0 ? text.slice(colonIdx + 2) : text;
+        const rawBody = colonIdx > 0 ? text.slice(colonIdx + 2) : text;
+        const cfMatch = rawBody.match(/^([\s\S]*?)\s+(cf\.\s+.+)$/i);
+        const body = cfMatch ? cfMatch[1] : rawBody;
+        const refText = cfMatch ? cfMatch[2] : '';
+
         const block = document.createElement('div');
         block.className = 'day-note day-note--antiphon';
         const label = document.createElement('span');
         label.className = 'note-antiphon-label';
-        label.textContent = latinName;
+        label.textContent = officeType === 'ep' ? latinName : `${latinName} · Evening Prayer`;
         const bodyP = document.createElement('p');
         bodyP.className = 'note-antiphon-body';
         bodyP.appendChild(renderNoteText(body));
         block.appendChild(label);
         block.appendChild(bodyP);
+        if (refText) {
+          const refP = document.createElement('p');
+          refP.className = 'note-antiphon-ref';
+          refP.textContent = refText;
+          block.appendChild(refP);
+        }
         headerEl.appendChild(block);
         return;
       }
