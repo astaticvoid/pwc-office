@@ -314,7 +314,7 @@ NOTE_TYPES: dict[str, str | list[str]] = {
     "2027-10-31": "pastoral",
     "2027-11-02": ["pastoral", "pastoral", "pastoral", "pastoral"],
     "2027-11-14": ["pastoral", "pastoral", "pastoral", "pastoral", "source_note"],
-    "2027-11-28": ["pastoral", "pastoral", "pastoral", "pastoral", "o_antiphon", "pastoral"],
+    "2027-11-28": ["pastoral", "pastoral", "pastoral", "pastoral", "pastoral", "pastoral"],
     "2027-12-24": ["pastoral", "pastoral", "pastoral"],
 }
 
