@@ -12,6 +12,7 @@
     window.__pwcPlugins = {
       Capacitor: { isNativePlatform: function () { return false; }, getPlatform: function () { return 'web'; } },
       StatusBar: { setStyle: noop, setBackgroundColor: noop, hide: noop, show: noop },
+      SystemBars: { setStyle: noop, show: noop, hide: noop },
       Style: { Dark: 'DARK', Light: 'LIGHT', Default: 'DEFAULT' },
       SplashScreen: { hide: noop, show: noop },
       Keyboard: { setAccessoryBarVisible: noop, setStyle: noop, hide: noop, show: noop },
@@ -30,6 +31,7 @@
   window.__pwcPlugins = {
     Capacitor: C,
     StatusBar: P.StatusBar,
+    SystemBars: P.SystemBars,
     Style: { Dark: 'DARK', Light: 'LIGHT', Default: 'DEFAULT' },
     SplashScreen: P.SplashScreen,
     Keyboard: P.Keyboard,

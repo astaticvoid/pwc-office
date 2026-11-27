@@ -18,6 +18,9 @@
     },
     "StatusBar": {
       "style": "DARK"
+    },
+    "SystemBars": {
+      "insetsHandling": "disable"
     }
   }
 }

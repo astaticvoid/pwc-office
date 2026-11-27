@@ -16,6 +16,11 @@ interface PwcPlugins {
     hide(): Promise<void>;
     show(): Promise<void>;
   };
+  SystemBars?: {
+    setStyle(opts: unknown): Promise<void>;
+    show(opts?: unknown): Promise<void>;
+    hide(opts?: unknown): Promise<void>;
+  };
   Style: { Dark: string; Light: string; Default: string };
   SplashScreen: { hide(): Promise<void>; show(): Promise<void> };
   Keyboard: {

@@ -93,6 +93,12 @@ function updateNativeStatusBar() {
   // Therefore, icons must always be white/light (STATUS_ICONS_LIGHT) to ensure high contrast.
   StatusBar.setStyle({ style: STATUS_ICONS_LIGHT }).catch(() => {});
   StatusBar.setBackgroundColor({ color: isDark ? '#0F1A14' : '#15382A' }).catch(() => {});
+
+  const SystemBars = window.__pwcPlugins.SystemBars;
+  if (SystemBars?.setStyle && window.__pwcPlugins.Capacitor?.getPlatform?.() === 'android') {
+    SystemBars.setStyle({ bar: 'StatusBar', style: Style.Dark }).catch(() => {});
+    SystemBars.setStyle({ bar: 'NavigationBar', style: isDark ? Style.Dark : Style.Light }).catch(() => {});
+  }
 }
 
 function initNativeFeatures() {
